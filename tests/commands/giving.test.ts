@@ -43,7 +43,7 @@ const noChild = (text: string) => {
 
 // ---------------------------------------------------------------------------
 describe("the Giving commands in the catalog", () => {
-  it("are reads and one draft, plus three money commands that are off until an owner switches them on", () => {
+  it("are reads and one draft, plus three money commands and recording a pledge, off until an owner switches each on", () => {
     const giving = CATALOG.filter((c) => c.key.startsWith("giving."));
     expect(giving.filter((c) => c.level !== "confirm").map((c) => `${c.key}:${c.level}`)).toEqual([
       "giving.pledges_behind:read",
@@ -58,6 +58,7 @@ describe("the Giving commands in the catalog", () => {
       ["giving.record_payment", true, false],
       ["giving.confirm_exact_zelle_matches", true, false],
       ["giving.match_deposit", true, false],
+      ["giving.record_pledge", true, false],
     ]);
   });
 

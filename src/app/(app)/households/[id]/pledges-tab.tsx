@@ -1,6 +1,7 @@
 import { CustomDetailsCell } from "@/components/custom-details-cell";
+import { RecordPledgeButton } from "@/components/giving-actions/provider";
 import { PeriodNote } from "@/components/giving-glance/period-note";
-import { Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
+import { Badge, Card, EmptyState, NoAccess, QueryError, TableWrap, buttonClass } from "@/components/ui";
 import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 import { addDays, formatDate, startOfDayInTz } from "@/lib/dates";
 import type { TabPeriod } from "@/lib/giving-glance/page";
@@ -9,8 +10,11 @@ import { formatCents, sumCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
-/** `period`: only the pledges made in this year (the year chosen in "Giving at a glance"); all of them when it is left out. */
-export async function PledgesTab({ session, householdId, period }: { session: CrmSession; householdId: string; period?: TabPeriod }) {
+/**
+ * `period`: only the pledges made in this year (the year chosen in "Giving at a glance"); all of them when it is left out.
+ * `recordPledge`: the New look's Record pledge button (it opens the sheet in place for giving.manage, and draws nothing otherwise).
+ */
+export async function PledgesTab({ session, householdId, period, recordPledge = false }: { session: CrmSession; householdId: string; period?: TabPeriod; recordPledge?: boolean }) {
   if (!canAccess(session, "pledges")) return <NoAccess area="Pledges" access="pledges" />;
   const { db, center } = session;
   const tz = center.time_zone;
@@ -40,6 +44,7 @@ export async function PledgesTab({ session, householdId, period }: { session: Cr
     <Card
       padded={false}
       title="Pledges"
+      actions={recordPledge ? <RecordPledgeButton householdId={householdId} className={`${buttonClass("primary", "sm")} min-h-[44px]`} /> : undefined}
       description={`${pledges.length} pledges${period ? ` made in ${period.label}` : ""} · ${formatCents(sumCents(outstanding.map((p) => p.amount_cents - p.paid_cents)), center.currency)} outstanding on ${outstanding.length}`}
     >
       {period ? <PeriodNote period={period} what="pledges" /> : null}

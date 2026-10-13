@@ -96,7 +96,7 @@ describe("reading a payment to record", () => {
     expect(record(read("1.234,56 check Weber", EUR_DE)).cents).toBe(123456);
   });
 
-  it("a pledge to record is recognised (it is not built here yet); a pledge number is looked up", () => {
+  it("a pledge to record is recognised; a pledge number is looked up", () => {
     expect(read("pledge 500 patel building fund")?.kind).toBe("pledge");
     const lookup = read("pledge 20455");
     expect(lookup?.kind).toBe("lookup");
@@ -176,10 +176,12 @@ describe("the lane's rows", () => {
     expect(cannot.notes[0]).toContain("needs the giving.record_offline or giving.manage permission");
   });
 
-  it("a pledge to record says it is coming next and offers nothing to press", () => {
-    const lane = buildGivingLane(read("pledge 500 patel building fund") as GivingIntent, found({}), opts);
-    expect(lane.rows).toHaveLength(0);
-    expect(lane.notes).toEqual(["Recording a pledge here is coming next."]);
+  it("a pledge to record needs giving.manage; with it the Record pledge sheet opens filled in (slice 7)", () => {
+    const cannot = buildGivingLane(read("pledge 500 patel building fund") as GivingIntent, found({ families: [patel] }), opts);
+    expect(cannot.rows).toHaveLength(0);
+    expect(cannot.notes).toEqual(["Recording a pledge needs the giving.manage permission."]);
+    const lane = buildGivingLane(read("pledge 500 patel building fund") as GivingIntent, found({ families: [patel] }), { ...opts, canRecordPledge: true });
+    expect(lane.rows[0]).toMatchObject({ kind: "record_pledge", title: "Record a $500.00 pledge for the Patel household 0127", best: true });
   });
 
   it("a refund opens Payments on that receipt, with the family's card; a write-off opens Pledges", () => {

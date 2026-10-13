@@ -5,7 +5,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { RecordPaymentButton } from "@/components/giving-actions/provider";
+import { RecordPaymentButton, RecordPledgeButton } from "@/components/giving-actions/provider";
 import { GivingTabRow } from "@/components/giving-today/giving-tabs";
 import { Alert, NoAccess, buttonClass } from "@/components/ui";
 import type { GivingTabKey } from "@/lib/giving-today/tabs";
@@ -21,11 +21,15 @@ export function ListHeader({ model, active, description }: { model: ListsCommon;
           <p className="m-0 text-[14px] text-muted">{description}</p>
         </div>
         {/* The sheet in place where the New-look shell mounts it; `recordHref` (?record=1) without it. */}
-        {model.recordHref ? (
-          <RecordPaymentButton href={model.recordHref} className={`${buttonClass("primary", "sm")} min-h-[44px]`}>
-            Record payment
-          </RecordPaymentButton>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {/* Pledges: Record pledge opens its sheet in place (giving.manage, the New look); nothing is drawn without it. */}
+          {active === "pledges" ? <RecordPledgeButton className={`${buttonClass("ghost", "sm")} min-h-[44px]`} /> : null}
+          {model.recordHref ? (
+            <RecordPaymentButton href={model.recordHref} className={`${buttonClass("primary", "sm")} min-h-[44px]`}>
+              Record payment
+            </RecordPaymentButton>
+          ) : null}
+        </div>
       </div>
       <GivingTabRow tabs={model.tabs} active={active} />
     </header>
