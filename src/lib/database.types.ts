@@ -8161,6 +8161,7 @@ export type Database = {
           source: string;
           recorded_by: string;
           consented_by_user: string | null;
+          consent_email: string | null;
           consented_at: string;
           withdrawn_at: string | null;
           withdrawn_by: string | null;
@@ -8173,6 +8174,7 @@ export type Database = {
           source: string;
           recorded_by: string;
           consented_by_user?: string | null;
+          consent_email?: string | null;
           consented_at?: string;
           withdrawn_at?: string | null;
           withdrawn_by?: string | null;
@@ -8185,6 +8187,7 @@ export type Database = {
           source?: string;
           recorded_by?: string;
           consented_by_user?: string | null;
+          consent_email?: string | null;
           consented_at?: string;
           withdrawn_at?: string | null;
           withdrawn_by?: string | null;
