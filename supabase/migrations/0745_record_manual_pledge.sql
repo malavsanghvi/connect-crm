@@ -26,6 +26,9 @@
 --     applies the community's own age of majority where it is higher.
 --   * a campaign that is archived, or whose pledges come from their own flow (auctions, the store, class fees, memberships), is
 --     refused; a campaign's own fund is used when no fund is given, and a different fund is refused
+--   * once: the key is looked up right after the permission check, so a late retry gives back the pledge it recorded even if a
+--     campaign was archived or an opportunity taken in between; a replay must ask for the same household, amount, opportunity and
+--     option, pledger, due date, dedication, campaign and fund (a campaign or fund left out may come from the opportunity or campaign)
 --
 -- What does NOT change: no policy, no permission, no other function. The pledge goes through the triggers every pledge goes through:
 -- numbering (app.assign_numbers, 0121), the opportunity guards (app.check_opportunity_available, latest body 0743;
@@ -95,74 +98,78 @@ begin
   if v_key is null or char_length(v_key) < 8 or char_length(v_key) > 120 then
     raise exception 'A pledge needs a confirmation key of 8 to 120 characters, so that recording it twice cannot count it twice.' using errcode = '22023';
   end if;
-  if p_amount_cents is null or p_amount_cents <= 0 then
-    raise exception 'Enter a pledge amount greater than zero.' using errcode = '22023';
-  end if;
-  if v_reason is null or char_length(v_reason) < 3 then
-    raise exception 'Say why this pledge is recorded here (for example "Pledged in person"). It shows in the family''s History.' using errcode = '22023';
-  end if;
-  if v_dedication is not null and char_length(v_dedication) > 200 then
-    raise exception 'Keep the dedication to 200 characters or fewer.' using errcode = '22023';
-  end if;
-  select coalesce(nullif(c.time_zone, ''), 'UTC') into v_tz from app.centers c where c.id = v_center;
-  v_today := (now() at time zone coalesce(v_tz, 'UTC'))::date;
-  if p_due_on is not null and (p_due_on < v_today - 3653 or p_due_on > v_today + 3653) then
-    raise exception 'The due date must be within ten years of today.' using errcode = '22023';
-  end if;
+  -- The same confirmation again (a retry after a lost answer, even a late one) gives back the pledge it recorded, checked against
+  -- what is asked now, before anything that may have changed since (a campaign archived, an opportunity taken, a fund retired).
+  select * into v_pl from app.pledges p where p.center_id = v_center and p.idempotency_key = v_key;
+  if found then
+    v_replayed := true;
+  else
+    if p_amount_cents is null or p_amount_cents <= 0 then
+      raise exception 'Enter a pledge amount greater than zero.' using errcode = '22023';
+    end if;
+    if v_reason is null or char_length(v_reason) < 3 then
+      raise exception 'Say why this pledge is recorded here (for example "Pledged in person"). It shows in the family''s History.' using errcode = '22023';
+    end if;
+    if v_dedication is not null and char_length(v_dedication) > 200 then
+      raise exception 'Keep the dedication to 200 characters or fewer.' using errcode = '22023';
+    end if;
+    select coalesce(nullif(c.time_zone, ''), 'UTC') into v_tz from app.centers c where c.id = v_center;
+    v_today := (now() at time zone coalesce(v_tz, 'UTC'))::date;
+    if p_due_on is not null and (p_due_on < v_today - 3653 or p_due_on > v_today + 3653) then
+      raise exception 'The due date must be within ten years of today.' using errcode = '22023';
+    end if;
 
-  -- What the pledge is for: an opportunity (its campaign comes with it), a campaign (its fund comes with it), a fund, or nothing
-  -- (a general pledge).
-  if p_opportunity is not null then
-    perform app.assert_module_enabled(v_center, 'giving_opportunities');
-    select * into v_opp from app.opportunities o where o.id = p_opportunity and o.center_id = v_center;
-    if not found then
-      raise exception 'That opportunity was not found in this community.' using errcode = 'P0002';
+    -- What the pledge is for: an opportunity (its campaign comes with it), a campaign (its fund comes with it), a fund, or nothing
+    -- (a general pledge).
+    if p_opportunity is not null then
+      perform app.assert_module_enabled(v_center, 'giving_opportunities');
+      select * into v_opp from app.opportunities o where o.id = p_opportunity and o.center_id = v_center;
+      if not found then
+        raise exception 'That opportunity was not found in this community.' using errcode = 'P0002';
+      end if;
+      if v_campaign is null then
+        v_campaign := v_opp.campaign_id;
+      elsif v_campaign <> v_opp.campaign_id then
+        raise exception 'That opportunity belongs to a different campaign. Choose the opportunity or the campaign, not both.' using errcode = '22023';
+      end if;
+    elsif v_option is not null then
+      raise exception 'An opportunity option needs an opportunity.' using errcode = '22023';
     end if;
-    if v_campaign is null then
-      v_campaign := v_opp.campaign_id;
-    elsif v_campaign <> v_opp.campaign_id then
-      raise exception 'That opportunity belongs to a different campaign. Choose the opportunity or the campaign, not both.' using errcode = '22023';
-    end if;
-  elsif v_option is not null then
-    raise exception 'An opportunity option needs an opportunity.' using errcode = '22023';
-  end if;
-  if v_campaign is not null then
-    select * into v_camp from app.campaigns c where c.id = v_campaign and c.center_id = v_center;
-    if not found then
-      raise exception 'That campaign was not found in this community.' using errcode = 'P0002';
-    end if;
-    if v_camp.status = 'archived' then
-      raise exception 'That campaign is archived. Choose another campaign or a fund.' using errcode = '22023';
-    end if;
-    if v_camp.kind in ('boli', 'store', 'pathshala', 'membership') then
-      raise exception 'That campaign takes its pledges from its own screen (auctions, the store, class fees or memberships), so it cannot be chosen here.'
-        using errcode = '22023';
-    end if;
-    if v_camp.fund_id is not null then
-      if v_fund is null then
-        v_fund := v_camp.fund_id;
-      elsif v_fund <> v_camp.fund_id then
-        raise exception 'That campaign''s pledges go to its own fund. Leave the fund empty, or choose the campaign''s fund.' using errcode = '22023';
+    if v_campaign is not null then
+      select * into v_camp from app.campaigns c where c.id = v_campaign and c.center_id = v_center;
+      if not found then
+        raise exception 'That campaign was not found in this community.' using errcode = 'P0002';
+      end if;
+      if v_camp.status = 'archived' then
+        raise exception 'That campaign is archived. Choose another campaign or a fund.' using errcode = '22023';
+      end if;
+      if v_camp.kind in ('boli', 'store', 'pathshala', 'membership') then
+        raise exception 'That campaign takes its pledges from its own screen (auctions, the store, class fees or memberships), so it cannot be chosen here.'
+          using errcode = '22023';
+      end if;
+      if v_camp.fund_id is not null then
+        if v_fund is null then
+          v_fund := v_camp.fund_id;
+        elsif v_fund <> v_camp.fund_id then
+          raise exception 'That campaign''s pledges go to its own fund. Leave the fund empty, or choose the campaign''s fund.' using errcode = '22023';
+        end if;
       end if;
     end if;
-  end if;
-  if p_fund is not null and not exists (select 1 from app.funds f where f.id = p_fund and f.center_id = v_center and f.active) then
-    raise exception 'That fund was not found in this community, or it is no longer in use.' using errcode = 'P0002';
-  end if;
+    if p_fund is not null and not exists (select 1 from app.funds f where f.id = p_fund and f.center_id = v_center and f.active) then
+      raise exception 'That fund was not found in this community, or it is no longer in use.' using errcode = 'P0002';
+    end if;
 
-  -- Who pledged: an adult of this household, never a child (D2). Nobody named is allowed: the pledge is the household's.
-  if p_pledged_by_person is not null and not exists (
-       select 1 from app.household_members hm join app.people p on p.id = hm.person_id
-        where hm.household_id = p_household and hm.person_id = p_pledged_by_person and hm.left_at is null
-          and p.merged_into_id is null and not p.is_deceased
-          and ((p.date_of_birth is not null and p.date_of_birth <= (v_today - interval '18 years')::date)
-               or (p.date_of_birth is null and hm.role in ('primary', 'spouse', 'parent')))) then
-    raise exception 'The person who pledged must be an adult of this household. Choose an adult, or record the pledge for the household.'
-      using errcode = '22023';
-  end if;
+    -- Who pledged: an adult of this household, never a child (D2). Nobody named is allowed: the pledge is the household's.
+    if p_pledged_by_person is not null and not exists (
+         select 1 from app.household_members hm join app.people p on p.id = hm.person_id
+          where hm.household_id = p_household and hm.person_id = p_pledged_by_person and hm.left_at is null
+            and p.merged_into_id is null and not p.is_deceased
+            and ((p.date_of_birth is not null and p.date_of_birth <= (v_today - interval '18 years')::date)
+                 or (p.date_of_birth is null and hm.role in ('primary', 'spouse', 'parent')))) then
+      raise exception 'The person who pledged must be an adult of this household. Choose an adult, or record the pledge for the household.'
+        using errcode = '22023';
+    end if;
 
-  select * into v_pl from app.pledges p where p.center_id = v_center and p.idempotency_key = v_key;
-  if not found then
     if p_opportunity is not null and (v_opp.status in ('taken', 'closed', 'draft')
          or (v_opp.quantity_available is not null and v_opp.quantity_taken >= v_opp.quantity_available)) then
       raise exception 'That opportunity is already taken or not open. Nothing was recorded.' using errcode = '23514';
@@ -183,14 +190,17 @@ begin
       end if;
       v_replayed := true;
     end if;
-  else
-    v_replayed := true;
   end if;
 
+  -- A replay must ask for the same pledge. A campaign or fund left out may have been filled in from the opportunity or campaign.
   if v_pl.household_id <> p_household or v_pl.amount_cents <> p_amount_cents
-     or v_pl.campaign_id is distinct from v_campaign or v_pl.fund_id is distinct from v_fund
-     or v_pl.opportunity_id is distinct from p_opportunity or v_pl.pledged_by_person_id is distinct from p_pledged_by_person
-     or v_pl.due_on is distinct from p_due_on then
+     or v_pl.opportunity_id is distinct from p_opportunity or v_pl.opportunity_option is distinct from v_option
+     or v_pl.pledged_by_person_id is distinct from p_pledged_by_person or v_pl.due_on is distinct from p_due_on
+     or v_pl.dedication is distinct from v_dedication
+     or (p_campaign is not null and v_pl.campaign_id is distinct from p_campaign)
+     or (p_campaign is null and p_opportunity is null and v_pl.campaign_id is not null)
+     or (p_fund is not null and v_pl.fund_id is distinct from p_fund)
+     or (p_fund is null and p_campaign is null and p_opportunity is null and v_pl.fund_id is not null) then
     raise exception 'This confirmation was already used for a different pledge (%). Nothing was recorded.', coalesce(v_pl.pledge_number, 'not numbered yet')
       using errcode = '23505';
   end if;

@@ -35,12 +35,12 @@ end $$;
 create or replace function pg_temp.rec(p_user uuid, p_key text, p_center uuid, p_household uuid, p_amount bigint,
                                        p_reason text default 'Pledged in person', p_fund uuid default null, p_campaign uuid default null,
                                        p_opportunity uuid default null, p_due date default null, p_person uuid default null,
-                                       p_dedication text default null) returns jsonb language plpgsql as $$
+                                       p_dedication text default null, p_option text default null) returns jsonb language plpgsql as $$
 declare r jsonb;
 begin
   perform pg_temp.claims(p_user);
   set local role authenticated;
-  r := app.record_manual_pledge(p_key, p_center, p_household, p_amount, p_reason, p_fund, p_campaign, p_opportunity, null, p_due,
+  r := app.record_manual_pledge(p_key, p_center, p_household, p_amount, p_reason, p_fund, p_campaign, p_opportunity, p_option, p_due,
                                 p_person, p_dedication);
   reset role;
   return r;
@@ -78,6 +78,13 @@ end $$;
 \set arch '''15400000-0000-4000-8000-000000000503'''
 \set campd '''15400000-0000-4000-8000-000000000504'''
 \set opp '''15400000-0000-4000-8000-000000000601'''
+\set hold '''15400000-0000-4000-8000-000000000205'''
+\set late '''15400000-0000-4000-8000-000000000108'''
+\set store '''15400000-0000-4000-8000-000000000505'''
+\set school '''15400000-0000-4000-8000-000000000506'''
+\set dues '''15400000-0000-4000-8000-000000000507'''
+\set camp2 '''15400000-0000-4000-8000-000000000508'''
+\set camp3 '''15400000-0000-4000-8000-000000000509'''
 
 begin;
 
@@ -98,6 +105,7 @@ insert into app.people (id, center_id, first_name, last_name, email, date_of_bir
   (:nodob, :c, 'Nila', 'Shah', null, null),
   (:gone, :c, 'Ravi', 'Shah', null, '1960-01-01'),
   (:kiran, :c, 'Kiran', 'Mehta', null, null),
+  (:late, :c, 'Hari', 'Shah', null, '1940-02-02'),
   (:noor, :np, 'Noor', 'Haddad', null, '1985-03-03');
 insert into app.households (id, center_id, display_name) values
   (:h1, :c, 'Shah family'), (:h2, :c, 'Mehta family'), (:h3, :d, 'Other family'), (:hn, :np, 'Haddad household');
@@ -107,8 +115,12 @@ insert into app.household_members (household_id, person_id, center_id, role, is_
   (:h1, :kid, :c, 'child', false, null),
   (:h1, :nodob, :c, 'child', false, null),
   (:h1, :gone, :c, 'other', false, now() - interval '1 year'),
+  (:h1, :late, :c, 'parent', false, null),
   (:h2, :kiran, :c, 'primary', true, null),
   (:hn, :noor, :np, 'primary', true, null);
+update app.people set is_deceased = true where id = :late;
+-- A household merged into the Mehta household: its id is no longer a family to record for.
+insert into app.households (id, center_id, display_name, merged_into_id) values (:hold, :c, 'Old Mehta record', :h2);
 insert into app.center_users (center_id, user_id, person_id, is_default) values (:c, :mira, :mirap, false);
 insert into app.role_grants (center_id, user_id, role_key) values
   (:c, :tara, 'treasurer'), (:c, :vina, 'finance_volunteer'), (:c, :apu, 'approver_only154'), (:d, :zed, 'treasurer'), (:np, :nora, 'treasurer');
@@ -119,7 +131,12 @@ insert into app.campaigns (id, center_id, fund_id, name, kind, status) values
   (:camp, :c, :f1, 'New hall', 'construction', 'published'),
   (:auct, :c, null, 'Festival auction', 'boli', 'published'),
   (:arch, :c, null, 'Old appeal', 'general', 'archived'),
-  (:campd, :d, null, 'Other appeal', 'general', 'published');
+  (:campd, :d, null, 'Other appeal', 'general', 'published'),
+  (:store, :c, null, 'Gift shop', 'store', 'published'),
+  (:school, :c, null, 'Classes 2026', 'pathshala', 'published'),
+  (:dues, :c, null, 'Membership 2026', 'membership', 'published'),
+  (:camp2, :c, null, 'Spring appeal', 'general', 'published'),
+  (:camp3, :c, null, 'Autumn appeal', 'general', 'published');
 insert into app.opportunities (id, center_id, campaign_id, name, amount_cents, quantity_available, status)
   values (:opp, :c, :camp, 'Name a classroom', 250000, 1, 'open');
 select (now() at time zone 'America/Chicago')::date as today \gset
@@ -206,6 +223,8 @@ select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-e-0004', %
   'campaign was not found', 'E: another community''s campaign is refused');
 select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-e-0005', %L, %L, 1000)$$, :tara, :c, '15400000-0000-4000-8000-0000000002ff'),
   'household was not found', 'E: a household that does not exist is refused');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-e-0006', %L, %L, 1000)$$, :tara, :c, :hold),
+  'household was not found', 'E: a household merged into another is refused');
 select pg_temp.assert(not exists (select 1 from app.pledges where idempotency_key like 'key-154-e-%'), 'E: nothing was recorded');
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -219,6 +238,8 @@ select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-f-0003', %
   'must be an adult of this household', 'F: someone who left the household is refused');
 select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-f-0004', %L, %L, 1000, 'x reason', null, null, null, null, %L)$$, :tara, :c, :h1, :kiran),
   'must be an adult of this household', 'F: an adult of another household is refused');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-f-0007', %L, %L, 1000, 'x reason', null, null, null, null, %L)$$, :tara, :c, :h1, :late),
+  'must be an adult of this household', 'F: an adult of the household who has died is refused');
 select pg_temp.assert(not exists (select 1 from app.pledges where idempotency_key like 'key-154-f-%'), 'F: nothing was recorded');
 select pg_temp.rec(:tara, 'key-154-f-0005', :c, :h2, 1000, 'By phone', null, null, null, null, :kiran)::text as rf \gset
 select pg_temp.assert((select pledged_by_person_id = :kiran from app.pledges where id = ((:'rf'::jsonb)->>'pledge_id')::uuid),
@@ -241,6 +262,16 @@ select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-g-0006', %
   '200 characters', 'G: a dedication over 200 characters');
 select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-g-0007', %L, %L, 1000, 'x reason', null, %L)$$, :tara, :c, :h2, :auct),
   'its own screen', 'G: an auction campaign takes its pledges from its own screen');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-g-0011', %L, %L, 1000, 'x reason', null, %L)$$, :tara, :c, :h2, :store),
+  'its own screen', 'G: a store campaign takes its pledges from its own screen');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-g-0012', %L, %L, 1000, 'x reason', null, %L)$$, :tara, :c, :h2, :school),
+  'its own screen', 'G: a class-fee (pathshala) campaign takes its pledges from its own screen');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-g-0013', %L, %L, 1000, 'x reason', null, %L)$$, :tara, :c, :h2, :dues),
+  'its own screen', 'G: a membership campaign takes its pledges from its own screen');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-g-0014', %L, %L, 1000, 'x reason', null, %L, %L)$$, :tara, :c, :h2, :camp2, :opp),
+  'belongs to a different campaign', 'G: an opportunity of another campaign than the one named');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-g-0015', %L, %L, 1000, 'x reason', null, null, null, null, null, null, 'gold')$$, :tara, :c, :h2),
+  'needs an opportunity', 'G: an opportunity option without an opportunity');
 select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-g-0008', %L, %L, 1000, 'x reason', null, %L)$$, :tara, :c, :h2, :arch),
   'archived', 'G: an archived campaign');
 select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-g-0009', %L, %L, 1000, 'x reason', %L)$$, :tara, :c, :h2, :f3),
@@ -266,6 +297,15 @@ select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-h-0004', %
 select pg_temp.rec(:tara, 'key-154-h-0003', :c, :h2, 250000, 'Pledge card', null, null, :opp)::text as rh3b \gset
 select pg_temp.assert(((:'rh3b'::jsonb)->>'replayed')::boolean and (:'rh3b'::jsonb)->>'pledge_id' = (:'rh3'::jsonb)->>'pledge_id',
   'H: replaying the confirmation of a taken opportunity returns the pledge (it was this one that took it)');
+select pg_temp.rec(:tara, 'key-154-h-0005', :c, :h2, 3000, 'Pledge card', null, :camp3, null, null, null, 'For the roof')::text as rh5 \gset
+update app.campaigns set status = 'archived' where id = :camp3;
+select pg_temp.rec(:tara, 'key-154-h-0005', :c, :h2, 3000, 'Pledge card', null, :camp3, null, null, null, 'For the roof')::text as rh5b \gset
+select pg_temp.assert(((:'rh5b'::jsonb)->>'replayed')::boolean and (:'rh5b'::jsonb)->>'pledge_id' = (:'rh5'::jsonb)->>'pledge_id',
+  'H: a late retry replays the pledge even though its campaign was archived in between (the key is looked up first)');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-h-0005', %L, %L, 3000, 'Pledge card', null, %L, null, null, null, 'For the hall')$$, :tara, :c, :h2, :camp3),
+  'already used for a different pledge', 'H: the same key with a different dedication is refused');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-h-0005', %L, %L, 3000, 'Pledge card', null, %L)$$, :tara, :c, :h2, :camp2),
+  'already used for a different pledge', 'H: the same key for a different campaign is refused');
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- I. A community that is not a faith community
