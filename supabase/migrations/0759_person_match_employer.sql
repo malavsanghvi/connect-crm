@@ -6,23 +6,29 @@
 --                                consent behind it, kept IN the record (not in app.consents, so platform admins, the other
 --                                adults of the household and the general audit log never see it, and nothing cascades from
 --                                the consents table): where it came from (the person in the app, or a signed paper form the
---                                office recorded), who recorded it, when the consent was given, and when it was withdrawn.
+--                                office recorded), who recorded it, WHICH SIGN-IN consented (consented_by_user), when the
+--                                consent was given, and when it was withdrawn.
 --   It is NOT app.people.employer: that field is edited by staff, filled by imports and seen with people.view, with no
 --   consent. It stays exactly as it is; it only PREFILLS the person's own answer ("Is this still your employer?").
 --
 --   Adults only (D2): a person under 18 by app.person_is_minor (0587) never has an employer put on file, whoever writes it,
 --   and a record of someone who turns out to be under 18 is not shown (checked again at every read).
---   The person (their own sign-in; not the other adults of the household):
---     app.my_match_employer(center)                 what is on file, how it got there, and the suggestion from their profile
+--
+--   BOUND TO THE SIGN-IN THAT CONSENTED. The person's own read, change and withdrawal need auth.uid() = consented_by_user,
+--   not only today's link from a sign-in to the person: a sign-in re-linked to the person, or a new account linked later
+--   (someone who changed the person's email to their own, or was invited as them), can neither read the employer nor change
+--   or withdraw it. A record from a paper form is bound to the sign-in the person had when the office recorded it (none:
+--   only the office changes or withdraws it). A withdrawn record holds nothing, so anyone linked to the person may consent
+--   again.
+--     app.my_match_employer(center)                 what is on file (only if it is this sign-in's), how it got there, and
+--                                                   the suggestion from their profile
 --     app.set_my_match_employer(center, employer)   adds or changes it (CatchTheMatch must be on): their consent, now
 --     app.remove_my_match_employer(center)          withdraws it at once (even with CatchTheMatch off): the employer is
 --                                                   erased, the withdrawal is recorded (withdrawn_at, withdrawn_by)
 --   The office (matching.manage, through 0757's check: never a platform admin, never the filing grant):
 --     app.record_match_employer(center, person, employer)   from a signed paper form: source 'paper_form', who recorded it
---                                                   and when, as the person's consent. The person sees and removes it in
---                                                   the member app like any other.
---   Who the person is: their sign-in's link (app.center_users), which only the linking functions write since 0757 (nobody
---   re-links their own sign-in through the API, and platform admins link none).
+--                                                   and when, as the person's consent.
+--     app.withdraw_match_employer(center, person, reason)   withdraws it when the person asks (a reason, audited).
 --   Staff read the rows on file (not withdrawn, adults) in the communities of app.matching_readable_centers (0758):
 --   CatchTheMatch's own readers and a live Weaver filing grant. People.view alone sees nothing. No AI feature reads this.
 --   Module 'matching' in app.module_tables, with a restrictive module_switch policy that has no platform-admin pass. The
@@ -32,23 +38,28 @@
 set client_min_messages = warning;
 
 create table if not exists app.person_match_employers (
-  person_id     uuid primary key references app.people(id) on delete cascade,
-  center_id     uuid not null references app.centers(id) on delete cascade,
-  employer_name text check (employer_name is null or char_length(btrim(employer_name)) between 1 and 120),
-  source        text not null check (source in ('member', 'paper_form')),
-  recorded_by   uuid not null references auth.users(id),
-  consented_at  timestamptz not null default now(),
-  withdrawn_at  timestamptz,
-  withdrawn_by  uuid references auth.users(id),
-  created_at    timestamptz not null default now(),
+  person_id         uuid primary key references app.people(id) on delete cascade,
+  center_id         uuid not null references app.centers(id) on delete cascade,
+  employer_name     text check (employer_name is null or char_length(btrim(employer_name)) between 1 and 120),
+  source            text not null check (source in ('member', 'paper_form')),
+  recorded_by       uuid not null references auth.users(id),
+  consented_by_user uuid references auth.users(id),
+  consented_at      timestamptz not null default now(),
+  withdrawn_at      timestamptz,
+  withdrawn_by      uuid references auth.users(id),
+  created_at        timestamptz not null default now(),
   -- On file with consent, or withdrawn with nothing kept.
   constraint person_match_employers_consent check ((withdrawn_at is null) = (employer_name is not null)),
-  constraint person_match_employers_withdrawn check (withdrawn_at is null or withdrawn_at >= consented_at)
+  constraint person_match_employers_withdrawn check (withdrawn_at is null or withdrawn_at >= consented_at),
+  -- The person in the app consents with their own sign-in.
+  constraint person_match_employers_member_signin check (source <> 'member' or consented_by_user is not null)
 );
 create index if not exists person_match_employers_center_idx on app.person_match_employers (center_id);
 comment on table app.person_match_employers is
-  'An adult''s employer for gift matching (0759, CatchTheMatch) and the consent behind it, kept in the record: source (member | paper_form), recorded_by, consented_at, withdrawn_at. Written only by set_my_match_employer / record_match_employer / remove_my_match_employer. Read by the person and by matching_readable_centers. Not people.employer.';
+  'An adult''s employer for gift matching (0759, CatchTheMatch) and the consent behind it, kept in the record: source (member | paper_form), recorded_by, consented_by_user (the sign-in that consented; the person''s own read and changes need it), consented_at, withdrawn_at. Written only by set_my_match_employer / record_match_employer / remove_my_match_employer / withdraw_match_employer. Not people.employer.';
 comment on column app.person_match_employers.source is 'member: the person gave it in the app. paper_form: the office recorded it from a signed paper form (recorded_by, consented_at).';
+comment on column app.person_match_employers.consented_by_user is
+  'The sign-in that consented: the person''s own in the app, or the one linked to the person when the office recorded a paper form (null when there was none). Only this sign-in reads, changes or withdraws it itself.';
 
 -- The row belongs to its person's community and, while an employer is on file, to an adult; the name is trimmed.
 -- SECURITY DEFINER so the birth date and household roles can be read whoever writes.
@@ -84,25 +95,26 @@ create trigger audit_person_match_employers after insert or update or delete on 
 insert into app.module_tables (table_name, module_key) values ('person_match_employers', 'matching')
   on conflict (table_name) do update set module_key = excluded.module_key;
 
--- Is the person an adult (app.person_is_minor, 0587, which signed-in callers cannot run themselves)? For the read policy.
-create or replace function app.match_employer_is_adult(p_person uuid) returns boolean
+-- For the staff read policy: may the caller read this community's CatchTheMatch data, and is the person an adult? It answers
+-- false to anyone who may not, so it tells nobody else whether a person is under 18.
+create or replace function app.match_employer_adult(p_center uuid, p_person uuid) returns boolean
 language sql stable security definer set search_path = app, public, extensions as $$
-  select not app.person_is_minor(p_person)
+  select app.matching_can(p_center, 'view') and not app.person_is_minor(p_person)
 $$;
-revoke execute on function app.match_employer_is_adult(uuid) from public, anon;
-grant execute on function app.match_employer_is_adult(uuid) to authenticated;
+revoke execute on function app.match_employer_adult(uuid, uuid) from public, anon;
+grant execute on function app.match_employer_adult(uuid, uuid) to authenticated;
 
 alter table app.person_match_employers enable row level security;
--- The person: their own record, withdrawn or not.
+-- The person: their own record, withdrawn or not, only from the sign-in that consented.
 drop policy if exists person_match_employers_own_read on app.person_match_employers;
 create policy person_match_employers_own_read on app.person_match_employers for select to authenticated
-  using (person_id = app.my_person_id(center_id));
+  using (consented_by_user = auth.uid() and person_id = app.my_person_id(center_id));
 -- CatchTheMatch's readers: what is on file, of adults, in the communities they may read (worked out once per statement).
 drop policy if exists person_match_employers_staff_read on app.person_match_employers;
 create policy person_match_employers_staff_read on app.person_match_employers for select to authenticated
   using (withdrawn_at is null
          and center_id = any ((select app.matching_readable_centers())::uuid[])
-         and app.match_employer_is_adult(person_id));
+         and app.match_employer_adult(center_id, person_id));
 -- CatchTheMatch off: hidden from every direct read (no platform-admin pass: platform admins have no read here at all).
 drop policy if exists module_switch on app.person_match_employers;
 create policy module_switch on app.person_match_employers as restrictive for all to public
@@ -128,32 +140,35 @@ begin
   return v;
 end $$;
 
--- What the person (or the office) sees. The employer only while it is on file and the person is an adult.
-create or replace function app._match_employer_card(p_person uuid) returns jsonb
+-- What a sign-in sees of its person's record: the employer and its story only when this sign-in consented to it and the
+-- person is an adult; otherwise as if nothing were on file.
+create or replace function app._match_employer_card(p_person uuid, p_viewer uuid) returns jsonb
 language sql stable security definer set search_path = app, public, extensions as $$
   select jsonb_build_object(
-    'employer', case when not app.person_is_minor(p.id) then e.employer_name end,
-    'source', case when e.employer_name is not null then e.source end,
-    'consented_at', case when e.employer_name is not null then e.consented_at end,
-    'recorded_by', case when e.employer_name is not null and e.source = 'paper_form' then app._user_label(p.center_id, e.recorded_by) end,
-    'withdrawn_at', e.withdrawn_at,
-    -- From the profile, to confirm: only while nothing is on file, and only for an adult.
-    'suggestion', case when e.employer_name is null and not app.person_is_minor(p.id) then nullif(btrim(coalesce(p.employer, '')), '') end,
-    'is_adult', not app.person_is_minor(p.id),
+    'employer', case when mine then e.employer_name end,
+    'source', case when mine and e.employer_name is not null then e.source end,
+    'consented_at', case when mine and e.employer_name is not null then e.consented_at end,
+    'recorded_by', case when mine and e.employer_name is not null and e.source = 'paper_form' then app._user_label(p.center_id, e.recorded_by) end,
+    'withdrawn_at', case when mine then e.withdrawn_at end,
+    -- From the profile, to confirm: only while nothing of theirs is on file, and only for an adult.
+    'suggestion', case when not (mine and e.employer_name is not null) and adult then nullif(btrim(coalesce(p.employer, '')), '') end,
+    'is_adult', adult,
     'matching_on', app._org_private_module_on(p.center_id, 'matching'))
     from app.people p
     left join app.person_match_employers e on e.person_id = p.id
+    cross join lateral (select not app.person_is_minor(p.id) as adult) a
+    cross join lateral (select coalesce(e.consented_by_user = p_viewer, false) and not app.person_is_minor(p.id) as mine) m
    where p.id = p_person
 $$;
 
 create or replace function app.my_match_employer(p_center uuid) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 begin
-  return app._match_employer_card(app._my_person_or_raise(p_center));
+  return app._match_employer_card(app._my_person_or_raise(p_center), auth.uid());
 end $$;
 
-create or replace function app._put_match_employer(p_center uuid, p_person uuid, p_employer text, p_source text) returns void
-language plpgsql security definer set search_path = app, public, extensions as $$
+create or replace function app._put_match_employer(p_center uuid, p_person uuid, p_employer text, p_source text, p_consented_by uuid)
+returns void language plpgsql security definer set search_path = app, public, extensions as $$
 begin
   if app.person_is_minor(p_person) then
     raise exception 'An employer for gift matching can be recorded for an adult only.' using errcode = '23514';
@@ -161,11 +176,12 @@ begin
   if char_length(btrim(coalesce(p_employer, ''))) not between 1 and 120 then
     raise exception 'Enter the employer''s name (at most 120 characters).' using errcode = '22023';
   end if;
-  insert into app.person_match_employers (person_id, center_id, employer_name, source, recorded_by, consented_at, withdrawn_at, withdrawn_by)
-  values (p_person, p_center, p_employer, p_source, auth.uid(), now(), null, null)
+  insert into app.person_match_employers (person_id, center_id, employer_name, source, recorded_by, consented_by_user,
+                                          consented_at, withdrawn_at, withdrawn_by)
+  values (p_person, p_center, p_employer, p_source, auth.uid(), p_consented_by, now(), null, null)
   on conflict (person_id) do update
     set employer_name = excluded.employer_name, source = excluded.source, recorded_by = excluded.recorded_by,
-        consented_at = excluded.consented_at, withdrawn_at = null, withdrawn_by = null;
+        consented_by_user = excluded.consented_by_user, consented_at = excluded.consented_at, withdrawn_at = null, withdrawn_by = null;
 end $$;
 
 create or replace function app.set_my_match_employer(p_center uuid, p_employer text) returns jsonb
@@ -176,12 +192,18 @@ begin
     raise exception '% is not on for this community, so an employer for gift matching cannot be added.',
       app._module_label(p_center, 'matching') using errcode = 'insufficient_privilege';
   end if;
+  -- An employer on file that another sign-in (or a paper form) consented to is changed only by that sign-in or the office.
+  if exists (select 1 from app.person_match_employers e
+              where e.person_id = v_person and e.employer_name is not null and e.consented_by_user is distinct from auth.uid()) then
+    raise exception 'An employer for gift matching is already on file for you, from another sign-in or a paper form. Ask your organization to change or remove it.'
+      using errcode = 'insufficient_privilege';
+  end if;
   perform app.set_audit_context('Added or changed by the person in the app');
-  perform app._put_match_employer(p_center, v_person, p_employer, 'member');
-  return app._match_employer_card(v_person);
+  perform app._put_match_employer(p_center, v_person, p_employer, 'member', auth.uid());
+  return app._match_employer_card(v_person, auth.uid());
 end $$;
 
--- Withdrawn at once: the employer is erased, the withdrawal kept. True when something was on file.
+-- Withdrawn at once: the employer is erased, the withdrawal kept. True when something of this sign-in's was on file.
 create or replace function app.remove_my_match_employer(p_center uuid) returns boolean
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_person uuid := app._my_person_or_raise(p_center); v_gone int;
@@ -189,12 +211,23 @@ begin
   perform app.set_audit_context('Withdrawn by the person');
   update app.person_match_employers
      set employer_name = null, withdrawn_at = now(), withdrawn_by = auth.uid()
-   where person_id = v_person and withdrawn_at is null;
+   where person_id = v_person and withdrawn_at is null and consented_by_user = auth.uid();
   get diagnostics v_gone = row_count;
   return v_gone > 0;
 end $$;
 
--- ── The office: from a signed paper form ─────────────────────────────────────
+-- ── The office: from a signed paper form, and withdrawing on the person's request ──
+create or replace function app._match_office_check(p_center uuid, p_person uuid) returns void
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+begin
+  if not app.matching_can(p_center, 'manage') then
+    raise exception 'This needs the CatchTheMatch manager role (matching.manage).' using errcode = 'insufficient_privilege';
+  end if;
+  if p_person is null or not exists (select 1 from app.people where id = p_person and center_id = p_center) then
+    raise exception 'That person was not found in this community.';
+  end if;
+end $$;
+
 create or replace function app.record_match_employer(p_center uuid, p_person uuid, p_employer text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
@@ -202,21 +235,40 @@ begin
     raise exception 'Recording an employer for gift matching needs the CatchTheMatch manager role (matching.manage).'
       using errcode = 'insufficient_privilege';
   end if;
-  if p_person is null or not exists (select 1 from app.people where id = p_person and center_id = p_center) then
-    raise exception 'That person was not found in this community.';
-  end if;
+  perform app._match_office_check(p_center, p_person);
   if exists (select 1 from app.people where id = p_person and (is_deceased or merged_into_id is not null)) then
     raise exception 'This person''s record is closed (deceased or merged), so nothing new can be recorded for them.';
   end if;
   perform app.set_audit_context('Recorded from a signed paper form');
-  perform app._put_match_employer(p_center, p_person, p_employer, 'paper_form');
-  return app._match_employer_card(p_person);
+  -- Bound to the sign-in the person has now (none: only the office changes or withdraws it).
+  perform app._put_match_employer(p_center, p_person, p_employer, 'paper_form',
+    (select cu.user_id from app.center_users cu where cu.center_id = p_center and cu.person_id = p_person));
+  return (select jsonb_build_object('employer', e.employer_name, 'source', e.source, 'consented_at', e.consented_at,
+                                    'person_can_manage_it', e.consented_by_user is not null)
+            from app.person_match_employers e where e.person_id = p_person);
+end $$;
+
+create or replace function app.withdraw_match_employer(p_center uuid, p_person uuid, p_reason text) returns boolean
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_gone int;
+begin
+  perform app._match_office_check(p_center, p_person);
+  if app.audit_clean_reason(p_reason) is null then
+    raise exception 'Say how the person asked (for example "by phone on 14 October"). It goes in the audit log.';
+  end if;
+  perform app.set_audit_context('Withdrawn by the office at the person''s request: ' || app.audit_clean_reason(p_reason));
+  update app.person_match_employers
+     set employer_name = null, withdrawn_at = now(), withdrawn_by = auth.uid()
+   where person_id = p_person and center_id = p_center and withdrawn_at is null;
+  get diagnostics v_gone = row_count;
+  return v_gone > 0;
 end $$;
 
 -- ── Who may call what ────────────────────────────────────────────────────────
-revoke execute on function app._my_person_or_raise(uuid), app._match_employer_card(uuid), app._put_match_employer(uuid, uuid, text, text)
+revoke execute on function app._my_person_or_raise(uuid), app._match_employer_card(uuid, uuid),
+  app._put_match_employer(uuid, uuid, text, text, uuid), app._match_office_check(uuid, uuid)
   from public, anon, authenticated;
 revoke execute on function app.my_match_employer(uuid), app.set_my_match_employer(uuid, text), app.remove_my_match_employer(uuid),
-  app.record_match_employer(uuid, uuid, text) from public, anon;
+  app.record_match_employer(uuid, uuid, text), app.withdraw_match_employer(uuid, uuid, text) from public, anon;
 grant execute on function app.my_match_employer(uuid), app.set_my_match_employer(uuid, text), app.remove_my_match_employer(uuid),
-  app.record_match_employer(uuid, uuid, text) to authenticated;
+  app.record_match_employer(uuid, uuid, text), app.withdraw_match_employer(uuid, uuid, text) to authenticated;

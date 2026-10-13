@@ -167,8 +167,11 @@ describe("the Gift matching section", () => {
 
   it("says where the employer came from", () => {
     expect(matchEmployerSourceLine({ source: "member", recordedBy: null }, "Mia", "Oct 13, 2026")).toBe("Added by Mia in the member app, Oct 13, 2026. Only Mia can change it.");
-    expect(matchEmployerSourceLine({ source: "paper_form", recordedBy: "Asha Rao" }, "Mia", "Oct 13, 2026")).toBe(
+    expect(matchEmployerSourceLine({ source: "paper_form", recordedBy: "Asha Rao", personCanManage: true }, "Mia", "Oct 13, 2026")).toBe(
       "From a signed paper form, recorded by Asha Rao, Oct 13, 2026. Mia can see and remove it in the member app.",
+    );
+    expect(matchEmployerSourceLine({ source: "paper_form", recordedBy: "Asha Rao", personCanManage: false }, "Mia", null)).toBe(
+      "From a signed paper form, recorded by Asha Rao. Mia had no sign-in then, so the office changes or withdraws it.",
     );
   });
 
@@ -179,11 +182,11 @@ describe("the Gift matching section", () => {
   });
 
   it("reads what is on file for a CatchTheMatch reader, and offers the profile's employer only when nothing is", async () => {
-    const row = { person_id: "p-1", center_id: "center-1", employer_name: "Acme", source: "member", recorded_by: "u-1", consented_at: "2026-10-13T12:00:00Z" };
+    const row = { person_id: "p-1", center_id: "center-1", employer_name: "Acme", source: "member", recorded_by: "u-1", consented_at: "2026-10-13T12:00:00Z", consented_by_user: "u-1" };
     const on = await loadMatchEmployer(fakeSession({ db: fakeDb({ tables: { person_match_employers: [row] } }), permissions: ["matching.view"] }), { id: "p-1", profileEmployer: "Globex" });
-    expect(on).toEqual({ state: "ok", data: { employer: "Acme", source: "member", recordedAt: row.consented_at, recordedBy: null, suggestion: null, canRecord: false } });
+    expect(on).toEqual({ state: "ok", data: { employer: "Acme", source: "member", recordedAt: row.consented_at, recordedBy: null, suggestion: null, canRecord: false, personCanManage: true } });
     const none = await loadMatchEmployer(fakeSession({ db: fakeDb({ tables: { person_match_employers: [] } }), permissions: ["matching.manage"] }), { id: "p-1", profileEmployer: " Globex " });
-    expect(none).toEqual({ state: "ok", data: { employer: null, source: null, recordedAt: null, recordedBy: null, suggestion: "Globex", canRecord: true } });
+    expect(none).toEqual({ state: "ok", data: { employer: null, source: null, recordedAt: null, recordedBy: null, suggestion: "Globex", canRecord: true, personCanManage: false } });
   });
 
   it("says so in words when the read fails", async () => {

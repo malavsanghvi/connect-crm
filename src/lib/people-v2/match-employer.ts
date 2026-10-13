@@ -21,8 +21,10 @@ export type MatchEmployerFacts = {
   recordedBy: string | null;
   /** The profile's employer, offered to prefill a paper form; null when something is on file already. */
   suggestion: string | null;
-  /** matching.manage: may record one from a signed paper form. */
+  /** matching.manage: may record one from a signed paper form, or withdraw one when the person asks. */
   canRecord: boolean;
+  /** The person can manage it in the member app: a sign-in of theirs consented to it (0759). */
+  personCanManage: boolean;
 };
 
 export async function loadMatchEmployer(session: CrmSession, person: { id: string; profileEmployer: string | null }): Promise<Part<MatchEmployerFacts>> {
@@ -30,7 +32,7 @@ export async function loadMatchEmployer(session: CrmSession, person: { id: strin
   const { db, center } = session;
   const r = await db
     .from("person_match_employers")
-    .select("employer_name, source, recorded_by, consented_at")
+    .select("employer_name, source, recorded_by, consented_at, consented_by_user")
     .eq("center_id", center.id)
     .eq("person_id", person.id)
     .maybeSingle();
@@ -54,13 +56,23 @@ export async function loadMatchEmployer(session: CrmSession, person: { id: strin
     recordedBy,
     suggestion: row ? null : profile,
     canRecord: matchingCan(session, "manage"),
+    personCanManage: Boolean(row?.consented_by_user),
   });
 }
 
 /** The line under the employer: where it came from and when. */
-export function matchEmployerSourceLine(f: Pick<MatchEmployerFacts, "source" | "recordedBy">, firstName: string, when: string | null): string {
+export function matchEmployerSourceLine(
+  f: Pick<MatchEmployerFacts, "source" | "recordedBy"> & { personCanManage?: boolean },
+  firstName: string,
+  when: string | null,
+): string {
   const at = when ? `, ${when}` : "";
-  if (f.source === "paper_form") return `From a signed paper form, recorded by ${f.recordedBy ?? "someone in the office"}${at}. ${firstName} can see and remove it in the member app.`;
+  if (f.source === "paper_form") {
+    const who = `From a signed paper form, recorded by ${f.recordedBy ?? "someone in the office"}${at}.`;
+    return f.personCanManage === false
+      ? `${who} ${firstName} had no sign-in then, so the office changes or withdraws it.`
+      : `${who} ${firstName} can see and remove it in the member app.`;
+  }
   if (f.source === "member") return `Added by ${firstName} in the member app${at}. Only ${firstName} can change it.`;
   return "";
 }

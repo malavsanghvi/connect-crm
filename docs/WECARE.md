@@ -57,6 +57,9 @@ would let Weaver staff read every organization's care records. WeCare therefore 
 Honest limit: people who run Weaver's database (service role, backups) can technically read any table. W2 is
 enforced by policy, audit and process, not by encryption. Encrypting care notes with a per-organization key is a
 later option; it costs search and AI drafting, so it is not in v1.
+A platform admin cannot give their own Weaver account a role or ownership, but could act through a second account they
+control (for example one the organization was led to invite as an administrator): that is detected, not prevented, by
+the audit log and the owner's emails for every administrator grant and ownership change Weaver's team makes.
 
 **Built (2026-10-13, migrations 0757 and 0758, test 163):** `app.org_private_can`, `app.care_can`, `app.care_amounts_can`,
 the three keys and the roles `care_lead` and `relationship_owner` (given only by the owner or a `care.manage` holder; each

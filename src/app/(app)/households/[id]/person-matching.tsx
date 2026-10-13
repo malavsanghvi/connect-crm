@@ -1,4 +1,4 @@
-import { recordMatchEmployerAction } from "@/app/(app)/people/matching-actions";
+import { recordMatchEmployerAction, withdrawMatchEmployerAction } from "@/app/(app)/people/matching-actions";
 import { ActionForm } from "@/components/action-form";
 import { PartNote } from "@/components/people-v2/slideover/section";
 import { Field } from "@/components/ui";
@@ -54,6 +54,26 @@ export async function PersonMatchingServer({ session, person }: { session: CrmSe
               <input type="checkbox" name="signed" className="mt-0.5 size-4" required />
               <span>{person.firstName} signed a paper form agreeing to gift matching. It is recorded as their consent, with your name and today&apos;s date.</span>
             </label>
+          </ActionForm>
+        </details>
+      ) : null}
+      {f.canRecord && f.employer ? (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-[13.5px] font-bold text-[var(--v2-blue)]">Withdraw it ({person.firstName} asked)</summary>
+          <ActionForm
+            action={withdrawMatchEmployerAction}
+            submitLabel="Withdraw employer"
+            pendingLabel="Withdrawing"
+            variant="danger"
+            size="sm"
+            className="mt-2 flex flex-col gap-2"
+            confirmMessage={`Withdraw ${person.firstName}'s employer for gift matching? The name is erased; the withdrawal is kept in the audit log.`}
+          >
+            <input type="hidden" name="person_id" value={person.id} />
+            <input type="hidden" name="first_name" value={person.firstName} />
+            <Field label="How they asked" htmlFor={`${inputId}-reason`} hint="For example: by phone on 14 October. It goes in the audit log.">
+              <input id={`${inputId}-reason`} name="reason" className="crm-input w-full" maxLength={500} required />
+            </Field>
           </ActionForm>
         </details>
       ) : null}

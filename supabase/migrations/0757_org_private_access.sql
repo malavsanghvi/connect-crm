@@ -108,6 +108,9 @@ language sql stable security definer set search_path = app, public, extensions a
                        and g.scope_kind = 'center' and g.status = 'active'
                        and g.starts_at <= now() and (g.ends_at is null or g.ends_at > now())
                        and r.tier <> 'platform'
+                       -- A list of keys only: `?` would also match an object's key or a bare string (any other shape is no
+                       -- permission; roles_permissions_shape below refuses one anyway).
+                       and jsonb_typeof(r.permissions) = 'array'
                        and (r.permissions ? p_perm or r.permissions ? '*'))))
 $$;
 
@@ -176,15 +179,36 @@ language sql stable security definer set search_path = app, public, extensions a
 $$;
 
 -- ── The roles, and who may define them ───────────────────────────────────────
--- Only a migration (or another job without an API role: the seed, the SQL editor) can create or change a role that holds a
--- private key or "*": through the API (anon, authenticated, service_role) such a role cannot be created, nor can a role be
--- changed to hold one, nor can one that holds one be changed at all (its tier, key or permissions). SECURITY INVOKER on
--- purpose: current_user is the role of the statement (inside a SECURITY DEFINER function it is the function's owner).
+-- A role's permissions are a JSON list of keys, nothing else (every row is one today; the migration stops if not).
+create or replace function app._is_text_list(p jsonb) returns boolean
+language sql immutable set search_path = app, public, extensions as $$
+  select coalesce(jsonb_typeof(p) = 'array'
+                  and not exists (select 1 from jsonb_array_elements(p) e where jsonb_typeof(e) <> 'string'), false)
+$$;
+do $$
+declare v text;
+begin
+  select string_agg(key, ', ' order by key) into v from app.roles where not app._is_text_list(permissions);
+  if v is not null then
+    raise exception 'Roles whose permissions are not a list of keys (fix them first, nothing was changed): %', v;
+  end if;
+end $$;
+alter table app.roles drop constraint if exists roles_permissions_shape;
+alter table app.roles add constraint roles_permissions_shape check (app._is_text_list(permissions));
+
+-- Only a migration (or another job without an API role: the seed, the SQL editor) can create a role that holds a private
+-- key or "*", give a role one, or change the permissions, tier or key of a role that holds one: through the API (anon,
+-- authenticated, service_role) these are refused, platform admins included (0010's roles_platform policy would otherwise
+-- let them). Its name, description, scope and kinds (category_keys) stay editable. SECURITY INVOKER on purpose:
+-- current_user is the role of the statement (inside a SECURITY DEFINER function it is the function's owner).
 create or replace function app.roles_private_guard() returns trigger
 language plpgsql set search_path = app, public, extensions as $$
 begin
   if current_user not in ('anon', 'authenticated', 'service_role') then return new; end if;
-  if app._perms_open_private(new.permissions) or (tg_op = 'UPDATE' and app._perms_open_private(old.permissions)) then
+  if (tg_op = 'INSERT' and app._perms_open_private(new.permissions))
+     or (tg_op = 'UPDATE'
+         and (new.permissions is distinct from old.permissions or new.tier is distinct from old.tier or new.key is distinct from old.key)
+         and (app._perms_open_private(new.permissions) or app._perms_open_private(old.permissions))) then
     raise exception 'Roles that open WeCare or CatchTheMatch data, or every permission, are changed only by a database migration.'
       using errcode = 'insufficient_privilege';
   end if;
@@ -354,12 +378,19 @@ drop policy if exists role_grants_private_update on app.role_grants;
 create policy role_grants_private_update on app.role_grants for update to authenticated
   using (app.may_grant_private_role(center_id, role_key)) with check (app.may_grant_private_role(center_id, role_key));
 
--- An invitation that carries a private role is made only by someone who may give it.
+-- An invitation that carries a private role is made only by someone who may give it. And an invitation never names a
+-- person who already has a sign-in linked (a second account could otherwise be invited as that person): give that sign-in
+-- the role instead.
 create or replace function app.staff_invitations_private_rule() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare k text; v_products text[];
 begin
   if auth.uid() is null then return new; end if;
+  if new.person_id is not null and (tg_op = 'INSERT' or new.person_id is distinct from old.person_id)
+     and exists (select 1 from app.center_users cu where cu.center_id = new.center_id and cu.person_id = new.person_id) then
+    raise exception 'That person already signs in to Weaver, so they are not invited again. Give their sign-in the role in Settings › Roles & entitlements.'
+      using errcode = 'check_violation';
+  end if;
   foreach k in array coalesce(new.role_keys, '{}'::text[]) loop
     v_products := app.role_private_products(k);
     if cardinality(v_products) > 0 then
@@ -376,7 +407,7 @@ begin
 end $$;
 revoke execute on function app.staff_invitations_private_rule() from public, anon, authenticated;
 drop trigger if exists staff_invitations_private on app.staff_invitations;
-create trigger staff_invitations_private before insert or update of role_keys, invited_by, scope on app.staff_invitations
+create trigger staff_invitations_private before insert or update of role_keys, invited_by, scope, person_id on app.staff_invitations
   for each row execute function app.staff_invitations_private_rule();
 
 -- ── Every private grant: an audit entry of its product, and the owner is told ──
@@ -555,22 +586,63 @@ drop trigger if exists center_owners_self on app.center_owners;
 create trigger center_owners_self before insert or update on app.center_owners
   for each row execute function app.center_owners_self_rule();
 
--- Every ownership change a platform admin makes is audited and emailed: on a transfer to the owner it replaces, when a
--- community gets its first owner to that new owner. A demo community is left out.
+-- Every ownership change a platform admin makes is audited and emailed: on a transfer to the owner it replaces and to the
+-- new owner, when a community gets its first owner to that new owner. A demo community is left out.
 create or replace function app.center_owners_weaver_notice() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_mail jsonb; c record;
+declare v_mail jsonb; v_new_mail jsonb; c record; v_what text;
 begin
   if auth.uid() is null or not app.is_platform_admin() then return null; end if;
   if tg_op = 'UPDATE' and old.user_id = new.user_id then return null; end if;
   if app.is_demo_center(new.center_id) then return null; end if;
   select * into c from app.audit_context();
-  v_mail := app._weaver_change_email(new.center_id, case when tg_op = 'UPDATE' then old.user_id else new.user_id end,
-              format('made %s the owner', app._user_label(new.center_id, new.user_id)), c.reason);
+  v_what := format('made %s the owner', app._user_label(new.center_id, new.user_id));
+  -- A transfer: the owner it replaces and the new owner are both told at once.
+  if tg_op = 'UPDATE' then
+    v_mail := app._weaver_change_email(new.center_id, old.user_id, v_what, c.reason);
+  end if;
+  v_new_mail := app._weaver_change_email(new.center_id, new.user_id, v_what, c.reason);
   perform app.log_audit(new.center_id, 'ownership.changed_by_weaver', null, null,
     case when tg_op = 'UPDATE' then jsonb_build_object('user_id', old.user_id) end,
-    jsonb_build_object('user_id', new.user_id, 'by', auth.uid(), 'email', coalesce(v_mail->>'status', 'failed')), c.reason);
+    jsonb_build_object('user_id', new.user_id, 'by', auth.uid(),
+                       'email_previous_owner', case when tg_op = 'UPDATE' then coalesce(v_mail->>'status', 'failed') end,
+                       'email_new_owner', coalesce(v_new_mail->>'status', 'failed')), c.reason);
   return null;
+end $$;
+
+-- 0151's transfer, with the platform team's branch tightened: a platform admin (who is not the owner) may still hand the
+-- community to another of its administrators, with a reason and a fresh 2FA check as everyone, but never to an account of
+-- Weaver's team (themselves or a colleague, a second account included); both owners are emailed by the notice above.
+create or replace function app.transfer_ownership(p_center uuid, p_to_user uuid, p_reason text) returns void
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare o app.center_owners;
+begin
+  if auth.uid() is null then raise exception 'Sign in to transfer ownership.' using errcode = 'insufficient_privilege'; end if;
+  if p_center is null or not exists (select 1 from app.centers where id = p_center) then raise exception 'That community was not found.'; end if;
+  select * into o from app.center_owners where center_id = p_center for update;
+  if not (app.is_platform_admin() or (o.user_id is not null and o.user_id = auth.uid())) then
+    raise exception 'Only the owner of this community can transfer ownership.' using errcode = 'insufficient_privilege';
+  end if;
+  if p_to_user is null then raise exception 'Choose who becomes the owner.'; end if;
+  if o.user_id = p_to_user then raise exception 'That person is already the owner.'; end if;
+  if app.audit_clean_reason(p_reason) is null then
+    raise exception 'Give a reason for the transfer. It goes in the audit log.';
+  end if;
+  if app.is_platform_admin() and o.user_id is distinct from auth.uid()
+     and exists (select 1 from app.accounts a where a.user_id = p_to_user and a.is_platform_admin) then
+    raise exception 'Weaver''s team cannot make an account of Weaver''s team the owner of a community. Choose one of the organization''s own administrators.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not app.is_center_admin_user(p_center, p_to_user) then
+    raise exception 'The new owner must be an active administrator (center_admin) of this community. Grant the role first; it needs a second approver.';
+  end if;
+  perform app.assert_step_up('ownership.transfer');
+  perform app.set_audit_context(p_reason);
+  if o.center_id is null then
+    insert into app.center_owners (center_id, user_id) values (p_center, p_to_user);
+  else
+    update app.center_owners set user_id = p_to_user, since = now(), transferred_from = o.user_id where center_id = p_center;
+  end if;
 end $$;
 revoke execute on function app.center_owners_weaver_notice() from public, anon, authenticated;
 drop trigger if exists center_owners_weaver_notice on app.center_owners;
@@ -578,6 +650,35 @@ create trigger center_owners_weaver_notice after insert or update on app.center_
   for each row execute function app.center_owners_weaver_notice();
 
 -- ── Sign-in links: nobody re-links their own, platform admins none ───────────
+
+-- 0011's link_account ("this is me" after a verified email or phone match), which never re-points a link: a sign-in already
+-- linked to someone in the community stays linked to them (it used to be overwritten), and a person who already has a
+-- linked sign-in is not linked to another (as before). The other linking functions already behave so: create_my_household
+-- (0524) refuses a linked sign-in, accept_invitation (0502) keeps an existing link and refuses a person linked to another
+-- login, and an invitation never names a person who signs in already (staff_invitations_private_rule above).
+create or replace function app.link_account(p_center uuid, p_person uuid) returns uuid
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_linked uuid;
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  if not exists (select 1 from app.find_my_family(p_center) f where f.person_id = p_person) then
+    raise exception 'this person does not match your verified email or phone';
+  end if;
+  if exists (select 1 from app.center_users where center_id = p_center and person_id = p_person and user_id <> auth.uid()) then
+    raise exception 'this person is already linked to another login';
+  end if;
+  select person_id into v_linked from app.center_users where center_id = p_center and user_id = auth.uid();
+  if v_linked = p_person then return p_person; end if;
+  if v_linked is not null then
+    raise exception 'Your sign-in is already linked to someone else in this community. Ask the office if that is not right.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  insert into app.accounts (user_id) values (auth.uid()) on conflict do nothing;
+  insert into app.center_users (center_id, user_id, person_id) values (p_center, auth.uid(), p_person);
+  perform app.log_audit(p_center, 'account.link', 'people', p_person::text);
+  return p_person;
+end $$;
+
 -- Direct writes through the API only (SECURITY INVOKER: inside the linking functions current_user is the database owner).
 create or replace function app.center_users_link_rule() returns trigger
 language plpgsql set search_path = app, public, extensions as $$
@@ -647,7 +748,8 @@ revoke execute on function app._org_holds(uuid, uuid, text), app._org_private_mo
   from public, anon, authenticated;
 -- The roles guard runs as the caller (it reads current_user), so what it calls is callable.
 revoke execute on function app._perms_open_private(jsonb) from public, anon;
-grant execute on function app._perms_open_private(jsonb), app.org_private_product(text) to authenticated, service_role;
+revoke execute on function app._is_text_list(jsonb) from public, anon;
+grant execute on function app._perms_open_private(jsonb), app.org_private_product(text), app._is_text_list(jsonb) to authenticated, service_role;
 revoke execute on function app.org_private_can(uuid, text), app.care_can(uuid, text), app.care_amounts_can(uuid),
   app.matching_can(uuid, text), app.role_private_products(text), app.org_private_product(text), app.org_private_keys(),
   app.may_grant_private_role(uuid, text)

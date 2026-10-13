@@ -24,6 +24,9 @@
 --      invitation from the owner gets it; a product manager without roles.manage cannot give other roles or act in another
 --      community; a platform admin cannot widen, take over or re-sign an existing private grant; a widening change records
 --      who made it.
+--   N. Sign-in hijacks: link_account never re-points a linked sign-in; a sign-in linked to the person later (a forged email,
+--      an invitation, an office re-link) cannot read, change or withdraw an employer another sign-in or a paper form
+--      consented to; invite_staff never names a person who signs in already; the office withdraws on request, audited.
 --   M. Filing grants count only while Weaver's grant of CatchTheMatch is older than them; one open grant per person; adults
 --      only at read time; the change-of-kind counts leave WeCare and CatchTheMatch out for a platform admin.
 -- Everything runs in one transaction that is rolled back.
@@ -89,6 +92,9 @@ end $$;
 \set invitee '''16300000-0000-4000-8000-000000000011'''
 \set weaverinv '''16300000-0000-4000-8000-000000000012'''
 \set pc '''16300000-0000-4000-8000-0000000000a5'''
+\set pz '''16300000-0000-4000-8000-0000000000a6'''
+\set hijack '''16300000-0000-4000-8000-000000000013'''
+\set second '''16300000-0000-4000-8000-000000000014'''
 
 -- ══ A. The shape ═════════════════════════════════════════════════════════════
 select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
@@ -101,7 +107,8 @@ select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconf
                               'set_my_match_employer', 'remove_my_match_employer', 'record_match_employer', 'has_permission',
                               'enforce_role_grant', 'ensure_center_owner', 'center_owners_self_rule', 'center_owners_weaver_notice',
                               'role_grants_weaver_notice', '_weaver_change_email', 'matching_readable_centers', '_module_records',
-                              'may_grant_private_role', 'demo_missing_roles')),
+                              'may_grant_private_role', 'demo_missing_roles', 'link_account', 'transfer_ownership', 'withdraw_match_employer',
+                              'match_employer_adult', '_match_office_check')),
   'A · every function of 0757-0759 (and the ones they replace) runs as the definer with the pinned search path');
 select pg_temp.assert((select bool_and(not p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
                          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -155,9 +162,12 @@ insert into auth.users (id, email) values
   (:cadmin, 'cadmin163@c1.test'), (:member, 'member163@c1.test'), (:kid, 'kid163@c1.test'), (:matchlead, 'match163@c1.test'),
   (:carefin, 'carefin163@c1.test'), (:c2owner, 'owner163@c2.test'), (:newbie, 'newbie163@c1.test'),
   (:expired, 'expired163@c1.test'), (:scoped, 'scoped163@c1.test'), (:pending, 'pending163@c1.test'),
-  (:invitee, 'invitee163@c1.test'), (:weaverinv, 'weaverinv163@weaver.test');
+  (:invitee, 'invitee163@c1.test'), (:weaverinv, 'weaverinv163@weaver.test'), (:hijack, 'hijack163@c1.test'), (:second, 'second163@c1.test');
 insert into app.accounts (user_id, is_platform_admin) values (:plat, true), (:weaver, true), (:weaverinv, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
+-- The platform admin has an authenticator app, so a fresh 2FA check is required of them (section I).
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values
+  ('16300000-0000-4000-8000-0000000000f9', :plat, 'Phone', 'totp', 'verified');
 -- c3 and c4 have no owner yet (section I).
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:c1, 'pv163', 'Private Temple 163', 'P163', 'TX', 'active', 'America/Chicago'),
@@ -192,9 +202,11 @@ insert into app.people (id, center_id, first_name, last_name, date_of_birth, emp
   (:pk, :c1, 'Kit', 'Member163', (current_date - interval '10 years')::date, null),
   (:pa, :c1, 'Ari', 'Member163', null, 'Globex'),
   (:pn, :c1, 'Ned', 'Newbie163', date '1990-01-01', null),
-  (:pc, :c1, 'Cal', 'Admin163', date '1970-01-01', null);
+  (:pc, :c1, 'Cal', 'Admin163', date '1970-01-01', null),
+  (:pz, :c1, 'Zed', 'Target163', date '1980-02-02', null);
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
-  (:h1, :pm, :c1, 'primary', true), (:h1, :pk, :c1, 'child', false), (:h1, :pa, :c1, 'spouse', false), (:h2, :pn, :c1, 'primary', true);
+  (:h1, :pm, :c1, 'primary', true), (:h1, :pk, :c1, 'child', false), (:h1, :pa, :c1, 'spouse', false), (:h2, :pn, :c1, 'primary', true),
+  (:h2, :pz, :c1, 'other', false);
 insert into app.center_users (center_id, user_id, person_id) values (:c1, :member, :pm), (:c1, :kid, :pk), (:c1, :newbie, :pn), (:c1, :cadmin, :pc);
 select pg_temp.assert((select status from app.role_grants where center_id = :c1 and user_id = :pending) = 'pending'
                       and app.module_enabled(:c1, 'care') and app.module_enabled(:c1, 'matching') and not app.module_enabled(:c2, 'care'),
@@ -501,9 +513,10 @@ select pg_temp.claims(:member);
 select pg_temp.assert((select count(*) from app.person_match_employers where center_id = :c1) = 1,
   'H · a person reads their own only, not their household''s');
 reset role;
-select pg_temp.assert((select source = 'member' and recorded_by = :member and consented_at is not null and withdrawn_at is null
+select pg_temp.assert((select source = 'member' and recorded_by = :member and consented_by_user = :member and consented_at is not null
+                                and withdrawn_at is null
                          from app.person_match_employers where person_id = :pm)
-                      and (select source = 'paper_form' and recorded_by = :matchlead and consented_at is not null
+                      and (select source = 'paper_form' and recorded_by = :matchlead and consented_by_user is null and consented_at is not null
                              from app.person_match_employers where person_id = :pa)
                       and not exists (select 1 from app.consents where kind = 'employer_matching'),
   'H · each one carries the person''s consent in the record (from the app, or from a paper form with who recorded it and when); nothing goes to app.consents');
@@ -582,19 +595,34 @@ select pg_temp.assert((select user_id from app.center_owners where center_id = :
 -- Ownership transfers.
 savepoint transfer;
 select pg_temp.no_claims();
-insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (:c1, :plat, 'center_admin', 'center', 'Test 163: a platform admin who is an administrator here');
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values
+  (:c1, :plat, 'center_admin', 'center', 'Test 163: a platform admin who is an administrator here'),
+  (:c1, :weaver, 'center_admin', 'center', 'Test 163: a second Weaver account that is an administrator here');
 set role authenticated;
 select pg_temp.claims(:plat);
 select pg_temp.assert_raises(format($$select app.transfer_ownership(%L, %L, 'Take it over')$$, :c1, :plat),
-  'Nobody can make themselves the owner', 'I · a platform admin cannot transfer ownership to themselves');
+  'cannot make an account of Weaver''s team the owner', 'I · a platform admin cannot transfer ownership to themselves');
+select pg_temp.assert_raises(format($$select app.transfer_ownership(%L, %L, 'Take it over')$$, :c1, :weaver),
+  'cannot make an account of Weaver''s team the owner', 'I · nor to another Weaver account (a second account included)');
+select pg_temp.assert_raises(format($$select app.transfer_ownership(%L, %L, '  ')$$, :c1, :cadmin),
+  'Give a reason for the transfer', 'I · a transfer by Weaver needs a reason');
+select pg_temp.claims(:plat, false);
+select pg_temp.assert_raises(format($$select app.transfer_ownership(%L, %L, 'The owner asked')$$, :c1, :cadmin),
+  'fresh 2FA check', 'I · and a fresh 2FA check');
+select pg_temp.claims(:plat);
 select app.transfer_ownership(:c1, :cadmin, 'Test 163: the owner asked Weaver to hand it over');
 reset role;
 select pg_temp.assert((select user_id from app.center_owners where center_id = :c1) = :cadmin
                       and exists (select 1 from app.audit_log where center_id = :c1 and action = 'ownership.changed_by_weaver'
                                     and before->>'user_id' = :owner and after->>'user_id' = :cadmin)
                       and exists (select 1 from app.messages where template_key = 'weaver_access_change' and to_address = 'owner163@c1.test'
+                                    and body like '%made Cal Admin163 the owner%')
+                      and exists (select 1 from app.messages where template_key = 'weaver_access_change' and to_address = 'cadmin163@c1.test'
                                     and body like '%made Cal Admin163 the owner%'),
-  'I · but may transfer it to another administrator: audited, and the owner it replaces is emailed');
+  'I · but may transfer it to another of the organization''s administrators: audited, and both the old and the new owner are emailed at once');
+-- The rule itself, whatever path writes the owner: a signed-in person never makes themselves the owner.
+select pg_temp.assert_raises(format($$update app.center_owners set user_id = %L where center_id = %L$$, :plat, :c1),
+  'Nobody can make themselves the owner', 'I · nobody makes themselves the owner, whatever path writes it');
 rollback to savepoint transfer;
 savepoint weaver_admin;
 set role authenticated;
@@ -614,14 +642,20 @@ select pg_temp.assert_raises($$update app.roles set permissions = permissions ||
   'changed only by a database migration', 'J · a platform admin cannot add a private key to a role');
 select pg_temp.assert_raises($$insert into app.roles (key, tier, name, default_scope, description, permissions) values ('sneaky163', 'center', 'Sneaky', 'center', 'x', '["*"]')$$,
   'changed only by a database migration', 'J · nor create a role that holds every permission');
-select pg_temp.assert_raises($$update app.roles set description = 'Changed' where key = 'care_lead'$$,
-  'changed only by a database migration', 'J · nor change a role that opens WeCare at all');
+select pg_temp.assert_raises($$update app.roles set permissions = '["care.view"]'::jsonb where key = 'care_lead'$$,
+  'changed only by a database migration', 'J · nor change what a WeCare role holds');
 select pg_temp.assert_raises($$update app.roles set tier = 'center' where key = 'platform_owner'$$,
   'changed only by a database migration', 'J · nor bring platform_owner''s "*" into the organization''s roles');
+select pg_temp.assert_raises($$update app.roles set permissions = '{"care.view": true, "*": true}'::jsonb where key = 'treasurer'$$,
+  'roles_permissions_shape', 'J · a role''s permissions are a list of keys: an object (whose keys `?` would match) is refused');
+select pg_temp.assert_raises($$update app.roles set permissions = '"*"'::jsonb where key = 'treasurer'$$,
+  'roles_permissions_shape', 'J · and so is a bare string');
 savepoint role_edit;
 update app.roles set description = 'Test 163: still editable' where key = 'treasurer';
-select pg_temp.assert((select description from app.roles where key = 'treasurer') = 'Test 163: still editable',
-  'J · other roles are edited as before');
+update app.roles set description = 'Test 163: WeCare, described', name = 'Care lead (WeCare)', category_keys = '{}' where key = 'care_lead';
+select pg_temp.assert((select description from app.roles where key = 'treasurer') = 'Test 163: still editable'
+                      and (select name = 'Care lead (WeCare)' and permissions = '["care.view","care.manage"]'::jsonb from app.roles where key = 'care_lead'),
+  'J · names, descriptions and kinds stay editable, a WeCare role''s included');
 rollback to savepoint role_edit;
 reset role;
 select pg_temp.assert((select permissions from app.roles where key = 'treasurer') ? 'giving.view'
@@ -685,6 +719,76 @@ select pg_temp.assert((select person_id from app.center_users where center_id = 
                       and (select person_id from app.center_users where center_id = :c1 and user_id = :cadmin) = :pc
                       and (select person_id from app.center_users where center_id = :c1 and user_id = :invitee) is not null,
   'K · the links are as the organization made them, and the linking functions still link (the invitee of section L)');
+
+-- ══ N. Sign-in hijacks through the linking functions ═════════════════════════
+-- The office records Zed's employer from a paper form before Zed has a sign-in.
+set role authenticated;
+select pg_temp.claims(:matchlead);
+select pg_temp.assert((app.record_match_employer(:c1, :pz, 'Zed Corp'))->>'person_can_manage_it' = 'false',
+  'N · a paper form for someone with no sign-in yet: only the office can change or withdraw it');
+-- (1) An existing link is never re-pointed: Mia's sign-in, matched to Zed (Zed's email set to hers), stays Mia's.
+reset role;
+select pg_temp.no_claims();
+update app.people set email = 'member163@c1.test' where id = :pz;
+set role authenticated;
+select pg_temp.claims(:member);
+select pg_temp.assert_raises(format($$select app.link_account(%L, %L)$$, :c1, :pz),
+  'already linked to someone else', 'N · link_account never re-points a sign-in that is linked already');
+-- (2) A new account linked to Zed later (Zed's email set to the newcomer's) cannot read, change or withdraw Zed's record.
+reset role;
+select pg_temp.no_claims();
+update app.people set email = 'hijack163@c1.test' where id = :pz;
+set role authenticated;
+select pg_temp.claims(:hijack);
+select pg_temp.assert(app.link_account(:c1, :pz) = :pz,
+  'N · (an unlinked person can still be linked by a matching email; the email change itself is audited)');
+select pg_temp.assert((app.my_match_employer(:c1))->>'employer' is null
+                      and (select count(*) from app.person_match_employers where center_id = :c1) = 0
+                      and not app.remove_my_match_employer(:c1),
+  'N · but that new sign-in cannot read the employer on file, nor withdraw it');
+select pg_temp.assert_raises(format($$select app.set_my_match_employer(%L, 'Hijack Inc')$$, :c1),
+  'already on file for you', 'N · nor change it');
+reset role;
+select pg_temp.assert((select employer_name = 'Zed Corp' and withdrawn_at is null from app.person_match_employers where person_id = :pz),
+  'N · Zed''s record is as the office recorded it');
+-- (3) An invitation never names a person who already signs in.
+set role authenticated;
+select pg_temp.claims(:owner);
+select pg_temp.assert_raises(format($$select * from app.invite_staff(%L, 'second163@c1.test', null, %L, array['teacher'], '{"kind":"center"}'::jsonb, 'Se', 'Cond', 7)$$, :c1, :pm),
+  'already signs in to Weaver', 'N · invite_staff refuses a person who already has a linked sign-in');
+-- A sign-in re-linked to Mia later cannot read, change or withdraw what Mia's own sign-in consented to.
+savepoint relink;
+select pg_temp.claims(:member);
+select pg_temp.assert((app.set_my_match_employer(:c1, 'Acme Corp'))->>'employer' = 'Acme Corp', 'N · Mia puts her employer on file again');
+reset role;
+select pg_temp.no_claims();
+update app.center_users set user_id = :second where center_id = :c1 and user_id = :member;
+set role authenticated;
+select pg_temp.claims(:second);
+select pg_temp.assert((app.my_match_employer(:c1))->>'employer' is null and not app.remove_my_match_employer(:c1)
+                      and (select count(*) from app.person_match_employers where person_id = :pm) = 0,
+  'N · a sign-in linked to her later sees nothing of it and cannot withdraw it');
+select pg_temp.assert_raises(format($$select app.set_my_match_employer(%L, 'Other Inc')$$, :c1),
+  'already on file for you', 'N · nor change it');
+reset role;
+rollback to savepoint relink;
+-- The office withdraws one when the person asks, with a reason, audited.
+set role authenticated;
+select pg_temp.claims(:cadmin);
+select pg_temp.assert_raises(format($$select app.withdraw_match_employer(%L, %L, 'They asked')$$, :c1, :pz),
+  'CatchTheMatch manager role', 'N · only CatchTheMatch''s manager withdraws one for the person');
+select pg_temp.assert(not app.match_employer_adult(:c1, :pm),
+  'N · whether a person is an adult is told only to those who may read CatchTheMatch');
+select pg_temp.claims(:matchlead);
+select pg_temp.assert(app.match_employer_adult(:c1, :pm), 'N · (and to them it is)');
+select pg_temp.assert_raises(format($$select app.withdraw_match_employer(%L, %L, ' ')$$, :c1, :pz),
+  'Say how the person asked', 'N · with a reason');
+select pg_temp.assert(app.withdraw_match_employer(:c1, :pz, 'By phone, 14 October'), 'N · the office withdraws Zed''s at his request');
+reset role;
+select pg_temp.assert((select employer_name is null and withdrawn_by = :matchlead from app.person_match_employers where person_id = :pz)
+                      and exists (select 1 from app.audit_log where record_table = 'person_match_employers' and record_id = :pz
+                                    and reason like '%at the person''s request: By phone, 14 October%'),
+  'N · the employer is erased and the audit log says why');
 
 -- ══ M. Filing grants, read-time checks and counts ═════════════════════════════
 select pg_temp.no_claims();
