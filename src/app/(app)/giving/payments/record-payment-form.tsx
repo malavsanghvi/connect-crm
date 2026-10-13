@@ -35,6 +35,7 @@ export function RecordPaymentForm({
   canAllocate,
   initialHousehold,
   initialValues,
+  bankOn = true,
 }: {
   labels: CardLabels;
   timeZone: string;
@@ -45,6 +46,8 @@ export function RecordPaymentForm({
   initialHousehold?: HouseholdCardData | null;
   /** Filled in from the Giving page's confirmation card (?amount=&paid_with=&received=&ref=&apply=). The person still checks it and presses Record. */
   initialValues?: RecordPrefill | null;
+  /** Bank reconciliation (an add-on of Giving, 0741) is on: Zelle and ACH come in through it, and its Zelle reports can be opened. */
+  bankOn?: boolean;
 }) {
   const toast = useToast();
   const [household, setHousehold] = useState<HouseholdCardData | null>(null);
@@ -393,16 +396,21 @@ export function RecordPaymentForm({
           <div>
             <p className="crm-label">Method</p>
             <ChipGroup label="Method" value={method} onChange={setMethod} options={OFFLINE_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABEL[m] }))} />
-            {method === "zelle" || method === "ach" ? (
+            {bankOn && (method === "zelle" || method === "ach") ? (
               <p className="crm-hint">Zelle and ACH usually arrive through bank reconciliation — record here only if it is not on a statement.</p>
             ) : null}
           </div>
           {dupText ? (
             <p role="status" className="rounded-[10px] border border-saffron/60 bg-saffron-50 px-3 py-2 text-[13px] font-semibold text-brown">
-              {dupText}{" "}
-              <Link href="/giving/payments/bank?view=zelle" className="crm-link">
-                Open Zelle reports
-              </Link>
+              {dupText}
+              {bankOn ? (
+                <>
+                  {" "}
+                  <Link href="/giving/payments/bank?view=zelle" className="crm-link">
+                    Open Zelle reports
+                  </Link>
+                </>
+              ) : null}
             </p>
           ) : dup?.error ? (
             <p role="status" className="text-[13px] text-muted">

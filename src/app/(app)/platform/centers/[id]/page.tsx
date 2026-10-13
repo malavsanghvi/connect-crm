@@ -11,6 +11,7 @@ import { assistantEnabled } from "@/lib/assistant/settings";
 import { portalBaseDomain } from "@/lib/center-resolve";
 import { formatDateTime } from "@/lib/dates";
 import { loadExperiences } from "@/lib/experiences-db";
+import { buildModuleRowsFromStates } from "@/lib/modules";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 import { rulesVersion } from "@/lib/settings-rules";
@@ -19,6 +20,7 @@ import { ENTITLEMENT_INFO, entitlementLabel, formatEntitlement, formatJoinCode, 
 import { PlatformNoAccess } from "../../platform-no-access";
 import { addDomainAction, removeDomainAction, saveAssistantAction, setEntitlementAction } from "./actions";
 import { KindPanel } from "./kind-panel";
+import { ModulesPanel } from "./modules-panel";
 import { RecordingCard } from "./recording-card";
 
 export const metadata: Metadata = { title: "Center · Platform" };
@@ -48,15 +50,23 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
   }
   if (!centerRes.data) notFound();
   const center = centerRes.data;
-  const [entRes, domainRes, codeRes, promotedRes, kinds] = await Promise.all([
+  const [entRes, domainRes, codeRes, promotedRes, kinds, statesRes] = await Promise.all([
     db.rpc("center_entitlement_list", { p_center: id }),
     db.from("center_domains").select("domain, created_at").eq("center_id", id).order("domain"),
     db.from("member_join_codes").select("code, expires_at, created_at").eq("center_id", id).eq("active", true).order("created_at", { ascending: false }),
     center.sandbox_for ? db.from("centers").select("name, slug").eq("id", center.sandbox_for).maybeSingle() : Promise.resolve(null),
     loadExperiences(db),
+    db.rpc("module_states", { p_center: id }),
   ]);
+  const moduleRows = statesRes.error ? [] : buildModuleRowsFromStates(statesRes.data ?? []);
+  const kindLabel = (kinds.status === "ok" ? kinds.experiences.find((k) => k.key === center.category_key)?.label : null) ?? null;
+  // Niva for admins follows the `niva` module (0740): on only while it is enabled here and not paused by the community.
+  // Unknown (null) when the modules could not be read: the card says so instead of guessing.
+  const nivaRow = moduleRows.find((r) => r.key === "niva");
+  const nivaModuleOn: boolean | null = statesRes.error || !nivaRow ? null : nivaRow.enabled;
   const sandbox = center.environment === "sandbox";
-  const assistantOn = assistantEnabled(center.rules);
+  const assistantSwitch = assistantEnabled(center.rules);
+  const assistantOn = assistantSwitch && nivaModuleOn === true;
   const assistantTools = confirmToolChoices(center.rules);
   let aiKeySet = false;
   try {
@@ -114,11 +124,35 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
 
         <Card
           span={12}
+          title="Modules"
+          description="Which modules this community has · the community can pause and switch back on only what is enabled here · every change needs a reason and a fresh 2FA check"
+        >
+          {statesRes.error ? (
+            <QueryError what="the modules" error={statesRes.error} retryHref={`/platform/centers/${id}`} />
+          ) : (
+            <ModulesPanel centerId={id} rows={moduleRows} kindLabel={kindLabel} tz={tz} />
+          )}
+        </Card>
+
+        <Card
+          span={12}
           title="Niva for admins"
           description="Lets this community's staff ask Niva to look things up and prepare drafts · every change needs a reason and is audited"
         >
           <p className="mb-3 text-[13px]">
-            Now: <StatusText tone={assistantOn ? "ok" : "warn"}>{assistantOn ? "On" : "Off"}</StatusText> · AI key:{" "}
+            Now:{" "}
+            {assistantSwitch && nivaModuleOn === null ? (
+              <>
+                <StatusText tone="warn">Unknown</StatusText>
+                <span className="text-muted"> (the modules could not be read, so whether the Niva assistant module is on is not known; reload to try again)</span>
+              </>
+            ) : (
+              <StatusText tone={assistantOn ? "ok" : "warn"}>{assistantOn ? "On" : "Off"}</StatusText>
+            )}
+            {assistantSwitch && nivaModuleOn === false ? (
+              <span className="text-muted"> (switched on here, but the {nivaRow?.label ?? "Niva assistant"} module is not on for this community, so it stays off)</span>
+            ) : null}{" "}
+            · AI key:{" "}
             {aiKeySet ? (
               <StatusText tone="ok">set</StatusText>
             ) : (
@@ -131,7 +165,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
             <input type="hidden" name="center" value={id} />
             <input type="hidden" name="version" value={rulesVersion(center.rules) ?? ""} />
             <label className="flex items-start gap-2 text-[13px]">
-              <input type="checkbox" name="enabled" defaultChecked={assistantOn} className="mt-1" />
+              <input type="checkbox" name="enabled" defaultChecked={assistantSwitch} className="mt-1" />
               <span>
                 <span className="font-bold">Switch Niva for admins on for this community</span>
                 <span className="block text-muted">

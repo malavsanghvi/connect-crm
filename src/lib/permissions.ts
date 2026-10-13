@@ -401,9 +401,10 @@ export const NAV: NavModule[] = [
     tabs: [
       { href: "/giving/pledges", label: "Pledges", access: "pledges" },
       { href: "/giving/payments", label: "Payments & deposits", access: "payments" },
+      // Core: the Campaigns list lives under it; the opportunities page itself follows giving_opportunities (src/lib/modules.ts).
       { href: "/giving/opportunities", label: "Opportunities", access: "campaigns" },
-      { href: "/giving/recurring", label: "Recurring", access: "recurring" },
-      { href: "/giving/labh", label: "Labh fulfillment", access: "labh", kindFeature: "labh" },
+      { href: "/giving/recurring", label: "Recurring", access: "recurring", module: "giving_recurring" },
+      { href: "/giving/labh", label: "Labh fulfillment", access: "labh", kindFeature: "labh", module: "labh" },
       { href: "/giving/statements", label: "Receipts & statements", access: "statements" },
     ],
     paths: ["/giving"],

@@ -41,8 +41,8 @@ select pg_temp.assert(not exists (
       select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
        where n.nspname = 'app' and c.relname = mt.table_name and c.relkind in ('r','p'))),
   'module_tables lists no table that does not exist');
-select pg_temp.assert((select count(*) from app.modules) = 18 and (select array_agg(key order by key) from app.modules where core) = '{people}',
-  'the module catalog has the 18 contract modules and only people is core');
+select pg_temp.assert((select count(*) from app.modules) = 25 and (select array_agg(key order by key) from app.modules where core) = '{people}',
+  'the module catalog has the 18 contract modules and Giving''s 7 add-ons (0741), and only people is core');
 select pg_temp.assert(not exists (
     select mt.table_name from app.module_tables mt join app.modules m on m.key = mt.module_key
       join pg_class c on c.relname = mt.table_name join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'app'
@@ -199,15 +199,14 @@ select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000
   'Give a reason', 'a reason is required');
 select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'people', false, 'test')$$,
   'core platform', 'a core module cannot be switched off');
-select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'giving', false, 'test')$$,
-  'Bolis', 'a module cannot be switched off while a module that depends on it is on (the error names it)');
+-- (0740: a module others depend on may be switched off; they are off while it is. Test 150 covers it.)
 select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'nope', false, 'test')$$,
   'no module called', 'an unknown module is refused');
 select app.set_module_enabled(:jsh, 'bolis', false, 'Bolis are run on paper this year');
 select app.set_module_enabled(:jsh, 'accounting', false, 'QuickBooks not connected yet');
 select app.set_module_enabled(:jsh, 'giving', false, 'Giving moves to the new system in October');
-select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'bolis', true, 'test')$$,
-  'needs Pledges & donations', 'a module cannot be switched on while its dependency is off');
+select pg_temp.assert(not app.module_enabled(:jsh, 'bolis') and not app.module_enabled(:jsh, 'accounting'),
+  'Bolis and Accounting are off while Pledges & donations is off (0740: dependencies are evaluated; test 150)');
 select app.set_module_enabled(:jsh, 'events', false, 'Testing the events switch');
 select app.set_module_enabled(:jsh, 'jain_way', false, 'Testing the Jain Way switch');
 select app.set_module_enabled(:jsh, 'gyan_path', false, 'Testing the Gyan Path switch');
@@ -227,10 +226,10 @@ set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 select pg_temp.assert((select count(*) from app.center_modules where center_id = :jsh) = 6, 'members read their center''s module switches');
 select pg_temp.assert((select array_agg(key order by key) from app.my_modules(:jsh) where not enabled)
-                        = '{accounting,bolis,events,giving,gyan_path,jain_way}'
+                        = '{accounting,bolis,events,giving,giving_bank,giving_counts,giving_insights,giving_opportunities,giving_recurring,giving_statements,gyan_path,jain_way,labh}'
                       and (select enabled and core from app.my_modules(:jsh) where key = 'people')
-                      and (select count(*) from app.my_modules(:jsh)) = 18,
-  'my_modules lists every module with its state, core ones always on');
+                      and (select count(*) from app.my_modules(:jsh)) = 25,
+  'my_modules lists every module with its state, core ones always on (Giving off: its seven add-ons too, 0740/0741)');
 select pg_temp.assert((select count(*) from app.my_modules(:other)) = 0, 'my_modules says nothing about a center you do not belong to');
 commit;
 begin;

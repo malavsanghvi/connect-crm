@@ -3,7 +3,7 @@
 
 import type { AuditRow } from "@/components/audit-table";
 import type { FamilyModel, FamilyPerson } from "@/lib/people-v2/family-model";
-import { privacyValues } from "@/lib/people-v2/family-model";
+import { preferenceValues, privacyValues } from "@/lib/people-v2/family-model";
 import {
   addIdKinds,
   detailHousehold,
@@ -40,7 +40,12 @@ const LABELS: Record<string, string> = {
 const labelOf = (k: string) => LABELS[k] ?? k;
 const FINANCE = ["accounting", "bank_payer", "payment_provider"];
 
+/** What else is on an adult's record (interests, expertise areas, call time, the ways they like to be reached, the daily goal). */
+type Prefs = { interests: string[]; areas: string[]; callTime: string; channels: string[]; goal: number | null };
+const NO_PREFS: Prefs = { interests: [], areas: [], callTime: "", channels: [], goal: null };
+
 type Extra = {
+  prefs: Prefs;
   linkedAt: string | null;
   roles: string[];
   waiver: string;
@@ -58,6 +63,7 @@ const NONE: ProfileDetails = { anniversary: null, dietary: [], emergency: null, 
 
 const EXTRA: Record<string, Extra> = {
   "p-samira": {
+    prefs: { interests: ["volunteering", "youth", "Community kitchen"], areas: ["Pharmacy", "Health"], callTime: "evening", channels: ["phone_call", "email"], goal: 10 },
     linkedAt: "2026-03-03T15:00:00Z",
     roles: ["Volunteer coordinator"],
     waiver: "Signed",
@@ -86,6 +92,7 @@ const EXTRA: Record<string, Extra> = {
     memberships: [{ id: "m1", tier: "yearly", status: "active", startsOn: "2025-04-01", endsOn: "2027-03-31", household: { name: "Hassan household", number: "0301" } }],
   },
   "p-karim": {
+    prefs: NO_PREFS,
     linkedAt: null,
     roles: [],
     waiver: "No volunteer shifts",
@@ -99,6 +106,7 @@ const EXTRA: Record<string, Extra> = {
     memberships: [],
   },
   "p-layla": {
+    prefs: NO_PREFS,
     linkedAt: null,
     roles: [],
     waiver: "",
@@ -111,8 +119,9 @@ const EXTRA: Record<string, Extra> = {
     ids: [],
     memberships: [],
   },
-  "p-omar2": { linkedAt: null, roles: [], waiver: "", background: "", details: NONE, expertise: "", photo: false, newMember: false, expertiseOn: false, ids: [], memberships: [] },
+  "p-omar2": { prefs: NO_PREFS, linkedAt: null, roles: [], waiver: "", background: "", details: NONE, expertise: "", photo: false, newMember: false, expertiseOn: false, ids: [], memberships: [] },
   "p-misaki": {
+    prefs: { interests: ["events", "seniors", "茶道"], areas: ["薬学"], callTime: "morning", channels: ["whatsapp", "email"], goal: 5 },
     linkedAt: "2026-05-11T18:30:00Z",
     roles: [],
     waiver: "No volunteer shifts",
@@ -175,6 +184,13 @@ export function detailFixture(family: FamilyKey, personId: string, o: { access: 
     account: part.ok({ linkedAt: x.linkedAt, hasEmail: Boolean(person.values.email) || !child, hasMobile: Boolean(person.values.phone_e164), childLoginAge: 13 }),
     roles,
     profileDetails: details,
+    preferences: child
+      ? null
+      : {
+          values: preferenceValues({ interests: x.prefs.interests, expertise_tags: x.prefs.areas, best_call_time: x.prefs.callTime || null, gyan_daily_minutes: x.prefs.goal }),
+          channels: x.prefs.channels,
+          learningOn: true,
+        },
     privacy: {
       values: privacyValues({ photo_opt_in: x.photo, new_member_contact_opt_in: x.newMember, expertise_opt_in: x.expertiseOn, expertise_headline: x.expertise }),
       directory: household ? (model.values.directory_opt_in === "on" ? "Listed with the household" : "Not listed") : null,

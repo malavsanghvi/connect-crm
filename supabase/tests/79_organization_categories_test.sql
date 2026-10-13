@@ -160,26 +160,29 @@ select pg_temp.assert_raises($$insert into app.organization_categories (key, lab
   'organization_categories_terms_ok', 'A · a word the database does not know is refused');
 
 -- Every category has a row for every module; the matrix of the plan.
-select pg_temp.assert((select count(*) from app.category_modules) = 126
+select pg_temp.assert((select count(*) from app.category_modules) = 175
                       and not exists (select 1 from app.organization_categories k cross join app.modules m
                                        where not exists (select 1 from app.category_modules cm where cm.category_key = k.key and cm.module_key = m.key)),
-  'A · every category has a row for every module (7 x 18)');
-select pg_temp.assert((select count(*) from app.category_modules where category_key = 'jain_center' and availability = 'default_on' and label is null and description is null) = 18,
-  'A · Jain Center: all 18 modules default_on, with no names of their own (today)');
+  'A · every category has a row for every module (7 x 25: 0741 adds Giving''s 7 add-ons)');
+select pg_temp.assert((select count(*) from app.category_modules where category_key = 'jain_center' and availability = 'default_on' and label is null and description is null) = 23
+                      and (select array_agg(module_key || '=' || label order by module_key) from app.category_modules where category_key = 'jain_center' and label is not null)
+                            = array['giving_counts=Bhandar counts', 'labh=Labh']
+                      and (select count(*) from app.category_modules where category_key = 'jain_center' and availability = 'default_on') = 25,
+  'A · Jain Center: all 25 modules default_on; only Bhandar counts and Labh carry the kind''s own name (0741)');
 select pg_temp.assert((select array_agg(module_key order by module_key) from app.category_modules where category_key = 'chamber_of_commerce' and availability = 'not_available')
-                        = array['bolis', 'gyan_path', 'jain_way', 'pathshala']
+                        = array['bolis', 'gyan_path', 'jain_way', 'labh', 'pathshala']
                       and (select array_agg(module_key order by module_key) from app.category_modules where category_key = 'chamber_of_commerce' and availability = 'default_off')
                         = array['niva', 'store']
                       and (select label from app.category_modules where category_key = 'chamber_of_commerce' and module_key = 'giving') = 'Dues & payments'
                       and (select label from app.category_modules where category_key = 'chamber_of_commerce' and module_key = 'store') = 'Store',
   'A · a chamber never has Bolis, Gyan Path, My Jain Way or Pathshala; Store and Niva start off; giving is "Dues & payments"');
 select pg_temp.assert((select array_agg(module_key order by module_key) from app.category_modules where category_key = 'nonprofit_secular' and availability = 'not_available')
-                        = array['bolis', 'gyan_path', 'jain_way', 'pathshala']
+                        = array['bolis', 'gyan_path', 'jain_way', 'labh', 'pathshala']
                       and (select array_agg(module_key order by module_key) from app.category_modules where category_key = 'nonprofit_secular' and availability = 'default_off')
                         = array['niva', 'store'],
   'A · a secular non-profit: the same modules as a chamber');
 select pg_temp.assert((select array_agg(module_key order by module_key) from app.category_modules where category_key = 'faith_other' and availability = 'not_available')
-                        = array['bolis', 'jain_way']
+                        = array['bolis', 'jain_way', 'labh']
                       and (select array_agg(module_key order by module_key) from app.category_modules where category_key = 'faith_other' and availability = 'default_off')
                         = array['gyan_path', 'niva', 'pathshala', 'store']
                       and (select label from app.category_modules where category_key = 'faith_other' and module_key = 'pathshala') = 'Religious school'
@@ -221,7 +224,7 @@ select pg_temp.assert((select count(*) from app.module_tables where table_name i
                              and t.tgname in ('audit_organization_categories', 'audit_category_modules', 'audit_category_paths')) = 3,
   'A · the three catalogs are core platform tables and audited');
 set role anon;
-select pg_temp.assert((select count(*) from app.organization_categories) = 7 and (select count(*) from app.category_modules) = 126
+select pg_temp.assert((select count(*) from app.organization_categories) = 7 and (select count(*) from app.category_modules) = 175
                       and (select count(*) from app.category_paths) = 10, 'A · guests read the three catalogs');
 select pg_temp.assert_raises($$insert into app.organization_categories (key, label, faith_based, terms) values ('guest_made', 'Guest', false, '{}')$$,
   'permission denied', 'A · a guest cannot write a catalog');
@@ -246,8 +249,8 @@ select pg_temp.claims(:cc, true);
 select pg_temp.assert(app.setup_auto_status(:jsh) = app._setup_auto_status_before_0594(:jsh),
   'B · Setup''s computed statuses for JSH are exactly what they were');
 select pg_temp.no_claims();
-select pg_temp.assert((select bool_and(app.module_availability(:jsh, m.key) = 'default_on') and count(*) = 18 from app.modules m),
-  'B · every one of the 18 modules is default_on for JSH');
+select pg_temp.assert((select bool_and(app.module_availability(:jsh, m.key) = 'default_on') and count(*) = 25 from app.modules m),
+  'B · every one of the 25 modules is default_on for JSH');
 
 -- Reads as a JSH administrator and as a JSH member, with every module on (any switch earlier tests left is cleared; the
 -- whole test is rolled back), under the new functions...
@@ -280,9 +283,9 @@ select pg_temp.no_claims();
 rollback to savepoint as_in_0101;
 select pg_temp.assert(:'a_new'::jsonb = :'a_old'::jsonb, 'B · a JSH administrator reads the same rows from every module table, the same my_modules and the same access areas as under 0101');
 select pg_temp.assert(:'am_new'::jsonb = :'am_old'::jsonb, 'B · a JSH member reads the same rows from every module table, the same my_modules and the same access areas as under 0101');
-select pg_temp.assert(jsonb_array_length(:'am_new'::jsonb->'modules') = 18
+select pg_temp.assert(jsonb_array_length(:'am_new'::jsonb->'modules') = 25
                       and (select bool_and((e->>'enabled')::boolean) from jsonb_array_elements(:'am_new'::jsonb->'modules') e),
-  'B · my_modules(JSH) returns the same 18 rows, all on');
+  'B · my_modules(JSH) returns the same 25 rows, all on');
 select pg_temp.assert((select count(*) from jsonb_each(:'a_new'::jsonb->'counts') e where (e.value)::text::bigint >= 0) > 40
                       and (:'a_new'::jsonb->'counts'->>'bolis')::bigint >= 1,
   'B · the comparison is not empty: dozens of module tables were counted and the administrator reads the boli');
@@ -497,12 +500,12 @@ select pg_temp.assert(app.module_enabled(:jsh, 'test_module79') and not app.modu
 insert into app.organization_categories (key, label, faith_based, terms) values
   ('test_cat79', 'Test category', false,
    '{"greeting":"Welcome","practice_tab":null,"give_tab":"Give","family_tab":"Family","store":"Store","school":null,"learning":null,"place":"office","assistant_context":"a test"}');
-select pg_temp.assert((select count(*) from app.category_modules where category_key = 'test_cat79') = 20
+select pg_temp.assert((select count(*) from app.category_modules where category_key = 'test_cat79') = 27
                       and (select count(*) from app.category_modules where category_key = 'test_cat79' and availability = 'default_on') = 2
                       and (select availability from app.category_modules where category_key = 'test_cat79' and module_key = 'people') = 'default_on',
-  'A · a category added later gets a row for every module (20 with the two test modules): only the core modules on');
+  'A · a category added later gets a row for every module (27 with the two test modules): only the core modules on');
 rollback to savepoint a_new_module_and_a_new_category;
-select pg_temp.assert((select count(*) from app.modules) = 18 and (select count(*) from app.category_modules) = 126
+select pg_temp.assert((select count(*) from app.modules) = 25 and (select count(*) from app.category_modules) = 175
                       and (select count(*) from app.organization_categories) = 7,
   'A · (and the rollback put the catalogs back)');
 
@@ -526,9 +529,9 @@ select pg_temp.assert_raises($$select app.boli_minimum('79000000-0000-4000-8000-
 select pg_temp.assert(pg_temp.hint_of($$select app.boli_minimum('79000000-0000-4000-8000-0000000000e8')$$)
                         = 'Community Connect can change an organization''s category.',
   'C · and says who can change the category');
-select pg_temp.assert((select array_agg(key order by key) from app.my_modules(:'chm') where not enabled) = array['bolis', 'gyan_path', 'jain_way', 'niva', 'pathshala', 'store']
-                      and (select count(*) from app.my_modules(:'chm')) = 18 and (select enabled and core from app.my_modules(:'chm') where key = 'people'),
-  'C · my_modules: the same 18 rows, the modules the chamber does not have come back enabled = false');
+select pg_temp.assert((select array_agg(key order by key) from app.my_modules(:'chm') where not enabled) = array['bolis', 'gyan_path', 'jain_way', 'labh', 'niva', 'pathshala', 'store']
+                      and (select count(*) from app.my_modules(:'chm')) = 25 and (select enabled and core from app.my_modules(:'chm') where key = 'people'),
+  'C · my_modules: the same 25 rows, the modules the chamber does not have come back enabled = false');
 -- The switch: a module the category does not have cannot be switched on.
 select pg_temp.assert_raises(format($$select app.set_module_enabled(%L, 'bolis', true, 'Please')$$, :'chm'),
   'Bolis is not part of a Chamber of commerce organization, so it cannot be switched on', 'C · set_module_enabled refuses to switch on a module the category does not have');
@@ -549,7 +552,7 @@ select pg_temp.assert((select count(*) from app.setup_checklist(:'chm') where mo
                                         and (status <> 'skipped' or detail <> 'The My Store module is switched off.')),
   'C · and the Store steps, which the chamber may switch on, say what they always said');
 -- Settings › Modules.
-select pg_temp.assert((select count(*) from app.module_states(:'chm')) = 18
+select pg_temp.assert((select count(*) from app.module_states(:'chm')) = 25
                       and (select availability = 'not_available' and not enabled and not switchable and label = 'Bolis' from app.module_states(:'chm') where key = 'bolis')
                       and (select availability = 'default_off' and not enabled and switchable and label = 'Store' from app.module_states(:'chm') where key = 'store')
                       and (select label = 'Dues & payments' and enabled and switchable from app.module_states(:'chm') where key = 'giving')
@@ -561,6 +564,12 @@ select pg_temp.assert((select tradition = 'other' from app.centers where id = :'
 -- Store starts off; the chamber switches it on and off.
 select pg_temp.assert(not app.module_enabled(:'chm', 'store') and (select count(*) from app.store_categories where center_id = :'chm') = 0,
   'C · Store starts off');
+-- 0740: Store and Niva start off for a chamber and wait for Weaver, so a platform admin grants them first (test 150 covers
+-- the refusal without a grant).
+select pg_temp.claims(:cc, true);
+select app.set_module_grant(:'chm', 'store', true, 'Test 79: the chamber may open a store');
+select app.set_module_grant(:'chm', 'niva', true, 'Test 79: the chamber may try Niva');
+select pg_temp.claims(:chadmin, true);
 select app.set_module_enabled(:'chm', 'store', true, 'Opening a store for members');
 select pg_temp.assert(app.module_enabled(:'chm', 'store') and (select count(*) from app.store_categories where center_id = :'chm') = 1
                       and not (:'chm'::uuid = any (app.module_off_centers('store')))
@@ -578,7 +587,7 @@ select pg_temp.assert_raises(format($$select * from app.module_states(%L)$$, :'c
   'C · a member without settings.manage cannot read the module list');
 select pg_temp.assert_raises(format($$select * from app.log_practice(%L, '79000000-0000-4000-8000-0000000000eb')$$, :'chm'),
   'My Jain Way is not part of a Chamber of commerce organization.', 'C · a member cannot log a practice in a chamber (the Jain Way RPC refuses)');
-select pg_temp.assert((select count(*) from app.practices where center_id = :'chm') = 0 and (select count(*) from app.my_modules(:'chm')) = 18,
+select pg_temp.assert((select count(*) from app.practices where center_id = :'chm') = 0 and (select count(*) from app.my_modules(:'chm')) = 25,
   'C · a chamber member reads no practices and gets the same my_modules');
 reset role;
 select pg_temp.no_claims();
@@ -605,8 +614,8 @@ select pg_temp.assert((select app.category_profile(:jsh)->'category'->>'key') = 
                       and (select app.category_profile(:jsh)->'category'->'terms'->>'greeting') = 'Jai Jinendra'
                       and (select jsonb_array_length(app.category_profile(:jsh)->'paths')) = 10
                       and (select app.category_profile(:jsh)->>'default_path') = 'shwetambar_murtipujak'
-                      and (select count(*) from jsonb_each(app.category_profile(:jsh)->'modules') e where e.value->>'availability' = 'default_on') = 18,
-  'C · category_profile for JSH: today''s words, all 18 modules default_on, ten paths, the default path of its Murtipujak tradition');
+                      and (select count(*) from jsonb_each(app.category_profile(:jsh)->'modules') e where e.value->>'availability' = 'default_on') = 25,
+  'C · category_profile for JSH: today''s words, all 25 modules default_on, ten paths, the default path of its Murtipujak tradition');
 select pg_temp.assert_raises($$select app.category_profile('79000000-0000-4000-8000-0000000000ff')$$, 'That community was not found.',
   'C · category_profile: an unknown community is "not found"');
 reset role;
@@ -631,10 +640,13 @@ select pg_temp.claims(:cc, true);
 select pg_temp.assert(app.assert_module_enabled(:'chm', 'bolis') and (select count(*) from app.bolis where center_id = :'chm') = 1
                       and (select count(*) from app.pathshala_terms where center_id = :'chm') = 1,
   'C · a platform admin still passes the guards and reads a module the chamber does not have');
-select pg_temp.assert((select count(*) from app.module_states(:jsh)) = 18 and not exists (select 1 from app.module_states(:jsh) where availability <> 'default_on')
-                      and (select count(*) from app.module_states(:jsh) where switchable) = 17
-                      and not exists (select 1 from app.module_states(:jsh) m join app.modules b on b.key = m.key where m.label <> b.label),
-  'C · module_states for JSH: every module default_on with its own name, 17 can be switched (People is core)');
+select pg_temp.assert((select count(*) from app.module_states(:jsh)) = 25 and not exists (select 1 from app.module_states(:jsh) where availability <> 'default_on')
+                      and (select count(*) from app.module_states(:jsh) where switchable) = 24
+                      and not exists (select 1 from app.module_states(:jsh) m join app.modules b on b.key = m.key
+                                       where m.label <> b.label and m.key not in ('giving_counts', 'labh'))
+                      and (select label from app.module_states(:jsh) where key = 'giving_counts') = 'Bhandar counts'
+                      and (select label from app.module_states(:jsh) where key = 'labh') = 'Labh',
+  'C · module_states for JSH: every module default_on with its own name (Bhandar counts and Labh in the kind''s words, 0741), 24 can be switched (People is core)');
 reset role;
 select pg_temp.no_claims();
 
@@ -696,12 +708,12 @@ select pg_temp.assert((select category_key from app.centers where id = :'jt') = 
 -- The preview says what will be hidden, in plain English, and changes nothing.
 select app.category_change_preview(:'jt', 'chamber_of_commerce') as preview \gset
 select pg_temp.assert((:'preview'::jsonb->>'changed')::boolean
-                      and (select array_agg(h->>'module') from jsonb_array_elements(:'preview'::jsonb->'hidden') h) = array['bolis', 'store', 'pathshala', 'gyan_path', 'jain_way', 'niva']
+                      and (select array_agg(h->>'module') from jsonb_array_elements(:'preview'::jsonb->'hidden') h) = array['labh', 'bolis', 'store', 'pathshala', 'gyan_path', 'jain_way', 'niva']
                       and (select (h->>'records')::int from jsonb_array_elements(:'preview'::jsonb->'hidden') h where h->>'module' = 'bolis') = 1
                       and (select h->>'text' from jsonb_array_elements(:'preview'::jsonb->'hidden') h where h->>'module' = 'bolis')
                             = 'Bolis: 1 record will be hidden, not deleted (1 in bolis).'
                       and (select h->>'text' from jsonb_array_elements(:'preview'::jsonb->'hidden') h where h->>'module' = 'niva')
-                            = 'Niva assistant: nothing is stored yet, so nothing is hidden; it can be switched on again in Settings › Modules.'
+                            = 'Niva assistant: nothing is stored yet, so nothing is hidden; Weaver can enable it again.'
                       and (:'preview'::jsonb->>'paths_kept')::int = 2
                       and :'preview'::jsonb->'tradition'->>'after' = 'other'
                       and :'preview'::jsonb->'summary' ? 'Nothing is deleted; changing back restores it.',
@@ -724,7 +736,7 @@ select app.set_center_category(:'jt', 'chamber_of_commerce', 'Without section G'
 reset role;
 select pg_temp.no_claims();
 select pg_temp.assert((:'preview_no_g'::jsonb->>'paths_kept')::int = 0
-                      and (select array_agg(h->>'module') from jsonb_array_elements(:'preview_no_g'::jsonb->'hidden') h) = array['bolis', 'store', 'pathshala', 'gyan_path', 'jain_way', 'niva']
+                      and (select array_agg(h->>'module') from jsonb_array_elements(:'preview_no_g'::jsonb->'hidden') h) = array['labh', 'bolis', 'store', 'pathshala', 'gyan_path', 'jain_way', 'niva']
                       and (select category_key from app.centers where id = :'jt') = 'chamber_of_commerce',
   'D · section G is separable: without person_profile_details.path_key the preview counts no paths and set_center_category still works');
 rollback to savepoint without_section_g;

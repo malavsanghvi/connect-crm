@@ -20,7 +20,7 @@ export default async function ModulesPage() {
   const header = (
     <PageHeader
       title="Settings"
-      description={`Switch whole areas on or off for ${center} · switched-off modules disappear from the portal and the member app, and the database refuses their data`}
+      description={`Pause or switch back on the areas Weaver has enabled for ${center} · paused modules disappear from the portal and the member app, and the database refuses their data`}
     />
   );
   if (!canAccess(session, "centerSettings")) {
@@ -67,13 +67,15 @@ export default async function ModulesPage() {
     const switches: SwitchLike[] = !firstError && switchesRes ? (switchesRes.data ?? []) : [];
     rows = buildModuleRows(catalog && catalog.length > 0 ? catalog : null, switches);
   }
+  // A load error shows the error alone: no table that would show modules as on when nothing could be read.
+  const loadFailed = Boolean(firstError && !isMissingObject(firstError));
   // Only a kind that changes the set of modules says so; a kind with every module on (a Jain Center) reads as before.
   const kindShapesModules = rows.some((r) => r.availability !== "default_on");
   const names = await userNames(session.db, session.center.id, rows.map((r) => r.changedBy));
   const view: ModuleRowView[] = rows.map((r) => ({
     ...r,
     changedLine: r.changedAt
-      ? `${r.enabled ? "Switched on" : "Switched off"} ${formatDateTime(r.changedAt, session.center.time_zone)}${
+      ? `${r.paused ? "Paused" : "Switched on"} ${formatDateTime(r.changedAt, session.center.time_zone)}${
           r.changedBy ? ` by ${names.get(r.changedBy)?.name ?? "a former user"}` : ""
         }`
       : null,
@@ -87,15 +89,17 @@ export default async function ModulesPage() {
           <Alert tone={notice.tone}>{notice.text}</Alert>
         </div>
       ) : null}
+      {loadFailed ? null : (
       <Card
         title="Modules"
-        description={`Each switch needs a reason; it is kept in the audit log. Core modules are always on. A module another one depends on can only be switched off after that one.${
+        description={`Weaver decides which modules ${center} has; you can pause any of them and switch it back on. Each switch needs a reason; it is kept in the audit log. Core modules are always on. A module that needs another is off while that one is off, and comes back with it.${
           kindShapesModules ? ` ${kindOrganizations(session.kind.label)} have their own set of modules: any the kind never offers are listed at the bottom, without a switch.` : ""
         }`}
         padded={false}
       >
         <ModulesForm rows={view} canSwitch={canSwitch} kindLabel={session.kind.label} />
       </Card>
+      )}
     </>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PreviewShell } from "@/app/dev/people-shell";
+import { PersonEventsBody } from "@/components/people-v2/events/person-events";
 import { AuditTable } from "@/components/audit-table";
 import { GivingGlanceView } from "@/components/giving-glance/giving-glance";
 import type { FamilyLinks } from "@/components/people-v2/family/family-header";
@@ -12,6 +13,8 @@ import { familyChips } from "@/lib/people-v2/family-model";
 import { NO_ACCESS_TEXT, sectionPlan } from "@/lib/people-v2/slideover";
 
 import { AMARA, FIXTURE_ROWS, PREVIEW_CURRENCY } from "../giving-glance/fixtures";
+import { EVENT_STATES, addSetup, personLines, readError, type EventState } from "../people-event-add/fixtures";
+import { EVENT_STEPS } from "../people-event-add/script";
 import { PREVIEW_COMMUNITY, familyFixture, type FamilyKey } from "../people-family/fixtures";
 
 import { detailFixture, findPerson, historyRows, PREVIEW_TZ, type Access } from "./fixtures";
@@ -34,6 +37,13 @@ const STEPS = [
   "name",
   "dob",
   "gender",
+  "goes-by",
+  "interests-edit",
+  "interests-save",
+  "interests-remove-old",
+  "areas-edit",
+  "call-time",
+  "daily-goal",
   "switch",
   "ids-add",
   "ids-add-save",
@@ -47,6 +57,7 @@ const STEPS = [
   "add-person-save",
   "add-person-child",
   "add-person-bad",
+  ...EVENT_STEPS,
 ] as const satisfies readonly Step[];
 
 /**
@@ -58,7 +69,8 @@ const STEPS = [
  *   ?access=full|view|limited             full; without people.manage; and a role that cannot read roles, history or finance IDs
  *   ?mode=page                            the person in no family: the same content on the page itself
  *   ?view=choose                          a person in two families: the chooser
- *   ?open=all                             every section open
+ *   ?open=all                             every section open; ?open=events: only the Events section
+ *   ?events=ok|slow|already|full|error|noaccess|loaderror|empty|view-only|nofamily|off|noread|readerror   what the Events section and its Add to an event panel answer
  *   ?do=<step>                            opens an editor, a menu or the Add person card (and types) so a screenshot shows that state
  *   ?ms=<state>                           the Memberships section, open, in a state: list, edit, edit-problem, edit-error, tier, tier-confirm,
  *                                         tier-error, assign, assign-fee, assign-nofee, assign-confirm, assign-confirm-life,
@@ -72,10 +84,11 @@ export default async function PeopleSlideOverPreview({ searchParams }: { searchP
   const scenario = pick<Scenario>(one(sp.scenario), ["ok", "conflict", "error", "access"], "ok");
   const access = pick<Access>(one(sp.access), ["full", "view", "limited"], "full");
   const step = pick<Step>(one(sp.do), STEPS, "none");
+  const eventsState = pick<EventState>(one(sp.events), EVENT_STATES, "ok");
   const standalone = one(sp.mode) === "page";
   const asked = one(sp.person);
   const personId = asked === "none" ? null : (asked ?? DEFAULT_PERSON[family]);
-  const base = `?family=${family}${access !== "full" ? `&access=${access}` : ""}${scenario !== "ok" ? `&scenario=${scenario}` : ""}`;
+  const base = `?family=${family}${access !== "full" ? `&access=${access}` : ""}${scenario !== "ok" ? `&scenario=${scenario}` : ""}${eventsState !== "ok" ? `&events=${eventsState}` : ""}`;
   const model = familyFixture(family, { canEdit: access === "full" });
 
   if (one(sp.view) === "choose") {
@@ -105,9 +118,14 @@ export default async function PeopleSlideOverPreview({ searchParams }: { searchP
   const detail = personId ? detailFixture(family, personId, { access, standalone }) : null;
   const person = personId ? findPerson(model, personId) : null;
   const ms = pick<MsState>(one(sp.ms), MS_STATES, "list");
-  const plan = sectionPlan({ isChild: Boolean(person?.isChild), givingByPerson: one(sp.giving) !== "household", givingOn: true, hasHistory: true }).map((s) => ({
+  const plan = sectionPlan({ isChild: Boolean(person?.isChild), givingByPerson: one(sp.giving) !== "household", givingOn: true, hasHistory: true, hasEvents: eventsState !== "off" }).map((s) => ({
     ...s,
-    open: one(sp.open) === "all" || (s.key === "memberships" && Boolean(one(sp.ms))) ? true : s.open,
+    open:
+      one(sp.open) === "all" || (s.key === "memberships" && Boolean(one(sp.ms)))
+        ? true
+        : one(sp.open) === "events"
+          ? s.key === "events"
+          : s.open,
   }));
   const memberships = person ? (
     (() => {
@@ -163,6 +181,18 @@ export default async function PeopleSlideOverPreview({ searchParams }: { searchP
       <AuditTable rows={historyRows(personId ?? "p", person?.name ?? "")} timeZone={PREVIEW_TZ} actors={new Map([["dev-user", { name: "Grace Mwangi" }]])} />
     );
 
+  const events =
+    eventsState === "off" || !person ? undefined : eventsState === "noread" ? (
+      <p className="m-0 py-1 text-[14px] text-muted">{NO_ACCESS_TEXT}</p>
+    ) : (
+      <PersonEventsBody
+        firstName={person.firstName}
+        list={eventsState === "readerror" ? readError() : personLines(family, person.id)}
+        timeZone={PREVIEW_TZ}
+        add={addSetup(eventsState, model, person.id, standalone)}
+      />
+    );
+
   return (
     <PreviewShell community={PREVIEW_COMMUNITY} extraPath="/dev/people-slideover">
       <PreviewSlideOver
@@ -176,7 +206,9 @@ export default async function PeopleSlideOverPreview({ searchParams }: { searchP
         }
         detail={detail}
         plan={plan}
-        slots={{ glance, history, memberships }}
+        slots={{ glance, history, memberships, events }}
+        family={family}
+        eventsState={eventsState}
         hrefs={{ details: `/dev/people-slideover${base}&person=${personId ?? ""}`, move: `/dev/people-slideover${base}&person=${personId ?? ""}&mode=move`, merge: "/dev/people-slideover" }}
         closeHref={`/dev/people-slideover${base}&person=none`}
         base={base}

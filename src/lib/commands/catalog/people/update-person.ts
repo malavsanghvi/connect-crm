@@ -1,7 +1,9 @@
 import {
+  ADULT_ONLY_FIELDS,
   FIELD_LABELS,
   PERSON_FIELDS,
   RELATIONSHIP_OPTIONS,
+  SCREEN_ONLY_FIELDS,
   changedKeys,
   genderValue,
   isHouseholdRole,
@@ -14,6 +16,9 @@ import {
 import { loadCommunityLocale } from "@/lib/community-locale";
 import { ageOn } from "@/lib/dates";
 import { REASON_MAX, conflictKeys, conflictSentence, parseExpect } from "@/lib/people-v2/inline-edit";
+import { interestsDisplay } from "@/lib/person-interests";
+import { listDisplay } from "@/lib/person-lists";
+import { INTEREST_KEYS } from "@/lib/profile-details";
 import { dbWithReason } from "@/lib/session";
 import { communityMajority } from "../../child-filter";
 
@@ -26,6 +31,8 @@ import { CHILD_RECORDS_ON_SCREEN, cardsFor, dbFail, loadPersonBrief, lowerFirst,
 
 const ROLES = RELATIONSHIP_OPTIONS.map((o) => o.value) as ["spouse", ...string[]];
 const text = (what: string) => f.optional(f.string(what, { min: 0, max: 1000 }));
+// A list arrives as JSON like ["chess","music"] (or items separated by commas); a long one is still short text.
+const list = (what: string) => f.optional(f.string(what, { min: 0, max: 4000 }));
 
 const input = object({
   id: f.uuid("The person to change (their id, from people.find_household or people.household_summary)."),
@@ -42,14 +49,25 @@ const input = object({
   new_member_contact_opt_in: text("Screen only: open to new members. Niva does not change it."),
   expertise_opt_in: text("Screen only: expertise listing. Niva does not change it."),
   expertise_headline: text("Screen only: expertise headline. Niva does not change it."),
+  preferred_name: text("Screen only: the name the person goes by, in place of their first name. Empty clears it. Niva does not change it."),
+  interests: list(
+    `Screen only: interests, as a JSON list of the member app's keys (${INTEREST_KEYS.join(", ")}) like ["events","youth"]. Only those keys can be added; one already on file may stay. Empty clears them. Not for children. Niva does not change them.`,
+  ),
+  expertise_tags: list('Screen only: areas of expertise, as a JSON list like ["law","tax"] or items separated by commas. Empty clears them. Not for children. Niva does not change them.'),
+  best_call_time: text("Screen only: best time to call: morning, afternoon or evening. Empty clears it. Not for children. Niva does not change it."),
+  gyan_daily_minutes: text("Screen only: daily learning goal in minutes: 5, 10 or 15. Empty clears it. Not for children. Niva does not change it."),
   household_id: f.optional(f.uuid("With role: the household this person's relationship is changed in.")),
   role: f.optional(f.enum("A new relationship to that household (never primary). Needs household_id.", ROLES)),
-  expect: text(
+  expect: list(
     "Screen only: the value(s) the person saw before changing them, as JSON like {\"phone_e164\": \"+15125550101\"}. If someone else changed one of them meanwhile, nothing is saved and the screen shows the new value.",
   ),
   reason: text("Why the details are changing (goes in the audit log). Optional."),
 });
 export type UpdatePersonInput = Infer<typeof input>;
+
+/** Said to Niva (and anyone else who is not at the People screen) that asks for one of the screen-only details. */
+export const SCREEN_ONLY_ON_SCREEN =
+  "A preferred name, interests, expertise areas, best time to call and a daily learning goal are set on the People screen, not by Niva. Please do this on the People screen.";
 
 /** The privacy choices a person makes for themselves: Niva never sets them. */
 const PRIVACY_FIELDS = ["photo_opt_in", "new_member_contact_opt_in", "expertise_opt_in", "expertise_headline"] as const;
@@ -73,7 +91,7 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
   const current = await db
     .from("people")
     .select(
-      "first_name, last_name, date_of_birth, gender, profession, employer, phone_e164, email, language, photo_opt_in, new_member_contact_opt_in, expertise_opt_in, expertise_headline, merged_into_id",
+      "first_name, last_name, date_of_birth, gender, profession, employer, phone_e164, email, language, photo_opt_in, new_member_contact_opt_in, expertise_opt_in, expertise_headline, preferred_name, interests, expertise_tags, best_call_time, gyan_daily_minutes, merged_into_id",
     )
     .eq("id", id)
     .eq("center_id", center.id)
@@ -91,6 +109,7 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
     const brief = await loadPersonBrief(ctx, id);
     if (brief) refuseChildForAssistant(ctx, brief);
     if (PRIVACY_FIELDS.some((k) => raw[k] !== undefined)) throw new CommandError("Photo, directory and expertise choices are the person's own to make. They can change them in the app, or you can change them on the People screen.");
+    if (SCREEN_ONLY_FIELDS.some((k) => raw[k] !== undefined)) throw new CommandError(SCREEN_ONLY_ON_SCREEN);
     // A new birth date that makes an adult a child is a child's record too (the form accepts MM/DD/YYYY or YYYY-MM-DD).
     const dob = parseDateInput(raw.date_of_birth ?? "");
     const age = dob.ok && dob.value ? ageOn(dob.value, today(ctx)) : null;
@@ -104,7 +123,20 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
     const community = await loadCommunityLocale(db, center);
     languages = community.known ? [...community.languages, (current.data as { language?: string }).language ?? "en"] : undefined;
   }
-  const parsed = parsePersonForm(raw, today(ctx), languages);
+  // D2: interests, expertise areas, a call time and a daily goal are not kept for anyone under the age of majority, by any caller. A
+  // child's record can carry a preferred name and nothing else of these. The birth date sent with them counts too. This is asked
+  // before the values are checked, so a child's record is refused as a child's, whatever was sent.
+  const adultOnly = ADULT_ONLY_FIELDS.filter((k) => raw[k] !== undefined);
+  if (adultOnly.length > 0) {
+    const brief = await loadPersonBrief(ctx, id);
+    const sent = raw.date_of_birth === undefined ? null : parseDateInput(raw.date_of_birth);
+    const age = sent && sent.ok && sent.value ? ageOn(sent.value, today(ctx)) : null;
+    if (!brief || !brief.isAdult || (age !== null && age < communityMajority(center))) {
+      throw new CommandError(`Could not save the profile — a child's record does not hold ${listPhrase(adultOnly.map((k) => FIELD_LABELS[k] ?? k))}. Only a preferred name can be set for a child.`);
+    }
+  }
+  // An interest already on the record may stay; any other must be one of the member app's keys (src/lib/person-interests.ts).
+  const parsed = parsePersonForm(raw, today(ctx), languages, { interests: (current.data as { interests?: string[] | null }).interests });
   if (!parsed.ok) throw new CommandError(`Could not save the profile — ${parsed.error}.`);
   const expected = parseExpect(inp.expect);
   if (!expected.ok) throw new CommandError(`Could not save the profile — ${lowerFirst(expected.error)}`);
@@ -137,7 +169,18 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
   return { id, first, original, changes, keys, household, role: roleChanged && isHouseholdRole(role) ? role : null, roleChanged, reason: why };
 }
 
-const shown = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : typeof v === "boolean" ? (v ? "yes" : "no") : String(v));
+const shown = (v: unknown, key?: string): string | null =>
+  key === "interests" && Array.isArray(v) && v.length > 0
+    ? interestsDisplay(v)
+    : v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0)
+    ? null
+    : Array.isArray(v)
+      ? listDisplay(v)
+      : typeof v === "boolean"
+        ? v
+          ? "yes"
+          : "no"
+        : String(v);
 
 export const updatePerson = defineCommand<UpdatePersonInput, undefined>({
   key: "people.update_person",
@@ -145,7 +188,7 @@ export const updatePerson = defineCommand<UpdatePersonInput, undefined>({
   description:
     "Change an adult's profile: name, birth date, gender, profession, employer, mobile, email or language, and (with household_id and role) their relationship in one household. " +
     "Only the details you send change; the rest stay. It asks the person to confirm first and shows before and after. " +
-    "Niva does not edit children's records or a person's own privacy choices (photo, directory, expertise); those are done on the People screen.",
+    "Niva does not edit children's records, a person's own privacy choices (photo, directory, expertise) or their preferred name, interests, expertise areas, call time and learning goal; those are done on the People screen.",
   level: "confirm",
   permission: "householdsEdit",
   module: "people",
@@ -160,7 +203,7 @@ export const updatePerson = defineCommand<UpdatePersonInput, undefined>({
     return {
       summary: labels.length ? `Change ${listPhrase([...new Set(labels)])} for ${brief?.name ?? p.first}.` : `No changes for ${brief?.name ?? p.first}.`,
       lines: [
-        ...p.keys.map((k) => ({ label: FIELD_LABELS[k] ?? String(k), before: shown(p.original[k]), after: shown(p.changes[k]) })),
+        ...p.keys.map((k) => ({ label: FIELD_LABELS[k] ?? String(k), before: shown(p.original[k], k), after: shown(p.changes[k], k) })),
         ...(p.roleChanged && p.role ? [{ label: "Relationship", after: relationshipWords(p.role) }] : []),
       ],
       households,

@@ -9,13 +9,13 @@ import { useStepUp } from "@/components/step-up";
 import { useToast } from "@/components/toast";
 import { StatusText, TableWrap } from "@/components/ui";
 import { kindOrganizations, notPartOfKindSentence } from "@/lib/kind";
-import { switchBlocker, type ModuleRow } from "@/lib/modules";
+import { moduleStatus, notGrantedSentence, switchBlocker, switchWarning, type ModuleRow } from "@/lib/modules";
 
 import { setModuleEnabledAction } from "./actions";
 
 export type ModuleRowView = ModuleRow & { changedLine: string | null };
 
-type Pending = { key: string; label: string; turnOn: boolean };
+type Pending = { key: string; label: string; turnOn: boolean; warning: string | null };
 
 export function ModulesForm({ rows, canSwitch, kindLabel }: { rows: ModuleRowView[]; canSwitch: boolean; kindLabel: string }) {
   const router = useRouter();
@@ -39,7 +39,7 @@ export function ModulesForm({ rows, canSwitch, kindLabel }: { rows: ModuleRowVie
     setRowNote(null);
     setReason("");
     setError(null);
-    setPending({ key: row.key, label: row.label, turnOn });
+    setPending({ key: row.key, label: row.label, turnOn, warning: switchWarning(row.key, turnOn, rows) });
   }
 
   function confirm() {
@@ -77,8 +77,11 @@ export function ModulesForm({ rows, canSwitch, kindLabel }: { rows: ModuleRowVie
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.key} data-module={r.key} data-availability={r.availability} className={r.availability === "not_available" ? "opacity-60" : undefined}>
+            {rows.map((r) => {
+              const status = moduleStatus(r, rows);
+              const greyed = status.key === "not_offered" || status.key === "not_granted";
+              return (
+              <tr key={r.key} data-module={r.key} data-availability={r.availability} data-state={status.key} className={greyed ? "opacity-60" : undefined}>
                 <td className="min-w-[18rem]">
                   <p className="font-bold">{r.label}</p>
                   <p className="text-xs text-muted">{r.description}</p>
@@ -87,7 +90,14 @@ export function ModulesForm({ rows, canSwitch, kindLabel }: { rows: ModuleRowVie
                       {notPartOfKindSentence(r.label, kindLabel)} Weaver can change the organization&apos;s kind.
                     </p>
                   ) : null}
-                  {r.availability === "default_off" && !r.enabled ? <p className="mt-0.5 text-xs text-muted">Starts off for {kindOrganizations(kindLabel)}; switch it on when you need it.</p> : null}
+                  {status.key === "not_granted" ? (
+                    <p className="mt-0.5 text-xs font-semibold text-muted" data-testid="module-not-granted">
+                      {notGrantedSentence(r.label)} Ask Weaver to enable it.
+                    </p>
+                  ) : null}
+                  {r.availability === "default_off" && r.granted && !r.enabled && !r.changedAt ? (
+                    <p className="mt-0.5 text-xs text-muted">Starts off for {kindOrganizations(kindLabel)}; switch it on when you need it.</p>
+                  ) : null}
                   {r.changedLine ? (
                     <p className="mt-0.5 text-xs text-muted">
                       {r.changedLine}
@@ -102,14 +112,14 @@ export function ModulesForm({ rows, canSwitch, kindLabel }: { rows: ModuleRowVie
                 </td>
                 <td className="text-[13px]">{r.dependsOn.length > 0 ? r.dependsOn.map(label).join(", ") : "—"}</td>
                 <td>
-                  {r.core ? (
-                    <StatusText tone="ok">Always on</StatusText>
-                  ) : r.availability === "not_available" ? (
-                    <span className="text-[13px] font-semibold text-muted">Not offered</span>
-                  ) : r.enabled ? (
-                    <StatusText tone="ok">On</StatusText>
+                  {status.key === "always_on" || status.key === "on" ? (
+                    <StatusText tone="ok">{status.text}</StatusText>
+                  ) : status.key === "paused" ? (
+                    <StatusText tone="bad">{status.text}</StatusText>
+                  ) : status.key === "waiting" ? (
+                    <StatusText tone="warn">{status.text}</StatusText>
                   ) : (
-                    <StatusText tone="bad">Off</StatusText>
+                    <span className="text-[13px] font-semibold text-muted">{status.text}</span>
                   )}
                 </td>
                 <td>
@@ -117,27 +127,30 @@ export function ModulesForm({ rows, canSwitch, kindLabel }: { rows: ModuleRowVie
                     <span className="text-[13px] text-muted">Always on</span>
                   ) : r.availability === "not_available" ? (
                     <span className="text-[13px] text-muted">No switch</span>
+                  ) : !r.granted ? (
+                    <span className="text-[13px] text-muted">Ask Weaver</span>
                   ) : (
                     <Toggle
                       label={`${r.label} module`}
-                      checked={r.enabled}
+                      checked={!r.paused}
                       disabled={!canSwitch || working}
                       onChange={(next) => ask(r, next)}
                       onNote="On"
-                      offNote="Off"
+                      offNote="Paused"
                     />
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </TableWrap>
       <Modal
         open={pending !== null}
         kicker="Modules"
-        title={pending ? `Switch ${pending.turnOn ? "on" : "off"} ${pending.label}?` : ""}
-        confirmLabel={pending?.turnOn ? "Switch on" : "Switch off"}
+        title={pending ? (pending.turnOn ? `Switch ${pending.label} back on?` : `Pause ${pending.label}?`) : ""}
+        confirmLabel={pending?.turnOn ? "Switch on" : "Pause"}
         tone={pending?.turnOn ? "ok" : "warn"}
         pending={working}
         error={error}
@@ -154,6 +167,7 @@ export function ModulesForm({ rows, canSwitch, kindLabel }: { rows: ModuleRowVie
                 ? `${pending.label} comes back in the portal and the member app for everyone with access.`
                 : `${pending.label} disappears from the portal and the member app, and the database refuses its data until it is switched back on. Nothing is deleted.`}
             </p>
+            {pending.warning ? <p className="mt-2 font-semibold">{pending.warning}</p> : null}
             <label htmlFor={reasonId} className="crm-label mt-3 block">
               Reason (kept in the audit log)
             </label>

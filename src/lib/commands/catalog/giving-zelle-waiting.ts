@@ -56,7 +56,7 @@ export const zelleWaiting = defineCommand<Infer<typeof input>, ZelleWaitingData>
     "A report credits nobody until a bank line is matched. Read only: it does not confirm or close anything. Matching is done on Giving > Payments > Bank > Zelle reports.",
   level: "read",
   permission: "bank",
-  module: "giving",
+  module: "giving_bank",
   input,
   async execute(ctx, { limit }) {
     const { db, center } = ctx.session;

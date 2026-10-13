@@ -53,7 +53,7 @@ export const bankLinesUnmatched = defineCommand<Infer<typeof input>, UnmatchedBa
     "Money-out lines and card payouts are counted. Read only: it does not match anything. Matching is done on Giving > Payments > Bank.",
   level: "read",
   permission: "bank",
-  module: "giving",
+  module: "giving_bank",
   input,
   async execute(ctx, { limit }) {
     const { db, center } = ctx.session;

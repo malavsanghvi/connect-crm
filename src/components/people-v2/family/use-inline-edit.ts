@@ -62,7 +62,7 @@ export function useInlineEdit(opts: { unit: EditUnit; values: Values; check: Che
     }
     if (result.ok) {
       dispatch({ type: "saved" });
-      if (result.changed) {
+      if (result.changed && (unit.canUndo?.(before[unit.fields[0]] ?? "", pending.fields[unit.fields[0]] ?? "") ?? true)) {
         const earlier: Values = Object.fromEntries(Object.keys(pending.fields).map((k) => [k, before[k] ?? ""]));
         undo?.offer({
           message: savedSentence(owner, unit.label),

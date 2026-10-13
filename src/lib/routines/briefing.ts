@@ -42,7 +42,7 @@ const SPECS: readonly Spec[] = [
     href: "/memberships/applications",
     label: (n) => `membership ${n === 1 ? "application" : "applications"} waiting`,
   },
-  { key: "bank_lines", access: "bank", module: "giving", href: "/giving/bank", label: (n) => (n === 1 ? "bank line to match" : "bank lines to match") },
+  { key: "bank_lines", access: "bank", module: "giving_bank", href: "/giving/bank", label: (n) => (n === 1 ? "bank line to match" : "bank lines to match") },
   {
     key: "events_week",
     access: "events",

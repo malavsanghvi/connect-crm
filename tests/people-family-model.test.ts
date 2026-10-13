@@ -58,6 +58,7 @@ describe("stored values", () => {
     expect(v).toEqual({
       first_name: "Priya",
       last_name: "Shah",
+      preferred_name: "",
       date_of_birth: "",
       gender: "female",
       profession: "",
