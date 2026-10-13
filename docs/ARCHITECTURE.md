@@ -179,7 +179,8 @@ service (`worker/src/anthropic.ts`).
 ## Working on the schema
 
 ```bash
-# Test the schema on plain Postgres (no Docker needed)
+# Test the schema on plain Postgres (no Docker needed). Migrations and the seed are applied
+# by supabase/scripts/migrate.sh, as on deploy: one transaction per file
 PGURL=postgres://postgres@localhost:5432 supabase/tests/run_local.sh
 
 # Regenerate types after a migration, then copy to connect-admin and connect-mobile
@@ -189,6 +190,11 @@ DATABASE_URL=postgres://postgres@localhost:5432/connect_test \
 # Against a real project
 supabase link --project-ref <ref> && supabase db push
 ```
+
+Each migration file runs in one transaction (locally, in CI and on deploy). So a file cannot use
+`create index concurrently`, `vacuum` or other statements Postgres refuses inside a transaction, and an
+enum value added with `alter type ... add value` cannot be used in the same file: add it in its own
+migration (0014 does this).
 
 A domain is not "done" until it has a data class, a retention rule, audit events
 and backup coverage (Governance tab of the design doc).

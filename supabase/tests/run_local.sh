@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Apply the stub, all migrations, the seed and the behaviour tests to a
 # throwaway Postgres database. Exits non-zero on the first error.
+# Migrations and the seed go through supabase/scripts/migrate.sh, the script the
+# deploy runs: one transaction per file (psql --single-transaction), same order,
+# so a file that only fails inside a transaction fails here, not on deploy.
 #   PGURL=postgres://postgres@localhost:5432 supabase/tests/run_local.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -12,8 +15,7 @@ psql "$PGURL/postgres" -qv ON_ERROR_STOP=1 -c "drop database if exists $DB" -c "
 run() { psql "$PGURL/$DB" -qX -v ON_ERROR_STOP=1 -f "$1" >/dev/null; echo "ok    $1"; }
 
 run tests/stub_supabase.sql
-for f in migrations/*.sql; do run "$f"; done
-run seed.sql
+SUPABASE_DB_URL="$PGURL/$DB" bash scripts/migrate.sh
 
 status=0
 for f in tests/*_test.sql; do
