@@ -24,6 +24,13 @@ export const MODULE_KEYS = [
   "membership",
   "events",
   "giving",
+  "giving_bank",
+  "giving_counts",
+  "giving_insights",
+  "giving_opportunities",
+  "giving_recurring",
+  "giving_statements",
+  "labh",
   "bolis",
   "store",
   "pathshala",
@@ -46,7 +53,14 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "people", label: "Members & families", core: true, dependsOn: [], description: "Households, people, the directory, zones, change requests and merges." },
   { key: "membership", label: "Membership", core: false, dependsOn: ["people"], description: "Membership types, memberships, applications, new-member onboarding and voting eligibility." },
   { key: "events", label: "Events & RSVP", core: false, dependsOn: ["people"], description: "Events, templates, RSVPs, tickets, check-in, lunch slots, event volunteers and feedback." },
-  { key: "giving", label: "Pledges & donations", core: false, dependsOn: ["people"], description: "Funds, campaigns, opportunities, pledges, payments, recurring gifts, labh, receipts, statements, bank and bhandar counting." },
+  { key: "giving", label: "Pledges & donations", core: false, dependsOn: ["people"], description: "Funds, campaigns, pledges, payments, allocations, refunds, receipts and the ways to pay. Its add-ons follow." },
+  { key: "giving_bank", label: "Bank reconciliation", core: false, dependsOn: ["giving"], description: "Bank accounts, statement imports and lines, known payers, and member Zelle reports matched to the bank statement." },
+  { key: "giving_counts", label: "Offering counts", core: false, dependsOn: ["giving"], description: "Counting sessions for cash and checks collected in person, and the valuables register." },
+  { key: "giving_insights", label: "Insights", core: false, dependsOn: ["giving"], description: "Giving insights for the treasurer and the household panel under Giving at a glance." },
+  { key: "giving_opportunities", label: "Opportunities", core: false, dependsOn: ["giving"], description: "Sponsorships and other opportunities inside campaigns that members choose from." },
+  { key: "giving_recurring", label: "Recurring gifts", core: false, dependsOn: ["giving"], description: "Gifts that repeat on a schedule or on a family's special day." },
+  { key: "giving_statements", label: "Statements", core: false, dependsOn: ["giving"], description: "Year-end and pledge statements issued to households. Receipts stay part of Giving." },
+  { key: "labh", label: "Special-day offerings", core: false, dependsOn: ["giving"], description: "The offerings menu on a family's special days and the fulfillment of each offering taken." },
   { key: "bolis", label: "Bolis", core: false, dependsOn: ["giving"], description: "Bolis, boli pledges and the in-person upload." },
   { key: "store", label: "My Store", core: false, dependsOn: ["people"], description: "Store items, inventory, orders and pickup windows." },
   { key: "pathshala", label: "Pathshala", core: false, dependsOn: ["people"], description: "Terms, tracks, classes, teachers, enrollments, attendance, progress reports and the committee." },
@@ -304,7 +318,11 @@ export function switchBlocker(key: string, turnOn: boolean, rows: readonly Modul
 export function switchWarning(key: string, turnOn: boolean, rows: readonly ModuleRow[]): string | null {
   const label = (k: string) => rows.find((r) => r.key === k)?.label ?? moduleLabelFor(k);
   const states = rows.map((r) => ({ key: r.key, enabled: r.enabled, core: r.core, dependsOn: r.dependsOn }));
-  const list = (keys: readonly string[]) => keys.map(label).join(" and ");
+  // "A", "A and B", "A, B and C" (Giving has nine modules that need it).
+  const list = (keys: readonly string[]) => {
+    const names = keys.map(label);
+    return names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  };
   if (turnOn) {
     const me = rows.find((r) => r.key === key);
     const waiting = me && me.waitingFor.length > 0 ? me.waitingFor : missingToEnable(key, states);
