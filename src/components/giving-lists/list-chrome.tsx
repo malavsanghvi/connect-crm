@@ -12,9 +12,8 @@ import type { GivingTabKey } from "@/lib/giving-today/tabs";
 import type { ListBody, ListsCommon, Pager } from "@/lib/giving-lists/model";
 import type { Chip } from "@/lib/giving-lists/types";
 
-import { ExportButton } from "./export-button";
-
-export function ListHeader({ model, active, description }: { model: ListsCommon; active: GivingTabKey; description: string }) {
+/** `actions`: buttons before Record payment (the list's Export, slice 9), passed in so this file stays free of client-only pieces. */
+export function ListHeader({ model, active, description, actions }: { model: ListsCommon; active: GivingTabKey; description: string; actions?: ReactNode }) {
   return (
     <header className="mb-4 flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -23,7 +22,7 @@ export function ListHeader({ model, active, description }: { model: ListsCommon;
           <p className="m-0 text-[14px] text-muted">{description}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {model.exportOffer ? <ExportButton offer={model.exportOffer} labels={model.labels} /> : null}
+          {actions}
           {/* Pledges: Record pledge opens its sheet in place (giving.manage, the New look); nothing is drawn without it. */}
           {active === "pledges" ? <RecordPledgeButton className={`${buttonClass("ghost", "sm")} min-h-[44px]`} /> : null}
           {/* The sheet in place where the New-look shell mounts it; `recordHref` (?record=1) without it. */}

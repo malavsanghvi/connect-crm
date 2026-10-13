@@ -3,6 +3,7 @@
 
 import type { PledgesModel } from "@/lib/giving-lists/model";
 
+import { ExportButton } from "./export-button";
 import { BodyState, ChipRow, ListCard, ListHeader, PagerNav, Problems } from "./list-chrome";
 import { ListRows } from "./list-rows";
 import { ListSearch } from "./list-search";
@@ -11,7 +12,12 @@ export function PledgesView({ model }: { model: PledgesModel }) {
   const body = model.body;
   return (
     <div className="flex flex-col gap-1" data-testid="giving-pledges">
-      <ListHeader model={model} active="pledges" description="Every pledge across families. Find one, see who is behind, and act on it in its row." />
+      <ListHeader
+        model={model}
+        active="pledges"
+        description="Every pledge across families. Find one, see who is behind, and act on it in its row."
+        actions={model.exportOffer ? <ExportButton offer={model.exportOffer} labels={model.labels} /> : null}
+      />
       <Problems problems={model.problems} note={model.note} />
       {body.state !== "ok" ? (
         <BodyState body={body} />

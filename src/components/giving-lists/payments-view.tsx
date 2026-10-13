@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import type { PaymentsModel } from "@/lib/giving-lists/model";
 
+import { ExportButton } from "./export-button";
 import { BodyState, ChipRow, ListCard, ListHeader, PagerNav, Problems } from "./list-chrome";
 import { ListRows, type RowsContext } from "./list-rows";
 import { ListSearch } from "./list-search";
@@ -29,7 +30,12 @@ export function PaymentsView({ model, recordSlot }: { model: PaymentsModel; reco
   const ctx: RowsContext = { currency: model.currency, locale: model.locale, timeZone: model.timeZone, today: model.today, labels: model.labels };
   return (
     <div className="flex flex-col gap-1" data-testid="giving-payments">
-      <ListHeader model={model} active="payments" description="Every payment across families. Find one, refund it, match a grant, and see recurring gifts." />
+      <ListHeader
+        model={model}
+        active="payments"
+        description="Every payment across families. Find one, refund it, match a grant, and see recurring gifts."
+        actions={model.exportOffer ? <ExportButton offer={model.exportOffer} labels={model.labels} /> : null}
+      />
       {recordSlot ? <div className="mb-4">{recordSlot}</div> : null}
       <Problems problems={model.problems} note={model.note} />
       <div className="mb-3">
