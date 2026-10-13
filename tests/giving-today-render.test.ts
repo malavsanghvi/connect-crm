@@ -15,7 +15,8 @@ vi.mock("@/app/(app)/giving/actions", () => ({ openPledgesAction: vi.fn(), findH
 vi.mock("@/app/(app)/giving/payments/actions", () => ({ applyPaymentAction: vi.fn() }));
 vi.mock("@/app/(app)/giving/payments/bank/actions", () => ({ confirmBankMatchAction: vi.fn(), matchDepositAction: vi.fn() }));
 vi.mock("@/app/(app)/giving/payments/bank/zelle-actions", () => ({ confirmExactMatchesAction: vi.fn() }));
-vi.mock("@/app/(app)/giving/payments/counting-actions", () => ({ recordCountingDepositAction: vi.fn() }));
+vi.mock("@/app/(app)/giving/payments/counting-actions", () => ({ recordCountingDepositAction: vi.fn(), createCountingSessionAction: vi.fn() }));
+vi.mock("@/app/(app)/giving/counts/actions", () => ({ countSheetAction: vi.fn(), depositChoicesAction: vi.fn(), matchCountDepositAction: vi.fn(), unmatchCountDepositAction: vi.fn() }));
 vi.mock("@/app/(app)/accounting/close/actions", () => ({ setCloseItemAction: vi.fn() }));
 vi.mock("@/app/(app)/accounting/qbo/matching/actions", () => ({ approveMatchAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
@@ -90,7 +91,10 @@ describe("Giving › Today for a treasurer", () => {
       "3 households are behind on pledges",
       "Write off…",
       "Apply $50.00 to the open pledges of Lindqvist household 0305",
-      "Record the deposit",
+      // Slice 5: the counter picks the bank line; the slip reference stays next to it.
+      "Match its deposit",
+      "Mark deposited",
+      "Start a count",
       "October 2026 close: 1 of 3 checks",
       "Mark done",
       "2 QuickBooks postings failed",

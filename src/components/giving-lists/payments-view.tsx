@@ -1,6 +1,6 @@
 // Giving › Payments in the New look (docs/GIVING_REDESIGN.md section 4, slice 3): every payment, searchable by family, receipt
-// number or amount, with chips for the method and the source; the views Refunds, Grants to match, Recurring (read-only) and,
-// until slice 5 gives them a tab, the offering counts. Today's Record payment form sits on top when the address asks for it.
+// number or amount, with chips for the method and the source; the views Refunds, Grants to match and Recurring (read-only). The
+// offering counts have their own tab (slice 5). Today's Record payment form sits on top when the address asks for it.
 
 import type { ReactNode } from "react";
 
@@ -15,7 +15,6 @@ const COLUMNS: Record<PaymentsModel["view"], [string, string, string, string]> =
   refunds: ["Receipt", "Family", "Amount", "Status"],
   grants: ["Bank line", "Family", "Amount", "Status"],
   recurring: ["How often", "Family", "Amount", "Status"],
-  counts: ["Count", "Who counted", "Total", "Status"],
 };
 
 const LIST_LABEL: Record<PaymentsModel["view"], string> = {
@@ -23,10 +22,9 @@ const LIST_LABEL: Record<PaymentsModel["view"], string> = {
   refunds: "Refund requests",
   grants: "Grants to match",
   recurring: "Recurring gifts",
-  counts: "Counts",
 };
 
-export function PaymentsView({ model, recordSlot, countSlot }: { model: PaymentsModel; recordSlot?: ReactNode; countSlot?: ReactNode }) {
+export function PaymentsView({ model, recordSlot }: { model: PaymentsModel; recordSlot?: ReactNode }) {
   const body = model.body;
   const ctx: RowsContext = { currency: model.currency, locale: model.locale, timeZone: model.timeZone, today: model.today, labels: model.labels };
   return (
@@ -64,7 +62,6 @@ export function PaymentsView({ model, recordSlot, countSlot }: { model: Payments
             <ListRows rows={body.rows} ctx={ctx} columns={COLUMNS[model.view]} expandSingle={model.expandSingle} label={LIST_LABEL[model.view]} />
           )}
           <PagerNav pager={model.pager} />
-          {model.view === "counts" && countSlot ? <div className="mt-4 border-t border-line pt-4">{countSlot}</div> : null}
         </ListCard>
       )}
     </div>

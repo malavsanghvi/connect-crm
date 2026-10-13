@@ -5,6 +5,7 @@
 
 import type { GivingTodayModel } from "@/lib/data/giving-today";
 import { NEUTRAL_KIND, type KindProfile } from "@/lib/kind";
+import { isModuleEnabled } from "@/lib/modules";
 import type { PermissionContext } from "@/lib/permissions";
 import { canAccess } from "@/lib/permissions";
 import { makeTask, visibleTaskSources, type GivingTaskDetail, type HomeTask } from "@/lib/tasks";
@@ -179,6 +180,7 @@ export function sampleTodayModel(role: TodayRole = "treasurer", opts: { kind?: K
     allocate: canAccess(ctx, "allocatePayment"),
     countRecord: canAccess(ctx, "countingRecord"),
     closeManage: canAccess(ctx, "closeManage"),
+    countMatch: canAccess(ctx, "bankConfirm") && isModuleEnabled(ctx, "giving_bank"),
   };
   const countsWord = countsWordFor(kind);
   const input = sampleTodayInput(ctx, role);
@@ -212,7 +214,12 @@ export function sampleTodayModel(role: TodayRole = "treasurer", opts: { kind?: K
     tabs: givingTabs(ctx),
     tabCounts: { bank: tile("bank"), pledges: tile("pledges"), counts: tile("counts"), books: tile("books") },
     queue,
-    can: { ...can, record: canAccess(ctx, "recordPayment"), find: canAccess(ctx, "households") || seesPayments || canAccess(ctx, "recordPayment") },
+    can: {
+      ...can,
+      record: canAccess(ctx, "recordPayment"),
+      find: canAccess(ctx, "households") || seesPayments || canAccess(ctx, "recordPayment"),
+      countStart: input.counts !== null && can.countRecord,
+    },
     countsWord,
     roleNote:
       role === "approver"

@@ -2,7 +2,7 @@
 // Pure: no React, no database. Every payment, searchable, with chips for the method and the source, and four views:
 //   All payments · Refunds (requests and refunds made in a card provider's dashboard) · Grants to match (fund grants and matching
 //   gifts the bank shows, with the Bank add-on) · Recurring (read-only, with the Recurring gifts add-on).
-// Until slice 5 gives the offering counts their own tab, they stay reachable here as one more view (the counts tab opens it).
+// The offering counts have their own tab since slice 5 (/giving/counts); ?view=counts here sends there.
 //
 // A row acts in place through the same sheets as Today: Refund… (a reason the second approver reads), Approve as second person
 // (never one's own request; the database refuses it and the row says so), Record the refund (by hand, or through Stripe or PayPal
@@ -24,20 +24,19 @@ function capital(word: string): string {
   return word ? word[0].toUpperCase() + word.slice(1) : word;
 }
 
-export type PaymentViewKey = "all" | "refunds" | "grants" | "recurring" | "counts";
+export type PaymentViewKey = "all" | "refunds" | "grants" | "recurring";
 
 /** on: shown; off: its module is switched off; no_access: the person cannot see it. */
 export type ViewState = "on" | "off" | "no_access";
 
 export function paymentViewFromParam(value: string | undefined): PaymentViewKey {
-  return value === "refunds" || value === "grants" || value === "recurring" || value === "counts" ? value : "all";
+  return value === "refunds" || value === "grants" || value === "recurring" ? value : "all";
 }
 
 export function paymentViewChips(
   states: Record<Exclude<PaymentViewKey, "all">, ViewState>,
   counts: Partial<Record<PaymentViewKey, number | null>>,
   active: PaymentViewKey,
-  countsWord: string,
   hrefFor: (view: PaymentViewKey) => string,
 ): Chip[] {
   const views: { key: PaymentViewKey; label: string }[] = [
@@ -45,7 +44,6 @@ export function paymentViewChips(
     { key: "refunds", label: "Refunds" },
     { key: "grants", label: "Grants to match" },
     { key: "recurring", label: "Recurring" },
-    { key: "counts", label: countsWord },
   ];
   return views
     .filter((v) => v.key === "all" || states[v.key] === "on")
@@ -428,59 +426,5 @@ export function recurringRow(r: RecurringIn, family: Family | null, ctx: ListCon
     primary: [],
     menu: [{ kind: "link", href: familyHref(r.householdId, "payments"), label: "Open family" }],
     history: { table: "recurring_gifts", title: "Recurring gift" },
-  };
-}
-
-// ---------------------------------------------------------------------------- Offering counts (until slice 5 gives them a tab)
-
-export type CountRowIn = {
-  id: string;
-  countedOn: string;
-  totalCents: number;
-  bags: string[];
-  counters: string[];
-  depositRef: string | null;
-  paymentId: string | null;
-};
-
-export function countRow(c: CountRowIn, ctx: ListContext & { canCount: boolean }): ListRow {
-  const money = (n: number) => formatCents(n, ctx.currency, ctx.locale);
-  const ref = c.bags.length ? `Bags ${c.bags.join(", ")}` : `Count ${c.id.slice(0, 4).toUpperCase()}`;
-  const status: { label: string; tone: Tone } =
-    c.depositRef && c.paymentId
-      ? { label: "Deposited · matched", tone: "ok" }
-      : c.depositRef
-        ? { label: "Deposited", tone: "ok" }
-        : c.totalCents > 0
-          ? { label: "Counted · waiting for the deposit", tone: "warn" }
-          : c.countedOn > ctx.today
-            ? { label: "Planned", tone: "info" }
-            : { label: "Not counted yet", tone: "warn" };
-  return {
-    id: c.id,
-    reference: ref,
-    family: null,
-    title: `${ref} · ${c.totalCents > 0 ? money(c.totalCents) : "not counted yet"}`,
-    lines: [`Counted by ${c.counters.length ? c.counters.join(" and ") : "—"}`, ...(c.depositRef ? [`Deposit ${c.depositRef}`] : [])],
-    amount: c.totalCents > 0 ? money(c.totalCents) : "—",
-    amountNote: null,
-    date: monthDay(c.countedOn),
-    status,
-    note: null,
-    found: null,
-    primary:
-      ctx.canCount && !c.depositRef
-        ? [
-            {
-              kind: "count_deposit",
-              id: c.id,
-              totalCents: c.totalCents > 0 ? c.totalCents : null,
-              label: `Record the count of ${monthDay(c.countedOn)}`,
-              what: "Write the counted total and the deposit slip number once the bags are at the bank.",
-            },
-          ]
-        : [],
-    menu: [],
-    history: null,
   };
 }
