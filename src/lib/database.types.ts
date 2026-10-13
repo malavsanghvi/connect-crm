@@ -8160,6 +8160,7 @@ export type Database = {
           employer_name: string | null;
           source: string;
           recorded_by: string;
+          consented_by_user: string | null;
           consented_at: string;
           withdrawn_at: string | null;
           withdrawn_by: string | null;
@@ -8171,6 +8172,7 @@ export type Database = {
           employer_name?: string | null;
           source: string;
           recorded_by: string;
+          consented_by_user?: string | null;
           consented_at?: string;
           withdrawn_at?: string | null;
           withdrawn_by?: string | null;
@@ -8182,6 +8184,7 @@ export type Database = {
           employer_name?: string | null;
           source?: string;
           recorded_by?: string;
+          consented_by_user?: string | null;
           consented_at?: string;
           withdrawn_at?: string | null;
           withdrawn_by?: string | null;
@@ -12012,8 +12015,7 @@ export type Database = {
       assistant_usage_check: {
         Args: {
           p_center: string;
-          p_cost: number;
-          p_purpose: string;
+          p_cost?: number;
         };
         Returns: Json;
       };
@@ -13662,8 +13664,9 @@ export type Database = {
         };
         Returns: number;
       };
-      match_employer_is_adult: {
+      match_employer_adult: {
         Args: {
+          p_center: string;
           p_person: string;
         };
         Returns: boolean;
@@ -16345,6 +16348,14 @@ export type Database = {
           p_center: string;
         };
         Returns: undefined;
+      };
+      withdraw_match_employer: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_reason: string;
+        };
+        Returns: boolean;
       };
       withdraw_payment_report: {
         Args: {
