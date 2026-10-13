@@ -2774,6 +2774,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      email_upload_marks: {
+        Row: {
+          payment_id: string;
+          center_id: string;
+          created_at: string;
+        };
+        Insert: {
+          payment_id: string;
+          center_id: string;
+          created_at?: string;
+        };
+        Update: {
+          payment_id?: string;
+          center_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       entitlement_defaults: {
         Row: {
           environment: string;
