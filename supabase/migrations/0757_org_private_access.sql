@@ -492,8 +492,9 @@ begin
                      else format('approved the Center admin role for %s', app._user_label(new.center_id, new.user_id)) end,
                 coalesce(c.reason, new.reason));
   end if;
-  perform app.log_audit(new.center_id, 'roles.center_admin_by_weaver', 'role_grants', new.id::text, null,
-    jsonb_build_object('user_id', new.user_id, 'by', auth.uid(), 'status', new.status, 'owner_email', coalesce(v_mail->>'status', 'failed')),
+  -- Its own entry (no record of its own, so the grant's history keeps exactly the rows it had): the grant is in after.
+  perform app.log_audit(new.center_id, 'roles.center_admin_by_weaver', null, null, null,
+    jsonb_build_object('grant_id', new.id, 'user_id', new.user_id, 'by', auth.uid(), 'status', new.status, 'owner_email', coalesce(v_mail->>'status', 'failed')),
     coalesce(c.reason, new.reason));
   return null;
 end $$;
@@ -558,7 +559,7 @@ begin
   select * into c from app.audit_context();
   v_mail := app._weaver_change_email(new.center_id, case when tg_op = 'UPDATE' then old.user_id else new.user_id end,
               format('made %s the owner', app._user_label(new.center_id, new.user_id)), c.reason);
-  perform app.log_audit(new.center_id, 'ownership.changed_by_weaver', 'center_owners', new.center_id::text,
+  perform app.log_audit(new.center_id, 'ownership.changed_by_weaver', null, null,
     case when tg_op = 'UPDATE' then jsonb_build_object('user_id', old.user_id) end,
     jsonb_build_object('user_id', new.user_id, 'by', auth.uid(), 'email', coalesce(v_mail->>'status', 'failed')), c.reason);
   return null;

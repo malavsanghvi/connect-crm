@@ -113,8 +113,8 @@ select pg_temp.assert((select bool_and(not p.prosecdef and array_to_string(p.pro
 select pg_temp.assert(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                                    where n.nspname = 'app' and p.proname in ('org_private_can', '_org_holds', '_org_private_module_on',
                                          'care_can', 'care_amounts_can', 'matching_can', '_weaver_filing_live', 'care_settings_can',
-                                         '_may_grant_private')
-                                     and p.prosrc ilike '%is_platform_admin%'),
+                                         '_may_grant_private', 'matching_readable_centers', 'may_grant_private_role')
+                                     and p.prosrc ilike '%is_platform_admin()%'),
   'A · none of the checks has a platform-admin branch');
 select pg_temp.assert(not has_function_privilege('authenticated', 'app._org_holds(uuid, uuid, text)', 'execute')
                       and not has_function_privilege('authenticated', 'app._may_grant_private(uuid, uuid, text[])', 'execute')

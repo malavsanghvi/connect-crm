@@ -219,8 +219,10 @@ select pg_temp.assert_raises($$select app.save_platform_document(null, 'dpa', 'D
   'Only the Community Connect team', 'an organization admin cannot edit platform agreements');
 select pg_temp.as_user(:platform);
 update app.legal_documents set published_at = now() - interval '2 days' where center_id is null and kind = 'dpa' and version = '2026-09-draft';
-select pg_temp.as_user(:admin);
+-- Setup, as a job with no signed-in user (0757: nobody makes themselves the owner while signed in).
+select pg_temp.no_user();
 insert into app.center_owners (center_id, user_id) values (:c, :admin) on conflict (center_id) do update set user_id = excluded.user_id;
+select pg_temp.as_user(:admin);
 select app.accept_org_agreement(:c, (select id from app.legal_documents where center_id is null and kind = 'dpa' and version = '2026-09-draft'));
 select pg_temp.assert((select accepted from app.org_agreement_status(:c) where kind = 'dpa'), 'setup: the owner accepted the DPA');
 select pg_temp.as_user(:platform);
