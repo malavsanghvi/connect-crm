@@ -10,6 +10,7 @@
 --      it are refused, a replay with a different day is refused; nobody may run the core directly
 --   G. app.set_pledge_due_on: a treasurer changes it with a reason (the audit entry's); the refusals; the same date changes nothing
 --   H. Grants and the activity catalog
+--   J. The backfill: pledges without a due date get pledged + 30, each with an audit entry carrying the reason; updated_at is kept
 -- The whole test is one transaction that is rolled back at the end, so nothing it creates is seen by the tests that run after it.
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
@@ -89,6 +90,9 @@ end $$;
 \set p4 '''17500000-0000-4000-8000-000000000304'''
 \set pn '''17500000-0000-4000-8000-000000000305'''
 \set pd '''17500000-0000-4000-8000-000000000306'''
+\set p5 '''17500000-0000-4000-8000-000000000307'''
+\set b1 '''17500000-0000-4000-8000-000000000308'''
+\set b2 '''17500000-0000-4000-8000-000000000309'''
 
 begin;
 
@@ -190,6 +194,8 @@ select pg_temp.rec(:tara, 'key-175-e-0002', :c, :h2, 7000, (:'today'::date + 60)
 select pg_temp.assert(((:'e2'::jsonb)->>'due_on')::date = :'today'::date + 60, 'E: a due date given is kept');
 select pg_temp.rec(:tara, 'key-175-e-0002', :c, :h2, 7000, (:'today'::date + 60))::text as e2b \gset
 select pg_temp.assert(((:'e2b'::jsonb)->>'replayed')::boolean, 'E: a replay with the same due date is the same pledge');
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'upl:175-e-0004:2', %L, %L, 1000)$$, :tara, :c, :h2),
+  'kept for uploads', 'E: a key starting upl: is the uploads'' own: recording one pledge by hand refuses it');
 select pg_temp.rec(:nora, 'key-175-e-0003', :np, :hn, 12000)::text as en \gset
 select pg_temp.assert(((:'en'::jsonb)->>'due_on')::date = :'today_np'::date + 14,
   'E: in the food bank (14 days, London) a pledge recorded by hand is due in 14 days');
@@ -242,6 +248,11 @@ select pg_temp.assert_raises(format($$select pg_temp.due(%L, %L, %L, %L)$$, :tar
   'ten years', 'G: more than ten years ahead is refused');
 select pg_temp.assert_raises(format($$select pg_temp.due(%L, %L, %L, %L)$$, :tara, :c, :p1, '2026-01-01'),
   'before the day it was pledged', 'G: a due date before the day it was pledged is refused');
+-- A write-off waiting for its second approver: the due date stays as it is.
+insert into app.pledges (id, center_id, household_id, source, amount_cents, written_off_by, write_off_reason)
+  values (:p5, :c, :h2, 'general', 4000, :tara, 'Moved away');
+select pg_temp.assert_raises(format($$select pg_temp.due(%L, %L, %L, %L)$$, :tara, :c, :p5, :'today'::date + 5),
+  'waiting for approval', 'G: a pledge with a write-off waiting for approval keeps its due date');
 update app.pledges set status = 'paid', paid_cents = amount_cents where id = :p3;
 select pg_temp.assert_raises(format($$select pg_temp.due(%L, %L, %L, %L)$$, :tara, :c, :p3, :'today'::date + 5),
   'only an open pledge', 'G: a paid pledge''s due date does not change');
@@ -264,9 +275,35 @@ select pg_temp.assert(has_function_privilege('authenticated', 'app.record_manual
   'H: app.record_manual_pledge keeps its grants (signed in yes, anonymous no)');
 select pg_temp.assert(has_function_privilege('authenticated', 'app.set_pledge_due_on(uuid, uuid, date, text)', 'execute')
                       and not has_function_privilege('anon', 'app.set_pledge_due_on(uuid, uuid, date, text)', 'execute')
-                      and not has_function_privilege('anon', 'app.pledge_default_due_on(uuid, timestamptz)', 'execute'),
-  'H: set_pledge_due_on and pledge_default_due_on are for signed-in people only');
+                      and not has_function_privilege('anon', 'app.pledge_default_due_on(uuid, timestamptz)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.pledge_default_due_on(uuid, timestamptz)', 'execute')
+                      and not has_function_privilege('authenticated', 'app._pledge_due_backfill()', 'execute'),
+  'H: set_pledge_due_on is for signed-in people; the default and the backfill run only inside the database');
 select pg_temp.assert(exists (select 1 from app.activity_catalog where key = 'giving.change_due_date'),
   'H: the Change due date button is in the activity catalog');
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- J. The backfill, on pledges made as they were before 0775 (no due date)
+-- ═══════════════════════════════════════════════════════════════════════════
+alter table app.pledges drop constraint pledges_due_on_required;
+alter table app.pledges disable trigger pledges_default_due_on;
+insert into app.pledges (id, center_id, household_id, source, amount_cents, pledged_at, updated_at) values
+  (:b1, :c, :h1, 'general', 6000, '2026-03-10 03:00:00+00', '2026-03-10 03:00:00+00'),
+  (:b2, :np, :hn, 'general', 7000, '2026-05-01 12:00:00+00', '2026-05-01 12:00:00+00');
+alter table app.pledges enable trigger pledges_default_due_on;
+select pg_temp.assert((select count(*) = 2 from app.pledges where due_on is null), 'J: two pledges without a due date, as before 0775');
+select app._pledge_due_backfill() as filled \gset
+select pg_temp.assert(:filled = 2
+                      and (select due_on = date '2026-04-08' from app.pledges where id = :b1)
+                      and (select due_on = date '2026-05-31' from app.pledges where id = :b2),
+  'J: each gets the day it was made in its community''s time zone + 30 (9 March in Chicago; 1 May in London, whatever the rule says)');
+select pg_temp.assert((select count(*) = 2 and bool_and(reason like 'Every pledge has a due date%' and (after->>'due_on') is not null and (before->>'due_on') is null)
+                         from app.audit_log where record_table = 'pledges' and action = 'pledges.update' and record_id in (:b1, :b2)),
+  'J: each change has an audit entry with the reason, before and after');
+select pg_temp.assert((select bool_and(updated_at = pledged_at) from app.pledges where id in (:b1, :b2)),
+  'J: updated_at is kept (the write-off queue reads "waiting since" from it)');
+select pg_temp.assert((select tgenabled <> 'D' from pg_trigger where tgrelid = 'app.pledges'::regclass and tgname = 'touch_pledges'),
+  'J: the updated_at trigger is on again afterwards');
+alter table app.pledges add constraint pledges_due_on_required check (due_on is not null);
 
 rollback;

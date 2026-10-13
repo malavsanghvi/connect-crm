@@ -152,6 +152,8 @@ describe("a pledge row acts as Today does", () => {
     });
     expect(kinds(pledgeRow(p, F.adeyemi, ctx({ can: { manage: false } })), "menu")).not.toContain("change_due");
     expect(kinds(pledgeRow(byNumber("PL-0301"), F.kim, ctx()), "menu")).not.toContain("change_due");
+    // A write-off waiting for approval: the due date stays.
+    expect(kinds(pledgeRow(byNumber("PL-0388"), F.okafor2, ctx()), "menu")).not.toContain("change_due");
   });
 
   it("a closed pledge only opens the family; a written-off one says why and what QuickBooks did", () => {

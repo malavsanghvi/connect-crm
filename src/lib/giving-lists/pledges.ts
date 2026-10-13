@@ -208,7 +208,8 @@ export function pledgeRow(p: PledgeIn, family: Family | null, ctx: ListContext, 
   const menu: Act[] = [];
   let note: string | null = null;
   if (open && ctx.can.record) menu.push({ kind: "record_payment", householdId: p.householdId, href: recordPaymentHref(p.householdId), label: "Record payment" });
-  if (open && ctx.can.manage) {
+  // Not while a write-off waits for approval (app.set_pledge_due_on refuses it too).
+  if (open && ctx.can.manage && !p.writeOffBy) {
     menu.push({ kind: "change_due", id: p.id, reference: ref, dueOn: p.dueOn, pledgedOn: dateInTz(p.pledgedAt, ctx.timeZone), label: "Change due date…" });
   }
   if (open && !p.writeOffBy && ctx.can.manage && openCents > 0) {

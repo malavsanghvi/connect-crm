@@ -13,7 +13,8 @@
 --                                                   date) get one; the paths that set their own keep it (app.commit_labh and
 --                                                   app.run_recurring_gift_cycle of 0743, the memberships of 0130 and 0724, the class
 --                                                   fees of 0591).
---   the backfill                                    every existing pledge without a due date gets the day it was made + 30 days: the
+--   the backfill (app._pledge_due_backfill, run once below)
+--                                                   every existing pledge without a due date gets the day it was made + 30 days: the
 --                                                   date app.giving_pledges_behind (0656), the Insights read (0749) and the Pledges list
 --                                                   already counted from, so no number on those screens changes. The audit entry of
 --                                                   each row carries the reason below. updated_at is left as it was: the write-off queue
@@ -32,8 +33,9 @@
 --   app.set_pledge_due_on(center, pledge, due_on, reason)
 --                                                   change an open pledge's due date: giving.manage in the pledge's community, Giving
 --                                                   on, a reason (it becomes the audit entry's reason, so History shows it), a date
---                                                   within ten years of today and not before the day it was pledged. No money moves; no
---                                                   second person (as recording a pledge, 0745).
+--                                                   within ten years of today and not before the day it was pledged; not while a
+--                                                   write-off of it waits for approval. No money moves; no second person (as recording
+--                                                   a pledge, 0745). record_manual_pledge refuses a key starting upl: (the uploads' own).
 --
 -- What does NOT change: no policy, no permission, no other function. The reads keep their "no due date" fallback, which no longer
 -- happens. The member app needs no change: its insert gets the default.
@@ -51,8 +53,8 @@ language sql stable security definer set search_path = app, public, extensions a
     from app.centers c
    where c.id = p_center
 $$;
-revoke execute on function app.pledge_default_due_on(uuid, timestamptz) from public, anon;
-grant execute on function app.pledge_default_due_on(uuid, timestamptz) to authenticated;
+-- Only the trigger below (and the functions that run as the owner) use it: it reads any community's rules, so nobody calls it directly.
+revoke execute on function app.pledge_default_due_on(uuid, timestamptz) from public, anon, authenticated;
 comment on function app.pledge_default_due_on(uuid, timestamptz) is
   'The due date a pledge gets when it is made without one: the day it was made in the community''s time zone plus rules.giving.pledge_due_days (default 30) (0775).';
 
@@ -71,12 +73,22 @@ create trigger pledges_default_due_on before insert on app.pledges
   for each row execute function app.pledges_default_due_on();
 
 -- ── The backfill (audited; updated_at kept) ──────────────────────────────────────────────────────────────────────────────────────
-select app.set_audit_context('Every pledge has a due date (owner decision 2026-10-13): a pledge that had none is due 30 days after the day it was made, the date every screen already counted from (0775).');
-alter table app.pledges disable trigger touch_pledges;
-update app.pledges p
-   set due_on = (p.pledged_at at time zone coalesce((select nullif(c.time_zone, '') from app.centers c where c.id = p.center_id), 'UTC'))::date + 30
- where p.due_on is null;
-alter table app.pledges enable trigger touch_pledges;
+-- A function, run once here, so that test 175 can prove what it does (the audit entries, updated_at kept) on pledges it makes.
+create or replace function app._pledge_due_backfill() returns integer
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_n integer;
+begin
+  perform app.set_audit_context('Every pledge has a due date (owner decision 2026-10-13): a pledge that had none is due 30 days after the day it was made, the date every screen already counted from (0775).');
+  alter table app.pledges disable trigger touch_pledges;
+  update app.pledges p
+     set due_on = (p.pledged_at at time zone coalesce((select nullif(c.time_zone, '') from app.centers c where c.id = p.center_id), 'UTC'))::date + 30
+   where p.due_on is null;
+  get diagnostics v_n = row_count;
+  alter table app.pledges enable trigger touch_pledges;
+  return v_n;
+end $$;
+revoke execute on function app._pledge_due_backfill() from public, anon, authenticated;
+select app._pledge_due_backfill();
 alter table app.pledges drop constraint if exists pledges_due_on_required;
 alter table app.pledges add constraint pledges_due_on_required check (due_on is not null);
 comment on column app.pledges.due_on is
@@ -282,6 +294,10 @@ create or replace function app.record_manual_pledge(
 returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
+  -- upl:… is the uploads' own key (0776, 0777): a key from anywhere else never starts with it.
+  if btrim(coalesce(p_idempotency_key, '')) like 'upl:%' then
+    raise exception 'That confirmation key is kept for uploads. Close the sheet and open it again.' using errcode = '22023';
+  end if;
   return app._record_manual_pledge_core(p_idempotency_key, p_center, p_household, p_amount_cents, p_reason, p_fund, p_campaign,
                                         p_opportunity, p_opportunity_option, p_due_on, p_pledged_by_person, p_dedication, null);
 end $$;
@@ -317,6 +333,10 @@ begin
   if v_pl.status not in ('open', 'partially_paid') then
     raise exception 'Only an open pledge''s due date can change; % is %.', coalesce(v_pl.pledge_number, 'this pledge'), replace(v_pl.status::text, '_', ' ')
       using errcode = '22023';
+  end if;
+  if v_pl.written_off_by is not null then
+    raise exception 'A write-off of % is waiting for approval, so its due date does not change. Withdraw the request first if the family is paying after all.',
+      coalesce(v_pl.pledge_number, 'this pledge') using errcode = '22023';
   end if;
   if p_due_on is null then
     raise exception 'Choose the new due date.' using errcode = '22023';
