@@ -6,7 +6,7 @@ import { ActionForm } from "@/components/action-form";
 import { RecordPaymentButton } from "@/components/giving-actions/provider";
 import { AskNiva } from "@/components/niva/ask-niva";
 import { NivaHouseholdCard } from "@/components/niva/niva-household-card";
-import { StepUpDownload } from "@/components/step-up-download";
+import { ExportDownload } from "@/components/export-download";
 import type { DuplicateItem, HouseholdPanel, HouseholdsSection, ListActions, PanelState, PeopleSection, PeopleWorkspaceModel, Problem, QuickChip, ReviewItem, Section } from "@/lib/people-v2/model";
 
 import { PeopleAskBox } from "./ask-box";
@@ -139,12 +139,12 @@ function SummaryRow({ model }: { model: PeopleWorkspaceModel }) {
   );
 }
 
-/** Export (it asks for a fresh 2FA code) and Save this view, for the list on screen. */
+/** Export (recorded in the audit log) and Save this view, for the list on screen. */
 function ListActionButtons({ actions }: { actions: ListActions | null }) {
   if (!actions) return null;
   return (
     <span className="inline-flex flex-wrap items-start gap-2">
-      {actions.exportHref ? <StepUpDownload href={actions.exportHref} label="Export" fallbackName="people-list.csv" variant="ghost" size="md" /> : null}
+      {actions.exportHref ? <ExportDownload href={actions.exportHref} label="Export" fallbackName="people-list.csv" variant="ghost" size="md" /> : null}
       <SaveViewControl list={actions.list} params={actions.params} sort={actions.sort} suggested={actions.suggested} blockedReason={actions.blockedReason} />
     </span>
   );

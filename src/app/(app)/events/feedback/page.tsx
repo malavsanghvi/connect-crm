@@ -4,7 +4,7 @@ import Link from "next/link";
 import { BarList } from "@/components/events/bars";
 import { ClickableRow } from "@/components/events/clickable-row";
 import { LoadProblem } from "@/components/events/load-problem";
-import { StepUpDownload } from "@/components/step-up-download";
+import { ExportDownload } from "@/components/export-download";
 import { BlockGrid, Card, EmptyState, KpiGrid, NoAccess, PageHeader, Stat, TableWrap, buttonClass } from "@/components/ui";
 import { loadFeedbackOverview, surveyExtras } from "@/lib/data/event-feedback";
 import { load, loadEventAccess, resolvePeopleNames } from "@/lib/data/events";
@@ -225,7 +225,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
               title={`${selectedName} · results`}
               actions={
                 <>
-                  <StepUpDownload href={`/events/feedback/export?survey=${selected.id}`} label="Export results" fallbackName="feedback-results.csv" />
+                  <ExportDownload href={`/events/feedback/export?survey=${selected.id}`} label="Export results" fallbackName="feedback-results.csv" />
                   <Link href={`/events/feedback/${selected.id}`} className={buttonClass("ghost", "sm")}>
                     All responses and settings
                   </Link>

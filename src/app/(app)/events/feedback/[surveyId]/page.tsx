@@ -7,7 +7,7 @@ import { BarList } from "@/components/events/bars";
 import { ActionButton } from "@/components/events/action-button";
 import { LoadProblem } from "@/components/events/load-problem";
 import { QuestionsBuilder } from "@/components/survey/questions-builder";
-import { StepUpDownload } from "@/components/step-up-download";
+import { ExportDownload } from "@/components/export-download";
 import { BlockGrid, Card, EmptyState, KpiGrid, NoAccess, PageHeader, Stat, TableWrap, buttonClass } from "@/components/ui";
 import { loadSurveyStats } from "@/lib/data/event-survey";
 import { surveyExtras } from "@/lib/data/event-feedback";
@@ -123,7 +123,7 @@ export default async function FeedbackSurveyPage({ params }: { params: Promise<{
           .join(" · ")}
         actions={
           <>
-            <StepUpDownload href={`/events/feedback/export?survey=${s.id}`} label="Export results" fallbackName="feedback-results.csv" />
+            <ExportDownload href={`/events/feedback/export?survey=${s.id}`} label="Export results" fallbackName="feedback-results.csv" />
             {event ? (
               <Link href={`/events/${event.id}?tab=survey`} className={buttonClass("ghost", "sm")}>
                 Event&apos;s Survey tab

@@ -2,12 +2,8 @@
 
 import { useState } from "react";
 
-import { useStepUp } from "@/components/step-up";
 import { useToast } from "@/components/toast";
 import { buttonClass, type ButtonSize, type ButtonVariant } from "@/components/ui";
-
-/** Response header an export route sets when the database asked for a fresh 2FA check (app.record_export). */
-export const STEP_UP_HEADER = "x-step-up";
 
 function fileName(res: Response, fallback: string): string {
   const cd = res.headers.get("content-disposition") ?? "";
@@ -16,11 +12,11 @@ function fileName(res: Response, fallback: string): string {
 }
 
 /**
- * A download button for an export route. Exports need a fresh 2FA check: when
- * the route answers 403 with `x-step-up: required`, the step-up modal opens
- * and the download is tried once more. Errors are shown, never swallowed.
+ * A download button for an export route: the file is fetched, saved under the
+ * route's file name, and any refusal is shown next to the button and in a
+ * toast, never swallowed. No 2FA code is asked for (owner rule 2026-10-13, 0778).
  */
-export function StepUpDownload({
+export function ExportDownload({
   href,
   label,
   fallbackName = "export.csv",
@@ -33,23 +29,22 @@ export function StepUpDownload({
   variant?: ButtonVariant;
   size?: ButtonSize;
 }) {
-  const stepUp = useStepUp();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function fetchOnce(): Promise<{ ok: boolean; error?: string; stepUp?: boolean; blob?: Blob; name?: string }> {
+  async function fetchOnce(): Promise<{ ok: boolean; error?: string; blob?: Blob; name?: string }> {
     const res = await fetch(href, { credentials: "same-origin" });
     if (res.ok) return { ok: true, blob: await res.blob(), name: fileName(res, fallbackName) };
     const text = (await res.text()).trim();
-    return { ok: false, error: text || `The export failed (HTTP ${res.status}).`, stepUp: res.headers.get(STEP_UP_HEADER) === "required" };
+    return { ok: false, error: text || `The export failed (HTTP ${res.status}).` };
   }
 
   async function go() {
     setBusy(true);
     setError(null);
     try {
-      const res = stepUp ? await stepUp.run(fetchOnce, label) : await fetchOnce();
+      const res = await fetchOnce();
       if (!res.ok || !res.blob) {
         setError(res.error ?? "The export failed.");
         toast?.show(res.error ?? "The export failed.", "bad");

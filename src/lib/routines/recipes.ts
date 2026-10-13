@@ -387,7 +387,7 @@ export const RECIPES: Record<RoutineRole, readonly RoutineStep[]> = {
     {
       key: "treasurer.close-month",
       title: "Close the month",
-      why: "Banks matched, the QuickBooks queue empty and refunds settled; then lock the month with a fresh security code.",
+      why: "Banks matched, the QuickBooks queue empty and refunds settled; then lock the month.",
       href: "/accounting/close",
       when: "month_end",
       access: "closeManage",

@@ -280,7 +280,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                   <details className="text-sm">
                     <summary className="cursor-pointer font-semibold">Change the basis</summary>
                     <p className="my-2 text-xs text-muted">
-                      Changing it needs the treasurer, a reason and a fresh 2FA check. The mapping and the test post must then be approved again.
+                      Changing it needs the treasurer and a reason. The mapping and the test post must then be approved again.
                     </p>
                     <ActionForm action={saveQboBasisAction} submitLabel="Change basis" pendingLabel="Changing…" variant="danger" size="sm"
                       confirmMessage="Change the accounting basis? The mapping and the test post must be approved again before anything posts.">
@@ -507,7 +507,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
           </Card>
 
           <BlockGrid className="mb-6">
-            <Card span={6} title="Approve the mapping" description="The treasurer, with a fresh 2FA check">
+            <Card span={6} title="Approve the mapping" description="The treasurer, with a reason">
               {s.settings.mapping_approved_at ? (
                 <p className="mb-3 text-sm">
                   <StatusText tone="ok">Approved</StatusText> {formatDateTime(s.settings.mapping_approved_at, tz)}

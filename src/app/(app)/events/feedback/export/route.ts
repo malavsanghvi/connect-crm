@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { loadSurveyStats } from "@/lib/data/event-survey";
 import { LoadError, loadEventAccess } from "@/lib/data/events";
 import { fetchAll } from "@/lib/data/fetch-all";
-import { explainError, isStepUpError } from "@/lib/errors";
+import { explainError } from "@/lib/errors";
 import { eventAreas } from "@/lib/events/access";
 import { canAccess } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
@@ -59,19 +59,13 @@ export async function GET(request: NextRequest) {
     const why = error instanceof LoadError ? error.friendly : `Could not load the survey numbers — ${explainError(error)}`;
     return problem(`Could not export the results. ${why}.`, 500);
   }
-  // Exports need a fresh 2FA check and are audited (app.record_export, 0154): counts only, never the data.
+  // Exports are audited (app.record_export): counts only, never the data. No fresh 2FA code since 0778 (owner rule 2026-10-13).
   const recorded = await db.rpc("record_export", {
     p_center: session.center.id,
     p_kind: "event_feedback",
     p_detail: { survey_id: s.data.id, responses: responses.data.length },
   });
   if (recorded.error) {
-    if (isStepUpError(recorded.error)) {
-      return new NextResponse("Could not export the results — this needs a fresh 2FA check.\n", {
-        status: 403,
-        headers: { "content-type": "text/plain; charset=utf-8", "x-step-up": "required" },
-      });
-    }
     console.error("[feedback export] record_export failed:", recorded.error);
     return problem(`Could not export the results — ${explainError(recorded.error)}.`, 500);
   }

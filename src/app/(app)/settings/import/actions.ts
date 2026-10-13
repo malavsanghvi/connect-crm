@@ -307,13 +307,7 @@ export async function undoAction(runId: string, reason: string): Promise<ActionR
   if (clean.length > 500) return { ok: false, error: "Could not undo the import — keep the reason under 500 characters." };
   const db = await dbWithReason(a.session, clean);
   const { data, error } = await db.rpc("import_undo", { p_run: runId, p_reason: clean });
-  if (error) {
-    if (error.code === "CCSTP" || /fresh 2FA check/i.test(error.message ?? "")) {
-      console.error("[import] undo needs step-up:", error);
-      return { ok: false, error: "Could not undo the import — this needs a fresh 2FA check. Confirm with your authenticator, then try again." };
-    }
-    return failure("Could not undo the import", error);
-  }
+  if (error) return failure("Could not undo the import", error);
   const d = data as { removed: number; restored: number; kept: unknown[] };
   refresh(runId);
   const kept = d.kept?.length ? ` ${d.kept.length} value${d.kept.length === 1 ? " was" : "s were"} changed by someone since, so left as they are.` : "";

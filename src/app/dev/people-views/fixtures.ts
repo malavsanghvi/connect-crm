@@ -108,7 +108,7 @@ export function gapWorkspace(filters: HouseholdFilters, opts: { noAccessToExport
     exportHref: opts.noAccessToExport ? null : `/dev/people-views/export?${new URLSearchParams(paramsFromFilters(filters)).toString()}`,
     exportNote: opts.noAccessToExport
       ? "A list of children is not exported."
-      : "Export holds adults only: a child's record is not part of a list export. It asks for a fresh 2FA code and is recorded in the audit log.",
+      : "Export holds adults only: a child's record is not part of a list export. It is recorded in the audit log.",
   };
   return {
     ...base,

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { withActivity } from "@/lib/activity/with-activity";
 import { todayInTz } from "@/lib/dates";
-import { explainError, isStepUpError } from "@/lib/errors";
+import { explainError } from "@/lib/errors";
 import { toCsv } from "@/lib/import/templates";
 import { relationshipLabel } from "@/lib/people";
 import { canAccess } from "@/lib/permissions";
@@ -14,23 +14,16 @@ import { sortKey } from "@/lib/people-v2/list";
 import { loadSession, type CrmSession } from "@/lib/session";
 
 // Export of a list on the People screen (the New look): the families, or the ADULTS of a people list such as "adults with no email". It
-// follows the rule of the other exports (events/feedback/export): the database asks for a fresh 2FA check (app.record_export, 0154), the
-// export is audited as export.<kind> with counts only (never the data), and a request without the check is answered 403 with the
-// x-step-up header so the page opens the step-up box and tries once more. A child's record is never part of an export from here: the
-// people list is adults only, whatever age band the address asks for, and a family's name has any child's first name taken out.
+// follows the rule of the other exports (events/feedback/export): the export is audited as export.<kind> with counts only (never the
+// data) by app.record_export. No fresh 2FA code is asked for (owner rule 2026-10-13, 0778: 2FA is for signing in). A child's record is
+// never part of an export from here: the people list is adults only, whatever age band the address asks for, and a family's name has
+// any child's first name taken out.
 
 const BOM = "\uFEFF";
 const MAX_FAMILIES = 100_000;
 
 function problem(message: string, status: number) {
   return new NextResponse(`${message}\n`, { status, headers: { "content-type": "text/plain; charset=utf-8" } });
-}
-
-function stepUp() {
-  return new NextResponse("Could not export the list — this needs a fresh 2FA check.\n", {
-    status: 403,
-    headers: { "content-type": "text/plain; charset=utf-8", "x-step-up": "required" },
-  });
 }
 
 function csvResponse(lines: readonly (readonly unknown[])[], fileName: string) {
@@ -63,21 +56,12 @@ async function run(request: NextRequest): Promise<NextResponse> {
     return problem("Could not export the list — a list of children is not exported. Choose adults, or another list.", 400);
   }
 
-  // Ask for the fresh 2FA check first, so a person without it is not made to wait for the list to be read.
-  const asked = await session.db.rpc("assert_step_up", { p_action: `export.${list === "people" ? "people_list" : "household_list"}` });
-  if (asked.error) {
-    if (isStepUpError(asked.error)) return stepUp();
-    console.error("[people export] the step-up check failed:", asked.error);
-    return problem(`Could not export the list — ${explainError(asked.error)}.`, 500);
-  }
-
   return list === "people" ? exportPeople(session, filters) : exportHouseholds(session, filters, sortKey(sp.sort));
 }
 
 async function record(session: CrmSession, kind: "people_list" | "household_list", rows: number, filters: HouseholdFilters): Promise<NextResponse | null> {
   const res = await session.db.rpc("record_export", { p_center: session.center.id, p_kind: kind, p_detail: { rows, filters: filterKeys(filters) } });
   if (!res.error) return null;
-  if (isStepUpError(res.error)) return stepUp();
   console.error("[people export] record_export failed:", res.error);
   return problem(`Could not export the list — ${explainError(res.error)}.`, 500);
 }

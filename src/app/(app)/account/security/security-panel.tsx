@@ -261,8 +261,8 @@ export function SecurityPanel({
             </form>
           ) : has2fa ? (
             <p className="text-[13px] text-muted">
-              {stepUpFresh ? "You passed a 2FA check in the last 5 minutes." : "This session passed 2FA."} Sensitive changes — role grants, refunds
-              and write-offs, the month lock, module switches, merges, exports — ask for a fresh code when your last one is more than 5 minutes old.
+              {stepUpFresh ? "You passed a 2FA check in the last 5 minutes." : "This session passed 2FA."} Administrator changes — role grants and invites, module
+              switches, payment and QuickBooks connections, payee changes, ownership — ask for a fresh code when your last one is more than 5 minutes old.
             </p>
           ) : (
             <p className="text-[13px] text-muted">

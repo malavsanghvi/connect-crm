@@ -281,7 +281,7 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
             suggested: "Membership ends within 60 days",
             blockedReason: null,
             exportHref: `/people/export?list=${opts.view}&ending=60`,
-            exportNote: "Export holds each family's number, IDs, adults and area, without any child's name. It asks for a fresh 2FA code and is recorded in the audit log.",
+            exportNote: "Export holds each family's number, IDs, adults and area, without any child's name. It is recorded in the audit log.",
           }
         : null,
     panel,
