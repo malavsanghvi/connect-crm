@@ -12018,8 +12018,7 @@ export type Database = {
       assistant_usage_check: {
         Args: {
           p_center: string;
-          p_cost: number;
-          p_purpose: string;
+          p_cost?: number;
         };
         Returns: Json;
       };
@@ -14511,6 +14510,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      pledge_default_due_on: {
+        Args: {
+          p_center: string;
+          p_pledged_at: string;
+        };
+        Returns: string;
+      };
       pledge_writeoff_postings: {
         Args: {
           p_pledges: string[];
@@ -15802,6 +15808,15 @@ export type Database = {
         Args: {
           p_key: string;
           p_value: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_pledge_due_on: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_due_on: string;
           p_reason: string;
         };
         Returns: Json;
