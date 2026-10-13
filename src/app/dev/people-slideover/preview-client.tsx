@@ -3,6 +3,9 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 
 import type { InlineSave } from "@/app/(app)/households/[id]/inline-actions";
+import { fakeEventAdd, type EventState } from "@/app/dev/people-event-add/fixtures";
+import { isEventStep, runEventStep, type EventStep } from "@/app/dev/people-event-add/script";
+import type { FamilyKey } from "@/app/dev/people-family/fixtures";
 import type { FamilyActions } from "@/components/people-v2/family/actions";
 import type { FamilyLinks } from "@/components/people-v2/family/family-header";
 import { FamilyView } from "@/components/people-v2/family/family-view";
@@ -43,7 +46,8 @@ export type Step =
   | "add-person"
   | "add-person-save"
   | "add-person-child"
-  | "add-person-bad";
+  | "add-person-bad"
+  | EventStep;
 
 /** What "someone else" changed it to, for the conflict scenario. */
 const THEIRS: Record<string, string> = {
@@ -55,9 +59,10 @@ const THEIRS: Record<string, string> = {
   gyan_daily_minutes: "15",
 };
 
-function fakeActions(scenario: Scenario): Partial<FamilyActions> {
+function fakeActions(scenario: Scenario, family: FamilyKey, eventsState: EventState): Partial<FamilyActions> {
   const wait = () => new Promise((r) => setTimeout(r, 140));
   return {
+    eventAdd: fakeEventAdd(eventsState, family),
     async save(_target, input): Promise<InlineSave> {
       await wait();
       const keys = Object.keys(input.fields);
@@ -200,6 +205,7 @@ function run(step: Step) {
         });
     });
   }
+  if (isEventStep(step)) runEventStep(step, '[data-section="events"] [data-testid="add-to-event"]');
   if (step.startsWith("add-person")) {
     click(document, '#add-person button[class*="border-dashed"]');
     later(160, () => {
@@ -230,9 +236,11 @@ export function PreviewSlideOver(props: {
   standalone: boolean;
   scenario: Scenario;
   step: Step;
+  family: FamilyKey;
+  eventsState: EventState;
 }) {
-  const { scenario, step, detail, standalone } = props;
-  const actions = useMemo(() => fakeActions(scenario), [scenario]);
+  const { scenario, step, detail, standalone, family, eventsState } = props;
+  const actions = useMemo(() => fakeActions(scenario, family, eventsState), [scenario, family, eventsState]);
   useEffect(() => {
     if (step === "none") return;
     const t = window.setTimeout(() => run(step), 700);

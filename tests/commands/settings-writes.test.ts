@@ -227,8 +227,16 @@ describe("settings.set_module", () => {
   it("explains a switch that cannot be made before asking, and one the database refuses after", async () => {
     const { ctx } = asWriter();
     expect(failed(await runCommand(ctx, "settings.set_module", { module: "people", enabled: false, reason: "x" }))).toBe("Members & families is a core module and is always on.");
+    // 0740: a module others need may be paused; the preview says they go off with it.
     const dependents = asWriter({ world: addSettingsWorld({ rpc: { module_states: MODULE_STATES.map((m) => (m.key === "bolis" ? { ...m, enabled: true } : m)) } }) });
-    expect(failed(await runCommand(dependents.ctx, "settings.set_module", { module: "giving", enabled: false, reason: "x" }))).toBe("Bolis depends on Pledges & donations — switch it off first.");
+    expect(proposed(await runCommand(dependents.ctx, "settings.set_module", { module: "giving", enabled: false, reason: "x" })).preview.warnings).toContain(
+      "Bolis goes off with it and comes back when Pledges & donations is switched on again.",
+    );
+    // A module Weaver has not enabled cannot be switched on.
+    const notGranted = asWriter({ world: addSettingsWorld({ rpc: { module_states: MODULE_STATES.map((m) => (m.key === "store" ? { ...m, enabled: false, granted: false, paused: false } : m)) } }) });
+    expect(failed(await runCommand(notGranted.ctx, "settings.set_module", { module: "store", enabled: true, reason: "x" }))).toBe(
+      "Weaver has not enabled My Store for this community. Ask Weaver to enable it.",
+    );
     const notOffered = asWriter({ world: addSettingsWorld({ rpc: { module_states: MODULE_STATES.map((m) => (m.key === "store" ? { ...m, availability: "not_available", enabled: false } : m)) } }) });
     expect(failed(await runCommand(notOffered.ctx, "settings.set_module", { module: "store", enabled: true, reason: "x" }))).toBe("My Store is not offered to this kind of organization, so it cannot be switched.");
     const refused = asWriter({ world: addSettingsWorld({ failRpc: { set_module_enabled: { code: "P0001", message: "Pledges & donations is needed by Bolis" } } }) });

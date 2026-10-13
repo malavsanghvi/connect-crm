@@ -7,6 +7,7 @@ import { confirmToolChoices } from "@/lib/assistant/choices";
 import { expectedVersion, writeCenterRules } from "@/lib/data/center-rules-write";
 import { failure, type ActionResult } from "@/lib/errors";
 import { parseKindPreview, type KindPreview } from "@/lib/kind-change";
+import { moduleLabelFor } from "@/lib/modules";
 import { isUuid } from "@/lib/search-params";
 import { dbWithReason, loadSession, type CrmSession } from "@/lib/session";
 import { ENTITLEMENT_INFO, entitlementLabel, parseEntitlementInput } from "@/lib/tenancy";
@@ -132,6 +133,45 @@ export async function changeKindAction(centerId: string, kind: string, reasonInp
     message: `Kind of organization changed to ${done?.to.label ?? "the new kind"} · audit logged`,
     data: done ?? undefined,
   };
+}
+
+// ── Modules: what Weaver enables for this community (0740) ────────────────────
+
+/**
+ * Enable or disable one module for one community (app.set_module_grant: platform admins only, a reason, a fresh 2FA check;
+ * audited). Enabling switches it on at once unless the community paused it; disabling hides it and its records (nothing is
+ * deleted) until it is enabled again. The form asks for the 2FA code when the database refuses without it (CCSTP) and retries.
+ * The form says which way to go (granted = "true" or "false"), so pressing it twice ends in the state the person asked for.
+ */
+export async function setModuleGrantAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const center = String(formData.get("center") ?? "");
+  const moduleKey = String(formData.get("module") ?? "");
+  const way = String(formData.get("granted") ?? "");
+  const label = String(formData.get("label") ?? "").trim() || moduleLabelFor(moduleKey);
+  const granted = way === "true";
+  const doing = `${granted ? "enable" : "disable"} ${label}`;
+  if (!isUuid(center) || !/^[a-z][a-z0-9_]{0,63}$/.test(moduleKey) || (way !== "true" && way !== "false")) {
+    return { ok: false, error: `Could not ${doing} — the form is out of date. Reload and try again.` };
+  }
+  const auth = await platformOnly(doing);
+  if (!auth.ok) return auth;
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!reason) return { ok: false, error: `Could not ${doing} — say why. The reason is kept in the audit log.` };
+  if (reason.length > 500) return { ok: false, error: `Could not ${doing} — keep the reason under 500 characters.` };
+  const db = await dbWithReason(auth.session, reason);
+  const { data, error } = await db.rpc("set_module_grant", { p_center: center, p_module: moduleKey, p_granted: granted, p_reason: reason });
+  if (error) return failure(`Could not ${doing}`, error);
+  const result = (data && typeof data === "object" && !Array.isArray(data) ? data : {}) as { paused?: unknown; enabled?: unknown };
+  revalidatePath(`/platform/centers/${center}`);
+  revalidatePath("/", "layout");
+  const message = !granted
+    ? `${label} disabled · its records are kept and hidden until it is enabled again · audit logged`
+    : result.enabled === true
+      ? `${label} enabled and on · audit logged`
+      : result.paused === true
+        ? `${label} enabled · the community has it paused, so it stays off until they switch it on · audit logged`
+        : `${label} enabled · it stays off until the modules it needs are on · audit logged`;
+  return { ok: true, message };
 }
 
 // ── Record how this community uses Weaver ────────────────────────────────────

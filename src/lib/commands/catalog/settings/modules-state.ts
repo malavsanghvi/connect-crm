@@ -1,6 +1,6 @@
 import { userNames } from "@/lib/data/lookups";
 import { formatDate } from "@/lib/dates";
-import { buildModuleRowsFromStates, switchBlocker } from "@/lib/modules";
+import { buildModuleRowsFromStates, moduleStatus, switchBlocker } from "@/lib/modules";
 import { isMissingObject } from "@/lib/modules-db";
 
 import { defineCommand } from "../../define";
@@ -17,8 +17,12 @@ export type ModulesStateData = {
     key: string;
     is_on: boolean;
     always_on: boolean;
+    /** "On", "Paused", "Not enabled by Weaver", "Off while Pledges & donations is off", "Always on". */
+    state: string;
+    /** Weaver has enabled it for this community (0740); the community may only pause and resume what Weaver enabled. */
+    enabled_by_weaver: boolean;
     needs: string[];
-    /** Why it cannot be switched right now (another module needs it, or it needs one that is off); null when it can. */
+    /** Why it cannot be switched right now (a core area; Weaver has not enabled it); null when it can. */
     cannot_switch_because: string | null;
     /** "Switched off Oct 3, 2026 by Priya Shah". */
     last_change: string | null;
@@ -32,8 +36,9 @@ export const modulesState = defineCommand<Infer<typeof input>, ModulesStateData>
   key: "settings.modules_state",
   title: "Look up which modules are switched on",
   description:
-    "Say which areas of Weaver are switched on or off for this community (Events, Giving, Bolis, the Store, Pathshala, Communications, Accounting, Niva and so on), " +
-    "which cannot be switched off (core areas, or ones another area needs), who changed each one last and why. A switched-off area disappears from the portal and the member app. " +
+    "Say which areas of Weaver are on, paused or not enabled for this community (Events, Giving, Bolis, the Store, Pathshala, Communications, Accounting, Niva and so on), " +
+    "which Weaver has enabled (the community can only pause and resume those), which are off because an area they need is off, who changed each one last and why. " +
+    "A switched-off area disappears from the portal and the member app. " +
     "It changes nothing; switching a module is a change that is always asked about first.",
   level: "read",
   permission: "centerSettings",
@@ -56,9 +61,11 @@ export const modulesState = defineCommand<Infer<typeof input>, ModulesStateData>
       key: r.key,
       is_on: r.enabled,
       always_on: r.core,
+      state: moduleStatus(r, rows).text,
+      enabled_by_weaver: r.granted,
       needs: r.dependsOn.map(label),
-      cannot_switch_because: r.core ? "It is a core area and is always on." : switchBlocker(r.key, !r.enabled, rows),
-      last_change: r.changedAt ? `${r.enabled ? "Switched on" : "Switched off"} ${formatDate(r.changedAt, center.time_zone)}${r.changedBy ? ` by ${names.get(r.changedBy)?.name ?? "a former user"}` : ""}` : null,
+      cannot_switch_because: r.core ? "It is a core area and is always on." : switchBlocker(r.key, r.paused || !r.granted, rows),
+      last_change: r.changedAt ? `${r.paused ? "Switched off" : "Switched on"} ${formatDate(r.changedAt, center.time_zone)}${r.changedBy ? ` by ${names.get(r.changedBy)?.name ?? "a former user"}` : ""}` : null,
       reason: r.reason,
     }));
     const off = modules.filter((m) => !m.is_on);

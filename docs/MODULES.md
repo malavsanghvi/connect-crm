@@ -1,27 +1,43 @@
 # Modules
 
-Each major subsystem is a **module** that an organization's admin can switch on or off
-(Settings › Modules, `settings.manage`). This page lists, per module, the tables, RPCs, portal
-routes, member-app screens and permissions that belong to it, and what switching it off does.
+Each major subsystem is a **module**. Since 0740, **Weaver (a platform admin) decides which modules a community has**
+(Platform › Communities › [community] › Modules), and the community's admin (`settings.manage`) can pause any of them and
+switch it back on (Settings › Modules). This page lists, per module, the tables, RPCs, portal routes, member-app screens and
+permissions that belong to it, and what switching it off does.
 
-Schema: `supabase/migrations/0100`–`0104`, and `0594` (organization categories, below). Tests:
-`supabase/tests/13_modules_audit_test.sql` and `79_organization_categories_test.sql`.
+Schema: `supabase/migrations/0100`–`0104`, `0594` (organization categories, below) and `0740` (platform grants). Tests:
+`supabase/tests/13_modules_audit_test.sql`, `79_organization_categories_test.sql` and `150_module_grants_test.sql`.
 Owner decisions recorded in [DECISIONS.md](DECISIONS.md); the categories plan is
 [ORGANIZATION_CATEGORIES_PLAN.md](ORGANIZATION_CATEGORIES_PLAN.md).
 
 ## How the switch works
 
+A module is **on** for a community when all four hold (0740):
+
+1. the community's kind offers it (`app.category_modules`: not `not_available`);
+2. Weaver has **granted** it: a row in `app.center_module_grants`, or, without a row, the kind's `default_on` (so a new
+   community gets its kind's `default_on` set without anyone acting, and a `default_off` module waits for Weaver);
+3. the community has **not paused** it (`app.center_modules`, its own switch);
+4. every module it **depends on** is on, worked out the same way. Dependencies are evaluated, not checked at the switch:
+   pausing Giving pauses Bolis and Accounting with it, and switching Giving back on brings them back as they were.
+
+Core modules (People) are always on. Communities that existed before 0740 were grandfathered: every module that was on, or
+that the community had switched itself, got a granted row, so nothing anyone saw changed.
+
 | Piece | What it does |
 |---|---|
 | `app.modules` | The catalog: `key`, `label`, `description`, `core`, `depends_on`, `sort`. Readable by any signed-in user. |
-| `app.center_modules` | One row per switch a center has flipped: `enabled`, `changed_by`, `changed_at`, `reason`. **No row means on**, so existing centers keep everything. Readable by members of the center; written only by `set_module_enabled`. Audited. |
+| `app.center_modules` | The community's own switch (a pause): `enabled`, `changed_by`, `changed_at`, `reason`. No row means not paused. Readable by members of the center; written only by `set_module_enabled`. Audited; a fresh 2FA check (0154). |
+| `app.center_module_grants` | Weaver's decision per community and module: `granted`, `reason`, `granted_by`, `granted_at` (0740). No row means the kind's availability decides. Readable by platform admins and the community's settings managers; written only by `set_module_grant`. Audited. A sandbox reset keeps it; promotion copies it. |
+| `app.set_module_grant(center, key, granted, reason)` | Platform admins only, a reason, a fresh 2FA check (`platform.module_grant`). Refuses a core module (*"… is part of the core platform and is always on."*), a module the kind does not offer, and a change that changes nothing. Enabling switches the module on at once unless the community paused it; disabling hides it and its data (nothing is deleted). Returns `{module, label, granted, paused, enabled}`. |
 | `app.module_tables` | Which module each app table belongs to. `NULL` = core platform (never switched off). A DB test fails if any app table is missing. |
-| `app.module_enabled(center, key)` | The category's row for the module decides (see *Organization categories* below); for a Jain Center, and for any module with no category row, it is `true` unless the center switched the module off. |
-| `app.module_off_centers(key)` | The centers where the module is off, as one array (the policies call it as an InitPlan, so a query evaluates it once). |
-| `app.assert_module_enabled(center, key)` | Raises *"The {label} module is switched off for this community."* (hint: *An administrator can switch it on in Settings › Modules.*), or, for a module the center's category does not have, *"{Module} is not part of a {Category} organization."* (hint: *Community Connect can change an organization's category.*). Platform admins pass. |
-| `app.set_module_enabled(center, key, enabled, reason)` | Needs `settings.manage` in that center (or platform admin) and a reason. Refuses to switch off a core module, a module that an enabled module depends on (the error names it), to switch on a module whose dependency is off, or to switch on a module the category does not have. The reason goes on the audit entry. |
-| `app.my_modules(center)` | `(key, label, enabled, core)` for the apps; empty for someone who is not a member. A module the category does not have comes back `enabled = false`. |
-| `app.module_states(center)` | For Settings › Modules (`settings.manage`, platform admins): every module with its category availability, the category's own name for it, whether it is on and whether it can be switched, and who last changed it and why. |
+| `app.module_enabled(center, key)` | The four rules above, for the module and every non-core module it needs. A NULL center (a global row) is never off. |
+| `app.module_off_centers(key)` | The centers where the module is off, as one array: one SQL set query (the module's dependency chain, three rows at most, times the centers, joined on primary keys). The policies call it as an InitPlan, so a query evaluates it once. |
+| `app.assert_module_enabled(center, key)` | Raises, in this order: *"{Module} is not part of a {Category} organization."* (the kind does not offer it); *"Weaver has not enabled {Module} for this community."* (hint: *Ask Weaver to enable it.*); *"{Module} is off because {Dependency} is off for this community."* (hint: *Settings › Modules shows why.*); *"The {label} module is switched off for this community."* (hint: *An administrator can switch it on in Settings › Modules.*). Platform admins pass. |
+| `app.set_module_enabled(center, key, enabled, reason)` | The community's pause and resume. Needs `settings.manage` in that center (or platform admin) and a reason. Refuses a core module, a module the kind does not offer, and a module Weaver has not enabled (*"Weaver has not enabled {Module} for this community."*, also for a platform admin: grant it first). Dependencies do not block it. The reason goes on the audit entry. |
+| `app.my_modules(center)` | `(key, label, enabled, core)` for the apps; empty for someone who is not a member. `enabled` is the result of the four rules, so a module that is not granted, paused, or waiting for another comes back `false`. Unchanged columns for the installed member apps. |
+| `app.module_states(center)` | For Settings › Modules and Platform › Communities › Modules (`settings.manage`, platform admins): every module with its kind availability and name, whether it is on and switchable, who last switched it and why, and (0740) `granted`, `granted_by`, `granted_at`, `grant_reason`, `paused`, `waiting_for` (the keys of the modules it needs that are off). |
+| Niva for admins | `rules.assistant.enabled` is the community's own switch; Niva for admins is on only while the `niva` module is also on (read where it is used: `nivaForAdminsOn`, `src/lib/assistant/settings.ts`), so a revoke or a pause turns it off at once. |
 | RLS `module_switch` | One **restrictive** policy per table of a switchable module (generated from `module_tables`): rows of a switched-off center are neither readable nor writable, except for platform admins. It is AND-ed with the existing policies, so it can only take access away. |
 | RPC guards | Every security-definer RPC of a module calls `assert_module_enabled` once the center is known (listed per module below). |
 
@@ -35,7 +51,7 @@ Plan: [ORGANIZATION_CATEGORIES_PLAN.md](ORGANIZATION_CATEGORIES_PLAN.md).
 | Piece | What it does |
 |---|---|
 | `app.organization_categories` | The four categories: `key`, `label`, `faith_based`, `uses_tradition` (true only for Jain Center), `path_label` (the sign-up question; null = none), `terms` (nine named words, keys checked by the database), `active`, `sort`. Platform data: written only by migrations, read by everyone (guests included). Only Jain Center is `active`; an inactive category can be chosen only by Community Connect, for a sandbox, to preview it. |
-| `app.category_modules` | One row per category and module: `availability` is `default_on` (on unless the organization switches it off: today's rule), `default_off` (off until the organization switches it on) or `not_available` (never on, not even offered as a switch), with an optional name of the category's own (`label`, `description`). Every category has a row for every module; core modules are always `default_on`; an available module never depends on one that is not (test 79). |
+| `app.category_modules` | One row per category and module: `availability` is `default_on` (on unless the organization switches it off: today's rule), `default_off` (off until Weaver enables it, 0740; before 0740 the organization switched it on itself) or `not_available` (never on, not even offered as a switch), with an optional name of the category's own (`label`, `description`). Every category has a row for every module; core modules are always `default_on`; an available module never depends on one that is not (test 79). |
 | `app.category_paths` | A person's possible paths inside the category (Jain Center: Shwetambar and Digambar, each with their paths, plus "Another path" and "Not sure"). |
 | `app.module_availability(center, key)` | The category's row for a module; no row means `default_on`. Internal. |
 | `app.category_profile(center)` | What the apps ask once per community, with or without a session: the category, its terms, the modules' availability, its paths and the community's default path (from `centers.tradition`). "That community was not found." for an unknown or closed one. |
