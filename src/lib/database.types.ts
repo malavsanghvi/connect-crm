@@ -1588,6 +1588,7 @@ export type Database = {
           reason: string;
           granted_by: string | null;
           granted_at: string;
+          is_trial: boolean;
         };
         Insert: {
           center_id: string;
@@ -1596,6 +1597,7 @@ export type Database = {
           reason: string;
           granted_by?: string | null;
           granted_at?: string;
+          is_trial?: boolean;
         };
         Update: {
           center_id?: string;
@@ -1604,6 +1606,7 @@ export type Database = {
           reason?: string;
           granted_by?: string | null;
           granted_at?: string;
+          is_trial?: boolean;
         };
         Relationships: [];
       };
