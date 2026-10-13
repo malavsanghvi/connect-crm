@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
+import { communityFormat } from "@/lib/community-format";
 import { failure, type ActionResult } from "@/lib/errors";
 import { parseBagNumbers } from "@/lib/giving";
-import { parseAmountToCents } from "@/lib/money";
+import { readDenominations, reconcileTotal } from "@/lib/giving-counts/denominations";
+import { formatCents, parseAmountToCents } from "@/lib/money";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction } from "@/lib/session";
 
@@ -13,7 +15,9 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * Bhandar counting session (0003 counting_sessions). The database requires at
  * least two counters from different households (0016 trigger); its message is
- * shown as is when the rule is broken.
+ * shown as is when the rule is broken. The counts tab's Start a count (New look,
+ * slice 5) also sends the notes and coins (`denominations`, JSON) and the event;
+ * the classic form sends neither and saves exactly as before.
  */
 export async function createCountingSessionAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("countingRecord", "save the counting session");
@@ -25,11 +29,18 @@ export async function createCountingSessionAction(_prev: ActionResult | null, fo
   const bags = parseBagNumbers(String(formData.get("bags") ?? ""));
   const depositRef = String(formData.get("deposit_ref") ?? "").trim().slice(0, 80);
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000);
+  const eventId = String(formData.get("event_id") ?? "");
+  const fmt = communityFormat(center);
 
   if (!DATE.test(countedOn)) return { ok: false, error: "Could not save the counting session — choose the counting date." };
   if (counters.length < 2) return { ok: false, error: "Could not save the counting session — choose two counters from different households." };
-  const total = totalText ? parseAmountToCents(totalText) : 0;
-  if (total === null || total < 0) return { ok: false, error: "Could not save the counting session — the total must be an amount like 3412.00." };
+  const typed = totalText ? parseAmountToCents(totalText) : null;
+  if (totalText && (typed === null || typed < 0)) return { ok: false, error: "Could not save the counting session — the total must be an amount like 3412.00." };
+  const pieces = readDenominations(formData.get("denominations"), fmt.currency);
+  if (!pieces.ok) return { ok: false, error: `Could not save the counting session — ${pieces.error}.` };
+  const reconciled = reconcileTotal(typed, pieces.totalCents, (c) => formatCents(c, fmt.currency, fmt.locale));
+  if (!reconciled.ok) return { ok: false, error: `Could not save the counting session — ${reconciled.error}.` };
+  const total = reconciled.cents;
 
   const { error } = await db.from("counting_sessions").insert({
     center_id: center.id,
@@ -40,9 +51,13 @@ export async function createCountingSessionAction(_prev: ActionResult | null, fo
     bag_numbers: bags,
     deposit_ref: depositRef || null,
     notes: notes || null,
+    totals_by_denomination: pieces.counts,
+    event_id: isUuid(eventId) ? eventId : null,
   });
   if (error) return failure("Could not save the counting session", error);
   revalidatePath("/giving/payments");
+  revalidatePath("/giving/counts");
+  revalidatePath("/giving");
   return { ok: true, message: `Counting session saved${bags.length ? ` · bags ${bags.join(", ")}` : ""} · audit logged.` };
 }
 
@@ -65,5 +80,6 @@ export async function recordCountingDepositAction(_prev: ActionResult | null, fo
   if (error) return failure("Could not record the deposit", error);
   if (!data || data.length === 0) return { ok: false, error: "Could not record the deposit — no change was saved (you may lack permission)." };
   revalidatePath("/giving/payments");
+  revalidatePath("/giving/counts");
   return { ok: true, message: depositRef ? `Deposit ${depositRef} recorded · audit logged.` : "Total recorded · audit logged." };
 }

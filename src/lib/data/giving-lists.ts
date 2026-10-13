@@ -9,12 +9,11 @@ import "server-only";
 // page through it; Closed and All page in the database. Payments page in the database. Search: see src/lib/giving-lists/search.ts.
 
 import type { HouseholdCardData } from "@/components/household-card";
-import type { CounterOption } from "@/app/(app)/giving/payments/counting-form";
 import { identifierRules } from "@/lib/center-rules";
 import type { Enums } from "@/lib/database.types";
 import { communityFormat } from "@/lib/community-format";
 import { chunk, fetchAll } from "@/lib/data/fetch-all";
-import { campaignsForCenter, householdCards, personName, userNames } from "@/lib/data/lookups";
+import { campaignsForCenter, householdCards, userNames } from "@/lib/data/lookups";
 import { searchHouseholds } from "@/lib/data/search";
 import { todayInTz } from "@/lib/dates";
 import { failure } from "@/lib/errors";
@@ -24,7 +23,6 @@ import { PAGE_SIZE, pager, switchedOff, type ListBody, type PaymentsModel, type 
 import {
   GRANT_KINDS,
   RECURRING_CHIPS,
-  countRow,
   flaggedRow,
   grantRow,
   methodChip,
@@ -63,7 +61,6 @@ import { enabledPaymentPlugins } from "@/lib/payments/plugins/enabled";
 import { can, canAccess } from "@/lib/permissions";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
-import { countsWord } from "@/lib/wording";
 import { workspaceLabel } from "@/lib/workspaces";
 
 /** PayPal connected by its Business email only: its refunds are made in PayPal and recorded here by hand (#7). */
@@ -354,7 +351,7 @@ type PaymentRowDb = {
 
 export type RecordSlot = { household: HouseholdCardData | null; values: RecordPrefill | null; canAllocate: boolean; bankOn: boolean };
 
-export type PaymentsPage = PaymentsModel & { record: RecordSlot | null; counters: { options: CounterOption[]; error: string | null } | null };
+export type PaymentsPage = PaymentsModel & { record: RecordSlot | null };
 
 export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams): Promise<PaymentsPage> {
   const { db, center } = session;
@@ -362,7 +359,6 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
   const ctx0 = listContext(session, false);
   const q = param(sp, "q") ?? "";
   const view = paymentViewFromParam(param(sp, "view"));
-  const word = countsWord(session.kind);
   const base = {
     ...common(session, ctx0, q, "", hrefWith("/giving/payments", sp, { q: undefined, page: undefined })),
     view,
@@ -371,10 +367,7 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
     sources: [],
     statuses: [],
     flagged: [],
-    canCount: false,
-    countsWord: word,
     record: null,
-    counters: null,
   };
   if (!canAccess(session, "payments")) return { ...base, body: { state: "no_access", area: "Payments", access: "payments" } };
 
@@ -383,7 +376,6 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
     refunds: seesAll || ctx0.can.manage || ctx0.can.approve ? "on" : "no_access",
     grants: !bankOn ? "off" : canAccess(session, "bank") ? "on" : "no_access",
     recurring: !isModuleEnabled(session, GIVING_ADDONS.recurring) ? "off" : canAccess(session, "recurring") ? "on" : "no_access",
-    counts: !isModuleEnabled(session, GIVING_ADDONS.counts) ? "off" : canAccess(session, "counting") ? "on" : "no_access",
   };
   const needsPaypal = ctx0.can.manage && (view === "all" || view === "refunds");
   const [paypalEmailOnly, plugins] = await Promise.all([
@@ -431,7 +423,6 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
       grants: grantCount?.count || null,
     },
     view,
-    word,
     (v) => hrefWith("/giving/payments", {}, { view: v === "all" ? undefined : v }),
   );
   const note = !can(session, ["giving.view", "giving.manage"])
@@ -442,16 +433,16 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
   if (view !== "all" && states[view] !== "on") {
     const body: ListBody =
       states[view] === "off"
-        ? switchedOff(session.kind, view === "grants" ? "giving_bank" : view === "recurring" ? "giving_recurring" : "giving_counts", center.short_name || center.name)
+        ? switchedOff(session.kind, view === "grants" ? "giving_bank" : "giving_recurring", center.short_name || center.name)
         : {
             state: "no_access",
-            area: view === "refunds" ? "Refunds" : view === "grants" ? "Grants to match" : view === "recurring" ? "Recurring gifts" : word,
-            access: view === "refunds" ? "paymentsAll" : view === "grants" ? "bank" : view === "recurring" ? "recurring" : "counting",
+            area: view === "refunds" ? "Refunds" : view === "grants" ? "Grants to match" : "Recurring gifts",
+            access: view === "refunds" ? "paymentsAll" : view === "grants" ? "bank" : "recurring",
           };
     return { ...shell, body };
   }
 
-  const searched = view === "counts" ? { search: null, householdIds: [], problem: null } : await runSearch(session, q, ctx.currency);
+  const searched = await runSearch(session, q, ctx.currency);
   if (searched.problem) problems.push(searched.problem);
   const { search, householdIds } = searched;
   const idSet = new Set(householdIds);
@@ -610,104 +601,66 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
   }
 
   // ------------------------------------------------------------------ Recurring (read-only)
-  if (view === "recurring") {
-    const status = recurringChipFromParam(param(sp, "rstatus"));
-    const filter = search ? searchFilter(search, { numberColumn: null, householdIds }) : null;
-    const nothing = search !== null && filter === null;
-    let x = db
-      .from("recurring_gifts")
-      .select("id, household_id, campaign_id, fund_id, amount_cents, frequency, method, next_charge_on, status, links_to_pledges, special_day_id", { count: "exact" })
-      .eq("center_id", center.id);
-    if (status !== "all") x = x.eq("status", status);
-    if (filter) x = x.or(filter);
-    const res = nothing ? { data: [], count: 0, error: null } : await x.order("next_charge_on", { ascending: true, nullsFirst: false }).range(from, from + PAGE_SIZE - 1);
-    const rows = res.data ?? [];
-    const fundIds = [...new Set(rows.map((r) => r.fund_id).filter((v): v is string => Boolean(v)))];
-    const [families, campaigns, funds] = await Promise.all([
-      familiesOf(session, rows.map((r) => r.household_id)),
-      campaignsForCenter(db, center.id),
-      fundIds.length ? db.from("funds").select("id, name").in("id", fundIds) : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
-    ]);
-    if (families.problem) problems.push(families.problem);
-    if (campaigns.error || funds.error) problems.push(failure("Could not read some campaign or fund names", campaigns.error ?? funds.error).error);
-    const campaignName = new Map(campaigns.data.map((c) => [c.id, c.name]));
-    const fundName = new Map((funds.data ?? []).map((f) => [f.id, f.name]));
-    return {
-      ...shell,
-      searchLabel: "Find a recurring gift by family or amount",
-      statuses: RECURRING_CHIPS.map((c) => ({
-        key: c.key,
-        label: c.label,
-        href: hrefWith("/giving/payments", sp, { rstatus: c.key === "all" ? undefined : c.key, page: undefined }),
-        count: null,
-        on: c.key === status,
-      })),
-      body: res.error
-        ? err(failure("Could not read the recurring gifts", res.error).error, retry)
-        : {
-            state: "ok",
-            rows: rows.map((r) =>
-              recurringRow(
-                {
-                  id: r.id,
-                  householdId: r.household_id,
-                  amountCents: r.amount_cents,
-                  frequency: r.frequency,
-                  method: r.method,
-                  nextChargeOn: r.next_charge_on,
-                  status: r.status,
-                  cause: r.campaign_id
-                    ? (campaignName.get(r.campaign_id) ?? "Campaign")
-                    : r.fund_id
-                      ? (fundName.get(r.fund_id) ?? "Fund")
-                      : r.special_day_id
-                        ? "A special day"
-                        : "General fund",
-                  linksToPledges: Boolean(r.links_to_pledges),
-                },
-                families.map.get(r.household_id) ?? null,
-                ctx,
-              ),
-            ),
-            empty: search ? `No recurring gift matches “${search.text}”.` : "No recurring gifts here. Members set them up in the member app.",
-          },
-      pager: pager(page, res.count ?? rows.length, pageHref),
-    };
-  }
-
-  // ------------------------------------------------------------------ Offering counts (until slice 5)
-  const canCount = canAccess(session, "countingRecord");
-  const res = await db
-    .from("counting_sessions")
-    .select("id, counted_on, counters, total_cents, bag_numbers, deposit_ref, payment_id", { count: "exact" })
-    .eq("center_id", center.id)
-    .order("counted_on", { ascending: false })
-    .range(from, from + PAGE_SIZE - 1);
+  // Recurring (read-only): the last view (the counts have their own tab since slice 5).
+  const status = recurringChipFromParam(param(sp, "rstatus"));
+  const filter = search ? searchFilter(search, { numberColumn: null, householdIds }) : null;
+  const nothing = search !== null && filter === null;
+  let x = db
+    .from("recurring_gifts")
+    .select("id, household_id, campaign_id, fund_id, amount_cents, frequency, method, next_charge_on, status, links_to_pledges, special_day_id", { count: "exact" })
+    .eq("center_id", center.id);
+  if (status !== "all") x = x.eq("status", status);
+  if (filter) x = x.or(filter);
+  const res = nothing ? { data: [], count: 0, error: null } : await x.order("next_charge_on", { ascending: true, nullsFirst: false }).range(from, from + PAGE_SIZE - 1);
   const rows = res.data ?? [];
-  const [counterNames, counters] = await Promise.all([userNames(db, center.id, rows.flatMap((c) => c.counters)), canCount ? counterOptions(session) : Promise.resolve(null)]);
+  const fundIds = [...new Set(rows.map((r) => r.fund_id).filter((v): v is string => Boolean(v)))];
+  const [families, campaigns, funds] = await Promise.all([
+    familiesOf(session, rows.map((r) => r.household_id)),
+    campaignsForCenter(db, center.id),
+    fundIds.length ? db.from("funds").select("id, name").in("id", fundIds) : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
+  ]);
+  if (families.problem) problems.push(families.problem);
+  if (campaigns.error || funds.error) problems.push(failure("Could not read some campaign or fund names", campaigns.error ?? funds.error).error);
+  const campaignName = new Map(campaigns.data.map((c) => [c.id, c.name]));
+  const fundName = new Map((funds.data ?? []).map((f) => [f.id, f.name]));
   return {
     ...shell,
-    canCount,
-    counters,
+    searchLabel: "Find a recurring gift by family or amount",
+    statuses: RECURRING_CHIPS.map((c) => ({
+      key: c.key,
+      label: c.label,
+      href: hrefWith("/giving/payments", sp, { rstatus: c.key === "all" ? undefined : c.key, page: undefined }),
+      count: null,
+      on: c.key === status,
+    })),
     body: res.error
-      ? err(failure(`Could not read the ${word.toLowerCase()}`, res.error).error, retry)
+      ? err(failure("Could not read the recurring gifts", res.error).error, retry)
       : {
           state: "ok",
-          rows: rows.map((c) =>
-            countRow(
+          rows: rows.map((r) =>
+            recurringRow(
               {
-                id: c.id,
-                countedOn: c.counted_on,
-                totalCents: c.total_cents,
-                bags: c.bag_numbers,
-                counters: c.counters.map((u) => counterNames.get(u)?.name ?? "A counter"),
-                depositRef: c.deposit_ref,
-                paymentId: c.payment_id,
+                id: r.id,
+                householdId: r.household_id,
+                amountCents: r.amount_cents,
+                frequency: r.frequency,
+                method: r.method,
+                nextChargeOn: r.next_charge_on,
+                status: r.status,
+                cause: r.campaign_id
+                  ? (campaignName.get(r.campaign_id) ?? "Campaign")
+                  : r.fund_id
+                    ? (fundName.get(r.fund_id) ?? "Fund")
+                    : r.special_day_id
+                      ? "A special day"
+                      : "General fund",
+                linksToPledges: Boolean(r.links_to_pledges),
               },
-              { ...ctx, canCount },
+              families.map.get(r.household_id) ?? null,
+              ctx,
             ),
           ),
-          empty: "No counts yet.",
+          empty: search ? `No recurring gift matches “${search.text}”.` : "No recurring gifts here. Members set them up in the member app.",
         },
     pager: pager(page, res.count ?? rows.length, pageHref),
   };
@@ -739,34 +692,4 @@ function toFlagged(f: RawFlagged): FlaggedIn {
     householdId: f.household_id,
     paymentAmountCents: f.payment_amount_cents,
   };
-}
-
-/** The people who can count, each with their household (two counters come from different households), as the classic page reads them. */
-async function counterOptions(session: CrmSession): Promise<{ options: CounterOption[]; error: string | null }> {
-  const { db, center } = session;
-  const cu = await db.from("center_users").select("user_id, person_id").eq("center_id", center.id).not("person_id", "is", null).limit(1000);
-  if (cu.error) return { options: [], error: failure("Could not list people to choose counters from", cu.error).error };
-  const personIds = (cu.data ?? []).map((x) => x.person_id).filter((x): x is string => !!x).slice(0, 1000);
-  if (personIds.length === 0) return { options: [], error: null };
-  const [pp, hm] = await Promise.all([
-    db.from("people").select("id, first_name, last_name, preferred_name").in("id", personIds),
-    db.from("household_members").select("person_id, household_id, is_primary").in("person_id", personIds).is("left_at", null),
-  ]);
-  if (pp.error || hm.error) return { options: [], error: failure("Could not list people to choose counters from", pp.error ?? hm.error).error };
-  const hhOf = new Map<string, string>();
-  for (const m of [...(hm.data ?? [])].sort((a, b) => Number(b.is_primary) - Number(a.is_primary))) {
-    if (!hhOf.has(m.person_id)) hhOf.set(m.person_id, m.household_id);
-  }
-  const families = await familiesOf(session, [...hhOf.values()]);
-  const personBy = new Map((pp.data ?? []).map((x) => [x.id, x]));
-  const options = (cu.data ?? [])
-    .flatMap((x) => {
-      const person = x.person_id ? personBy.get(x.person_id) : undefined;
-      if (!person) return [];
-      const householdId = hhOf.get(person.id) ?? null;
-      const f = householdId ? families.map.get(householdId) : undefined;
-      return [{ userId: x.user_id, name: personName(person), householdId, household: f ? `${f.name}${f.number ? ` (${f.number})` : ""}` : null }];
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-  return { options, error: families.problem };
 }

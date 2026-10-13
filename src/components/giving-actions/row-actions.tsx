@@ -36,6 +36,7 @@ import { formatDate } from "@/lib/dates";
 import { familyFrom, familyLine, familyRef, type Act, type BehindView, type CloseItemView, type Family, type QueueRow, type ZellePairView } from "@/lib/giving-today/queue";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 
+import { MatchCountAct, UnmatchCountAct } from "./count-acts";
 import { GiftAct } from "./gift-act";
 import { RecordPaymentButton } from "./provider";
 import { FamilyCard, GivingSheet, NO_UNDO } from "./sheet";
@@ -561,7 +562,8 @@ function CountDepositAct({ act, row, ctx }: { act: Extract<Act, { kind: "count_d
   const [total, setTotal] = useState(act.totalCents === null ? "" : (act.totalCents / 100).toFixed(2));
   return (
     <SheetAct
-      buttonLabel="Record the deposit"
+      buttonLabel={act.button ?? "Record the deposit"}
+      primary={!act.secondary}
       title={act.label}
       family={null}
       what={
@@ -1052,6 +1054,10 @@ export function ActButtons({ acts, row, ctx }: { acts: readonly Act[]; row: RowL
             return <ApplyAct key={i} act={a} row={row} ctx={ctx} />;
           case "count_deposit":
             return <CountDepositAct key={i} act={a} row={row} ctx={ctx} />;
+          case "count_match":
+            return <MatchCountAct key={i} act={a} row={row} ctx={ctx} />;
+          case "count_unmatch":
+            return <UnmatchCountAct key={i} act={a} row={row} ctx={ctx} />;
           case "request_write_off":
             return <RequestWriteOffAct key={i} act={a} row={row} ctx={ctx} />;
           case "withdraw_write_off":

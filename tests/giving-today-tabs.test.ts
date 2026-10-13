@@ -12,8 +12,9 @@ describe("Giving's one tab row", () => {
   it("a treasurer in a neutral community: every tab with a screen today, in the plan's order (no Labh, Bolis off)", () => {
     expect(keys(ctx(treasurer))).toEqual(["today", "pledges", "payments", "bank", "campaigns", "statements", "insights", "counts", "books"]);
     const tabs = givingTabs(ctx(treasurer));
-    // Until slice 5 the counts are a view of Payments.
-    expect(tabs.find((t) => t.key === "counts")).toMatchObject({ label: "Cash counts", href: "/giving/payments?view=counts" });
+    // The counts have their own tab since slice 5.
+    expect(tabs.find((t) => t.key === "counts")).toMatchObject({ label: "Cash counts", href: "/giving/counts", paths: ["/giving/counts"] });
+    expect(activeGivingTab(tabs, "/giving/counts")).toBe("counts");
     expect(tabs.find((t) => t.key === "campaigns")).toMatchObject({ label: "Campaigns & opportunities", href: "/giving/campaigns" });
     expect(tabs.find((t) => t.key === "books")?.href).toBe("/accounting/close");
     expect(givingTabs(ctx(treasurer)).find((t) => t.key === "insights")).toMatchObject({ label: "Insights", href: "/giving/insights" });

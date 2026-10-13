@@ -65,9 +65,6 @@ export type PaymentsModel = ListsCommon & {
   statuses: Chip[];
   /** Flagged refunds, made in a card provider's dashboard, above the refund requests. */
   flagged: ListRow[];
-  /** The offering counts view can start a new count (the form is the route's). */
-  canCount: boolean;
-  countsWord: string;
 };
 
 export function pager(page: number, total: number, hrefFor: (page: number) => string): Pager | null {

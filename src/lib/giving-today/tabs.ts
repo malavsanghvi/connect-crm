@@ -83,8 +83,8 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
   // Insights (B98 slice 1): the community's own numbers, for the giving staff (giving.view or giving.manage).
   if (giving && canAccess(ctx, "paymentsAll") && on(GIVING_ADDONS.insights)) out.push({ key: "insights", label: "Insights", href: "/giving/insights", paths: ["/giving/insights"] });
   if (giving && canAccess(ctx, "counting") && on(GIVING_ADDONS.counts)) {
-    // A view of Payments until slice 5 gives the counts their own tab.
-    out.push({ key: "counts", label: countsWord(ctx.kind), href: "/giving/payments?view=counts", paths: [] });
+    // Their own tab since slice 5 (the address /giving/payments?view=counts sends here).
+    out.push({ key: "counts", label: countsWord(ctx.kind), href: "/giving/counts", paths: ["/giving/counts"] });
   }
   const accounting = nav.find((m) => m.key === "accounting");
   const close = accounting?.tabs.find((t) => t.href === "/accounting/close");

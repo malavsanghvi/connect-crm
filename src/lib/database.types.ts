@@ -2264,6 +2264,8 @@ export type Database = {
           payment_id: string | null;
           notes: string | null;
           created_at: string;
+          bank_transaction_id: string | null;
+          bank_line_marked: boolean;
         };
         Insert: {
           id?: string;
@@ -2279,6 +2281,8 @@ export type Database = {
           payment_id?: string | null;
           notes?: string | null;
           created_at?: string;
+          bank_transaction_id?: string | null;
+          bank_line_marked?: boolean;
         };
         Update: {
           id?: string;
@@ -2294,6 +2298,8 @@ export type Database = {
           payment_id?: string | null;
           notes?: string | null;
           created_at?: string;
+          bank_transaction_id?: string | null;
+          bank_line_marked?: boolean;
         };
         Relationships: [];
       };
@@ -13244,6 +13250,13 @@ export type Database = {
         };
         Returns: string;
       };
+      link_count_to_bank_deposit: {
+        Args: {
+          p_session: string;
+          p_txn: string;
+        };
+        Returns: Json;
+      };
       link_payment_report: {
         Args: {
           p_report: string;
@@ -15806,6 +15819,13 @@ export type Database = {
       undo_person_deceased: {
         Args: {
           p_person: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      unlink_count_from_bank_deposit: {
+        Args: {
+          p_session: string;
           p_reason: string;
         };
         Returns: Json;

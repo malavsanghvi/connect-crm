@@ -125,12 +125,12 @@ describe("grants to match", () => {
 });
 
 describe("the views of Payments", () => {
-  it("All, Refunds, Grants, Recurring and the counts, each only when its add-on is on", () => {
+  it("All, Refunds, Grants and Recurring, each only when its add-on is on (the counts have their own tab since slice 5)", () => {
     const m = samplePaymentsModel("treasurer");
-    expect(m.views.map((v) => v.label)).toEqual(["All payments", "Refunds", "Grants to match", "Recurring", "Cash counts"]);
+    expect(m.views.map((v) => v.label)).toEqual(["All payments", "Refunds", "Grants to match", "Recurring"]);
     // Three requests waiting for someone, and one refund made in a card provider's dashboard.
     expect(m.views.find((v) => v.key === "refunds")?.count).toBe(4);
-    const off = samplePaymentsModel("treasurer", {}, undefined, { modulesOff: ["giving_recurring", "giving_bank", "giving_counts"] });
+    const off = samplePaymentsModel("treasurer", {}, undefined, { modulesOff: ["giving_recurring", "giving_bank"] });
     expect(off.views.map((v) => v.key)).toEqual(["all", "refunds"]);
   });
 
@@ -143,7 +143,7 @@ describe("the views of Payments", () => {
     const m = samplePaymentsModel("volunteer");
     expect(rowsOf(m).map((r) => r.reference)).toEqual(["R-2026-0413", "R-2026-0322"]);
     expect(m.note).toContain("Limited view");
-    expect(m.views.map((v) => v.key)).toEqual(["all", "grants", "counts"]);
+    expect(m.views.map((v) => v.key)).toEqual(["all", "grants"]);
     expect(rowsOf(m).every((r) => r.menu.every((a) => a.kind === "link"))).toBe(true);
     expect(samplePaymentsModel("volunteer", { view: "recurring" }).body).toMatchObject({ state: "no_access", access: "recurring" });
   });
@@ -170,11 +170,12 @@ describe("the views of Payments", () => {
 
   it("old view addresses and the Recurring address light the Payments tab", () => {
     expect(paymentViewFromParam("nonsense")).toBe("all");
-    expect(paymentViewChips({ refunds: "no_access", grants: "off", recurring: "on", counts: "on" }, {}, "recurring", "Offering counts", () => "#").map((c) => [c.key, c.on])).toEqual([
+    expect(paymentViewChips({ refunds: "no_access", grants: "off", recurring: "on" }, {}, "recurring", () => "#").map((c) => [c.key, c.on])).toEqual([
       ["all", false],
       ["recurring", true],
-      ["counts", false],
     ]);
+    // The counts moved to their own tab: the old view address is no view of Payments any more (the route sends it on).
+    expect(paymentViewFromParam("counts")).toBe("all");
     const tabs = givingTabs({ permissions: ["giving.view", "giving.manage"], isPlatformAdmin: false, modulesOff: [], kind: NEUTRAL_KIND });
     expect(activeGivingTab(tabs, "/giving/recurring")).toBe("payments");
     expect(tabs.map((t) => t.key)).not.toContain("recurring");

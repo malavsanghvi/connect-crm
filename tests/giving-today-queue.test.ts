@@ -181,7 +181,10 @@ describe("a finance volunteer (giving.record_offline)", () => {
     expect(rows.find((r) => r.id === "bank:zelle-exact")?.info).toBeUndefined();
     expect(rows.find((r) => r.id === "pledges:behind")).toMatchObject({ info: true, title: "3 households are behind on pledges" });
     expect(rows.some((r) => r.id.startsWith("pledges:apply"))).toBe(false);
-    expect(rows.find((r) => r.group === "counts")?.acts[0]).toMatchObject({ kind: "count_deposit" });
+    // Bank reconciliation is on: the counter picks the deposit line; the slip reference stays next to it (slice 5).
+    expect(rows.find((r) => r.group === "counts")?.acts.map((a) => a.kind)).toEqual(["count_match", "count_deposit"]);
+    expect(rows.find((r) => r.group === "counts")?.acts[1]).toMatchObject({ button: "Mark deposited", secondary: true });
+    expect(model.can.countStart).toBe(true);
     expect(model.queue.tiles.map((t) => t.key)).toEqual(["all", "bank", "pledges", "counts"]);
   });
 });
