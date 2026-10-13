@@ -1,5 +1,6 @@
 import { ActionForm } from "@/components/action-form";
 import { BankTab } from "@/components/giving-bank/bank-tab";
+import { ExportButton } from "@/components/giving-lists/export-button";
 import { loadBankTab } from "@/lib/data/giving-bank";
 import type { RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -22,6 +23,7 @@ export async function BankV2({ searchParams }: { searchParams: Promise<RawSearch
         account ? <BankImport bankAccountId={account.id} accountName={account.name} expectedFormat={account.statementFormat} currency={model.currency} /> : null
       }
       noAccount={<NewAccountForm />}
+      exportSlot={model.exportOffer ? <ExportButton offer={model.exportOffer} labels={model.labels} /> : null}
     />
   );
 }

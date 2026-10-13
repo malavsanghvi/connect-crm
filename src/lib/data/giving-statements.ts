@@ -9,10 +9,14 @@ import { identifierRules, isPlainObject } from "@/lib/center-rules";
 import { communityFormat, type CommunityFormat } from "@/lib/community-format";
 import { todayInTz } from "@/lib/dates";
 import { failure } from "@/lib/errors";
+import { LIST_WORDS, filterSentence } from "@/lib/giving-export/csv";
+import { yearEndExportFilter } from "@/lib/giving-export/filters";
+import { exportHref, exportOffer } from "@/lib/giving-lists/model";
 import { REVIEW_PAGE_SIZE, type ReceiptPart, type ReviewPart, type StatementsModel } from "@/lib/giving-statements/model";
 import { cleanReceiptNumber, parseReceiptCopy, printBlockedReason, receiptCopyLines, receiptFamily } from "@/lib/giving-statements/receipt-copy";
 import {
   chosenStatementYear,
+  matchesFilter,
   parseFilter,
   parseReviewRows,
   reviewRowView,
@@ -125,6 +129,7 @@ export async function loadStatements(session: CrmSession, sp: RawSearchParams): 
   const rules = identifierRules(session.center.rules);
   const page = pageParam(sp);
   const rowsTotal = review.state === "ok" ? review.rows.length : 0;
+  const filter = parseFilter(param(sp, "show"));
   return {
     title: workspaceLabel("giving", session.kind),
     tabs: givingTabs(session),
@@ -137,12 +142,23 @@ export async function loadStatements(session: CrmSession, sp: RawSearchParams): 
     years: statementYears(today),
     yearOver: yearIsOver(year, today),
     review,
-    filter: parseFilter(param(sp, "show")),
+    filter,
     page: Math.min(page, Math.max(1, Math.ceil(rowsTotal / REVIEW_PAGE_SIZE))),
     openReview: param(sp, "review") === "1",
     receiptQuery,
     receipt,
     printBase: "/giving/statements/receipt",
+    exportOffer:
+      review.state === "ok" && review.rows.length > 0
+        ? exportOffer(
+            session,
+            "year_end_totals",
+            exportHref("year_end_totals", { year: String(year), show: filter === "all" ? undefined : filter }),
+            review.rows.filter((r) => matchesFilter(r, filter)).length,
+            filterSentence(yearEndExportFilter(year, filter), LIST_WORDS.year_end_totals.whole),
+            param(sp, "export") === "1",
+          )
+        : null,
   };
 }
 

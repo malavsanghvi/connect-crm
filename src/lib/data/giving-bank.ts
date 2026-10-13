@@ -12,6 +12,8 @@ import { householdCards, userNames } from "@/lib/data/lookups";
 import { chunk } from "@/lib/data/fetch-all";
 import { addDays, todayInTz } from "@/lib/dates";
 import { failure } from "@/lib/errors";
+import { LIST_WORDS, filterSentence } from "@/lib/giving-export/csv";
+import { bankExportFilter, bankLineKey, type BankLineKey } from "@/lib/giving-export/filters";
 import {
   BANK_PAGE_SIZE,
   PAYOUT_LOOKBACK_DAYS,
@@ -35,7 +37,7 @@ import {
   type LearnedView,
   type PayoutPair,
 } from "@/lib/giving-bank/views";
-import { switchedOff } from "@/lib/giving-lists/model";
+import { exportHref, exportOffer, switchedOff } from "@/lib/giving-lists/model";
 import { familyFrom, type ExactPairIn, type Family } from "@/lib/giving-today/queue";
 import { GIVING_ADDONS, givingTabs } from "@/lib/giving-today/tabs";
 import { pluginName } from "@/lib/kind-samples";
@@ -49,7 +51,38 @@ import { workspaceLabel } from "@/lib/workspaces";
 
 const BASE = "/giving/payments/bank";
 const LINE_COLUMNS =
-  "id, posted_on, amount_cents, description, payer_name, originator_kind, status, is_batch_deposit, matched_household_id, payment_id, payout_id, matched_by, matched_at, notes";
+  "id, posted_on, amount_cents, description, payer_name, originator_kind, status, is_batch_deposit, matched_household_id, payment_id, payout_id, matched_by, matched_at, notes, channel, reference";
+
+/**
+ * The lines one Bank view lists for one account: the tab pages them (with their count), the export reads them all (slice 9), so
+ * the file is the view. Card payout lines go back PAYOUT_LOOKBACK_DAYS from `since`.
+ */
+export function bankLinesQuery(session: CrmSession, accountId: string, key: BankLineKey, o: { count: boolean; since?: string }) {
+  const q = session.db
+    .from("bank_transactions")
+    .select(LINE_COLUMNS, { count: o.count ? "exact" : undefined })
+    .eq("center_id", session.center.id)
+    .eq("bank_account_id", accountId);
+  switch (key) {
+    case "match":
+      return q.in("status", ["unmatched", "suggested"]).gt("amount_cents", 0).eq("is_batch_deposit", false);
+    case "deposits":
+      return q.in("status", ["unmatched", "suggested"]).gt("amount_cents", 0).eq("is_batch_deposit", true);
+    case "out":
+      return q.in("status", ["unmatched", "suggested"]).lte("amount_cents", 0);
+    case "matched":
+      return q.eq("status", "matched");
+    case "ignored":
+      return q.eq("status", "ignored");
+    case "payouts":
+      return o.since ? q.eq("status", "payout").gte("posted_on", o.since) : q.eq("status", "payout");
+  }
+}
+
+/** The order a view lists its lines in: waiting lines oldest first, the rest newest first. */
+export function bankLinesOrdered(query: ReturnType<typeof bankLinesQuery>, key: BankLineKey) {
+  return key === "match" || key === "deposits" ? query.order("posted_on", { ascending: true }).order("id") : query.order("posted_on", { ascending: false }).order("id");
+}
 
 export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Promise<BankModel> {
   const { db, center } = session;
@@ -129,16 +162,14 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
   const hrefView = (v: BankViewKey) => hrefWith(BASE, {}, { account: account.id, view: v === "match" ? undefined : v });
   const hrefHistory = (h: HistoryKey) => hrefWith(BASE, {}, { account: account.id, view: "history", show: h === "matched" ? undefined : h });
 
-  const scoped = () => db.from("bank_transactions").select(LINE_COLUMNS, { count: "exact" }).eq("center_id", center.id).eq("bank_account_id", account.id);
-  const waiting = () => scoped().in("status", ["unmatched", "suggested"]);
   const lists = {
-    match: () => waiting().gt("amount_cents", 0).eq("is_batch_deposit", false),
-    deposits: () => waiting().gt("amount_cents", 0).eq("is_batch_deposit", true),
-    out: () => waiting().lte("amount_cents", 0),
-    matched: () => scoped().eq("status", "matched"),
-    ignored: () => scoped().eq("status", "ignored"),
+    match: () => bankLinesQuery(session, account.id, "match", { count: true }),
+    deposits: () => bankLinesQuery(session, account.id, "deposits", { count: true }),
+    out: () => bankLinesQuery(session, account.id, "out", { count: true }),
+    matched: () => bankLinesQuery(session, account.id, "matched", { count: true }),
+    ignored: () => bankLinesQuery(session, account.id, "ignored", { count: true }),
   };
-  const count = async (q: () => ReturnType<typeof scoped>, what: string) => {
+  const count = async (q: () => ReturnType<typeof bankLinesQuery>, what: string) => {
     const r = await q().range(0, 0);
     if (r.error) {
       problems.push(failure(`Could not count ${what}`, r.error).error);
@@ -148,7 +179,8 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
   };
 
   const payoutsSince = addDays(today, -PAYOUT_LOOKBACK_DAYS);
-  const [matchN, depositsN, outN, matchedN, ignoredN, payoutPairs, learned] = await Promise.all([
+  const exportKey = bankLineKey(view, history);
+  const [matchN, depositsN, outN, matchedN, ignoredN, payoutPairs, learned, payoutLinesN] = await Promise.all([
     count(lists.match, "the gift lines"),
     count(lists.deposits, "the deposits"),
     count(lists.out, "the money out"),
@@ -156,7 +188,11 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
     count(lists.ignored, "the ignored lines"),
     on.payouts ? loadPayoutPairs(session, account.id, payoutsSince) : Promise.resolve(null),
     loadLearned(session),
+    exportKey === "payouts" ? count(() => bankLinesQuery(session, account.id, "payouts", { count: true, since: payoutsSince }), "the card payout lines") : Promise.resolve(null),
   ]);
+  // Export this view's lines (slice 9): the count the view shows, the account and the view in words.
+  const exportCount = exportKey ? { match: matchN, deposits: depositsN, out: outN, matched: matchedN, ignored: ignoredN, payouts: payoutLinesN }[exportKey] : null;
+  const accountLabel = `${account.name}${account.last4 ? ` ··${account.last4}` : ""}`;
   const payoutViews = payoutPairs && "pairs" in payoutPairs ? payoutPairs.pairs.map((p) => payoutRowView(p, ctx)) : [];
   if (payoutPairs && "error" in payoutPairs) problems.push(payoutPairs.error);
 
@@ -186,6 +222,17 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
     learned,
     note: canConfirm ? null : READ_ONLY_NOTE,
     empty: emptyText(view, history),
+    exportOffer:
+      exportKey && exportCount !== null
+        ? exportOffer(
+            session,
+            "bank_lines",
+            exportHref("bank_lines", { ...sp, account: account.id, view: exportKey === "matched" || exportKey === "ignored" || exportKey === "out" ? "history" : exportKey, show: exportKey === "matched" || exportKey === "ignored" || exportKey === "out" ? exportKey : undefined }),
+            exportCount,
+            filterSentence(bankExportFilter(exportKey, accountLabel), LIST_WORDS.bank_lines.whole),
+            param(sp, "export") === "1",
+          )
+        : null,
   };
   const pageHref = (n: number) => hrefWith(BASE, sp, { page: n });
 

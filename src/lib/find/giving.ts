@@ -23,6 +23,7 @@ import {
   type GivingHousehold,
 } from "@/lib/giving-actions/family-giving";
 import { quickCreateHref, readCreateCommand, type CreateCommand } from "@/lib/giving-campaigns/quick";
+import type { GivingExportList } from "@/lib/giving-export/csv";
 import { familyFrom } from "@/lib/giving-today/queue";
 import { parsePaymentAsk, readDate, type PaymentAsk } from "@/lib/giving-workspace/ask";
 import { formatCents, parseAmountToCents } from "@/lib/money";
@@ -44,6 +45,8 @@ export type GivingIntent =
   | { kind: "write_off"; token: string | null; who: string | null }
   /** "new campaign Building fund", "new opportunity Gala tables": the quick-create sheet opens, named (slice 6). */
   | { kind: "create"; cmd: CreateCommand }
+  /** "export payments 2026": the list opens, filtered, with its Export sheet open (slice 9). Nothing is exported until its button. */
+  | { kind: "export"; list: GivingExportList; year: number | null }
   /** Find: a receipt or pledge number, an amount (on a date), or words (campaigns, bank descriptions and payer names). */
   | { kind: "lookup"; code: string | null; numbered: { field: "receipt" | "pledge"; value: string } | null; cents: number | null; date: string | null; words: string | null };
 
@@ -160,6 +163,8 @@ export function readGivingIntent(raw: string, o: { today: string; fmt: Community
   const token = codes[0] ?? numbered?.[2] ?? null;
   const othersThan = (t: string | null) => leftoverWho(t ? text.replace(t, " ") : text, { ...ask, reference: null }, o.fmt, o.today);
 
+  const exportCmd = readExportCommand(text, o.today);
+  if (exportCmd) return exportCmd;
   const create = readCreateCommand(text);
   if (create) return { kind: "create", cmd: create };
   if (REFUND.test(text)) return { kind: "refund", token, who: token ? null : othersThan(null) };
@@ -191,6 +196,48 @@ export function readGivingIntent(raw: string, o: { today: string; fmt: Community
     date: lookupCents !== null ? (date?.date ?? null) : null,
     words,
   };
+}
+
+const EXPORT_START = /^(?:export|download)\b/i;
+
+/**
+ * "export payments 2026", "download pledges", "export bank lines", "export year-end totals 2025": which Giving list to export and the
+ * year, or null when the text does not start with export or names no Giving list.
+ */
+export function readExportCommand(text: string, today: string): Extract<GivingIntent, { kind: "export" }> | null {
+  if (!EXPORT_START.test(text.trim())) return null;
+  const rest = text.trim().replace(EXPORT_START, " ").toLowerCase();
+  const list: GivingExportList | null = /\byear[\s-]?end\b|\bstatements?\b|\btotals?\b/.test(rest)
+    ? "year_end_totals"
+    : /\bbank\b/.test(rest)
+      ? "bank_lines"
+      : /\bpledges?\b/.test(rest)
+        ? "pledges"
+        : /\bpayments?\b|\bgifts?\b|\bdonations?\b|\bgiving\b/.test(rest)
+          ? "payments"
+          : null;
+  if (!list) return null;
+  const y = /\b(\d{4})\b/.exec(rest);
+  const year = y && Number(y[1]) >= 1990 && Number(y[1]) <= Number(today.slice(0, 4)) + 1 ? Number(y[1]) : null;
+  return { kind: "export", list, year };
+}
+
+/** Where the export command opens: the list, filtered, with ?export=1 so its Export sheet is open. */
+export function exportCommandTarget(i: Extract<GivingIntent, { kind: "export" }>): { title: string; where: string; href: string } {
+  switch (i.list) {
+    case "payments":
+      return i.year
+        ? { title: `Export payments received in ${i.year}`, where: `Payments for ${i.year}`, href: `/giving/payments?year=${i.year}&export=1` }
+        : { title: "Export every payment", where: "Payments", href: "/giving/payments?export=1" };
+    case "pledges":
+      return { title: "Export every pledge", where: "Pledges (All)", href: "/giving/pledges?status=all&export=1" };
+    case "bank_lines":
+      return { title: "Export the matched bank lines", where: "Bank › History (switch the view to export another one)", href: "/giving/payments/bank?view=history&export=1" };
+    case "year_end_totals":
+      return i.year
+        ? { title: `Export the year-end totals for ${i.year}`, where: `Statements for ${i.year}`, href: `/giving/statements?year=${i.year}&export=1` }
+        : { title: "Export the year-end totals", where: "Statements", href: "/giving/statements?export=1" };
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------- What was found
@@ -275,6 +322,10 @@ type LaneOptions = {
   canCreate?: { campaign: boolean; opportunity: boolean };
   /** giving.manage: may record a pledge by hand (slice 7). Left out: may not. */
   canRecordPledge?: boolean;
+  /** data.export: may export a Giving list (slice 9). Left out: may not. */
+  canExport?: boolean;
+  /** Why a list cannot be exported here (its add-on is switched off), said instead of a row. */
+  exportBlocked?: Partial<Record<GivingExportList, string>>;
 };
 
 function recordPrefill(i: Extract<GivingIntent, { kind: "record" }>): RecordPaymentRequest["prefill"] {
@@ -452,6 +503,22 @@ export function buildGivingLane(intent: GivingIntent, found: GivingFound, o: Lan
   if (intent.kind === "record") {
     const r = recordRows(intent, found, o);
     return { understood: r.understood, rows: r.rows, notes: r.notes, first: true };
+  }
+  if (intent.kind === "export") {
+    const target = exportCommandTarget(intent);
+    const understood = `an export of ${target.title.replace(/^Export (the )?/, "")}`;
+    if (!o.canExport) return { understood, rows: [], notes: ["Exporting needs the data-export permission (treasurers hold it)."], first: true };
+    const blocked = o.exportBlocked?.[intent.list];
+    if (blocked) return { understood, rows: [], notes: [blocked], first: true };
+    const go: GivingRow = {
+      kind: "go",
+      key: `go-export-${intent.list}`,
+      title: target.title,
+      detail: `Opens ${target.where} with the Export sheet: a new code from your authenticator app, then the file. The export is recorded in the audit log.`,
+      household: null,
+      href: target.href,
+    };
+    return { understood, rows: [go], notes: [], first: true };
   }
   if (intent.kind === "create") {
     const { what, name } = intent.cmd;

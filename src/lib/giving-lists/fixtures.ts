@@ -370,6 +370,7 @@ export function samplePaymentsModel(
 export function sampleExportLines(list: GivingExportList, role: ListsRole, sp: RawSearchParams, c: Community = LISTS_COMMUNITY): string[][] {
   const tctx = tabCtx(role, c, []);
   if (!canAccess(tctx, "givingExport")) return [["You don't have access to this area. Exporting needs the data-export permission."]];
+  if (list === "bank_lines" || list === "year_end_totals") return [["Dev preview: invented rows are drawn for Payments and Pledges only."]];
   const get = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const q = get("q") ?? "";
   const search = readListSearch(q, c.currency);

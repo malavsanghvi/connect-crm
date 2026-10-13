@@ -5,7 +5,7 @@
 // decision 2026-10-13); the database refuses a code an earlier export used, so the route answers 403 with x-step-up if one is
 // reused. Errors are said next to the button, in plain words, with the button still there to try again.
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { GivingSheet } from "@/components/giving-actions/sheet";
 import type { CardLabels } from "@/components/household-card";
@@ -16,6 +16,8 @@ import { buttonClass } from "@/components/ui";
 import { rowsWord } from "@/lib/giving-export/csv";
 import type { ExportOffer } from "@/lib/giving-lists/model";
 
+const noSubscribe = () => () => {};
+
 function fileName(res: Response, fallback: string): string {
   const m = /filename="?([^";]+)"?/i.exec(res.headers.get("content-disposition") ?? "");
   return m?.[1] ?? fallback;
@@ -24,7 +26,9 @@ function fileName(res: Response, fallback: string): string {
 export function ExportButton({ offer, labels }: { offer: ExportOffer; labels: CardLabels }) {
   const stepUp = useStepUp();
   const toast = useToast();
-  const [open, setOpen] = useState(false);
+  // ?export=1 (the box's "export payments 2026") opens the sheet once the page is drawn; the sheet itself is only drawn on the client.
+  const [open, setOpen] = useState(offer.state === "ready" && offer.open === true);
+  const onClient = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +79,7 @@ export function ExportButton({ offer, labels }: { offer: ExportOffer; labels: Ca
       <button type="button" onClick={() => (setError(null), setOpen(true))} className={`${buttonClass("ghost", "sm")} min-h-[44px]`}>
         Export
       </button>
-      {open ? (
+      {onClient && open ? (
         <GivingSheet
           title={label}
           labels={labels}

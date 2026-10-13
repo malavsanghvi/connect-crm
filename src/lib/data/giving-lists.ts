@@ -21,7 +21,7 @@ import { LIST_WORDS, filterSentence } from "@/lib/giving-export/csv";
 import { paymentExportFilter, pledgeExportFilter } from "@/lib/giving-export/filters";
 import { writeOffPostingText, type WriteOffPosting } from "@/lib/giving";
 import { recordPaymentHref } from "@/lib/giving-lists/links";
-import { PAGE_SIZE, exportOffer, pager, switchedOff, type ListBody, type PaymentsModel, type PledgesModel } from "@/lib/giving-lists/model";
+import { PAGE_SIZE, exportHref, exportOffer, pager, switchedOff, type ListBody, type PaymentsModel, type PledgesModel } from "@/lib/giving-lists/model";
 import {
   GRANT_KINDS,
   RECURRING_CHIPS,
@@ -277,9 +277,10 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
       : exportOffer(
           session,
           "pledges",
-          hrefWith("/giving/export", sp, { list: "pledges", page: undefined }),
+          exportHref("pledges", sp),
           total,
           filterSentence(pledgeExportFilter(chip, bucket, search ? q : null), LIST_WORDS.pledges.whole),
+          param(sp, "export") === "1",
         ),
     chips,
     buckets,
@@ -585,9 +586,10 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
           : exportOffer(
               session,
               "payments",
-              hrefWith("/giving/export", sp, { list: "payments", page: undefined }),
+              exportHref("payments", sp),
               total,
               filterSentence(paymentExportFilter(query, search ? q : null, ctx.locale), LIST_WORDS.payments.whole),
+              param(sp, "export") === "1",
             ),
     };
   }

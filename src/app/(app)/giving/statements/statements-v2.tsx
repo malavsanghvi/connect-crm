@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ExportButton } from "@/components/giving-lists/export-button";
 import { StatementsView } from "@/components/giving-statements/statements-view";
 import { BlockGrid, NoAccess } from "@/components/ui";
 import { isPlainObject } from "@/lib/center-rules";
@@ -140,7 +141,7 @@ export async function StatementsV2({ searchParams }: { searchParams: Promise<Raw
   if (!canAccess(session, "statements")) return <NoAccess area="Statements" access="statements" />;
   const model = await loadStatements(session, await searchParams);
   return (
-    <StatementsView model={model}>
+    <StatementsView model={model} exportSlot={model.exportOffer ? <ExportButton offer={model.exportOffer} labels={model.labels} /> : null}>
       {isModuleEnabled(session, "giving_statements") ? <IssuedStatements session={session} year={model.year} /> : null}
       <TemplatesAndApproval session={session} currentYear={Number(model.today.slice(0, 4))} />
     </StatementsView>

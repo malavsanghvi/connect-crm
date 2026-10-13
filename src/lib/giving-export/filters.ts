@@ -2,8 +2,10 @@
 // address the list itself reads, so the file is exactly the list (src/lib/data/giving-lists.ts reads the same chips through
 // paymentQuery and the pledge chip readers).
 
+import type { BankViewKey, HistoryKey } from "@/lib/giving-bank/views";
 import { methodText, sourceText, type PaymentQuery } from "@/lib/giving-lists/payments";
 import { BEHIND_BUCKETS, PLEDGE_CHIPS, type BehindBucketKey, type PledgeChipKey } from "@/lib/giving-lists/pledges";
+import type { ReviewFilter } from "@/lib/giving-statements/review";
 
 import type { ExportFilter } from "./csv";
 
@@ -33,4 +35,43 @@ export function sourceWord(provider: string | null): string {
 
 export function methodWord(locale: string): (method: string) => string {
   return (method) => methodText(method, locale);
+}
+
+// -------------------------------------------------------------------------------------------------------------------------- Bank lines
+
+/** The bank lines a Bank view lists (Zelle lists members' reports, not bank lines, so it has no export). */
+export type BankLineKey = "match" | "deposits" | "payouts" | HistoryKey;
+
+export function bankLineKey(view: BankViewKey, history: HistoryKey): BankLineKey | null {
+  if (view === "zelle") return null;
+  return view === "history" ? history : view;
+}
+
+const BANK_KEY_WORDS: Record<BankLineKey, string> = {
+  match: "gift lines to match",
+  deposits: "deposits to match",
+  payouts: "card payout lines of the last 90 days",
+  matched: "matched lines",
+  ignored: "lines set aside",
+  out: "money out",
+};
+
+export function bankExportFilter(key: BankLineKey, account: string): ExportFilter {
+  return { chips: { view: { value: key, label: BANK_KEY_WORDS[key] } }, search: null, words: [`account ${account}`] };
+}
+
+// --------------------------------------------------------------------------------------------------------------------- Year-end totals
+
+const SHOW_WORDS: Record<Exclude<ReviewFilter, "all">, string> = {
+  fix: "the families whose statement needs a fix",
+  email: "the families who get it by email",
+  post: "the families who get it by post",
+  app: "the families who see it in the member app only",
+};
+
+/** The year and the Show chip of the year-end review, as the list shows them. */
+export function yearEndExportFilter(year: number, show: ReviewFilter): ExportFilter {
+  const chips: ExportFilter["chips"] = { year: { value: String(year), label: `given in ${year}` } };
+  if (show !== "all") chips.view = { value: show, label: SHOW_WORDS[show] };
+  return { chips, search: null };
 }

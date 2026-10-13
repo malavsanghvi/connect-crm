@@ -30,7 +30,8 @@ const INTRO: Record<BankModel["view"], string> = {
   history: "Lines already dealt with, and money out to check.",
 };
 
-export function BankTab({ model, importer, noAccount }: { model: BankModel; importer?: ReactNode; noAccount?: ReactNode }) {
+/** `exportSlot`: the view's Export button (slice 9), passed in by the page so this file stays free of the step-up pieces. */
+export function BankTab({ model, importer, noAccount, exportSlot }: { model: BankModel; importer?: ReactNode; noAccount?: ReactNode; exportSlot?: ReactNode }) {
   const [done, setDone] = useState<Record<string, string>>({});
   const ctxFor = (id: string): ActContext => ({
     currency: model.currency,
@@ -51,7 +52,10 @@ export function BankTab({ model, importer, noAccount }: { model: BankModel; impo
             <h1 className="m-0 font-display text-[30px] font-semibold leading-[1.15] text-ink">{model.title}</h1>
             <p className="m-0 text-[14px] text-muted">The bank statement, matched to families and to the payments recorded for them.</p>
           </div>
-          {showImport ? <ImportSheet model={model}>{importer}</ImportSheet> : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {body.state === "ok" ? exportSlot : null}
+            {showImport ? <ImportSheet model={model}>{importer}</ImportSheet> : null}
+          </div>
         </div>
         <GivingTabRow tabs={model.tabs} active="bank" />
       </header>

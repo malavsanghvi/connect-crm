@@ -12,7 +12,7 @@
 import { PLEDGE_STATUS_LABEL } from "@/lib/labels";
 import { centsAsDecimal } from "@/lib/money";
 
-export const GIVING_EXPORT_LISTS = ["payments", "pledges"] as const;
+export const GIVING_EXPORT_LISTS = ["payments", "pledges", "bank_lines", "year_end_totals"] as const;
 export type GivingExportList = (typeof GIVING_EXPORT_LISTS)[number];
 
 export function exportListFromParam(value: string | null | undefined): GivingExportList | null {
@@ -156,6 +156,129 @@ export function pledgeExportLines(rows: readonly PledgeExportRow[], households: 
   ]);
 }
 
+// -------------------------------------------------------------------------------------------------------------------------- Bank lines
+
+/** One line of the bank statement, as the Bank tab shows it (the bank's own words, as printed on the statement). */
+export type BankLineExportRow = {
+  postedOn: string;
+  account: string;
+  amountCents: number;
+  channel: string | null;
+  description: string;
+  payerName: string | null;
+  reference: string | null;
+  status: string;
+  /** The family it was matched to (a gift line), or null. */
+  householdId: string | null;
+  receipt: string | null;
+  /** "Stripe po_1Q2W3E" when the line is a card payout paired with its payout. */
+  payout: string | null;
+  deposit: boolean;
+};
+
+const BANK_STATUS_WORD: Record<string, string> = {
+  unmatched: "To match",
+  suggested: "To match (suggested)",
+  matched: "Matched",
+  ignored: "Set aside",
+  payout: "Card payout",
+};
+
+const CHANNEL_WORD: Record<string, string> = {
+  zelle: "Zelle",
+  check: "Check",
+  ach: "Bank transfer",
+  card_payout: "Card payout",
+  cash_deposit: "Cash deposit",
+  wire: "Wire",
+  other: "Other",
+};
+
+export function bankLineExportHeader(householdIdLabel: string): string[] {
+  return [
+    "Posted on",
+    "Account",
+    "Amount",
+    "Currency",
+    "Kind",
+    "Description",
+    "Payer name on the statement",
+    "Reference",
+    "Status",
+    "Household number",
+    householdIdLabel,
+    "Household",
+    "Receipt number",
+    "Card payout",
+    "Deposit of several payments",
+  ];
+}
+
+export function bankLineExportLines(rows: readonly BankLineExportRow[], households: ReadonlyMap<string, ExportHousehold>, o: { currency: string }): string[][] {
+  return rows.map((r) => [
+    r.postedOn,
+    r.account,
+    centsAsDecimal(r.amountCents),
+    o.currency,
+    r.channel ? (CHANNEL_WORD[r.channel] ?? words(r.channel)) : "",
+    r.description,
+    r.payerName ?? "",
+    r.reference ?? "",
+    BANK_STATUS_WORD[r.status] ?? words(r.status),
+    ...(r.householdId ? household(households.get(r.householdId)) : ["", "", ""]),
+    r.receipt ?? "",
+    r.payout ?? "",
+    r.deposit ? "Yes" : "",
+  ]);
+}
+
+// --------------------------------------------------------------------------------------------------------------------- Year-end totals
+
+/** One family's year (app.year_end_review, 0746): what a statement would state. Adults only; a child is never named. */
+export type YearEndExportRow = {
+  year: number;
+  householdId: string;
+  /** The adults the statement is addressed to. */
+  adults: string[];
+  gifts: number;
+  /** Net of refunds, opening-balance lines left out (the statement's own total). */
+  givenCents: number;
+  refundedCents: number;
+  openingCents: number;
+  /** "By email", "By post", "In the member app", "Needs a fix". */
+  delivery: string;
+};
+
+export function yearEndExportHeader(householdIdLabel: string): string[] {
+  return [
+    "Year",
+    "Household number",
+    householdIdLabel,
+    "Household",
+    "Adults",
+    "Gifts",
+    "Given (net of refunds)",
+    "Refunded",
+    "Opening balance left out",
+    "Currency",
+    "Statement by",
+  ];
+}
+
+export function yearEndExportLines(rows: readonly YearEndExportRow[], households: ReadonlyMap<string, ExportHousehold>, o: { currency: string }): string[][] {
+  return rows.map((r) => [
+    String(r.year),
+    ...household(households.get(r.householdId)),
+    r.adults.join("; "),
+    String(r.gifts),
+    centsAsDecimal(r.givenCents),
+    centsAsDecimal(r.refundedCents),
+    centsAsDecimal(r.openingCents),
+    o.currency,
+    r.delivery,
+  ]);
+}
+
 // ---------------------------------------------------------------------------------------------------------------------- The filter, said
 
 /** What the list shows, in words: the chips that are on, the year and the search. Empty means the whole list. */
@@ -164,11 +287,14 @@ export type ExportFilter = {
   chips: Record<string, { value: string; label: string }>;
   /** The search as typed, or null. In the file's watermark; never in the audit entry. */
   search: string | null;
+  /** More words for the watermark only, never audited ("account Operating ··1234"). */
+  words?: string[];
 };
 
 export function filterSentence(filter: ExportFilter, whole: string): string {
   const parts = Object.values(filter.chips).map((c) => c.label);
   if (filter.search) parts.push(`matching “${filter.search}”`);
+  parts.push(...(filter.words ?? []));
   return parts.length > 0 ? parts.join(", ") : whole;
 }
 
@@ -179,9 +305,11 @@ export function auditDetail(filter: ExportFilter, rows: number): { rows: number;
   return { rows, chips, searched: filter.search !== null };
 }
 
-export const LIST_WORDS: Record<GivingExportList, { one: string; many: string; whole: string }> = {
-  payments: { one: "payment", many: "payments", whole: "every payment" },
-  pledges: { one: "pledge", many: "pledges", whole: "every pledge" },
+export const LIST_WORDS: Record<GivingExportList, { title: string; one: string; many: string; whole: string }> = {
+  payments: { title: "Payments", one: "payment", many: "payments", whole: "every payment" },
+  pledges: { title: "Pledges", one: "pledge", many: "pledges", whole: "every pledge" },
+  bank_lines: { title: "Bank lines", one: "bank line", many: "bank lines", whole: "every bank line" },
+  year_end_totals: { title: "Year-end totals", one: "family", many: "families", whole: "every family that gave" },
 };
 
 export function rowsWord(list: GivingExportList, n: number): string {
@@ -199,9 +327,8 @@ export function watermarkLine(w: {
   rows: number;
 }): string {
   const by = w.email ? `${w.who} (${w.email})` : w.who;
-  const list = LIST_WORDS[w.list].many;
   return (
-    `Exported from ${w.community} by ${by} on ${w.at}. ${list[0].toUpperCase()}${list.slice(1)}: ${filterSentence(w.filter, LIST_WORDS[w.list].whole)}. ` +
+    `Exported from ${w.community} by ${by} on ${w.at}. ${LIST_WORDS[w.list].title}: ${filterSentence(w.filter, LIST_WORDS[w.list].whole)}. ` +
     `${rowsWord(w.list, w.rows)}. Confidential: for ${w.community}'s records only; this export is recorded in the audit log.`
   );
 }

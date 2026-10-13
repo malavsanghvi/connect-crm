@@ -6,8 +6,10 @@
 //   exceptions_cleared    automatic since 0009: no failed QuickBooks posting up to the month.
 //   refunds_reviewed      proven when nothing waits: no refund request waiting for its second approver or to be recorded, and no
 //                         Stripe or PayPal refund waiting for its two approvals. Otherwise a person marks it done.
-//   payouts_matched       proven when no card payout arrived in the month, or every payout that arrived is marked matched. Nothing
-//                         marks a payout matched yet, so with card payouts it stays a person's check; the line shows both sides.
+//   payouts_matched       read from app.payouts_close_state (0747): proven when nothing is left unpaired on either side, every card
+//                         payout that arrived in the month paired with its bank line (Explain and accept, Giving › Bank) and every
+//                         bank card-payout line of the month paired with a payout. With Bank reconciliation off the state says null:
+//                         then only a month with no card payouts is proven and the rest stays a person's check, showing both sides.
 //   statements_generated  always a person's check: nothing records a pledge statement run.
 // A check ticks itself only when the reader can see what it rests on (RLS hides the rest): "could not check" is never "nothing".
 // A proven check has no Undo; a check a person marked behaves as before. Locking needs every check done, proven or marked.
@@ -29,6 +31,11 @@ export type CloseProofs = {
   payouts: Seen<{ arrived: number; matched: number; netCents: number }>;
   /** The bank's card-payout lines posted in the month; null when bank reconciliation is not on or not open to the reader. */
   bankPayouts: Seen<{ lines: number; cents: number }> | null;
+  /**
+   * The pairing of payouts and bank lines (app.payouts_close_state, 0747). `proven` is null when Bank reconciliation is off. Absent
+   * (an older reader, a fixture): the payouts check falls back to the payouts marked matched.
+   */
+  pairing?: { proven: boolean | null; unpaired: number; bankUnpaired: number | null; explained: number } | null;
 };
 
 export type CloseItem = {
@@ -55,14 +62,18 @@ function marked(done: boolean, line: string): string {
 }
 
 function payoutEvidence(p: { arrived: number; netCents: number }, bank: CloseProofs["bankPayouts"], f: CloseFormat): string {
+  const sides = payoutSides(p, bank, f);
+  return !bank || !bank.ok ? `${sides} Compare them with the bank's card payout lines, then mark this done.` : `${sides} Mark this done once each payout is matched.`;
+}
+
+/** "1 card payout arrived in October 2026, $1,200.50 net; the bank shows 1 card payout line, $1,200.00: a difference of $0.50." */
+function payoutSides(p: { arrived: number; netCents: number }, bank: CloseProofs["bankPayouts"], f: CloseFormat): string {
   const money = (c: number) => formatCents(c, f.currency, f.locale);
   const provider = `${plural(p.arrived, "card payout")} arrived in ${f.monthLabel}, ${money(p.netCents)} net`;
-  if (!bank || !bank.ok) return `${provider}. Compare them with the bank's card payout lines, then mark this done.`;
-  const b = bank.value;
-  const diff = p.netCents - b.cents;
-  const bankSide = `the bank shows ${plural(b.lines, "card payout line")}, ${money(b.cents)}`;
+  if (!bank || !bank.ok) return `${provider}.`;
+  const diff = p.netCents - bank.value.cents;
   const gap = diff === 0 ? "the same total" : `a difference of ${money(Math.abs(diff))}`;
-  return `${provider}; ${bankSide}: ${gap}. Mark this done once each payout is matched.`;
+  return `${provider}; the bank shows ${plural(bank.value.lines, "card payout line")}, ${money(bank.value.cents)}: ${gap}.`;
 }
 
 function refundsWaiting(requests: number | null, flagged: number | null): string {
@@ -96,10 +107,26 @@ export function closeItems(checklist: unknown, proofs: CloseProofs, f: CloseForm
     }
     if (b.key === "payouts_matched") {
       const p = proofs.payouts;
+      const pairing = proofs.pairing;
+      if (pairing && p.ok && pairing.proven !== null) {
+        if (pairing.proven) {
+          const explained = pairing.explained > 0 ? ` (${plural(pairing.explained, "difference")} explained)` : "";
+          const sub =
+            p.value.arrived === 0 && (proofs.bankPayouts?.ok ? proofs.bankPayouts.value.lines : 0) === 0
+              ? `${CHECKED}: no card payouts arrived in ${f.monthLabel}`
+              : `${CHECKED}: all ${plural(p.value.arrived, "card payout")} are paired with their bank lines${explained}`;
+          return { key: b.key, label: b.label, done: true, proven: true, manual: false, sub };
+        }
+        const left: string[] = [];
+        if (pairing.unpaired > 0) left.push(`${plural(pairing.unpaired, "card payout")} not paired with a bank line`);
+        if (pairing.bankUnpaired) left.push(`${plural(pairing.bankUnpaired, "bank card-payout line")} not paired with a payout`);
+        const line = `${payoutSides(p.value, proofs.bankPayouts, f)} ${left.join("; ")}: pair them in Giving › Bank › Card payouts (Explain and accept), or mark this done.`;
+        return { key: b.key, label: b.label, done: b.done, proven: false, manual: true, sub: marked(b.done, line) };
+      }
       if (p.ok && p.value.arrived === 0) {
         return { key: b.key, label: b.label, done: true, proven: true, manual: false, sub: `${CHECKED}: no card payouts arrived in ${f.monthLabel}` };
       }
-      if (p.ok && p.value.matched >= p.value.arrived) {
+      if (!pairing && p.ok && p.value.matched >= p.value.arrived) {
         return { key: b.key, label: b.label, done: true, proven: true, manual: false, sub: `${CHECKED}: all ${plural(p.value.arrived, "card payout")} are matched to bank deposits` };
       }
       const line = p.ok ? payoutEvidence(p.value, proofs.bankPayouts, f) : p.why === "no_access" ? NO_ACCESS : "Could not read the card payouts";

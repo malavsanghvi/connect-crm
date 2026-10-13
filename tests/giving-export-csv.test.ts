@@ -143,7 +143,8 @@ describe("the filter, the watermark and the audit detail", () => {
     );
     expect(rowsWord("payments", 1_204)).toBe("1,204 payments");
     expect(exportListFromParam("payments")).toBe("payments");
-    expect(exportListFromParam("bank_lines")).toBeNull();
+    expect(exportListFromParam("bank_lines")).toBe("bank_lines");
+    expect(exportListFromParam("donors")).toBeNull();
   });
 });
 

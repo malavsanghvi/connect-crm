@@ -65,9 +65,9 @@ describe("who may export", () => {
   });
 
   it("asks for Payments or Pledges", async () => {
-    const res = await GET(req("list=bank_lines"));
+    const res = await GET(req("list=donors"));
     expect(res.status).toBe(400);
-    expect(await res.text()).toContain("choose Payments or Pledges");
+    expect(await res.text()).toContain("choose Payments, Pledges, Bank lines or Year-end totals");
   });
 });
 

@@ -10,7 +10,8 @@ import { canAccess } from "@/lib/permissions";
 import { loadSession } from "@/lib/session";
 
 // Export of a Giving list for the treasurer (docs/GIVING_REDESIGN.md slice 9; owner decisions 2026-10-13): Payments (All payments
-// or Refunds) and Pledges, with the list's own filters (src/lib/data/giving-export.ts reads them through the list's queries).
+// or Refunds), Pledges, the Bank tab's bank lines (one account, one view) and the year-end totals (Statements), with the list's
+// own filters (src/lib/data/giving-export.ts reads them through the list's queries).
 //   1. data.export (the one data-export permission, held by treasurers): without it, 403 in words before anything is read.
 //   2. app.giving_export_check (0747): the list's read permission, Giving (and its add-on) on, an authenticator, and a 2FA code that
 //      no earlier Giving export used: one code, one file. A request without one is answered 403 with x-step-up, so the page asks
@@ -58,7 +59,7 @@ async function run(request: NextRequest): Promise<NextResponse> {
   const sp: Record<string, string> = {};
   for (const [k, v] of request.nextUrl.searchParams) if (!(k in sp)) sp[k] = v;
   const list = exportListFromParam(sp.list);
-  if (!list) return problem("Could not export the list — choose Payments or Pledges.", 400);
+  if (!list) return problem("Could not export the list — choose Payments, Pledges, Bank lines or Year-end totals.", 400);
 
   // The code first, so a person without a fresh one is not made to wait for the list to be read.
   const checked = await session.db.rpc("giving_export_check", { p_center: session.center.id, p_list: list });
