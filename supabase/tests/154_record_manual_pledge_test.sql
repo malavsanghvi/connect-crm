@@ -155,8 +155,8 @@ select pg_temp.assert(((:'r1b'::jsonb)->>'replayed')::boolean and (:'r1b'::jsonb
   'B: the same confirmation again returns the same pledge (replayed) and records nothing more');
 select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-0001', %L, %L, 60000)$$, :tara, :c, :h1),
   'already used for a different pledge', 'B: the same key for a different amount is refused');
-select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-0001', %L, %L, 50000, 'x reason', %L, null, null, %L::date, %L)$$,
-                                    :tara, :c, :h2, :f1, :'today'::date + 90, :rahul),
+select pg_temp.assert_raises(format($$select pg_temp.rec(%L, 'key-154-0001', %L, %L, 50000, 'x reason', %L, null, null, %L::date)$$,
+                                    :tara, :c, :h2, :f1, :'today'::date + 90),
   'already used for a different pledge', 'B: the same key for a different household is refused');
 select pg_temp.assert((select count(*) from app.pledges where center_id = :c and source::text = 'manual') = 1,
   'B: the refusals recorded nothing');
