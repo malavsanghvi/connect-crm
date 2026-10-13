@@ -17,7 +17,7 @@ import { conflictSentence } from "@/lib/people-v2/inline-edit";
 export type Scenario = "ok" | "conflict" | "error" | "access";
 export type Step = "phone-edit" | "phone-save" | "name" | "dob-child" | "address" | "child" | "more" | "more-phone" | "none";
 
-function fakeActions(scenario: Scenario): FamilyActions {
+function fakeActions(scenario: Scenario): Partial<FamilyActions> {
   return {
     async save(_target, input): Promise<InlineSave> {
       await new Promise((r) => setTimeout(r, 120));

@@ -41,6 +41,7 @@ describe("the People commands in the catalog", () => {
     const changes = PEOPLE_COMMANDS.filter((c) => c.level === "confirm");
     expect(changes.map((c) => c.key).sort()).toEqual(
       [
+        "people.add_household",
         "people.add_person",
         "people.decide_application",
         "people.decide_household_request",
@@ -274,6 +275,7 @@ describe("nothing about a child reaches Niva from any People command", () => {
     "people.dismiss_duplicate": { candidate_id: ID.candPerson },
     "people.decide_application": { id: ID.app, decision: "approve" },
     "people.decide_household_request": { id: ID.reqAdult, decision: "approve", role: "parent" },
+    "people.add_household": { first_name: "Nia", last_name: "Okafor", mobile: "(512) 555-0188", email: "nia@example.org", street: "12 River Road" },
   };
 
   function assistant() {

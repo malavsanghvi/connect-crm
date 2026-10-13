@@ -235,6 +235,7 @@ export function FieldRow({
   placeholder,
   options,
   ageNote,
+  wide = false,
 }: {
   label: string;
   fieldKey: string;
@@ -247,6 +248,8 @@ export function FieldRow({
   options?: { value: string; label: string }[];
   /** Under a birth date as it is typed: "This makes Aarav 12, a child". */
   ageNote?: (draft: string) => string | null;
+  /** A wider label column (the slide-over's labels are longer: "Emergency contact"). */
+  wide?: boolean;
 }) {
   const id = useId();
   const open = edit.editing || edit.busy;
@@ -311,7 +314,9 @@ export function FieldRow({
     );
   }
   return (
-    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-start gap-x-3 py-0.5 sm:grid-cols-[5.25rem_minmax(0,1fr)]">
+    <div
+      className={`grid items-start gap-x-3 py-0.5 ${wide ? "grid-cols-[6.75rem_minmax(0,1fr)] sm:grid-cols-[7.5rem_minmax(0,1fr)]" : "grid-cols-[4.75rem_minmax(0,1fr)] sm:grid-cols-[5.25rem_minmax(0,1fr)]"}`}
+    >
       <label htmlFor={edit.editing && kind !== "select" ? id : undefined} className="pt-[11px] text-[13px] text-muted md:pt-[7px]">
         {label}
       </label>
