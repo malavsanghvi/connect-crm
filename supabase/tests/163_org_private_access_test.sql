@@ -100,6 +100,14 @@ end $$;
 \set raealt '''16300000-0000-4000-8000-000000000017'''
 \set pq '''16300000-0000-4000-8000-0000000000a7'''
 \set pr '''16300000-0000-4000-8000-0000000000a8'''
+\set ps '''16300000-0000-4000-8000-0000000000a9'''
+\set pu '''16300000-0000-4000-8000-0000000000aa'''
+\set pv '''16300000-0000-4000-8000-0000000000ab'''
+\set pt '''16300000-0000-4000-8000-0000000000ac'''
+\set attacker '''16300000-0000-4000-8000-000000000018'''
+\set una '''16300000-0000-4000-8000-000000000019'''
+\set vic '''16300000-0000-4000-8000-00000000001a'''
+\set tia '''16300000-0000-4000-8000-00000000001b'''
 
 -- ══ A. The shape ═════════════════════════════════════════════════════════════
 select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
@@ -170,7 +178,10 @@ insert into auth.users (id, email) values
   (:invitee, 'invitee163@c1.test'), (:weaverinv, 'weaverinv163@weaver.test'), (:hijack, 'hijack163@c1.test'), (:second, 'second163@c1.test');
 -- Sign-ins whose email was verified (section N: a paper form binds only to a verified email).
 insert into auth.users (id, email, email_confirmed_at) values
-  (:quinn, 'quinn163@c1.test', now()), (:rae, 'rae163@c1.test', now()), (:raealt, 'raealt163@c1.test', now());
+  (:quinn, 'quinn163@c1.test', now()), (:rae, 'rae163@c1.test', now()), (:raealt, 'raealt163@c1.test', now()),
+  (:attacker, 'attacker163@c1.test', now()), (:una, 'una163@c1.test', now()), (:vic, 'vic163@c1.test', now()), (:tia, 'tia163@c1.test', now());
+-- Vic asked to change their sign-in email and has not confirmed it yet.
+update auth.users set email_change = 'vic.new163@c1.test' where id = :vic;
 insert into app.accounts (user_id, is_platform_admin) values (:plat, true), (:weaver, true), (:weaverinv, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
 -- The platform admin has an authenticator app, so a fresh 2FA check is required of them (section I).
@@ -213,13 +224,20 @@ insert into app.people (id, center_id, first_name, last_name, date_of_birth, emp
   (:pc, :c1, 'Cal', 'Admin163', date '1970-01-01', null),
   (:pz, :c1, 'Zed', 'Target163', date '1980-02-02', null),
   (:pq, :c1, 'Quinn', 'Paper163', date '1981-03-03', null),
-  (:pr, :c1, 'Rae', 'Paper163', date '1982-04-04', null);
+  (:pr, :c1, 'Rae', 'Paper163', date '1982-04-04', null),
+  (:ps, :c1, 'Sam', 'Paper163', date '1983-05-05', null),
+  (:pu, :c1, 'Una', 'Paper163', date '1984-06-06', null),
+  (:pv, :c1, 'Vic', 'Paper163', date '1985-07-07', null),
+  (:pt, :c1, 'Tia', 'Paper163', date '1986-08-08', null);
+update app.people set email = lower(first_name) || '163@c1.test' where id in (:ps, :pu, :pv, :pt);
 update app.people set email = 'zed163@c1.test' where id = :pz;
 update app.people set email = 'Quinn163@C1.test' where id = :pq;
 update app.people set email = 'rae163@c1.test' where id = :pr;
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
   (:h1, :pm, :c1, 'primary', true), (:h1, :pk, :c1, 'child', false), (:h1, :pa, :c1, 'spouse', false), (:h2, :pn, :c1, 'primary', true),
-  (:h2, :pz, :c1, 'other', false), (:h2, :pq, :c1, 'other', false), (:h2, :pr, :c1, 'other', false);
+  (:h2, :pz, :c1, 'other', false), (:h2, :pq, :c1, 'other', false), (:h2, :pr, :c1, 'other', false),
+  (:h2, :ps, :c1, 'other', false), (:h2, :pu, :c1, 'other', false), (:h2, :pv, :c1, 'other', false), (:h2, :pt, :c1, 'other', false);
+insert into app.center_users (center_id, user_id, person_id) values (:c1, :una, :pu), (:c1, :vic, :pv);
 insert into app.center_users (center_id, user_id, person_id) values (:c1, :member, :pm), (:c1, :kid, :pk), (:c1, :newbie, :pn), (:c1, :cadmin, :pc);
 select pg_temp.assert((select status from app.role_grants where center_id = :c1 and user_id = :pending) = 'pending'
                       and app.module_enabled(:c1, 'care') and app.module_enabled(:c1, 'matching') and not app.module_enabled(:c2, 'care'),
@@ -657,6 +675,10 @@ select pg_temp.assert_raises($$insert into app.roles (key, tier, name, default_s
   'changed only by a database migration', 'J · nor create a role that holds every permission');
 select pg_temp.assert_raises($$update app.roles set permissions = '["care.view"]'::jsonb where key = 'care_lead'$$,
   'changed only by a database migration', 'J · nor change what a WeCare role holds');
+select pg_temp.assert_raises($$delete from app.roles where key = 'relationship_owner'$$,
+  'changed only by a database migration', 'J · nor delete a WeCare role');
+select pg_temp.assert_raises($$delete from app.roles where key = 'platform_owner'$$,
+  'changed only by a database migration', 'J · nor the role that holds every permission');
 select pg_temp.assert_raises($$update app.roles set tier = 'center' where key = 'platform_owner'$$,
   'changed only by a database migration', 'J · nor bring platform_owner''s "*" into the organization''s roles');
 select pg_temp.assert_raises($$update app.roles set permissions = '{"care.view": true, "*": true}'::jsonb where key = 'treasurer'$$,
@@ -842,6 +864,58 @@ select pg_temp.assert((select employer_name is null and withdrawn_by = :matchlea
                       and exists (select 1 from app.audit_log where record_table = 'person_match_employers' and record_id = :pz
                                     and reason like '%at the person''s request: By phone, 14 October%'),
   'N · the employer is erased and the audit log says why');
+
+-- ══ O. Paper forms and a sign-in that is already linked ═════════════════════
+-- A sign-in linked through a changed email, the email then put back: the office's paper form does not bind to it.
+reset role;
+select pg_temp.no_claims();
+update app.people set email = 'attacker163@c1.test' where id = :ps;
+set role authenticated;
+select pg_temp.claims(:attacker);
+select pg_temp.assert(app.link_account(:c1, :ps) = :ps, 'O · (a sign-in links to Sam through a changed email)');
+reset role;
+select pg_temp.no_claims();
+update app.people set email = 'sam163@c1.test' where id = :ps;
+set role authenticated;
+select pg_temp.claims(:matchlead);
+select pg_temp.assert((app.record_match_employer(:c1, :ps, 'Sam Co')) @> '{"person_can_manage_it": false, "waits_for_first_sign_in": true}'::jsonb,
+  'O · the email was put back: the paper form does not bind to the sign-in linked through the changed email');
+select pg_temp.claims(:attacker);
+select pg_temp.assert((app.my_match_employer(:c1))->>'employer' is null and not app.remove_my_match_employer(:c1),
+  'O · which sees nothing and withdraws nothing');
+-- A linked sign-in whose verified email is the email on file: bound at once.
+select pg_temp.claims(:matchlead);
+select pg_temp.assert((app.record_match_employer(:c1, :pu, 'Una Co')) @> '{"person_can_manage_it": true}'::jsonb,
+  'O · a person signed in with the email on file gets the paper form at once');
+select pg_temp.claims(:una);
+select pg_temp.assert((app.my_match_employer(:c1))->>'employer' = 'Una Co', 'O · and sees it');
+-- An email change still pending is not a verified email.
+select pg_temp.claims(:matchlead);
+select pg_temp.assert((app.record_match_employer(:c1, :pv, 'Vic Co')) @> '{"person_can_manage_it": false}'::jsonb,
+  'O · a sign-in with an email change pending is not bound');
+-- Someone under 18 by the time of the first link: the link works, nothing binds, and the wait ends.
+select app.record_match_employer(:c1, :pt, 'Tia Co');
+reset role;
+select pg_temp.no_claims();
+update app.people set date_of_birth = (current_date - interval '15 years')::date where id = :pt;
+set role authenticated;
+select pg_temp.claims(:tia);
+select pg_temp.assert(app.link_account(:c1, :pt) = :pt, 'O · the link of someone now under 18 is not refused');
+reset role;
+select pg_temp.assert((select consented_by_user is null and consent_email is null from app.person_match_employers where person_id = :pt),
+  'O · but nothing binds, and the wait is over');
+-- Weaver's team is never linked to, or invited as, a member's record.
+set role authenticated;
+select pg_temp.claims(:plat);
+select pg_temp.assert_raises(format($$select app.link_account(%L, %L)$$, :c1, :pa),
+  'A Weaver team account is not linked', 'O · link_account refuses a platform-admin account');
+select pg_temp.claims(:owner);
+select pg_temp.assert_raises(format($$select * from app.invite_staff(%L, 'filer163@weaver.test', null, %L, array['teacher'], '{"kind":"center"}'::jsonb, 'Fi', 'Ler', 7)$$, :c1, :pa),
+  'A Weaver team account is not invited as a member', 'O · invite_staff refuses to name a member for a Weaver account');
+-- Tidy up (section M counts the employers on file).
+select pg_temp.claims(:matchlead);
+select count(*) from (select app.withdraw_match_employer(:c1, p, 'Test 163: tidy up') from unnest(array[:ps, :pu, :pv, :pt]::uuid[]) p) w;
+reset role;
 
 -- ══ M. Filing grants, read-time checks and counts ═════════════════════════════
 select pg_temp.no_claims();

@@ -204,7 +204,14 @@ alter table app.roles add constraint roles_permissions_shape check (app._is_text
 create or replace function app.roles_private_guard() returns trigger
 language plpgsql set search_path = app, public, extensions as $$
 begin
-  if current_user not in ('anon', 'authenticated', 'service_role') then return new; end if;
+  if current_user not in ('anon', 'authenticated', 'service_role') then return coalesce(new, old); end if;
+  if tg_op = 'DELETE' then
+    if app._perms_open_private(old.permissions) then
+      raise exception 'Roles that open WeCare or CatchTheMatch data, or every permission, are changed only by a database migration.'
+        using errcode = 'insufficient_privilege';
+    end if;
+    return old;
+  end if;
   if (tg_op = 'INSERT' and app._perms_open_private(new.permissions))
      or (tg_op = 'UPDATE'
          and (new.permissions is distinct from old.permissions or new.tier is distinct from old.tier or new.key is distinct from old.key)
@@ -216,7 +223,7 @@ begin
 end $$;
 revoke execute on function app.roles_private_guard() from public, anon, authenticated;
 drop trigger if exists roles_private_guard on app.roles;
-create trigger roles_private_guard before insert or update on app.roles
+create trigger roles_private_guard before insert or update or delete on app.roles
   for each row execute function app.roles_private_guard();
 
 -- seed.sql lists them too (a new database loads the seed after the migrations).
@@ -389,6 +396,13 @@ begin
   if new.person_id is not null and (tg_op = 'INSERT' or new.person_id is distinct from old.person_id)
      and exists (select 1 from app.center_users cu where cu.center_id = new.center_id and cu.person_id = new.person_id) then
     raise exception 'That person already signs in to Weaver, so they are not invited again. Give their sign-in the role in Settings › Roles & entitlements.'
+      using errcode = 'check_violation';
+  end if;
+  if new.person_id is not null
+     and exists (select 1 from auth.users u join app.accounts a on a.user_id = u.id and a.is_platform_admin
+                  where (new.email is not null and lower(u.email::text) = lower(new.email))
+                     or (new.phone_e164 is not null and '+' || ltrim(coalesce(u.phone, ''), '+') = new.phone_e164)) then
+    raise exception 'A Weaver team account is not invited as a member of a community. Invite the person with their own email or mobile number.'
       using errcode = 'check_violation';
   end if;
   foreach k in array coalesce(new.role_keys, '{}'::text[]) loop
@@ -661,6 +675,10 @@ language plpgsql security definer set search_path = app, public, extensions as $
 declare v_linked uuid;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
+  -- Weaver's team never links to a member's record in a community (0757).
+  if app.is_platform_admin() then
+    raise exception 'A Weaver team account is not linked to a member record in a community.' using errcode = 'insufficient_privilege';
+  end if;
   if not exists (select 1 from app.find_my_family(p_center) f where f.person_id = p_person) then
     raise exception 'this person does not match your verified email or phone';
   end if;

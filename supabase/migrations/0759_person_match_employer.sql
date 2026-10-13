@@ -80,7 +80,8 @@ begin
     raise exception 'An employer on file belongs to one person and cannot be moved to another.' using errcode = '23514';
   end if;
   new.center_id := p.center_id;
-  if new.employer_name is not null then
+  -- Checked when an employer is put on file or changed (clearing the waiting email of someone now under 18 is not refused).
+  if new.employer_name is not null and (tg_op = 'INSERT' or new.employer_name is distinct from old.employer_name) then
     if app.person_is_minor(p.id) then
       raise exception 'An employer for gift matching can be recorded for an adult only.' using errcode = '23514';
     end if;
@@ -240,6 +241,7 @@ end $$;
 
 create or replace function app.record_match_employer(p_center uuid, p_person uuid, p_employer text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_user uuid; v_on_file text;
 begin
   if not app.matching_can(p_center, 'manage') then
     raise exception 'Recording an employer for gift matching needs the CatchTheMatch manager role (matching.manage).'
@@ -250,10 +252,14 @@ begin
     raise exception 'This person''s record is closed (deceased or merged), so nothing new can be recorded for them.';
   end if;
   perform app.set_audit_context('Recorded from a signed paper form');
-  -- Bound to the sign-in the person has now; with none, to the first sign-in that links later with the email on file now.
-  perform app._put_match_employer(p_center, p_person, p_employer, 'paper_form',
-    (select cu.user_id from app.center_users cu where cu.center_id = p_center and cu.person_id = p_person),
-    (select p.email::text from app.people p where p.id = p_person));
+  -- Bound to the sign-in the person has now only when its verified email is the email on file now; otherwise (no sign-in,
+  -- or another email: a sign-in linked through a changed email, then restored) it waits for a first link with that email.
+  select cu.user_id into v_user from app.center_users cu where cu.center_id = p_center and cu.person_id = p_person;
+  select nullif(lower(btrim(coalesce(p.email::text, ''))), '') into v_on_file from app.people p where p.id = p_person;
+  if v_user is not null and (v_on_file is null or app._verified_signin_email(v_user) is distinct from v_on_file) then
+    v_user := null;
+  end if;
+  perform app._put_match_employer(p_center, p_person, p_employer, 'paper_form', v_user, v_on_file);
   return (select jsonb_build_object('employer', e.employer_name, 'source', e.source, 'consented_at', e.consented_at,
                                     'person_can_manage_it', e.consented_by_user is not null,
                                     'waits_for_first_sign_in', e.consent_email is not null)
@@ -277,6 +283,14 @@ begin
 end $$;
 
 -- ── A paper form waiting for the person's first sign-in ─────────────────────
+-- A sign-in's email, normalised, only when it is confirmed and no change of it is pending; null otherwise.
+create or replace function app._verified_signin_email(p_user uuid) returns text
+language sql stable security definer set search_path = app, public, extensions as $$
+  select lower(btrim(u.email::text)) from auth.users u
+   where u.id = p_user and u.email is not null and u.email_confirmed_at is not null and coalesce(u.email_change, '') = ''
+$$;
+revoke execute on function app._verified_signin_email(uuid) from public, anon, authenticated;
+
 -- The email on file changes after the recording (staff set it to another address): the snapshot is used up, nothing binds.
 create or replace function app.match_employer_email_changed() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
@@ -304,10 +318,12 @@ begin
    where person_id = new.person_id and consent_email is not null and consented_by_user is null and employer_name is not null
    for update;
   if e.person_id is null then return null; end if;
-  select lower(btrim(u.email::text)) into v_signin from auth.users u where u.id = new.user_id and u.email_confirmed_at is not null;
+  v_signin := app._verified_signin_email(new.user_id);
   select lower(btrim(p.email::text)) into v_on_file from app.people p where p.id = new.person_id;
   update app.person_match_employers
-     set consented_by_user = case when v_signin = e.consent_email and v_on_file = e.consent_email then new.user_id end,
+     -- Someone now under 18: nothing binds (the link itself is not refused).
+     set consented_by_user = case when v_signin = e.consent_email and v_on_file = e.consent_email
+                                   and not app.person_is_minor(new.person_id) then new.user_id end,
          consent_email = null
    where person_id = new.person_id;
   return null;
