@@ -51,6 +51,8 @@ export type TierStart = { draft?: Partial<TierDraft>; step?: "form" | "confirm";
 export type AssignStart = { draft?: Partial<AssignDraft>; step?: "form" | "confirm"; problem?: { field: string; error: string }; failure?: string };
 
 const LABEL = "block text-[12.5px] font-bold text-muted";
+/** An input with a mistake in it is outlined in red as well as explained in words. */
+const FIELD = `${INPUT} aria-invalid:border-danger aria-invalid:ring-2 aria-invalid:ring-danger/20`;
 const PRIMARY = "inline-flex min-h-11 items-center rounded-full bg-navy px-5 text-[14px] font-bold text-white hover:bg-navy-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)]";
 const SECONDARY = "inline-flex min-h-11 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-5 text-[14px] font-bold text-ink hover:border-[var(--v2-blue)] disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)]";
 
@@ -66,6 +68,16 @@ function Field({ id, label, hint, problem, field, children }: { id: string; labe
       {children}
       {hint ? <p className="m-0 mt-1 text-[12px] text-muted">{hint}</p> : null}
       {mine ? <Problem id={`${id}-problem`}>{mine}</Problem> : null}
+    </div>
+  );
+}
+
+/** A mistake in a date, said across the whole width (the two date boxes are narrow). */
+function DateProblem({ uid, problem }: { uid: string; problem: Issue }) {
+  if (!problem || (problem.field !== "startsOn" && problem.field !== "endsOn")) return null;
+  return (
+    <div className="sm:col-span-2">
+      <Problem id={`${uid}-${problem.field === "startsOn" ? "start" : "end"}-problem`}>{problem.error}</Problem>
     </div>
   );
 }
@@ -176,7 +188,7 @@ export function EditPanel({
         Edit dates and notes · <span dir="auto">{tierLabel(row.tier)} · {row.typeName}</span>
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field id={`${uid}-start`} label="Starts on" problem={problem} field="startsOn">
+        <Field id={`${uid}-start`} label="Starts on" problem={null} field="startsOn">
           <input
             id={`${uid}-start`}
             type="date"
@@ -185,10 +197,10 @@ export function EditPanel({
             onChange={(e) => change({ startsOn: e.target.value })}
             aria-invalid={problem?.field === "startsOn" ? true : undefined}
             aria-describedby={problem?.field === "startsOn" ? `${uid}-start-problem` : undefined}
-            className={INPUT}
+            className={FIELD}
           />
         </Field>
-        <Field id={`${uid}-end`} label="Ends on" hint={description} problem={problem} field="endsOn">
+        <Field id={`${uid}-end`} label="Ends on" hint={description} problem={null} field="endsOn">
           <input
             id={`${uid}-end`}
             type="date"
@@ -196,9 +208,10 @@ export function EditPanel({
             onChange={(e) => change({ endsOn: e.target.value })}
             aria-invalid={problem?.field === "endsOn" ? true : undefined}
             aria-describedby={problem?.field === "endsOn" ? `${uid}-end-problem` : undefined}
-            className={INPUT}
+            className={FIELD}
           />
         </Field>
+        <DateProblem uid={uid} problem={problem} />
         <div className="sm:col-span-2">
           <Field id={`${uid}-notes`} label="Note" problem={problem} field="notes">
             <textarea
@@ -208,7 +221,7 @@ export function EditPanel({
               maxLength={MEMBERSHIP_NOTE_MAX + 200}
               dir="auto"
               onChange={(e) => change({ notes: e.target.value })}
-              className={`${INPUT} min-h-20 py-2`}
+              className={`${FIELD} min-h-20 py-2`}
             />
           </Field>
         </div>
@@ -224,7 +237,7 @@ export function EditPanel({
               onChange={(e) => change({ reason: e.target.value })}
               aria-invalid={problem?.field === "reason" ? true : undefined}
               aria-describedby={problem?.field === "reason" ? `${uid}-reason-problem` : undefined}
-              className={INPUT}
+              className={FIELD}
             />
           </Field>
         </div>
@@ -358,7 +371,7 @@ export function TierPanel({
               setDraft((d) => ({ ...d, tier: e.target.value }));
               setProblem(null);
             }}
-            className={INPUT}
+            className={FIELD}
           >
             {choices.map((t) => (
               <option key={t} value={t}>
@@ -379,7 +392,7 @@ export function TierPanel({
               setDraft((d) => ({ ...d, reason: e.target.value }));
               setProblem(null);
             }}
-            className={INPUT}
+            className={FIELD}
           />
         </Field>
       </div>
@@ -500,7 +513,7 @@ export function AssignPanel({
               onChange={(e) => change({ typeId: e.target.value, recordFee: false })}
               aria-invalid={problem?.field === "typeId" ? true : undefined}
               aria-describedby={problem?.field === "typeId" ? `${uid}-type-problem` : undefined}
-              className={INPUT}
+              className={FIELD}
             >
               <option value="">Choose a type…</option>
               {ctx.types.map((t) => (
@@ -511,7 +524,7 @@ export function AssignPanel({
             </select>
           </Field>
         </div>
-        <Field id={`${uid}-start`} label="Starts on" problem={problem} field="startsOn">
+        <Field id={`${uid}-start`} label="Starts on" problem={null} field="startsOn">
           <input
             id={`${uid}-start`}
             type="date"
@@ -520,14 +533,14 @@ export function AssignPanel({
             onChange={(e) => change({ startsOn: e.target.value })}
             aria-invalid={problem?.field === "startsOn" ? true : undefined}
             aria-describedby={problem?.field === "startsOn" ? `${uid}-start-problem` : undefined}
-            className={INPUT}
+            className={FIELD}
           />
         </Field>
         <Field
           id={`${uid}-end`}
           label="Ends on (optional)"
           hint={type ? (earliestEnd ? `Leave empty to end on ${formatDate(earliestEnd, timeZone)}.` : "Leave empty for no end date.") : "Choose a type to see when it ends."}
-          problem={problem}
+          problem={null}
           field="endsOn"
         >
           <input
@@ -537,12 +550,13 @@ export function AssignPanel({
             onChange={(e) => change({ endsOn: e.target.value })}
             aria-invalid={problem?.field === "endsOn" ? true : undefined}
             aria-describedby={problem?.field === "endsOn" ? `${uid}-end-problem` : undefined}
-            className={INPUT}
+            className={FIELD}
           />
         </Field>
+        <DateProblem uid={uid} problem={problem} />
         <div className="sm:col-span-2">
           <Field id={`${uid}-holder`} label="Holder" hint="Adults of the family only." problem={problem} field="holderId">
-            <select id={`${uid}-holder`} value={draft.holderId} onChange={(e) => change({ holderId: e.target.value })} className={INPUT} dir="auto">
+            <select id={`${uid}-holder`} value={draft.holderId} onChange={(e) => change({ holderId: e.target.value })} className={FIELD} dir="auto">
               {ctx.holders.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.name}
@@ -576,7 +590,7 @@ export function AssignPanel({
               onChange={(e) => change({ reason: e.target.value })}
               aria-invalid={problem?.field === "reason" ? true : undefined}
               aria-describedby={problem?.field === "reason" ? `${uid}-reason-problem` : undefined}
-              className={INPUT}
+              className={FIELD}
             />
           </Field>
         </div>
