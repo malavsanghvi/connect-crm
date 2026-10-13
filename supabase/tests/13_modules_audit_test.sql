@@ -41,8 +41,8 @@ select pg_temp.assert(not exists (
       select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
        where n.nspname = 'app' and c.relname = mt.table_name and c.relkind in ('r','p'))),
   'module_tables lists no table that does not exist');
-select pg_temp.assert((select count(*) from app.modules) = 18 and (select array_agg(key order by key) from app.modules where core) = '{people}',
-  'the module catalog has the 18 contract modules and only people is core');
+select pg_temp.assert((select count(*) from app.modules) = 25 and (select array_agg(key order by key) from app.modules where core) = '{people}',
+  'the module catalog has the 18 contract modules and Giving''s 7 add-ons (0741), and only people is core');
 select pg_temp.assert(not exists (
     select mt.table_name from app.module_tables mt join app.modules m on m.key = mt.module_key
       join pg_class c on c.relname = mt.table_name join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'app'
