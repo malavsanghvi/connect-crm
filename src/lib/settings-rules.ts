@@ -294,7 +294,7 @@ export const NOTIFICATION_TRIGGERS: NotificationTrigger[] = [
     when: () => "Monthly for open pledges",
     channel: "Email",
     sends: false,
-    note: "No sender yet: it would email every household with an open pledge, old imported ones included; which pledges, how often and in whose name is the owner's decision.",
+    note: "Set up as a scheduled email in Settings › Automatic emails (pledges due soon or past due, how often, your own wording; imported pledges left out unless chosen). This row has no switch: each scheduled email is switched on there with comms.approve.",
   },
   {
     key: "store_order_ready",

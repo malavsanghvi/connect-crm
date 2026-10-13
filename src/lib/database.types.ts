@@ -2937,6 +2937,22 @@ export type Database = {
           created_at: string;
           updated_by: string | null;
           updated_at: string;
+          name: string | null;
+          audience: string | null;
+          audience_params: Json;
+          frequency: string | null;
+          day_of_week: number | null;
+          day_of_month: number | null;
+          month_of_year: number | null;
+          send_hour: number | null;
+          status: string;
+          approved_by: string | null;
+          approved_at: string | null;
+          next_run_at: string | null;
+          run_period: string | null;
+          last_run_at: string | null;
+          last_run: Json | null;
+          run_claimed_until: string | null;
         };
         Insert: {
           id?: string;
@@ -2950,6 +2966,22 @@ export type Database = {
           created_at?: string;
           updated_by?: string | null;
           updated_at?: string;
+          name?: string | null;
+          audience?: string | null;
+          audience_params?: Json;
+          frequency?: string | null;
+          day_of_week?: number | null;
+          day_of_month?: number | null;
+          month_of_year?: number | null;
+          send_hour?: number | null;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          next_run_at?: string | null;
+          run_period?: string | null;
+          last_run_at?: string | null;
+          last_run?: Json | null;
+          run_claimed_until?: string | null;
         };
         Update: {
           id?: string;
@@ -2963,6 +2995,22 @@ export type Database = {
           created_at?: string;
           updated_by?: string | null;
           updated_at?: string;
+          name?: string | null;
+          audience?: string | null;
+          audience_params?: Json;
+          frequency?: string | null;
+          day_of_week?: number | null;
+          day_of_month?: number | null;
+          month_of_year?: number | null;
+          send_hour?: number | null;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          next_run_at?: string | null;
+          run_period?: string | null;
+          last_run_at?: string | null;
+          last_run?: Json | null;
+          run_claimed_until?: string | null;
         };
         Relationships: [];
       };
@@ -12228,6 +12276,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      approve_email_schedule: {
+        Args: {
+          p_center: string;
+          p_id: string;
+        };
+        Returns: Json;
+      };
       approve_flagged_refund: {
         Args: {
           p_refund: string;
@@ -13171,6 +13226,31 @@ export type Database = {
         };
         Returns: Json;
       };
+      email_schedule_log: {
+        Args: {
+          p_center: string;
+          p_id: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      email_schedule_preview: {
+        Args: {
+          p_center: string;
+          p_audience: string;
+          p_params: Json;
+          p_frequency: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      email_schedules_state: {
+        Args: {
+          p_center: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
       end_weaver_filing: {
         Args: {
           p_grant: string;
@@ -13475,6 +13555,13 @@ export type Database = {
           p_values: string[];
         };
         Returns: { input: string; match_kind: string; household_id: string; person_id: string; household_name: string; household_number: string; org_household_id: string; primary_member: string; city: string }[];
+      };
+      giving_upload_payment_repeats: {
+        Args: {
+          p_center: string;
+          p_rows: Json;
+        };
+        Returns: { row_no: number; receipt_number: string; received_on: string }[];
       };
       giving_zelle_waiting: {
         Args: {
@@ -14726,6 +14813,13 @@ export type Database = {
         };
         Returns: { students: number; waitlisted: number; teachers: number; background_checks_expiring: number; attendance_percent: number; signoffs_waiting: number }[];
       };
+      pause_email_schedule: {
+        Args: {
+          p_center: string;
+          p_id: string;
+        };
+        Returns: Json;
+      };
       payee_can_approve: {
         Args: {
           p_center: string;
@@ -15217,6 +15311,17 @@ export type Database = {
           p_events: Json;
         };
         Returns: number;
+      };
+      record_donation_upload: {
+        Args: {
+          p_center: string;
+          p_idempotency_key: string;
+          p_file_name: string;
+          p_file_sha256: string;
+          p_reason: string;
+          p_rows: Json;
+        };
+        Returns: Json;
       };
       record_export: {
         Args: {
@@ -15939,6 +16044,24 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      save_email_schedule: {
+        Args: {
+          p_center: string;
+          p_id: string;
+          p_name: string;
+          p_audience: string;
+          p_params: Json;
+          p_frequency: string;
+          p_day_of_week: number;
+          p_day_of_month: number;
+          p_month: number;
+          p_hour: number;
+          p_language: string;
+          p_subject: string;
+          p_body: string;
+        };
+        Returns: Json;
       };
       save_email_sender: {
         Args: {

@@ -5,7 +5,7 @@
 // Pure (no "@/" imports): the background service imports it too.
 
 import { PAYMENT_METHOD_LABEL } from "../labels";
-import { PLACEHOLDERS, type EmailTrigger } from "./catalogue";
+import { PLACEHOLDERS, type EmailTrigger, type MergeKey, type ScheduleAudience } from "./catalogue";
 import { emailDay, emailEventDay, emailList, emailMoney, emailPlace, emailTime, type EmailPlace } from "./format";
 import { householdNameForEmail, withoutChildNames } from "./household-name";
 import { oneLine } from "./render";
@@ -35,18 +35,22 @@ export type EmailFacts = {
 
 const text = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
 
-/** Values for one email: null where the record has none. Recipient null = the preview's first recipient. */
-export function factValues(trigger: EmailTrigger, facts: EmailFacts, recipient: EmailRecipient | null, place: EmailPlace = emailPlace(facts.center)): Record<string, string | null> {
+function commonValues(facts: Pick<EmailFacts, "center" | "household" | "recipients">, recipient: EmailRecipient | null): Record<string, string | null> {
   const r = recipient ?? facts.recipients?.[0] ?? null;
-  const minors = facts.household?.minor_first_names ?? [];
-  const v: Record<string, string | null> = {
+  return {
     center_name: text(facts.center?.name),
     center_short_name: text(facts.center?.short_name) ?? text(facts.center?.name),
     recipient_first_name: text(r?.first_name),
     recipient_name: text(r?.name),
-    household_name: householdNameForEmail(text(facts.household?.name), minors),
+    household_name: householdNameForEmail(text(facts.household?.name), facts.household?.minor_first_names ?? []),
     household_number: text(facts.household?.number),
   };
+}
+
+/** Values for one email: null where the record has none. Recipient null = the preview's first recipient. */
+export function factValues(trigger: EmailTrigger, facts: EmailFacts, recipient: EmailRecipient | null, place: EmailPlace = emailPlace(facts.center)): Record<string, string | null> {
+  const minors = facts.household?.minor_first_names ?? [];
+  const v = commonValues(facts, recipient);
   if (trigger === "payment_receipt") {
     const p = facts.payment ?? {};
     const method = text(p.method);
@@ -88,26 +92,76 @@ export function factValues(trigger: EmailTrigger, facts: EmailFacts, recipient: 
 function guardChildren(values: Record<string, string | null>, minorFirstNames: readonly string[]): Record<string, string | null> {
   if (minorFirstNames.length === 0) return values;
   const out: Record<string, string | null> = {};
-  for (const [k, val] of Object.entries(values)) out[k] = val === null || k.startsWith("recipient_") ? val : withoutChildNames(val, minorFirstNames) || null;
-  return out;
-}
-
-/** What the email says for each placeholder: the value, else the email's own wording for a value the record lacks. */
-export function sendValues(trigger: EmailTrigger, values: Readonly<Record<string, string | null>>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const p of PLACEHOLDERS[trigger]) {
-    const val = values[p.name];
-    out[p.name] = oneLine(val === null || val === undefined || val === "" ? p.missing : val);
+  for (const [k, val] of Object.entries(values)) {
+    // A list keeps its lines: each line is checked on its own.
+    out[k] = val === null || k.startsWith("recipient_") ? val : val.split("\n").map((line) => withoutChildNames(line, minorFirstNames)).join("\n") || null;
   }
   return out;
 }
 
+/** What a scheduled email's audience hands over for one household (app.worker_email_schedule_batch, 0771). */
+export type ScheduleData = {
+  pledges?: { number?: string | null; for?: string | null; balance_cents?: number | null; due_on?: string | null }[] | null;
+  count?: number | null;
+  balance_cents?: number | null;
+  next_due?: string | null;
+  gifts?: { received_on?: string | null; amount_cents?: number | null; for?: string | null }[] | null;
+  total_cents?: number | null;
+  period_start?: string | null;
+  period_end?: string | null;
+};
+
+export type ScheduleFacts = Pick<EmailFacts, "center" | "household" | "recipients"> & { data?: ScheduleData | null };
+
+const line = (parts: (string | null | undefined)[]): string => parts.filter((x): x is string => !!x && x.trim() !== "").join(" · ");
+
+/** Values for one household of a scheduled email: the people, then its pledges or gifts, one line each in a list. */
+export function scheduleValues(audience: ScheduleAudience, facts: ScheduleFacts, recipient: EmailRecipient | null, place: EmailPlace = emailPlace(facts.center)): Record<string, string | null> {
+  const v = commonValues(facts, recipient);
+  const d = facts.data ?? {};
+  const count = typeof d.count === "number" && d.count > 0 ? new Intl.NumberFormat(place.locale).format(d.count) : null;
+  if (audience === "gave_recently") {
+    v.gifts_list = (d.gifts ?? []).map((g) => line([emailDay(g.received_on, place), emailMoney(g.amount_cents, place), text(g.for)])).join("\n") || null;
+    v.gifts_count = count;
+    v.gifts_total = emailMoney(d.total_cents, place);
+    const from = emailDay(d.period_start, place);
+    const to = emailDay(d.period_end, place);
+    v.gifts_period = from && to ? (from === to ? from : `${from} – ${to}`) : null;
+  } else {
+    v.pledges_list = (d.pledges ?? []).map((p) => line([text(p.number), text(p.for), emailMoney(p.balance_cents, place), emailDay(p.due_on, place)])).join("\n") || null;
+    v.pledges_count = count;
+    v.pledges_balance = emailMoney(d.balance_cents, place);
+    v.next_due_date = emailDay(d.next_due, place);
+  }
+  return guardChildren(v, facts.household?.minor_first_names ?? []);
+}
+
+/** What the email says for each placeholder: the value, else the email's own wording for a value the record lacks. */
+export function sendValues(key: MergeKey, values: Readonly<Record<string, string | null>>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const p of PLACEHOLDERS[key]) {
+    const val = values[p.name];
+    const v = val === null || val === undefined || val === "" ? p.missing : val;
+    out[p.name] = p.multiline ? listLines(v) : oneLine(v);
+  }
+  return out;
+}
+
+/** A list value: its lines kept, each line one clean line. */
+function listLines(value: string): string {
+  return value
+    .split(/\r?\n/)
+    .map(oneLine)
+    .filter(Boolean)
+    .join("\n");
+}
+
 /** The email's wording for a value the record lacks, by name. */
-export function missingWords(trigger: EmailTrigger): Record<string, string> {
-  return Object.fromEntries(PLACEHOLDERS[trigger].map((p) => [p.name, p.missing]));
+export function missingWords(key: MergeKey): Record<string, string> {
+  return Object.fromEntries(PLACEHOLDERS[key].map((p) => [p.name, p.missing]));
 }
 
 /** Made-up values for a preview when the community has no record of this kind yet. */
-export function sampleValues(trigger: EmailTrigger): Record<string, string> {
-  return Object.fromEntries(PLACEHOLDERS[trigger].map((p) => [p.name, p.sample]));
+export function sampleValues(key: MergeKey): Record<string, string> {
+  return Object.fromEntries(PLACEHOLDERS[key].map((p) => [p.name, p.sample]));
 }
