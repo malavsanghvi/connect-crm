@@ -11,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        # Same major version as the hosted Supabase database (17.6, checked 2026-10-13).
+        image: postgres:17
         env:
           POSTGRES_PASSWORD: postgres
         ports: ["5432:5432"]
