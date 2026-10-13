@@ -162,10 +162,11 @@ select app.email_schedule_preview(:jc, 'pledges_due_soon', '{"days": 7}', 'weekl
 select pg_temp.assert((:'pv'::jsonb->>'households')::int = 3 and (:'pv'::jsonb->>'adults')::int = 3 and (:'pv'::jsonb->>'would_send')::int = 2
                       and :'pv'::jsonb->'skipped' = '{"no_email": 1, "switched_off": 1, "unsubscribed": 0}'::jsonb,
   'C · due in 7 days: three households (a CRM import, a pledge the import tool brought in, a fee, one paid off and one due later are left out), three adults (never the child), two would get it: one household has no email address, one adult switched giving emails off');
-select pg_temp.assert(:'pv'::jsonb #> '{sample,household,minor_first_names}' = '["Kiran"]'
+select pg_temp.assert(not (:'pv'::jsonb #> '{sample,household}' ? 'minor_first_names')
+                      and :'pv'::jsonb #>> '{sample,household,name}' = 'Member171, Mira'
                       and not (:'pv'::jsonb #> '{sample,recipients,0}' ? 'address')
                       and jsonb_array_length(:'pv'::jsonb->'sample_households') = 2,
-  'C · the preview''s household keeps the child''s first name out and shows no address; two households for the cards');
+  'C · the preview never carries a child''s first name (the household''s name without it) nor an address; two households for the cards');
 select pg_temp.assert((app.email_schedule_preview(:jc, 'pledges_past_due', '{}', 'monthly', 18)->>'households')::int = 1
                       and (app.email_schedule_preview(:jc, 'pledges_past_due', format('{"since": "%s"}', :'today'::date + 1)::jsonb, 'monthly', 18)->>'households')::int = 0,
   'C · past due: one household; "made on or after" a later date leaves it out');
