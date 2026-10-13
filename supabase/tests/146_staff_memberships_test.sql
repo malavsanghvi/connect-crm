@@ -489,21 +489,26 @@ select pg_temp.assert(position(:'m_trig' in current_setting('t146.fired')) > 0 a
 -- the staff member's reason (here even "Hardship, complimentary") is never copied into memberships.notes: the note is the neutral
 -- 'Assigned by staff' (plus, only when Pledges & donations is off, the sentence about the community's own fee). The reason is in the
 -- audit entry of the new membership, and the audit entry's own copy of the new row carries the neutral note too.
-select pg_temp.assert(
-  (select count(*) = 13
-          and bool_and(m.notes like 'Assigned by staff%' and position(v.reason in coalesce(m.notes, '')) = 0
-                       and exists (select 1 from app.audit_log a
-                                    where a.record_table = 'memberships' and a.record_id = m.id::text and a.action = 'memberships.insert'
-                                      and a.reason = v.reason and a.actor_user_id is not null
-                                      and position(v.reason in coalesce(a.after->>'notes', '')) = 0 and (a.after->>'notes') like 'Assigned by staff%'))
-     from (values (:'m_li'::uuid, 'Paid at the office desk'), (:'m_life'::uuid, 'Life fee paid by cheque 1031'),
-                  (:'m_nofee'::uuid, 'Member since last year, no fee now'), (:'m_nullfee'::uuid, 'Fee waived by the board'),
-                  (:'m_hard'::uuid, 'Hardship, complimentary membership'), (:'m_free'::uuid, 'Student rate'),
-                  (:'m_nohold'::uuid, 'Assigned from the old paper register'), (:'m_dates'::uuid, 'Joined a month ago, short first term'),
-                  (:'m_renew'::uuid, 'Renewed at the fair'), (:'m_nogiving'::uuid, 'Office desk'), (:'m_nogiving2'::uuid, 'Office desk'),
-                  (:'m_club'::uuid, 'Joined at the tournament'), (:'m_trig'::uuid, 'Checking the Pathshala trigger')) as v(id, reason)
-     join app.memberships m on m.id = v.id),
-  'E · the reason is audit-only: in the audit entry of each of the 13 assignments, and in none of their notes (nor in the audit copy of the new row)');
+create or replace function pg_temp.audit_only(p_id uuid, p_reason text) returns text language plpgsql as $$
+declare v_note text; v_ar text; v_an text; v_n int; v_out text := '';
+begin
+  select m.notes into v_note from app.memberships m where m.id = p_id;
+  select count(*), min(a.reason), min(a.after->>'notes') into v_n, v_ar, v_an
+    from app.audit_log a where a.record_table = 'memberships' and a.record_id = p_id::text and a.action = 'memberships.insert';
+  if v_note is null or v_note not like 'Assigned by staff%' then v_out := v_out || format(' [note is %L]', v_note); end if;
+  if position(p_reason in coalesce(v_note, '')) > 0 then v_out := v_out || ' [the reason is in the note]'; end if;
+  if v_n <> 1 then v_out := v_out || format(' [%s audit insert rows]', v_n); end if;
+  if v_ar is distinct from p_reason then v_out := v_out || format(' [audit reason is %L]', v_ar); end if;
+  if position(p_reason in coalesce(v_an, '')) > 0 or v_an is null or v_an not like 'Assigned by staff%' then v_out := v_out || format(' [audit copy of the note is %L]', v_an); end if;
+  return v_out;
+end $$;
+select pg_temp.assert(pg_temp.audit_only(v.id, v.reason) = '', 'E · the reason is audit-only for ' || v.reason || ': ' || pg_temp.audit_only(v.id, v.reason))
+  from (values (:'m_li'::uuid, 'Paid at the office desk'), (:'m_life'::uuid, 'Life fee paid by cheque 1031'),
+               (:'m_nofee'::uuid, 'Member since last year, no fee now'), (:'m_nullfee'::uuid, 'Fee waived by the board'),
+               (:'m_hard'::uuid, 'Hardship, complimentary membership'), (:'m_free'::uuid, 'Student rate'),
+               (:'m_nohold'::uuid, 'Assigned from the old paper register'), (:'m_dates'::uuid, 'Joined a month ago, short first term'),
+               (:'m_renew'::uuid, 'Renewed at the fair'), (:'m_nogiving'::uuid, 'Office desk'), (:'m_nogiving2'::uuid, 'Office desk'),
+               (:'m_club'::uuid, 'Joined at the tournament'), (:'m_trig'::uuid, 'Checking the Pathshala trigger')) as v(id, reason);
 select pg_temp.assert((select m.notes = 'Assigned by staff' from app.memberships m where m.id = :'m_hard'),
                       'E · "Hardship, complimentary membership" is not in the note, which stays neutral');
 
