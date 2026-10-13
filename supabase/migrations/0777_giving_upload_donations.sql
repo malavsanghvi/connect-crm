@@ -110,14 +110,19 @@ begin
   if v_total <= 0 then
     raise exception 'The rows add up to nothing; there is nothing to record.' using errcode = '22023';
   end if;
+  -- Each row once: a row number twice would give two rows one key (the second a replay of the first) and skew the count and total.
+  if (select count(distinct e->>'row') from jsonb_array_elements(p_rows) e) <> v_count then
+    raise exception 'The same row number appears twice. Nothing was recorded; check the file again.' using errcode = '22023';
+  end if;
 
+  perform app.set_audit_context(format('Upload: %s', v_reason));
   insert into app.giving_uploads (center_id, kind, idempotency_key, file_name, file_sha256, reason, row_count, total_cents, created_by)
     values (p_center, 'payments', v_key, v_file, v_sha, v_reason, v_count, v_total, auth.uid())
     on conflict (center_id, idempotency_key) do nothing
     returning * into v_up;
   if not found then
     select * into v_up from app.giving_uploads u where u.center_id = p_center and u.idempotency_key = v_key;
-    if v_up.kind <> 'payments' or v_up.row_count <> v_count or v_up.total_cents <> v_total then
+    if v_up.kind <> 'payments' or v_up.row_count <> v_count or v_up.total_cents <> v_total or v_up.file_sha256 is distinct from v_sha then
       raise exception 'This confirmation was already used for a different upload. Nothing was recorded.' using errcode = '23505';
     end if;
     return jsonb_build_object(

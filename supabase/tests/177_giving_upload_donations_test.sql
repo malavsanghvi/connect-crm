@@ -33,13 +33,14 @@ begin
     'amr', json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);
   perform set_config('request.headers', '{"x-client-app":"portal","x-client-screen":"/giving/payments/upload"}', true);
 end $$;
-create or replace function pg_temp.up(p_user uuid, p_center uuid, p_key text, p_rows jsonb, p_reason text default 'Sunday collection checks')
+create or replace function pg_temp.up(p_user uuid, p_center uuid, p_key text, p_rows jsonb, p_reason text default 'Sunday collection checks',
+                                      p_sha text default repeat('b', 64))
 returns jsonb language plpgsql as $$
 declare r jsonb;
 begin
   perform pg_temp.claims(p_user);
   set local role authenticated;
-  r := app.record_donation_upload(p_center, p_key, 'gifts.csv', repeat('b', 64), p_reason, p_rows);
+  r := app.record_donation_upload(p_center, p_key, 'gifts.csv', p_sha, p_reason, p_rows);
   reset role;
   return r;
 exception when others then
@@ -184,6 +185,9 @@ select pg_temp.assert((select reason = 'Sunday collection checks · envelope 7' 
   'B: the payment''s audit entry carries the reason and the row''s note');
 select pg_temp.assert((select kind = 'payments' and row_count = 3 and total_cents = 56500 and created_by = :tara::uuid from app.giving_uploads where id = :'u1'::uuid),
   'B: the upload row: kind payments, rows, total, who');
+select pg_temp.assert((select reason = 'Upload: Sunday collection checks' from app.audit_log
+                        where record_table = 'giving_uploads' and action = 'giving_uploads.insert' and record_id = :'u1'),
+  'B: the upload row''s own audit entry carries the reason');
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- C. Once
@@ -196,6 +200,13 @@ select pg_temp.assert(((:'c1'::jsonb)->>'replayed')::boolean and jsonb_array_len
   'C: the same confirmation again returns the same upload and records nothing more');
 select pg_temp.assert_raises(format($$select pg_temp.up(%L, %L, 'don-177-b-0001', jsonb_build_array(pg_temp.r(2, %L, 999, 'cash', %L)))$$, :tara, :c, :h1, :'today'),
   'different upload', 'C: the same confirmation for different rows is refused');
+select pg_temp.assert_raises(format($$select pg_temp.up(%L, %L, 'don-177-b-0001', jsonb_build_array(
+    pg_temp.r(2, %L, 20000, 'check', %L), pg_temp.r(3, %L, 1500, 'cash', %L), pg_temp.r(4, %L, 35000, 'zelle', %L)), 'Sunday collection checks', repeat('d', 64))$$,
+    :tara, :c, :h1, :'today'::date - 1, :h2, :'today', :h1, :'today'),
+  'different upload', 'C: the same confirmation with another file (its fingerprint) is refused');
+select pg_temp.assert_raises(format($$select pg_temp.up(%L, %L, 'don-177-c-0002', jsonb_build_array(pg_temp.r(2, %L, 1000, 'cash', %L), pg_temp.r(2, %L, 2000, 'cash', %L)))$$,
+                                    :tara, :c, :h2, :'today', :h3, :'today'),
+  'same row number appears twice', 'C: a row number twice is refused (it would give two rows one key and skew the total)');
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- D. All or nothing
