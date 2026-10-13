@@ -3,7 +3,7 @@
 
 import { isUuid } from "@/lib/search-params";
 
-import { programFromForm, type ProgramFacts } from "./directory";
+import { forwardReasonText, programFromForm, type ProgramFacts } from "./directory";
 
 export type DecisionArgs = {
   p_submission: string;
@@ -63,15 +63,15 @@ function lowerFirst(s: string): string {
   return s ? s[0].toLowerCase() + s.slice(1) : s;
 }
 
-/** What the person is told after the database decided. */
-export function decisionMessage(status: string, context: "weaver" | "community"): string {
+/** What the person is told after the database decided (`because`: why an approval went to Weaver's team). */
+export function decisionMessage(status: string, context: "weaver" | "community", because?: string | null): string {
   switch (status) {
     case "approved":
       return context === "weaver"
         ? "Approved. The entry is in the directory, checked by Weaver's team today."
         : "Approved. It is in the directory now, marked verified by your community today.";
     case "forwarded":
-      return "Sent to Weaver's team: they checked this entry, so they decide on changes to it. Your edits go with it.";
+      return `Sent to Weaver's team: ${forwardReasonText(because)}. Your edits go with it.`;
     case "rejected":
       return "Rejected. The reason is kept with the submission.";
     case "merged":

@@ -7,13 +7,13 @@ import { ProgramFields } from "@/components/matching/program-fields";
 import { HistoryButton } from "@/components/record-history";
 import { Alert, Card, EmptyState, Field, PageHeader, StatusText } from "@/components/ui";
 import { formatDate, todayInTz } from "@/lib/dates";
-import { loadPlatformSubmissions, loadProgram, programNames, searchDirectory } from "@/lib/matching/data";
+import { loadPlatformSubmissions, loadProgram, loadProgramVersions, programNames, searchDirectory } from "@/lib/matching/data";
 import { factsAsRow, statusText, submissionStatusText, verifiedText } from "@/lib/matching/directory";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
 import { PlatformNoAccess } from "../../platform-no-access";
-import { mergeProgramsAction, retireProgramAction, saveProgramAction } from "../actions";
+import { mergeProgramsAction, retireProgramAction, revertProgramAction, saveProgramAction } from "../actions";
 
 export const metadata: Metadata = { title: "Directory entry · Platform" };
 
@@ -68,10 +68,11 @@ export default async function PlatformMatchingEntryPage({ params }: { params: Pr
   const { program: g, names } = res.data;
   const others = names.filter((n) => !n.is_primary).map((n) => n.name);
   const tz = session.center.time_zone;
-  const [subs, lookalikes, merged] = await Promise.all([
+  const [subs, lookalikes, merged, versions] = await Promise.all([
     loadPlatformSubmissions(session.db, "all", g.id),
     g.status === "active" ? searchDirectory(session.db, g.company_name, "all", 1) : Promise.resolve(null),
     g.merged_into ? programNames(session.db, [g.merged_into]) : Promise.resolve(null),
+    loadProgramVersions(session.db, g.id),
   ]);
   const duplicates = lookalikes && lookalikes.ok ? lookalikes.data.rows.filter((r) => r.id !== g.id) : [];
   const mergedName = merged && merged.ok && g.merged_into ? merged.data.get(g.merged_into)?.company_name : null;
@@ -180,6 +181,47 @@ export default async function PlatformMatchingEntryPage({ params }: { params: Pr
           )}
         </Card>
       ) : null}
+
+      <Card title="Versions" className="mt-4" description="Every change of the facts and names, newest first. Reverting brings one back in a step, as Weaver's team's check of today.">
+        {!versions.ok ? (
+          <Alert tone="danger" title="The versions could not be loaded">
+            {versions.error} Reload the page to try again.
+          </Alert>
+        ) : versions.data.length === 0 ? (
+          <p className="crm-hint m-0">No versions yet.</p>
+        ) : (
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {versions.data.map((v) => (
+              <li key={v.version} className="text-[13.5px] text-ink" data-version={v.version}>
+                <span className="font-semibold">Version {v.version}</span> · {formatDate(v.written_at, tz)} ·{" "}
+                {v.written_kind === "weaver" ? "Weaver's team" : `Verified by a community (${v.community ?? "no longer here"})`}
+                {v.note ? <span className="text-muted"> · {v.note}</span> : null}
+                {v.version === g.version ? <span className="text-muted"> (as it is now)</span> : null}
+                {v.version !== g.version && g.status === "active" ? (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-[13px] font-bold text-[var(--v2-blue)]">Revert to version {v.version}</summary>
+                    <ActionForm
+                      action={revertProgramAction}
+                      submitLabel={`Revert to version ${v.version}`}
+                      pendingLabel="Reverting"
+                      size="sm"
+                      variant="danger"
+                      className="mt-2 flex flex-col gap-2"
+                      confirmMessage={`Bring back version ${v.version} of ${g.company_name}? Every community sees it at once.`}
+                    >
+                      <input type="hidden" name="program_id" value={g.id} />
+                      <input type="hidden" name="version" value={v.version} />
+                      <Field label="Why" htmlFor={`revert-${g.id}-${v.version}`}>
+                        <input id={`revert-${g.id}-${v.version}`} name="reason" className="crm-input w-full" maxLength={500} required />
+                      </Field>
+                    </ActionForm>
+                  </details>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card title="What communities sent about it" className="mt-4" description="The community's name only, never who sent it.">
         {!subs.ok ? (

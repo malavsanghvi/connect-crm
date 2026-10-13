@@ -103,6 +103,11 @@ export default async function EmployersOnFilePage({ searchParams }: { searchPara
                               <p className="m-0 text-[12px] text-muted">
                                 {howText(r.link?.how)} · confirmed by {r.link?.confirmed_by} on {formatDate(r.link?.confirmed_at, tz)}
                               </p>
+                              {r.link?.changed_since_confirmed ? (
+                                <p className="m-0 text-[12px] font-semibold text-brown" data-testid="changed-since-confirmed">
+                                  Changed since you confirmed it. Check the entry, then confirm it again.
+                                </p>
+                              ) : null}
                             </>
                           ) : r.best ? (
                             <>
@@ -122,6 +127,13 @@ export default async function EmployersOnFilePage({ searchParams }: { searchPara
                         {canLink ? (
                           <td>
                             <div className="flex flex-wrap items-center gap-2">
+                              {entry && r.link?.changed_since_confirmed && entry.status === "active" ? (
+                                <ActionForm action={linkProgramAction} submitLabel="Confirm again" pendingLabel="Confirming" size="xs">
+                                  <input type="hidden" name="person_id" value={r.person_id} />
+                                  <input type="hidden" name="program_id" value={entry.id} />
+                                  <input type="hidden" name="first_name" value={first} />
+                                </ActionForm>
+                              ) : null}
                               {!entry && r.best ? (
                                 <ActionForm action={linkProgramAction} submitLabel={`Link to ${r.best.company_name}`} pendingLabel="Linking" size="xs">
                                   <input type="hidden" name="person_id" value={r.person_id} />

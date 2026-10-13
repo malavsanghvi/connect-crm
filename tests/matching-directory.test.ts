@@ -8,6 +8,8 @@ import { decisionFromForm, decisionMessage } from "@/lib/matching/decision";
 import {
   deadlineText,
   factsAsRow,
+  forwardReasonText,
+  linkDomain,
   parseRatio,
   parseSearch,
   programFromForm,
@@ -55,6 +57,13 @@ describe("the words", () => {
     expect(religiousSentence("non_worship_only")).toMatch(/only for programs that are not worship/);
     expect(religiousSentence("excluded")).toBe("Religious organizations do not qualify.");
     expect(religiousSentence(null)).toMatch(/^Not known yet/);
+  });
+
+  it("show the site a link goes to", () => {
+    expect(linkDomain("https://www.acme.example/giving?x=1")).toBe("acme.example");
+    expect(linkDomain("https://acme.benevity.example/match")).toBe("acme.benevity.example");
+    expect(linkDomain("not a link")).toBe("");
+    expect(linkDomain(null)).toBe("");
   });
 
   it("say who checked the facts, never naming another community", () => {
@@ -128,6 +137,8 @@ describe("the form", () => {
     expect(err({ company_name: "X", gift_match: "on", country: "USA" })).toMatch(/two-letter code/);
     expect(err({ company_name: "X", gift_match: "on" }, "weaver")).toBe("Say where the facts come from.");
     expect(err({ company_name: "X", gift_match: "on", deadline_kind: "months_after_gift" })).toMatch(/^Say how many months/);
+    expect(err({ company_name: "X", gift_match: "on", source: "partner" })).toBe("Only Weaver's team can name a licensed matching-gift database as the source.");
+    expect(err({ company_name: "X", gift_match: "on", source: "partner", verified_on: "2026-10-01" }, "weaver")).toBeNull();
   });
 
   it("reads a submission's facts back for the screens", () => {
@@ -164,8 +175,12 @@ describe("a decision", () => {
     expect(decisionFromForm(form({ submission_id: "x", decision: "approve" })).ok).toBe(false);
   });
 
-  it("tells the community when its approval went to Weaver's team", () => {
+  it("tells the community when its approval went to Weaver's team, and why", () => {
     expect(decisionMessage("forwarded", "community")).toMatch(/^Sent to Weaver's team/);
+    expect(decisionMessage("forwarded", "community", "links_changed")).toMatch(/Weaver's team checks every link/);
+    expect(decisionMessage("forwarded", "community", "other_community")).toMatch(/another community verified this entry/);
+    expect(forwardReasonText("paused")).toMatch(/paused publishing/);
+    expect(forwardReasonText("bogus")).toBe("Weaver's team decides it");
     expect(decisionMessage("approved", "community")).toMatch(/verified by your community/);
     expect(decisionMessage("approved", "weaver")).toMatch(/checked by Weaver's team/);
   });

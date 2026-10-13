@@ -43,16 +43,30 @@ export async function loadProgram(db: AppSupabase, id: string): Promise<Loaded<{
 }
 
 /** A few entries by id (names for a submission's or a link's entry). */
-export type ProgramBrief = { company_name: string; country: string | null; status: string; merged_into: string | null; verified_by_kind: string | null };
+export type ProgramBrief = {
+  company_name: string;
+  country: string | null;
+  status: string;
+  merged_into: string | null;
+  verified_by_kind: string | null;
+  verified_submission_id: string | null;
+};
 
 export async function programNames(db: AppSupabase, ids: Array<string | null | undefined>): Promise<Loaded<Map<string, ProgramBrief>>> {
   const out = new Map<string, ProgramBrief>();
   const unique = [...new Set(ids.filter((x): x is string => typeof x === "string" && x.length > 0))];
   if (unique.length === 0) return { ok: true, data: out };
-  const { data, error } = await db.from("match_programs").select("id, company_name, country, status, merged_into, verified_by_kind").in("id", unique);
+  const { data, error } = await db.from("match_programs").select("id, company_name, country, status, merged_into, verified_by_kind, verified_submission_id").in("id", unique);
   if (error) return failed("the directory entries", error);
   for (const r of data ?? []) {
-    out.set(r.id, { company_name: r.company_name, country: r.country, status: r.status, merged_into: r.merged_into, verified_by_kind: r.verified_by_kind });
+    out.set(r.id, {
+      company_name: r.company_name,
+      country: r.country,
+      status: r.status,
+      merged_into: r.merged_into,
+      verified_by_kind: r.verified_by_kind,
+      verified_submission_id: r.verified_submission_id,
+    });
   }
   return { ok: true, data: out };
 }
@@ -69,6 +83,7 @@ export type SubmissionRow = {
   reviewed: unknown;
   forwarded_at: string | null;
   forward_note: string | null;
+  forwarded_because: string | null;
   decided_kind: string | null;
   decided_by: string | null;
   decided_at: string | null;
@@ -90,7 +105,7 @@ export async function loadSubmissions(db: AppSupabase, centerId: string, view: S
   const statuses = SUBMISSION_VIEWS.find((v) => v.key === view)?.statuses ?? ["pending"];
   const { data, error } = await db
     .from("match_program_submissions")
-    .select("id, program_id, proposal, note, channel, submitted_by, submitted_at, status, reviewed, forwarded_at, forward_note, decided_kind, decided_by, decided_at, decision_reason, result_program_id, duplicate_of")
+    .select("id, program_id, proposal, note, channel, submitted_by, submitted_at, status, reviewed, forwarded_at, forward_note, forwarded_because, decided_kind, decided_by, decided_at, decision_reason, result_program_id, duplicate_of")
     .eq("center_id", centerId)
     .in("status", [...statuses])
     .order("submitted_at", { ascending: view === "open" })
@@ -99,10 +114,10 @@ export async function loadSubmissions(db: AppSupabase, centerId: string, view: S
   return { ok: true, data: (data ?? []) as SubmissionRow[] };
 }
 
-/** The entry a community's submission approved most recently was this community's ("Verified by your community"). */
-export async function ownsVerification(db: AppSupabase, submissionId: string | null): Promise<boolean> {
+/** The submission behind a community's check is this community's own ("Verified by your community"). */
+export async function ownsVerification(db: AppSupabase, centerId: string, submissionId: string | null): Promise<boolean> {
   if (!submissionId) return false;
-  const { data, error } = await db.from("match_program_submissions").select("id").eq("id", submissionId).maybeSingle();
+  const { data, error } = await db.from("match_program_submissions").select("id").eq("id", submissionId).eq("center_id", centerId).maybeSingle();
   if (error) {
     console.error("[matching] could not tell whether this community verified the entry:", error);
     return false;
@@ -124,12 +139,25 @@ export type PlatformSubmission = {
   submitted_at: string;
   forwarded_at: string | null;
   forward_note: string | null;
+  forwarded_because: string | null;
   decided_kind: string | null;
   decided_at: string | null;
   decision_reason: string | null;
   result_program_id: string | null;
   duplicate_of: string | null;
 };
+
+/** Which of these submissions are this community's own (the checks behind "verified by a community" it may change itself). */
+export async function ownSubmissionIds(db: AppSupabase, centerId: string, ids: Array<string | null | undefined>): Promise<Set<string>> {
+  const unique = [...new Set(ids.filter((x): x is string => typeof x === "string" && x.length > 0))];
+  if (unique.length === 0) return new Set();
+  const { data, error } = await db.from("match_program_submissions").select("id").eq("center_id", centerId).in("id", unique);
+  if (error) {
+    console.error("[matching] could not tell which entries this community verified:", error);
+    return new Set();
+  }
+  return new Set((data ?? []).map((r) => r.id));
+}
 
 /** Every community's submissions for Weaver's team (app.platform_match_submissions: the facts and the community's name only). */
 export async function loadPlatformSubmissions(db: AppSupabase, view: "open" | "forwarded" | "decided" | "all", programId?: string): Promise<Loaded<PlatformSubmission[]>> {
@@ -149,8 +177,17 @@ export type EntryBrief = {
   religious_orgs: string | null;
   last_verified_on: string | null;
   verified_by_kind: string | null;
+  version: number;
 };
-export type LinkCard = { program: EntryBrief | null; how: string; confirmed_at: string; confirmed_by: string };
+export type LinkCard = {
+  program: EntryBrief | null;
+  how: string;
+  confirmed_at: string;
+  confirmed_by: string;
+  confirmed_version: number;
+  /** The entry changed (another version, or merged into another) since staff confirmed the link. */
+  changed_since_confirmed: boolean;
+};
 export type Candidate = { id: string; company_name: string; country: string | null; match_ratio_bp: number | null; portal: string | null; matched_name: string; how: string };
 export type QueueRow = {
   person_id: string;
@@ -192,4 +229,64 @@ export async function loadCandidates(db: AppSupabase, centerId: string, personId
       candidates: Array.isArray(o.candidates) ? (o.candidates as Candidate[]) : [],
     },
   };
+}
+
+export type PublishingState = { paused: boolean; pause_reason: string | null; daily_cap: number; published_today: number };
+
+/** Weaver's switch for this community: publishing paused (and why), the daily cap, what it published today. */
+export async function loadPublishingState(db: AppSupabase, centerId: string): Promise<Loaded<PublishingState>> {
+  const { data, error } = await db.rpc("match_publishing_state", { p_center: centerId });
+  if (error) return failed("whether your community can publish to the directory", error);
+  const o = (data ?? {}) as Partial<PublishingState>;
+  return {
+    ok: true,
+    data: {
+      paused: o.paused === true,
+      pause_reason: typeof o.pause_reason === "string" ? o.pause_reason : null,
+      daily_cap: typeof o.daily_cap === "number" ? o.daily_cap : 20,
+      published_today: typeof o.published_today === "number" ? o.published_today : 0,
+    },
+  };
+}
+
+export type RecentPublish = {
+  program_id: string;
+  company_name: string;
+  version: number;
+  current_version: number;
+  status: string;
+  community: string | null;
+  written_at: string;
+  note: string | null;
+};
+
+export async function loadRecentPublishes(db: AppSupabase, days: number): Promise<Loaded<RecentPublish[]>> {
+  const { data, error } = await db.rpc("platform_match_recent_publishes", { p_days: days });
+  if (error) return failed("what communities published lately", error);
+  return { ok: true, data: Array.isArray(data) ? (data as unknown as RecentPublish[]) : [] };
+}
+
+export type CommunityPublishing = {
+  center_id: string;
+  community: string;
+  paused: boolean;
+  pause_reason: string | null;
+  daily_cap: number;
+  published_today: number;
+  published_week: number;
+  waiting: number;
+};
+
+export async function loadCommunityPublishing(db: AppSupabase): Promise<Loaded<CommunityPublishing[]>> {
+  const { data, error } = await db.rpc("platform_match_communities");
+  if (error) return failed("each community's publishing", error);
+  return { ok: true, data: Array.isArray(data) ? (data as unknown as CommunityPublishing[]) : [] };
+}
+
+export type ProgramVersion = { version: number; written_at: string; written_kind: string; community: string | null; note: string | null; company_name: string | null };
+
+export async function loadProgramVersions(db: AppSupabase, id: string): Promise<Loaded<ProgramVersion[]>> {
+  const { data, error } = await db.rpc("platform_match_program_versions", { p_id: id });
+  if (error) return failed("this entry's versions", error);
+  return { ok: true, data: Array.isArray(data) ? (data as unknown as ProgramVersion[]) : [] };
 }

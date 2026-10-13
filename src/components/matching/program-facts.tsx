@@ -4,6 +4,7 @@ import { DefinitionList, InfoBox } from "@/components/ui";
 import {
   deadlineText,
   giftTypesText,
+  linkDomain,
   moneyText,
   orgKindsText,
   portalLabel,
@@ -13,14 +14,19 @@ import {
   type ProgramRow,
 } from "@/lib/matching/directory";
 
-type Facts = Omit<ProgramRow, "id" | "status" | "merged_into" | "status_reason" | "updated_at" | "verified_submission_id" | "last_verified_on" | "verified_by_kind">;
+type Facts = Omit<ProgramRow, "id" | "status" | "merged_into" | "status_reason" | "updated_at" | "verified_submission_id" | "last_verified_on" | "verified_by_kind" | "version">;
 
+/** A link with the site it goes to next to it, so nobody follows a link blind. */
 function ExternalLink({ href, children }: { href: string | null; children: string }) {
   if (!href) return <>{children}</>;
+  const domain = linkDomain(href);
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="crm-link break-all">
-      {children}
-    </a>
+    <>
+      <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="crm-link break-all">
+        {children}
+      </a>
+      {domain ? <span className="text-[12px] text-muted"> ({domain})</span> : null}
+    </>
   );
 }
 

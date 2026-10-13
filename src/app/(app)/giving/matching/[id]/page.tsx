@@ -72,7 +72,7 @@ export default async function GiftMatchingEntryPage({ params }: { params: Promis
   const { program: g, names } = res.data;
   const others = names.filter((n) => !n.is_primary).map((n) => n.name);
   const [own, merged] = await Promise.all([
-    g.verified_by_kind === "community" ? ownsVerification(session.db, g.verified_submission_id) : Promise.resolve(false),
+    g.verified_by_kind === "community" ? ownsVerification(session.db, session.center.id, g.verified_submission_id) : Promise.resolve(false),
     g.merged_into ? programNames(session.db, [g.merged_into]) : Promise.resolve(null),
   ]);
   const mergedName = merged && merged.ok && g.merged_into ? merged.data.get(g.merged_into)?.company_name : null;
@@ -119,7 +119,7 @@ export default async function GiftMatchingEntryPage({ params }: { params: Promis
               <input type="hidden" name="source" value={g.source} />
               <p className="crm-hint m-0">
                 The form starts with what the directory says now. Change what is different. A CatchTheMatch manager checks it before it reaches the
-                directory{g.verified_by_kind === "weaver" ? ", and because Weaver's team checked this entry, they decide on the change" : ""}.
+                directory{g.verified_by_kind === "weaver" || !own ? ", and because Weaver's team or another community checked this entry, Weaver's team decides on the change" : ""}. A new or changed link always goes to Weaver&apos;s team.
               </p>
               <ProgramFields idPrefix={`suggest-${g.id}`} initial={{ ...g, names: others }} context="community" />
               <Field label="Anything else they said (optional)" htmlFor={`suggest-${g.id}-note`} hint="Facts about the program only, no names.">

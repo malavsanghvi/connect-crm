@@ -94,3 +94,47 @@ export async function decidePlatformSubmissionAction(_prev: ActionResult | null,
   const status = (data as { status?: unknown } | null)?.status;
   return { ok: true, message: decisionMessage(typeof status === "string" ? status : "", "weaver") };
 }
+
+/** Brings an entry back to an earlier version in one step (app.revert_match_program). */
+export async function revertProgramAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const id = String(fd.get("program_id") ?? "");
+  const version = Number(fd.get("version"));
+  const reason = String(fd.get("reason") ?? "").trim().slice(0, 500);
+  if (!isUuid(id) || !Number.isInteger(version) || version < 1) return { ok: false, error: "Could not revert — that version was not found. Reload the page and try again." };
+  if (!reason) return { ok: false, error: "Could not revert — say why. It goes in the directory's history." };
+  const auth = await weaverSession("revert the entry");
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, reason);
+  const { data, error } = await db.rpc("revert_match_program", { p_id: id, p_version: version, p_reason: reason });
+  if (error) return failure("Could not revert the entry", error);
+  revalidateDirectory(id);
+  return { ok: true, message: `Reverted to version ${version}. It is version ${typeof data === "number" ? data : "new"} now, checked by Weaver's team today.` };
+}
+
+/** Pauses or resumes a community's publishing, or changes its daily cap (app.set_match_publishing). */
+export async function setPublishingAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const center = String(fd.get("center_id") ?? "");
+  const pausedRaw = String(fd.get("paused") ?? "");
+  const capRaw = String(fd.get("daily_cap") ?? "").trim();
+  const reason = String(fd.get("reason") ?? "").trim().slice(0, 500);
+  if (!isUuid(center)) return { ok: false, error: "Could not save — the community was not found. Reload the page and try again." };
+  const paused = pausedRaw === "true" ? true : pausedRaw === "false" ? false : null;
+  let cap: number | null = null;
+  if (capRaw) {
+    if (!/^\d+$/.test(capRaw) || Number(capRaw) > 500) return { ok: false, error: "Could not save — the daily cap is a whole number from 0 to 500." };
+    cap = Number(capRaw);
+  }
+  if (!reason) return { ok: false, error: "Could not save — say why. The community's managers see it." };
+  const auth = await weaverSession("change the community's publishing");
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, reason);
+  const { error } = await db.rpc("set_match_publishing", {
+    p_center: center,
+    p_paused: paused as unknown as boolean,
+    p_daily_cap: cap as unknown as number,
+    p_reason: reason,
+  });
+  if (error) return failure("Could not change the community's publishing", error);
+  revalidatePath("/platform/matching");
+  return { ok: true, message: paused === true ? "Paused. Its approvals come to Weaver's team." : paused === false ? "Resumed. Its approvals publish again." : "Saved." };
+}

@@ -43,8 +43,20 @@ export async function PersonMatchingProgram({ session, person }: { session: CrmS
         <p className="m-0 mt-0.5 text-[13px] text-muted">
           {howText(link.how)} · confirmed by {link.confirmed_by} on {formatDate(link.confirmed_at, session.center.time_zone)}
         </p>
+        {link.changed_since_confirmed ? (
+          <p className="m-0 mt-0.5 text-[13px] font-semibold text-brown" data-testid="changed-since-confirmed">
+            Changed since you confirmed it. Check the entry, then confirm it again.
+          </p>
+        ) : null}
         {canLink ? (
           <div className="mt-1 flex flex-wrap items-center gap-2">
+            {link.changed_since_confirmed && p.status === "active" ? (
+              <ActionForm action={linkProgramAction} submitLabel="Confirm again" pendingLabel="Confirming" size="xs">
+                <input type="hidden" name="person_id" value={person.id} />
+                <input type="hidden" name="program_id" value={p.id} />
+                <input type="hidden" name="first_name" value={person.firstName} />
+              </ActionForm>
+            ) : null}
             {choose}
             <ActionForm
               action={unlinkProgramAction}

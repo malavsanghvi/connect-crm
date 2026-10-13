@@ -5262,6 +5262,7 @@ export type Database = {
           name: string;
           name_key: string;
           is_primary: boolean;
+          retired_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -5270,6 +5271,7 @@ export type Database = {
           name: string;
           name_key: string;
           is_primary?: boolean;
+          retired_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -5278,6 +5280,7 @@ export type Database = {
           name?: string;
           name_key?: string;
           is_primary?: boolean;
+          retired_at?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -5297,6 +5300,7 @@ export type Database = {
           forwarded_by: string | null;
           forwarded_at: string | null;
           forward_note: string | null;
+          forwarded_because: string | null;
           decided_kind: string | null;
           decided_by: string | null;
           decided_at: string | null;
@@ -5318,6 +5322,7 @@ export type Database = {
           forwarded_by?: string | null;
           forwarded_at?: string | null;
           forward_note?: string | null;
+          forwarded_because?: string | null;
           decided_kind?: string | null;
           decided_by?: string | null;
           decided_at?: string | null;
@@ -5339,12 +5344,46 @@ export type Database = {
           forwarded_by?: string | null;
           forwarded_at?: string | null;
           forward_note?: string | null;
+          forwarded_because?: string | null;
           decided_kind?: string | null;
           decided_by?: string | null;
           decided_at?: string | null;
           decision_reason?: string | null;
           result_program_id?: string | null;
           duplicate_of?: string | null;
+        };
+        Relationships: [];
+      };
+      match_program_versions: {
+        Row: {
+          id: string;
+          program_id: string;
+          version: number;
+          facts: Json;
+          written_kind: string;
+          written_center_id: string | null;
+          note: string | null;
+          written_at: string;
+        };
+        Insert: {
+          id?: string;
+          program_id: string;
+          version: number;
+          facts: Json;
+          written_kind: string;
+          written_center_id?: string | null;
+          note?: string | null;
+          written_at?: string;
+        };
+        Update: {
+          id?: string;
+          program_id?: string;
+          version?: number;
+          facts?: Json;
+          written_kind?: string;
+          written_center_id?: string | null;
+          note?: string | null;
+          written_at?: string;
         };
         Relationships: [];
       };
@@ -5381,6 +5420,7 @@ export type Database = {
           last_verified_on: string | null;
           verified_by_kind: string | null;
           verified_submission_id: string | null;
+          version: number;
           status: string;
           merged_into: string | null;
           status_reason: string | null;
@@ -5419,6 +5459,7 @@ export type Database = {
           last_verified_on?: string | null;
           verified_by_kind?: string | null;
           verified_submission_id?: string | null;
+          version?: number;
           status?: string;
           merged_into?: string | null;
           status_reason?: string | null;
@@ -5457,11 +5498,39 @@ export type Database = {
           last_verified_on?: string | null;
           verified_by_kind?: string | null;
           verified_submission_id?: string | null;
+          version?: number;
           status?: string;
           merged_into?: string | null;
           status_reason?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      match_publishing_controls: {
+        Row: {
+          center_id: string;
+          paused: boolean;
+          pause_reason: string | null;
+          daily_cap: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          paused?: boolean;
+          pause_reason?: string | null;
+          daily_cap?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          paused?: boolean;
+          pause_reason?: string | null;
+          daily_cap?: number;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -8413,6 +8482,7 @@ export type Database = {
           how: string;
           confirmed_by: string;
           confirmed_at: string;
+          confirmed_version: number;
         };
         Insert: {
           person_id: string;
@@ -8421,6 +8491,7 @@ export type Database = {
           how: string;
           confirmed_by: string;
           confirmed_at?: string;
+          confirmed_version: number;
         };
         Update: {
           person_id?: string;
@@ -8429,6 +8500,7 @@ export type Database = {
           how?: string;
           confirmed_by?: string;
           confirmed_at?: string;
+          confirmed_version?: number;
         };
         Relationships: [];
       };
@@ -13958,6 +14030,13 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
+      match_link_readable: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
       match_org_kinds: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
@@ -13982,6 +14061,18 @@ export type Database = {
         };
         Returns: Json;
       };
+      match_publishing_cap: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      match_publishing_state: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       match_religious_rules: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
@@ -13996,6 +14087,10 @@ export type Database = {
           p_level: string;
         };
         Returns: boolean;
+      };
+      matching_org_readable_centers: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
       };
       matching_readable_centers: {
         Args: Record<PropertyKey, never>;
@@ -14811,6 +14906,22 @@ export type Database = {
           p: string;
         };
         Returns: boolean;
+      };
+      platform_match_communities: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      platform_match_program_versions: {
+        Args: {
+          p_id: string;
+        };
+        Returns: Json;
+      };
+      platform_match_recent_publishes: {
+        Args: {
+          p_days?: number;
+        };
+        Returns: Json;
       };
       platform_match_submissions: {
         Args: {
@@ -15697,6 +15808,14 @@ export type Database = {
         };
         Returns: string[];
       };
+      revert_match_program: {
+        Args: {
+          p_id: string;
+          p_version: number;
+          p_reason: string;
+        };
+        Returns: number;
+      };
       review_gyan_submission: {
         Args: {
           p_submission: string;
@@ -16031,6 +16150,15 @@ export type Database = {
         Args: {
           p_id: string;
           p_retired: boolean;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_match_publishing: {
+        Args: {
+          p_center: string;
+          p_paused: boolean;
+          p_daily_cap: number;
           p_reason: string;
         };
         Returns: undefined;

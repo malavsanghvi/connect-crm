@@ -9,8 +9,18 @@ import { ProgramFields } from "@/components/matching/program-fields";
 import { Alert, Card, ChipLinks, EmptyState, Field, NoAccess, PageHeader, StatusText } from "@/components/ui";
 import { userNames } from "@/lib/data/lookups";
 import { formatDate } from "@/lib/dates";
-import { SUBMISSION_VIEWS, loadSubmissions, programNames, searchDirectory, type ProgramBrief, type SubmissionRow, type SubmissionView } from "@/lib/matching/data";
-import { factsAsRow, submissionStatusText } from "@/lib/matching/directory";
+import {
+  SUBMISSION_VIEWS,
+  loadPublishingState,
+  loadSubmissions,
+  ownSubmissionIds,
+  programNames,
+  searchDirectory,
+  type ProgramBrief,
+  type SubmissionRow,
+  type SubmissionView,
+} from "@/lib/matching/data";
+import { factsAsRow, forwardReasonText, submissionStatusText } from "@/lib/matching/directory";
 import { matchingCan } from "@/lib/permissions";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -18,6 +28,18 @@ import { getSession } from "@/lib/session";
 import { decideSubmissionAction, submitProgramAction } from "../actions";
 
 export const metadata: Metadata = { title: "Gift matching submissions" };
+
+/** What approving does, said before the manager approves (the database decides: app.decide_match_submission, 0766). */
+function approveHint(target: ProgramBrief | null | undefined, ownCheck: boolean, paused: boolean): string {
+  if (paused) return "Weaver's team has paused publishing from your community for now, so approving sends it to them, with your edits.";
+  if (!target) {
+    return "Approving adds it to the directory for every community at once, marked verified by your community today. If it has a link, or its name is close to an entry Weaver's team checked, it goes to them instead.";
+  }
+  if (target.status !== "active") return "This entry has ended in the directory, so approving sends the change to Weaver's team.";
+  if (target.verified_by_kind === "weaver") return "Weaver's team checked this entry, so approving sends the change to them, with your edits.";
+  if (!ownCheck) return "Another community verified this entry, so approving sends the change to Weaver's team, with your edits.";
+  return "Your community verified this entry, so approving changes it for every community at once. A new or changed link goes to Weaver's team instead.";
+}
 
 /** How many waiting submissions get their look-alikes searched (for "It is a duplicate"). */
 const DUPLICATE_LOOKUPS = 20;
@@ -52,11 +74,14 @@ export default async function GiftMatchingSubmissionsPage({ searchParams }: { se
 
   const res = await loadSubmissions(session.db, session.center.id, view);
   const rows: SubmissionRow[] = res.ok ? res.data : [];
-  const [people, entries] = await Promise.all([
+  const [people, entries, publishing] = await Promise.all([
     userNames(session.db, session.center.id, rows.flatMap((r) => [r.submitted_by, r.decided_kind === "community" ? r.decided_by : null])),
     programNames(session.db, rows.flatMap((r) => [r.program_id, r.result_program_id])),
+    loadPublishingState(session.db, session.center.id),
   ]);
   const entryMap = entries.ok ? entries.data : new Map<string, ProgramBrief>();
+  const ownChecks = await ownSubmissionIds(session.db, session.center.id, [...entryMap.values()].map((e) => e.verified_submission_id));
+  const paused = publishing.ok && publishing.data.paused;
 
   // Look-alikes for "It is a duplicate": directory entries found by the submission's name, and the other waiting submissions.
   const waiting = rows.filter((r) => r.status === "pending");
@@ -87,6 +112,23 @@ export default async function GiftMatchingSubmissionsPage({ searchParams }: { se
         </details>
       </Card>
 
+      {!publishing.ok ? (
+        <div className="mt-4">
+          <Alert tone="warning" title="Whether your community can publish could not be loaded">
+            {publishing.error} Approving still works; the database applies the limits. Reload the page to try again.
+          </Alert>
+        </div>
+      ) : publishing.data.paused ? (
+        <div className="mt-4">
+          <Alert tone="warning" title="Weaver's team has paused publishing from your community">
+            {publishing.data.pause_reason ?? "Weaver's team is checking recent changes."} Approvals go to Weaver&apos;s team until they resume it.
+          </Alert>
+        </div>
+      ) : canDecide ? (
+        <p className="crm-hint mt-4">
+          Your community can publish {publishing.data.daily_cap} approvals a day to the shared directory; {publishing.data.published_today} today so far.
+        </p>
+      ) : null}
       <div className="mt-4">
         <ChipLinks label="Submission status" active={view} items={SUBMISSION_VIEWS.map((v) => ({ key: v.key, label: v.label, href: v.key === "open" ? "/giving/matching/submissions" : `/giving/matching/submissions?view=${v.key}` }))} />
       </div>
@@ -119,11 +161,7 @@ export default async function GiftMatchingSubmissionsPage({ searchParams }: { se
               ...found.filter((e) => e.id !== r.program_id).map((e) => ({ value: `entry:${e.id}`, label: `Directory: ${e.company_name}${e.country ? ` (${e.country})` : ""}` })),
               ...waiting.filter((w) => w.id !== r.id).map((w) => ({ value: `submission:${w.id}`, label: `Submission: ${factsAsRow(w.proposal).company_name}, sent ${formatDate(w.submitted_at, tz)}` })),
             ];
-            const hint = target
-              ? target.verified_by_kind === "weaver"
-                ? "Weaver's team checked this entry, so approving sends the change to them, with your edits."
-                : "Approving changes the entry for every community that uses gift matching, marked verified by your community today."
-              : "Approving adds it to the directory for every community that uses gift matching, marked verified by your community today.";
+            const hint = approveHint(target, Boolean(target?.verified_submission_id && ownChecks.has(target.verified_submission_id)), paused);
             return (
               <Card key={r.id}>
                 <div data-submission={r.id} data-status={r.status}>
@@ -148,7 +186,12 @@ export default async function GiftMatchingSubmissionsPage({ searchParams }: { se
                     {r.channel === "member_app" ? " from the member app" : ""}
                   </p>
                   {r.note ? <p className="m-0 mt-2 whitespace-pre-line text-[13.5px] text-ink">&ldquo;{r.note}&rdquo;</p> : null}
-                  {r.status === "forwarded" && r.forward_note ? <p className="m-0 mt-2 text-[13px] text-muted">Your manager&apos;s note to Weaver&apos;s team: {r.forward_note}</p> : null}
+                  {r.status === "forwarded" ? (
+                    <p className="m-0 mt-2 text-[13px] text-muted">
+                      With Weaver&apos;s team because {forwardReasonText(r.forwarded_because)}.
+                      {r.forward_note ? ` Your manager's note to them: ${r.forward_note}` : ""}
+                    </p>
+                  ) : null}
                   {decidedBy && r.decided_at ? (
                     <p className="m-0 mt-2 text-[13px] text-muted">
                       {submissionStatusText(r.status)} by {decidedBy} on {formatDate(r.decided_at, tz)}

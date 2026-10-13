@@ -126,6 +126,17 @@ religious organizations, a `partner` source only):**
   community" today, except a change to an entry Weaver's team checked (or a retired one), which is forwarded to Weaver's
   team with the manager's edits. Weaver's team reads submissions only through `app.platform_match_submissions`: the facts,
   the note and the community's name, never who sent or decided.
+- **Limits on what a community publishes (review of #248):** a community publishes at once only a new company, or a change
+  to an entry it verified itself; it goes to Weaver's team (with the reason) when Weaver's team or another community
+  verified the entry, the entry has ended, a link is new or changed, the name is close to an entry Weaver's team checked
+  (the shorter at least 3 characters), the name is one another entry goes or went by (retired aliases and merged entries
+  included), or Weaver's team has paused the community's publishing (`app.set_match_publishing`, with a reason). At most
+  20 approvals publish per community per day (Weaver's team sets another cap). Only Weaver's team names a licensed database
+  (`partner`). The entry is locked and checked again before an approval changes it. Names are never deleted (retired
+  aliases); every write is a version (`app.match_program_versions`, Weaver's team only) and Weaver's team reverts one in a
+  step (`app.revert_match_program`) and lists recent community publishes. A link records the entry's version, so staff see
+  "changed since you confirmed it". Weaver's filing grant (C8) is for claims: it opens no submission and no link. The name
+  key folds case from Unicode data (no database locale), and drops symbols, currency signs, emoji and invisible characters.
 - **Employers on file linked to entries** (`app.person_match_programs`, 0767, the organization's own): candidates by name
   only, no AI (`app.match_program_candidates`, `app.match_employers_queue`, both logged reads); a `matching.manage` holder
   confirms (`app.link_match_program`) or removes (`app.unlink_match_program`) the link; it goes when the employer on file

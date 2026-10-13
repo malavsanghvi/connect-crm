@@ -51,8 +51,11 @@ export async function decideSubmissionAction(_prev: ActionResult | null, fd: For
   const { data, error } = await db.rpc("decide_match_submission", { ...parsed.args, p_program: parsed.args.p_program as unknown as Json | undefined });
   if (error) return failure("Could not decide on the submission", error);
   revalidateMatching();
-  const status = (data as { status?: unknown } | null)?.status;
-  return { ok: true, message: decisionMessage(typeof status === "string" ? status : "", "community") };
+  const result = (data ?? {}) as { status?: unknown; because?: unknown };
+  return {
+    ok: true,
+    message: decisionMessage(typeof result.status === "string" ? result.status : "", "community", typeof result.because === "string" ? result.because : null),
+  };
 }
 
 /** A CatchTheMatch manager confirms the directory entry an employer on file is (app.link_match_program). */

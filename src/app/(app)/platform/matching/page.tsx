@@ -7,19 +7,21 @@ import { ProgramFacts } from "@/components/matching/program-facts";
 import { ProgramFields } from "@/components/matching/program-fields";
 import { Alert, Card, ChipLinks, EmptyState, Field, PageHeader, Pagination, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { formatDate, todayInTz } from "@/lib/dates";
-import { SEARCH_PAGE, loadPlatformSubmissions, searchDirectory } from "@/lib/matching/data";
-import { factsAsRow, portalLabel, ratioInput, submissionStatusText, verifiedText } from "@/lib/matching/directory";
+import { SEARCH_PAGE, loadCommunityPublishing, loadPlatformSubmissions, loadRecentPublishes, searchDirectory } from "@/lib/matching/data";
+import { factsAsRow, forwardReasonText, portalLabel, ratioInput, submissionStatusText, verifiedText } from "@/lib/matching/directory";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession, type CrmSession } from "@/lib/session";
 
 import { PlatformNoAccess } from "../platform-no-access";
-import { decidePlatformSubmissionAction, saveProgramAction } from "./actions";
+import { decidePlatformSubmissionAction, saveProgramAction, setPublishingAction } from "./actions";
 
 export const metadata: Metadata = { title: "Gift matching directory · Platform" };
 
 const TABS = [
   { key: "directory", label: "Directory" },
   { key: "submissions", label: "Submissions" },
+  { key: "recent", label: "Recent community publishes" },
+  { key: "communities", label: "Communities" },
 ] as const;
 const SUB_VIEWS = [
   { key: "open", label: "To decide" },
@@ -64,7 +66,15 @@ export default async function PlatformMatchingPage({ searchParams }: { searchPar
     <>
       {header}
       <ChipLinks label="Gift matching directory views" active={tab} items={TABS.map((t) => ({ key: t.key, label: t.label, href: t.key === "directory" ? "/platform/matching" : `/platform/matching?tab=${t.key}` }))} />
-      {tab === "directory" ? <DirectoryTab session={session} sp={sp} today={todayInTz(tz)} /> : <SubmissionsTab session={session} sp={sp} tz={tz} />}
+      {tab === "directory" ? (
+        <DirectoryTab session={session} sp={sp} today={todayInTz(tz)} />
+      ) : tab === "submissions" ? (
+        <SubmissionsTab session={session} sp={sp} tz={tz} />
+      ) : tab === "recent" ? (
+        <RecentTab session={session} tz={tz} />
+      ) : (
+        <CommunitiesTab session={session} />
+      )}
     </>
   );
 }
@@ -224,8 +234,8 @@ async function SubmissionsTab({ session, sp, tz }: { session: CrmSession; sp: Ra
                   {r.note ? <p className="m-0 mt-2 whitespace-pre-line text-[13.5px] text-ink">&ldquo;{r.note}&rdquo;</p> : null}
                   {r.status === "forwarded" ? (
                     <p className="m-0 mt-2 text-[13px] text-ink">
-                      Forwarded by the community{r.forwarded_at ? ` on ${formatDate(r.forwarded_at, tz)}` : ""}, because Weaver&apos;s team checked this entry
-                      {r.forward_note ? `: ${r.forward_note}` : "."}
+                      Forwarded by the community{r.forwarded_at ? ` on ${formatDate(r.forwarded_at, tz)}` : ""} because {forwardReasonText(r.forwarded_because)}.
+                      {r.forward_note ? ` Their note: ${r.forward_note}` : ""}
                     </p>
                   ) : null}
                   {r.decided_at ? (
@@ -250,5 +260,125 @@ async function SubmissionsTab({ session, sp, tz }: { session: CrmSession; sp: Ra
         </div>
       )}
     </>
+  );
+}
+
+/** What communities published lately, newest first: each is a version Weaver's team can open, compare and revert. */
+async function RecentTab({ session, tz }: { session: CrmSession; tz: string }) {
+  const res = await loadRecentPublishes(session.db, 14);
+  if (!res.ok) {
+    return (
+      <Alert tone="danger" title="What communities published could not be loaded">
+        {res.error}{" "}
+        <Link href="/platform/matching?tab=recent" className="crm-link">
+          Try again
+        </Link>
+      </Alert>
+    );
+  }
+  return (
+    <Card padded={false} title="Published by communities in the last 14 days" description="Open an entry to compare its versions and revert one in a step.">
+      {res.data.length === 0 ? (
+        <div className="p-4">
+          <EmptyState title="No community published to the directory in the last 14 days" />
+        </div>
+      ) : (
+        <TableWrap>
+          <table className="crm-table" aria-label="Recent community publishes">
+            <thead>
+              <tr>
+                <th>Entry</th>
+                <th>Community</th>
+                <th>When</th>
+                <th>Version</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {res.data.map((r) => (
+                <tr key={`${r.program_id}-${r.version}`}>
+                  <td className="font-bold">
+                    <Link href={`/platform/matching/${r.program_id}`} className="crm-link" dir="auto">
+                      {r.company_name}
+                    </Link>
+                    {r.status !== "active" ? <span className="text-[12px] font-normal text-muted"> ({r.status === "merged" ? "merged" : "ended"})</span> : null}
+                  </td>
+                  <td>{r.community ?? "A community no longer here"}</td>
+                  <td className="whitespace-nowrap text-[13px]">{formatDate(r.written_at, tz)}</td>
+                  <td>
+                    {r.version}
+                    {r.current_version !== r.version ? <span className="text-[12px] text-muted"> (now {r.current_version})</span> : null}
+                  </td>
+                  <td className="text-[13px]">{r.note ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableWrap>
+      )}
+    </Card>
+  );
+}
+
+/** Each community where CatchTheMatch is on: what it publishes, and Weaver's switch (pause with a reason, the daily cap). */
+async function CommunitiesTab({ session }: { session: CrmSession }) {
+  const res = await loadCommunityPublishing(session.db);
+  if (!res.ok) {
+    return (
+      <Alert tone="danger" title="The communities could not be loaded">
+        {res.error}{" "}
+        <Link href="/platform/matching?tab=communities" className="crm-link">
+          Try again
+        </Link>
+      </Alert>
+    );
+  }
+  if (res.data.length === 0) {
+    return (
+      <Card>
+        <EmptyState title="No community has CatchTheMatch on yet" />
+      </Card>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      {res.data.map((c) => (
+        <Card key={c.center_id} title={c.community} description={`Published ${c.published_today} today (cap ${c.daily_cap}) · ${c.published_week} in 7 days · ${c.waiting} waiting`}>
+          <div data-community={c.center_id}>
+            {c.paused ? (
+              <p className="m-0 mb-2 text-[13.5px] text-ink">
+                <StatusText tone="warn">Publishing paused</StatusText> {c.pause_reason ?? ""}
+              </p>
+            ) : null}
+            <ActionForm
+              action={setPublishingAction}
+              submitLabel={c.paused ? "Resume publishing" : "Pause publishing"}
+              pendingLabel="Saving"
+              size="sm"
+              variant={c.paused ? "primary" : "danger"}
+              className="flex flex-col gap-2"
+            >
+              <input type="hidden" name="center_id" value={c.center_id} />
+              <input type="hidden" name="paused" value={c.paused ? "false" : "true"} />
+              <Field label="Why" htmlFor={`pause-${c.center_id}`} hint="The community's CatchTheMatch managers see it.">
+                <input id={`pause-${c.center_id}`} name="reason" className="crm-input w-full" maxLength={500} required />
+              </Field>
+            </ActionForm>
+            <details className="mt-2">
+              <summary className="cursor-pointer text-[13.5px] font-bold text-[var(--v2-blue)]">Change the daily cap</summary>
+              <ActionForm action={setPublishingAction} submitLabel="Save the cap" pendingLabel="Saving" size="sm" className="mt-2 flex flex-col gap-2">
+                <input type="hidden" name="center_id" value={c.center_id} />
+                <Field label="Approvals that publish per day" htmlFor={`cap-${c.center_id}`}>
+                  <input id={`cap-${c.center_id}`} name="daily_cap" className="crm-input w-24" inputMode="numeric" defaultValue={c.daily_cap} required />
+                </Field>
+                <Field label="Why" htmlFor={`cap-${c.center_id}-reason`}>
+                  <input id={`cap-${c.center_id}-reason`} name="reason" className="crm-input w-full" maxLength={500} required />
+                </Field>
+              </ActionForm>
+            </details>
+          </div>
+        </Card>
+      ))}
+    </div>
   );
 }

@@ -110,6 +110,7 @@ export type ProgramRow = {
   last_verified_on: string | null;
   verified_by_kind: string | null;
   verified_submission_id: string | null;
+  version: number;
   status: string;
   merged_into: string | null;
   status_reason: string | null;
@@ -118,7 +119,7 @@ export type ProgramRow = {
 
 /** The columns the screens select. */
 export const PROGRAM_COLUMNS =
-  "id, company_name, country, gift_match, volunteer_grant, match_ratio_bp, currency, min_gift_cents, max_gift_cents, max_year_cents, gift_types, org_kinds, religious_orgs, eligibility_note, portal, portal_url, deadline_kind, deadline_months, deadline_month, deadline_day, deadline_note, volunteer_cents_per_hour, volunteer_min_hours, volunteer_max_year_cents, volunteer_note, notes, source, source_url, last_verified_on, verified_by_kind, verified_submission_id, status, merged_into, status_reason, updated_at";
+  "id, company_name, country, gift_match, volunteer_grant, match_ratio_bp, currency, min_gift_cents, max_gift_cents, max_year_cents, gift_types, org_kinds, religious_orgs, eligibility_note, portal, portal_url, deadline_kind, deadline_months, deadline_month, deadline_day, deadline_note, volunteer_cents_per_hour, volunteer_min_hours, volunteer_max_year_cents, volunteer_note, notes, source, source_url, last_verified_on, verified_by_kind, verified_submission_id, version, status, merged_into, status_reason, updated_at";
 
 /** The facts sent to app.save_match_program / app.submit_match_program / app.decide_match_submission (the directory's shape). */
 export type ProgramFacts = {
@@ -272,6 +273,31 @@ export const SUBMISSION_STATUS_LABEL: Record<SubmissionStatus, string> = {
 };
 export function submissionStatusText(s: string): string {
   return isOneOf(Object.keys(SUBMISSION_STATUS_LABEL) as SubmissionStatus[], s) ? SUBMISSION_STATUS_LABEL[s] : s;
+}
+
+/** Why a community's approval went to Weaver's team instead of the directory (app.decide_match_submission, 0766). */
+export const FORWARD_REASON_TEXT: Record<string, string> = {
+  paused: "Weaver's team has paused publishing from your community for now",
+  retired: "the entry, or one with this name, has ended in the directory",
+  weaver_checked: "Weaver's team checked this entry, so they decide on changes to it",
+  other_community: "another community verified this entry, so Weaver's team decides on changes to it",
+  links_changed: "it adds or changes a link, and Weaver's team checks every link",
+  near_duplicate: "its name is close to an entry Weaver's team checked",
+  name_in_use: "another entry goes, or went, by this name",
+};
+
+export function forwardReasonText(because: string | null | undefined): string {
+  return (because && FORWARD_REASON_TEXT[because]) || "Weaver's team decides it";
+}
+
+/** The site a link goes to, shown next to it so nobody follows a link blind ("acme.example"). Empty when it is not a web address. */
+export function linkDomain(url: string | null | undefined): string {
+  if (!url) return "";
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
 }
 
 // ── Reading the shared form ──────────────────────────────────────────────────
@@ -438,6 +464,7 @@ export function programFromForm(fd: FormData, context: "weaver" | "community"): 
   } else {
     const s = String(fd.get("source") ?? "");
     source = isOneOf(SOURCES, s) ? s : null;
+    if (source === "partner") return fail("Only Weaver's team can name a licensed matching-gift database as the source.");
   }
   const sourceUrlText = text(fd, "source_url", 500, "The source's link");
   if (isError(sourceUrlText)) return fail(sourceUrlText.error);
@@ -481,7 +508,7 @@ export function programFromForm(fd: FormData, context: "weaver" | "community"): 
 }
 
 /** A submission's facts (jsonb) read back as a row the form and the facts list can show. Unknown values become empty. */
-export function factsAsRow(j: unknown, fallbackName = ""): Omit<ProgramRow, "id" | "status" | "merged_into" | "status_reason" | "updated_at" | "verified_submission_id" | "last_verified_on" | "verified_by_kind"> & { names: string[] } {
+export function factsAsRow(j: unknown, fallbackName = ""): Omit<ProgramRow, "id" | "status" | "merged_into" | "status_reason" | "updated_at" | "verified_submission_id" | "last_verified_on" | "verified_by_kind" | "version"> & { names: string[] } {
   const o = (typeof j === "object" && j !== null && !Array.isArray(j) ? j : {}) as Record<string, unknown>;
   const str = (k: string) => (typeof o[k] === "string" && o[k] ? (o[k] as string) : null);
   const num = (k: string) => (typeof o[k] === "number" && Number.isFinite(o[k]) ? (o[k] as number) : null);
