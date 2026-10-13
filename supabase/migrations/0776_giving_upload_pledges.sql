@@ -252,7 +252,9 @@ begin
                                             v_row_reason, x.fund_id, x.campaign_id, x.opportunity_id, null, x.due_on, x.pledged_by,
                                             x.dedication, x.pledged_on);
     exception when others then
-      raise exception 'Row %: %', x.row_no, sqlerrm using errcode = sqlstate;
+      -- The row number leads the sentence. A row that names another community's household is a problem of the file, not of the
+      -- person's permissions, so it is said as such (the portal shows the sentence itself).
+      raise exception 'Row %: %', x.row_no, sqlerrm using errcode = case when sqlstate = '42501' then '22023' else sqlstate end;
     end;
     v_out := v_out || jsonb_build_array(jsonb_build_object('row', x.row_no, 'pledge_id', v_r->>'pledge_id', 'pledge_number', v_r->>'pledge_number',
                                                            'household_id', v_r->>'household_id', 'amount_cents', (v_r->>'amount_cents')::bigint,

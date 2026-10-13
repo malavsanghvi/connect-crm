@@ -15,6 +15,7 @@ import type { CardLabels } from "@/components/household-card";
 
 import { matchHousehold, nameDisagrees, pickReason, type HouseholdHit } from "./households";
 import {
+  MAX_UPLOAD_ROWS as MAX_ROWS,
   addDays,
   cell,
   dateExample,
@@ -465,6 +466,68 @@ export function uploadRows(r: PledgeReview): PledgeUploadRow[] {
       note: x.note || null,
       repeat_ok: x.repeatOf !== null,
     }));
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const optUuid = (v: unknown) => v === null || v === undefined || (typeof v === "string" && UUID.test(v));
+const optText = (v: unknown, max: number) => v === null || v === undefined || (typeof v === "string" && v.length <= max);
+
+/**
+ * The rows as the server receives them, checked for shape before they go to the database (which checks every rule again). Anything
+ * unexpected is refused as a whole: the review is sent again rather than a part of it recorded.
+ */
+export function checkUploadRows(rows: unknown, today: string): { ok: true; value: PledgeUploadRow[] } | { ok: false; error: string } {
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: "Tick at least one row to record." };
+  if (rows.length > MAX_ROWS) return { ok: false, error: `An upload holds at most ${MAX_ROWS} rows.` };
+  const seen = new Set<number>();
+  const out: PledgeUploadRow[] = [];
+  for (const r of rows as Record<string, unknown>[]) {
+    const row = r?.row;
+    const ok =
+      typeof r === "object" &&
+      r !== null &&
+      typeof row === "number" &&
+      Number.isInteger(row) &&
+      row >= 1 &&
+      !seen.has(row) &&
+      typeof r.household_id === "string" &&
+      UUID.test(r.household_id) &&
+      typeof r.amount_cents === "number" &&
+      Number.isSafeInteger(r.amount_cents) &&
+      r.amount_cents > 0 &&
+      optUuid(r.fund_id) &&
+      optUuid(r.campaign_id) &&
+      optUuid(r.opportunity_id) &&
+      [r.fund_id, r.campaign_id, r.opportunity_id].filter(Boolean).length <= 1 &&
+      typeof r.pledged_on === "string" &&
+      DAY.test(r.pledged_on) &&
+      r.pledged_on <= today &&
+      typeof r.due_on === "string" &&
+      DAY.test(r.due_on) &&
+      r.due_on >= r.pledged_on &&
+      optUuid(r.pledged_by_person_id) &&
+      optText(r.dedication, DEDICATION_MAX) &&
+      optText(r.note, NOTE_MAX) &&
+      typeof r.repeat_ok === "boolean";
+    if (!ok) return { ok: false, error: "The review changed while it was being sent. Check the file again, then record." };
+    seen.add(row as number);
+    out.push({
+      row: row as number,
+      household_id: (r.household_id as string).toLowerCase(),
+      amount_cents: r.amount_cents as number,
+      fund_id: (r.fund_id as string | null) ?? null,
+      campaign_id: (r.campaign_id as string | null) ?? null,
+      opportunity_id: (r.opportunity_id as string | null) ?? null,
+      pledged_on: r.pledged_on as string,
+      due_on: r.due_on as string,
+      pledged_by_person_id: (r.pledged_by_person_id as string | null) ?? null,
+      dedication: (r.dedication as string | null) ?? null,
+      note: (r.note as string | null) ?? null,
+      repeat_ok: r.repeat_ok as boolean,
+    });
+  }
+  return { ok: true, value: out };
 }
 
 /** The reason every pledge's History shows, with the file it came from. */

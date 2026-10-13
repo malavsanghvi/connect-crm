@@ -11,7 +11,7 @@ import { addDays, dateInTz, startOfDayInTz, todayInTz } from "@/lib/dates";
 import { pledgeDueDays } from "@/lib/giving-due";
 import { hitsFrom, type HouseholdHit } from "@/lib/giving-upload/households";
 import type { ExistingPledge, PledgeLookups, PledgeTarget, UploadAdult } from "@/lib/giving-upload/pledges";
-import { conventionsFor, type Conventions } from "@/lib/giving-upload/sheet";
+import { conventionsFor, type Conventions, type EarlierUpload } from "@/lib/giving-upload/sheet";
 import { kindTerm } from "@/lib/kind";
 import type { CrmSession } from "@/lib/session";
 
@@ -202,4 +202,36 @@ export async function sameFileUpload(session: CrmSession, kind: "pledges" | "pay
       "read the earlier uploads",
     ) ?? [];
   return rows[0] ? { createdAt: rows[0].created_at, rowCount: rows[0].row_count } : null;
+}
+
+/**
+ * The latest pledge uploads with whether each can still be cancelled: only while every pledge of it is open with nothing paid and no
+ * write-off asked (app.cancel_pledge_upload checks the same again).
+ */
+export async function earlierPledgeUploads(session: CrmSession): Promise<EarlierUpload[]> {
+  const list = await recentUploads(session, "pledges");
+  return Promise.all(
+    list.map(async (u) => {
+      if (u.cancelledAt) return { ...u, cancellable: false, note: null };
+      const rows =
+        must(
+          await session.db
+            .from("pledges")
+            .select("status, paid_cents, written_off_by")
+            .eq("center_id", session.center.id)
+            .like("idempotency_key", `upl:${u.id}:%`)
+            .limit(600),
+          "read the pledges of the earlier uploads",
+        ) ?? [];
+      const moved = rows.filter((r) => r.status !== "open" || r.paid_cents !== 0 || r.written_off_by !== null).length;
+      return {
+        ...u,
+        cancellable: moved === 0 && rows.length > 0,
+        note:
+          moved > 0
+            ? `${moved} of its pledges ${moved === 1 ? "has" : "have"} money applied or another status, so each pledge is handled on its own.`
+            : null,
+      };
+    }),
+  );
 }

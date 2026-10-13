@@ -185,6 +185,21 @@ export function isSha256(v: unknown): v is string {
   return typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
 }
 
+/** An upload already recorded, as the upload pages list it. */
+export type EarlierUpload = {
+  id: string;
+  fileName: string | null;
+  reason: string;
+  rowCount: number;
+  totalCents: number;
+  createdAt: string;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  /** Pledge uploads: whether it can still be cancelled (nothing paid against it); `note` says why not. */
+  cancellable: boolean;
+  note: string | null;
+};
+
 /** "1 row" / "18 rows". */
 export function rowsWord(n: number, one = "row", many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
