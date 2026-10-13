@@ -4,19 +4,16 @@ import { revalidatePath } from "next/cache";
 
 import type { Json } from "@/lib/database.types";
 import { failure, type ActionResult } from "@/lib/errors";
-import { CLOSE_ITEMS, closeChecklist, isCloseItem, longMonth } from "@/lib/giving";
+import { loadCloseState } from "@/lib/data/books-close";
+import { CLOSE_ITEMS, isCloseItem, longMonth } from "@/lib/giving";
 import { authorizeAction } from "@/lib/session";
-import type { AppSupabase } from "@/lib/supabase/server";
 
 const MONTH = /^\d{4}-\d{2}-01$/;
 
 function refresh() {
   revalidatePath("/accounting/close");
+  revalidatePath("/giving");
   revalidatePath("/");
-}
-
-async function exceptionsLeft(db: AppSupabase, centerId: string, month: string) {
-  return db.from("ledger_postings").select("id", { count: "exact", head: true }).eq("center_id", centerId).eq("status", "failed").lte("period_month", month);
 }
 
 /** Tick (or untick) a manual close-checklist item (accounting_periods.checklist; audited). */
@@ -43,25 +40,19 @@ export async function setCloseItemAction(_prev: ActionResult | null, formData: F
 }
 
 /**
- * Lock the month. The checklist must be complete (checked again here). The
- * database asks for a fresh 2FA check (app.assert_step_up, 0154); the result
- * then carries stepUp and the portal's step-up modal retries. The lock is
- * recorded under the user's name in the audit log.
+ * Lock the month. The checklist must be complete (checked again here, through the same reader as the screen: a check the data
+ * proves counts as done, docs/GIVING_REDESIGN.md section 4). The database asks for a fresh 2FA check (app.assert_step_up, 0154);
+ * the result then carries stepUp and the portal's step-up modal retries. The lock is recorded under the user's name in the audit log.
  */
 export async function lockMonthAction(month: string): Promise<ActionResult> {
   const auth = await authorizeAction("closeManage", "lock the month");
   if (!auth.ok) return auth;
   const { db, center, userId } = auth.session;
   if (!MONTH.test(month)) return { ok: false, error: "Could not lock the month — unknown month." };
-  const [cur, ex] = await Promise.all([
-    db.from("accounting_periods").select("status, checklist").eq("center_id", center.id).eq("period_month", month).maybeSingle(),
-    exceptionsLeft(db, center.id, month),
-  ]);
-  if (cur.error) return failure("Could not lock the month", cur.error);
-  if (ex.error) return failure("Could not lock the month", ex.error);
-  if (cur.data?.status === "closed") return { ok: false, error: `${longMonth(month)} is already locked.` };
-  const items = closeChecklist(cur.data?.checklist ?? {}, ex.count ?? 0);
-  const open = items.filter((i) => !i.done);
+  const state = await loadCloseState(auth.session, month);
+  if (state.periodError) return failure("Could not lock the month", state.periodError);
+  if (state.locked) return { ok: false, error: `${longMonth(month)} is already locked.` };
+  const open = state.items.filter((i) => !i.done);
   if (open.length > 0) return { ok: false, error: `Finish the checklist first — ${open.map((i) => i.label.toLowerCase()).join("; ")}.` };
   const { data, error } = await db
     .from("accounting_periods")

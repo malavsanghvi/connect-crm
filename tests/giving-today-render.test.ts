@@ -17,6 +17,7 @@ vi.mock("@/app/(app)/giving/payments/bank/actions", () => ({ confirmBankMatchAct
 vi.mock("@/app/(app)/giving/payments/bank/zelle-actions", () => ({ confirmExactMatchesAction: vi.fn() }));
 vi.mock("@/app/(app)/giving/payments/counting-actions", () => ({ recordCountingDepositAction: vi.fn() }));
 vi.mock("@/app/(app)/accounting/close/actions", () => ({ setCloseItemAction: vi.fn() }));
+vi.mock("@/app/(app)/accounting/qbo/matching/actions", () => ({ approveMatchAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 vi.mock("@/app/(app)/search/find-actions", () => ({ findAction: vi.fn() }));
 let pathname = "/giving";

@@ -88,7 +88,7 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
   }
   const accounting = nav.find((m) => m.key === "accounting");
   const close = accounting?.tabs.find((t) => t.href === "/accounting/close");
-  if (accounting) out.push({ key: "books", label: "Books", href: close ? close.href : accounting.href, paths: [] });
+  if (accounting) out.push({ key: "books", label: "Books", href: close ? close.href : accounting.href, paths: ["/accounting"] });
   return out;
 }
 
