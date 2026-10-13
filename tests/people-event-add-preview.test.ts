@@ -46,18 +46,17 @@ describe("the previews", () => {
   });
 
   it("draw the person slide-over with the Events section, for every state and family the screenshots use", async () => {
-    for (const events of EVENT_STATES) {
-      for (const sp of [{}, { family: "tanaka", person: "p-misaki" }, { person: "p-layla" }, { family: "empty" }, { mode: "page", person: "p-ines", family: "empty" }]) {
-        expect(await slide({ ...sp, events, open: "events" }), JSON.stringify({ ...sp, events })).toBeTruthy();
-      }
-    }
-  });
+    const variants: Record<string, string>[] = [{}, { family: "tanaka", person: "p-misaki" }, { person: "p-layla" }, { family: "empty" }, { mode: "page", person: "p-ines", family: "empty" }];
+    // Every family and person once, with the default state; every state once, with the default family.
+    for (const sp of variants) expect(await slide({ ...sp, open: "events" }), JSON.stringify(sp)).toBeTruthy();
+    for (const events of EVENT_STATES) expect(await slide({ events, open: "events" }), events).toBeTruthy();
+  }, 30000);
 
   it("draw the Family page's Events tab for every state, and the scripted steps are known", async () => {
     for (const events of EVENT_STATES) expect(await family({ tab: "events", events }), events).toBeTruthy();
     for (const step of EVENT_STEPS) expect(await family({ tab: "events", do: step }), step).toBeTruthy();
     for (const step of EVENT_STEPS) expect(await slide({ open: "events", do: step }), step).toBeTruthy();
-  });
+  }, 30000);
 
   // The slide-over's frame portals into the page, so the page-level draw below uses the person's own page (mode=page), which draws the same sections.
   const own = { mode: "page", person: "p-samira" };

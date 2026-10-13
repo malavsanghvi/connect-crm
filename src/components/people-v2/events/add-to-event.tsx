@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
 import { useStepUp } from "@/components/step-up";
@@ -455,8 +455,12 @@ export function AddToEvent(props: AddToEventProps) {
 
 /** What happened, for a few seconds, above the phone's bottom bars (the same place as the Undo bar). */
 export function Toast({ text, onClose }: { text: string | null; onClose: () => void }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  // The portal needs the page: false while the server draws and during hydration, true in the browser.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   if (!mounted || !text) return null;
   return createPortal(
     <div

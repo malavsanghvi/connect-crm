@@ -34,9 +34,9 @@ export function personEventLines(rsvps: readonly RsvpInput[], events: readonly E
   return buildEventLines(effective, events, [...mine.values()]);
 }
 
-/** "Came" for a ticket that was checked in, otherwise a dash: the section's last column. */
-export function cameText(line: Pick<EventLine, "checkedIn">): string {
-  return line.checkedIn > 0 ? "Yes" : "—";
+/** "Checked in" for a ticket that was, "Not checked in" for one that holds a place, and nothing for a ticket that was released: the section's last column. */
+export function cameText(line: Pick<EventLine, "checkedIn" | "party">): string {
+  return line.checkedIn > 0 ? "Checked in" : line.party > 0 ? "Not checked in" : "";
 }
 
 /** One sentence over the list: "3 RSVPs · came to 2", or nothing to say. */

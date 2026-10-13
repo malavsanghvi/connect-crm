@@ -120,7 +120,7 @@ function PreviewTabs({ showGiving, showEvents, events }: { showGiving: boolean; 
   return (
     <section aria-label="Giving, memberships and history">
       <nav aria-label="More about this family" className="mb-3.5 flex gap-1 overflow-x-auto border-b border-line">
-        {tabs.map((t, i) => (
+        {tabs.map((t) => (
           <span
             key={t}
             aria-current={t === active ? "page" : undefined}

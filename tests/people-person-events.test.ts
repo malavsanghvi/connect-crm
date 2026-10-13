@@ -36,9 +36,11 @@ describe("a person's own event lines", () => {
   it("reads 'Came' for a ticket that was checked in, and says so in the last column", () => {
     const [line] = personEventLines([rsvp("r1", "e-gala", "confirmed")], EVENTS, [seat("r1", "confirmed", "2026-10-03T23:30:00Z")]);
     expect(line).toMatchObject({ answer: "Came", checkedIn: 1, party: 1 });
-    expect(cameText(line)).toBe("Yes");
+    expect(cameText(line)).toBe("Checked in");
     const [waiting] = personEventLines([rsvp("r1", "e-gala", "confirmed")], EVENTS, [seat("r1", "confirmed")]);
-    expect(cameText(waiting)).toBe("—");
+    expect(cameText(waiting)).toBe("Not checked in");
+    // A ticket that was released has nothing to say about the door.
+    expect(cameText(personEventLines([rsvp("r1", "e-gala", "confirmed")], EVENTS, [seat("r1", "cancelled")])[0])).toBe("");
   });
 
   it("reads 'Cancelled' for a ticket the person released, even though the family's RSVP is still on", () => {

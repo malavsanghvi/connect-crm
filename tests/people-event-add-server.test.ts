@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 
 import { addToEvent, loadAddChoices, type AddInput } from "@/lib/people-v2/event-add-server";
 
-import { MANAGER, VIEWER, W, context, leadOf, world, type Hooks } from "./people-event-add-world";
+import { VIEWER, W, context, leadOf, world, type Hooks } from "./people-event-add-world";
 
 // Adding a family's people to an event: what is read, what is written, and what is said when it cannot be done. The database is a fake that
 // keeps its rows, so each test looks at what was really written.

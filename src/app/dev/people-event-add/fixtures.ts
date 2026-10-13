@@ -2,7 +2,7 @@
 // /dev/people-slideover and the Family page's Events tab at /dev/people-family), on the same neutral community. Nothing here is real.
 //
 // `?events=<state>` picks what the fake server answers:
-//   ok (default)  slow     already   full       error      noaccess    loaderror   empty
+//   ok (default)  slow (adding takes a minute)   slowload (loading takes a minute)   already   full   error   noaccess   loaderror   empty
 //   view-only     nofamily off       noread     readerror  (the last five are about the section itself, not the panel)
 
 import type { FamilyActions } from "@/components/people-v2/family/actions";
@@ -15,7 +15,7 @@ import { NO_ACCESS_TEXT, part, type Part } from "@/lib/people-v2/slideover";
 
 import { familyFixture, type FamilyKey } from "../people-family/fixtures";
 
-export const EVENT_STATES = ["ok", "slow", "already", "full", "error", "noaccess", "loaderror", "empty", "view-only", "nofamily", "off", "noread", "readerror"] as const;
+export const EVENT_STATES = ["ok", "slow", "slowload", "already", "full", "error", "noaccess", "loaderror", "empty", "view-only", "nofamily", "off", "noread", "readerror"] as const;
 export type EventState = (typeof EVENT_STATES)[number];
 
 export const PREVIEW_TZ = "America/Chicago";
@@ -57,7 +57,7 @@ export function fakeEventAdd(state: EventState, family: FamilyKey): FamilyAction
   const people = [...model.adults, ...model.children];
   return {
     async load() {
-      await wait(450);
+      await wait(state === "slowload" ? 60000 : 450);
       if (state === "noaccess") return { ok: false, kind: "access", error: NO_ACCESS_TEXT };
       if (state === "loaderror") return { ok: false, kind: "other", error: "Could not load the events — the database could not be reached — check the connection and try again." };
       return { ok: true, events: eventChoices(state, family) };

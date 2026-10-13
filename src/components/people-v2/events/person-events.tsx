@@ -59,9 +59,7 @@ export function PersonEventsBody({ firstName, list, timeZone, add }: { firstName
                 </span>
                 <span className="flex shrink-0 items-baseline gap-3 text-[13.5px]">
                   <Badge tone={l.tone}>{l.answer}</Badge>
-                  <span className="text-muted">
-                    Checked in <span className={l.checkedIn > 0 ? "font-semibold text-ink" : ""}>{cameText(l)}</span>
-                  </span>
+                  {cameText(l) ? <span className={l.checkedIn > 0 ? "font-semibold text-ink" : "text-muted"}>{cameText(l)}</span> : null}
                 </span>
               </li>
             ))}
