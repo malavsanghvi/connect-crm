@@ -138,18 +138,19 @@ $$;
 create or replace function app._email_schedule_next(p_frequency text, p_day_of_week int, p_day_of_month int, p_month int, p_hour int,
                                                    p_tz text, p_after timestamptz) returns timestamptz
 language plpgsql stable set search_path = app, public, extensions as $$
-declare v_tz text := coalesce(nullif(p_tz, ''), 'UTC'); v_local timestamp; v_day date; v_at timestamp; i int;
+declare v_tz text := coalesce(nullif(p_tz, ''), 'UTC'); v_local timestamp; v_day date; v_at timestamp; v_match boolean; i int;
 begin
   v_local := p_after at time zone v_tz;
   for i in 0..400 loop
     v_day := v_local::date + i;
     v_at := v_day + make_interval(hours => coalesce(p_hour, 9));
-    if v_at > v_local and case p_frequency
-         when 'daily' then true
-         when 'weekly' then extract(dow from v_day)::int = p_day_of_week
-         when 'monthly' then extract(day from v_day)::int = p_day_of_month
-         when 'yearly' then extract(month from v_day)::int = p_month and extract(day from v_day)::int = p_day_of_month
-         else false end then
+    v_match := case p_frequency
+                 when 'daily' then true
+                 when 'weekly' then extract(dow from v_day)::int = p_day_of_week
+                 when 'monthly' then extract(day from v_day)::int = p_day_of_month
+                 when 'yearly' then extract(month from v_day)::int = p_month and extract(day from v_day)::int = p_day_of_month
+                 else false end;
+    if v_at > v_local and coalesce(v_match, false) then
       return v_at at time zone v_tz;
     end if;
   end loop;

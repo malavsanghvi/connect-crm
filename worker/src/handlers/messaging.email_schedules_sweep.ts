@@ -70,14 +70,15 @@ async function runOne(due: Due, ctx: JobContext): Promise<RunResult> {
         else if (res?.outcome === "duplicate") out.duplicate += 1;
         else out.skipped += 1;
       }
+      // The rate limit, between households: the rest of this run waits for the next sweep (a household already written to is
+      // not handed out again; one that was not is).
+      if (out.queued >= MAX_PER_RUN) return out;
     }
     if (!batch.more) {
       await ctx.db.query("select app.worker_email_schedule_done($1::uuid, $2::text) as d", [due.automation_id, due.period]);
       out.done = true;
       return out;
     }
-    // The rate limit: the rest of this run waits for the next sweep (the households already done are not handed out again).
-    if (out.queued >= MAX_PER_RUN) return out;
   }
 }
 
