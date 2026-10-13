@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -7,6 +8,7 @@ import { BarList, type BarColor } from "@/components/bar-list";
 import { BlockGrid, Card, ChipLinks, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { OPPORTUNITY_TYPES, barPercent, optionRows, recurringTemplateOptions } from "@/lib/giving";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { isModuleEnabled } from "@/lib/modules";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
@@ -38,6 +40,8 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
   }
   const sp = await searchParams;
   const editId = param(sp, "edit");
+  // The New look shows Opportunities and Campaigns as views of Giving › Campaigns & opportunities; this page is its full builder.
+  const v2 = parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2";
   const { db, center } = session;
   const canManage = canAccess(session, "campaignsManage");
 
@@ -117,14 +121,16 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
   return (
     <>
       {header}
-      <ChipLinks
-        label="Opportunities views"
-        active="opportunities"
-        items={[
-          { key: "opportunities", label: "Opportunities", href: "/giving/opportunities" },
-          { key: "campaigns", label: "Campaigns", href: "/giving/opportunities/campaigns" },
-        ]}
-      />
+      {v2 ? null : (
+        <ChipLinks
+          label="Opportunities views"
+          active="opportunities"
+          items={[
+            { key: "opportunities", label: "Opportunities", href: "/giving/opportunities" },
+            { key: "campaigns", label: "Campaigns", href: "/giving/opportunities/campaigns" },
+          ]}
+        />
+      )}
       {campaigns.error ? <QueryError what="campaigns" error={campaigns.error} retryHref="/giving/opportunities" /> : null}
       <BlockGrid className="mb-4">
         <Card span={5} title="Campaign progress" description="Pledged against each published campaign's goal">

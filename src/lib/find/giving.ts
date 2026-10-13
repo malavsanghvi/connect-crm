@@ -21,6 +21,7 @@ import {
   type FamilyFocus,
   type GivingHousehold,
 } from "@/lib/giving-actions/family-giving";
+import { quickCreateHref, readCreateCommand, type CreateCommand } from "@/lib/giving-campaigns/quick";
 import { familyFrom } from "@/lib/giving-today/queue";
 import { parsePaymentAsk, readDate, type PaymentAsk } from "@/lib/giving-workspace/ask";
 import { formatCents, parseAmountToCents } from "@/lib/money";
@@ -40,6 +41,8 @@ export type GivingIntent =
   | { kind: "refund"; token: string | null; who: string | null }
   /** Ask for a write-off: Pledges opens on that pledge. */
   | { kind: "write_off"; token: string | null; who: string | null }
+  /** "new campaign Building fund", "new opportunity Gala tables": the quick-create sheet opens, named (slice 6). */
+  | { kind: "create"; cmd: CreateCommand }
   /** Find: a receipt or pledge number, an amount (on a date), or words (campaigns, bank descriptions and payer names). */
   | { kind: "lookup"; code: string | null; numbered: { field: "receipt" | "pledge"; value: string } | null; cents: number | null; date: string | null; words: string | null };
 
@@ -156,6 +159,8 @@ export function readGivingIntent(raw: string, o: { today: string; fmt: Community
   const token = codes[0] ?? numbered?.[2] ?? null;
   const othersThan = (t: string | null) => leftoverWho(t ? text.replace(t, " ") : text, { ...ask, reference: null }, o.fmt, o.today);
 
+  const create = readCreateCommand(text);
+  if (create) return { kind: "create", cmd: create };
   if (REFUND.test(text)) return { kind: "refund", token, who: token ? null : othersThan(null) };
   if (WRITE_OFF.test(text)) return { kind: "write_off", token, who: token ? null : othersThan(null) };
 
@@ -250,11 +255,19 @@ export function pledgesHref(q: string | null): string {
   return q ? `/giving/pledges?q=${encodeURIComponent(q)}` : "/giving/pledges";
 }
 export const BANK_HREF = "/giving/payments/bank";
-export const CAMPAIGNS_HREF = "/giving/opportunities/campaigns";
+// The New look's Campaigns & opportunities tab (slice 6); the classic look is sent on to its Campaigns list.
+export const CAMPAIGNS_HREF = "/giving/campaigns";
 
 const MAX_FAMILY_ROWS = 5;
 
-type LaneOptions = { currency: string; locale?: string; timeZone: string; canRecord: boolean };
+type LaneOptions = {
+  currency: string;
+  locale?: string;
+  timeZone: string;
+  canRecord: boolean;
+  /** Who may start a campaign or an opportunity from the box (campaignsManage; Opportunities on for the second). */
+  canCreate?: { campaign: boolean; opportunity: boolean };
+};
 
 function recordPrefill(i: Extract<GivingIntent, { kind: "record" }>): RecordPaymentRequest["prefill"] {
   return { amount: i.cents ? (i.cents / 100).toFixed(2) : null, method: i.ask.method, receivedOn: i.ask.receivedOn, reference: i.ask.reference, about: i.ask.about };
@@ -377,6 +390,21 @@ export function buildGivingLane(intent: GivingIntent, found: GivingFound, o: Lan
   if (intent.kind === "record") {
     const r = recordRows(intent, found, o);
     return { understood: r.understood, rows: r.rows, notes: r.notes, first: true };
+  }
+  if (intent.kind === "create") {
+    const { what, name } = intent.cmd;
+    const thing = what === "campaign" ? "campaign" : "opportunity";
+    const understood = `a new ${thing}${name ? ` “${name}”` : ""}`;
+    if (!o.canCreate?.[what]) return { understood, rows: [], notes: [`Starting a new ${thing} needs giving.manage${what === "opportunity" ? " and the Opportunities module" : ""}.`], first: true };
+    const go: GivingRow = {
+      kind: "go",
+      key: `go-new-${what}`,
+      title: `New ${thing}${name ? ` “${name}”` : ""}`,
+      detail: what === "campaign" ? "Opens the New campaign sheet, named. It is created as a draft: members see nothing until you publish it." : "Opens the New opportunity sheet, named: four questions, the rest later.",
+      household: null,
+      href: quickCreateHref(intent.cmd),
+    };
+    return { understood, rows: [go], notes: [], first: true };
   }
   if (intent.kind === "pledge") {
     return {

@@ -9,6 +9,8 @@ import { authorizeAction } from "@/lib/session";
 
 function refresh() {
   revalidatePath("/giving/labh");
+  // The New look shows the same screen as a view of Giving › Campaigns & opportunities.
+  revalidatePath("/giving/campaigns");
 }
 
 /** Mark a special-day labh as scheduled (0060 labh_fulfillments; audited). */

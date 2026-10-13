@@ -32,6 +32,7 @@ export type OpportunityInput = {
 
 function refresh() {
   revalidatePath("/giving/opportunities");
+  revalidatePath("/giving/campaigns");
 }
 
 /** Create or update an opportunity (0022 kinds + options); on publish, draft the member alert in Communications. */

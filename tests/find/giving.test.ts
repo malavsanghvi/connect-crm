@@ -240,6 +240,26 @@ describe("the box draws the Giving lane", () => {
     const lane = buildGivingLane(read("building") as GivingIntent, found({ campaigns: [camp] }), opts);
     const ui = buildUiRows(resp({ rows: [family("h-patel")], giving: lane }), { niva: "off", scope: "giving" });
     expect(ui.rows.map((r) => r.type)).toEqual(["family", "giving"]);
-    expect(enterAction(ui.rows, 1, { scope: "giving" })).toEqual({ type: "open", href: "/giving/opportunities/campaigns", familyId: null });
+    expect(enterAction(ui.rows, 1, { scope: "giving" })).toEqual({ type: "open", href: "/giving/campaigns", familyId: null });
+  });
+
+  it("'new campaign …' and 'new opportunity …' open the quick-create sheet named, for those who may create (slice 6)", () => {
+    const camp = read("new campaign Building fund", USD, "people");
+    expect(camp).toEqual({ kind: "create", cmd: { what: "campaign", name: "Building fund" } });
+    const can = { ...opts, canCreate: { campaign: true, opportunity: true } };
+    const lane = buildGivingLane(camp as GivingIntent, EMPTY_FOUND, can);
+    expect(lane).toMatchObject({ understood: "a new campaign “Building fund”", first: true, notes: [] });
+    expect(lane.rows).toHaveLength(1);
+    expect(lane.rows[0]).toMatchObject({ kind: "go", title: "New campaign “Building fund”" });
+    expect(givingEnter(lane.rows[0])).toEqual({ type: "open", href: "/giving/campaigns?new=campaign&name=Building+fund" });
+    const opp = buildGivingLane(read("create an opportunity: Gala tables") as GivingIntent, EMPTY_FOUND, can);
+    expect(givingEnter(opp.rows[0])).toEqual({ type: "open", href: "/giving/campaigns?view=opportunities&new=opportunity&name=Gala+tables" });
+    // Someone who may not create is told why, and nothing opens.
+    const no = buildGivingLane(read("new opportunity Gala") as GivingIntent, EMPTY_FOUND, { ...opts, canCreate: { campaign: true, opportunity: false } });
+    expect(no.rows).toEqual([]);
+    expect(no.notes[0]).toContain("needs giving.manage and the Opportunities module");
+    // "new pledge …" is still a pledge, and words about a campaign are still a lookup.
+    expect(read("new pledge 500 patel")?.kind).toBe("pledge");
+    expect(read("campaign building")?.kind).toBe("lookup");
   });
 });
