@@ -15,6 +15,8 @@ import { AMARA, FIXTURE_ROWS, PREVIEW_CURRENCY } from "../giving-glance/fixtures
 import { PREVIEW_COMMUNITY, familyFixture, type FamilyKey } from "../people-family/fixtures";
 
 import { detailFixture, findPerson, historyRows, PREVIEW_TZ, type Access } from "./fixtures";
+import { MS_STATES, membershipsFixture, panelFor, type MsState } from "./memberships-fixtures";
+import { MembershipsPreview } from "./memberships-preview";
 import { PreviewSlideOver, type Scenario, type Step } from "./preview-client";
 
 export const metadata: Metadata = { title: "Person slide-over · Dev preview" };
@@ -58,6 +60,9 @@ const STEPS = [
  *   ?view=choose                          a person in two families: the chooser
  *   ?open=all                             every section open
  *   ?do=<step>                            opens an editor, a menu or the Add person card (and types) so a screenshot shows that state
+ *   ?ms=<state>                           the Memberships section, open, in a state: list, edit, edit-problem, edit-error, tier, tier-confirm,
+ *                                         tier-error, assign, assign-fee, assign-nofee, assign-confirm, assign-confirm-life,
+ *                                         assign-confirm-nogiving, assign-problem, assign-error (adeyemi has no live membership: assign works there)
  * Returns notFound() in production.
  */
 export default async function PeopleSlideOverPreview({ searchParams }: { searchParams?: Search }) {
@@ -99,10 +104,29 @@ export default async function PeopleSlideOverPreview({ searchParams }: { searchP
 
   const detail = personId ? detailFixture(family, personId, { access, standalone }) : null;
   const person = personId ? findPerson(model, personId) : null;
+  const ms = pick<MsState>(one(sp.ms), MS_STATES, "list");
   const plan = sectionPlan({ isChild: Boolean(person?.isChild), givingByPerson: one(sp.giving) !== "household", givingOn: true, hasHistory: true }).map((s) => ({
     ...s,
-    open: one(sp.open) === "all" ? true : s.open,
+    open: one(sp.open) === "all" || (s.key === "memberships" && Boolean(one(sp.ms))) ? true : s.open,
   }));
+  const memberships = person ? (
+    (() => {
+      const data = membershipsFixture(model, person.id, {
+        canChange: access === "full",
+        givingOn: ms !== "assign-confirm-nogiving",
+        state: access === "limited" ? "no-access" : one(sp.msread) === "error" ? "error" : "ok",
+      });
+      return (
+        <MembershipsPreview
+          data={data}
+          person={{ id: person.id, firstName: person.firstName }}
+          timeZone={PREVIEW_TZ}
+          scenario={scenario}
+          open={panelFor(ms, data.state === "ok" ? data.data.rows : [])}
+        />
+      );
+    })()
+  ) : undefined;
 
   const glance = person ? (
     <GivingGlanceView
@@ -152,7 +176,7 @@ export default async function PeopleSlideOverPreview({ searchParams }: { searchP
         }
         detail={detail}
         plan={plan}
-        slots={{ glance, history }}
+        slots={{ glance, history, memberships }}
         hrefs={{ details: `/dev/people-slideover${base}&person=${personId ?? ""}`, move: `/dev/people-slideover${base}&person=${personId ?? ""}&mode=move`, merge: "/dev/people-slideover" }}
         closeHref={`/dev/people-slideover${base}&person=none`}
         base={base}
