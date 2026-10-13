@@ -2,12 +2,14 @@ import { notFound, redirect } from "next/navigation";
 
 import { AuditTab } from "@/app/(app)/households/[id]/audit-tab";
 import { PersonGlance } from "@/components/giving-glance/glance-panels";
+import { CustomFieldsSection } from "@/components/people-v2/custom/custom-group";
 import { ChooseFamilyList } from "@/components/people-v2/slideover/choose-family";
 import { PersonSlideOver } from "@/components/people-v2/slideover/person-slideover";
 import { PageHeader, QueryError } from "@/components/ui";
 import { adultHouseholdCards } from "@/lib/commands/catalog/household";
 import { communityMajority } from "@/lib/commands/child-filter";
 import { personName } from "@/lib/data/lookups";
+import { loadCustomFields } from "@/lib/people-v2/custom-load";
 import { todayInTz } from "@/lib/dates";
 import { givingShowBy } from "@/lib/giving-glance/levels";
 import { prepareGlance } from "@/lib/giving-glance/page";
@@ -58,12 +60,17 @@ export async function PersonPageV2({ session, id, sp }: { session: CrmSession; i
   const glance = plan.some((s) => s.key === "giving") ? (
     <PersonGlance session={session} person={{ id: p.id, name: p.name, firstName: p.firstName, adult: !p.isChild }} householdIds={[]} sp={sp} prep={await prepareGlance(session, sp)} />
   ) : null;
+  const custom = await loadCustomFields(session, { personIds: [p.id], householdId: null, canEdit: detail.canEdit });
   return (
     <PersonSlideOver
       mode="page"
       detail={detail}
       plan={plan}
-      slots={{ glance, history: <AuditTab session={session} householdId={null} personId={p.id} bare /> }}
+      slots={{
+        glance,
+        history: <AuditTab session={session} householdId={null} personId={p.id} bare />,
+        customFields: <CustomFieldsSection payload={custom} personId={p.id} firstName={p.firstName} isChild={p.isChild} path={retry} />,
+      }}
       closeHref="/people"
       closeLabel="People"
       hrefs={{ details: retry, move: retry, merge: `/people/merge?person=${p.id}` }}

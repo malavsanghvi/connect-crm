@@ -11,9 +11,9 @@ import { explainError } from "@/lib/errors";
 import { householdIdsNeeded, toFindRows } from "@/lib/find/assemble";
 import { isChildRecord } from "@/lib/find/child";
 import { classifyInput, readsAsFilter } from "@/lib/find/classify";
-import { hitKindVisible, nameColumnFilter, personNameFilter, typedWords } from "@/lib/find/pattern";
+import { customValueFilter, hitKindVisible, nameColumnFilter, personNameFilter, typedWords } from "@/lib/find/pattern";
 import { filterFor, rankCandidates } from "@/lib/find/search";
-import type { Classified, FamilyCandidate, FindFilter, FindResponse, IdentifierHit, PersonCandidate } from "@/lib/find/types";
+import type { Classified, CustomHit, FamilyCandidate, FindFilter, FindResponse, IdentifierHit, PersonCandidate } from "@/lib/find/types";
 import { GLOBAL_SEARCH_MIN_CHARS } from "@/lib/global-search";
 import { can, canViewIdentifierKind } from "@/lib/permissions";
 import { showText, type AskVocab } from "@/lib/people-v2/ask";
@@ -30,6 +30,9 @@ import type { CrmSession } from "@/lib/session";
 
 const PEOPLE_COLUMNS = "id, first_name, last_name, preferred_name, email, phone_e164, member_number, date_of_birth, is_deceased";
 const PEOPLE_LIMIT = 60;
+const CUSTOM_LIMIT = 40;
+/** The kinds of custom field whose value is text a person types a word of (numbers, dates, money and yes/no are not looked up). */
+const CUSTOM_TEXT_TYPES = new Set(["text", "choice", "email", "url"]);
 
 type PersonRow = {
   id: string;
@@ -45,6 +48,55 @@ type PersonRow = {
 type HouseholdRow = { id: string; display_name: string | null; household_number: string | null };
 type Link = { household_id: string; person_id: string; role: string; is_primary: boolean; joined_at: string | null };
 type RawHit = { kind: string; system: string | null; value: string; person_id: string | null; household_id: string | null };
+type CustomFound = { hits: { entity: "people" | "households"; id: string; hit: CustomHit }[]; people: PersonRow[]; households: HouseholdRow[]; peopleIds: string[]; householdIds: string[] };
+
+const asCustom = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+
+/**
+ * Searchable custom fields (the ones an admin marked "found by the one box"), looked up as the person: the values kept on the record
+ * (the ones members may see) are read from the record itself and the staff-only ones from app.custom_staff_values, so row level
+ * security decides who can find what, and no policy and no migration is needed. Text-like fields only. A failure is reported once
+ * and the rest of the lookup carries on.
+ */
+async function findCustom(session: CrmSession, search: string, note: (what: string, error: unknown) => void): Promise<CustomFound> {
+  const { db, center } = session;
+  const out: CustomFound = { hits: [], people: [], households: [], peopleIds: [], householdIds: [] };
+  const defs = await db.from("custom_field_definitions").select("entity, key, label, type").eq("center_id", center.id).eq("status", "active").eq("searchable", true).in("entity", ["people", "households"]);
+  if (defs.error) {
+    note("the custom field list", defs.error);
+    return out;
+  }
+  const usable = (defs.data ?? []).filter((d) => CUSTOM_TEXT_TYPES.has(d.type));
+  for (const entity of ["people", "households"] as const) {
+    const fields = usable.filter((d) => d.entity === entity);
+    const filter = customValueFilter(search, fields.map((d) => d.key));
+    if (!filter) continue;
+    const labelOf = new Map(fields.map((d) => [d.key, d.label]));
+    const own =
+      entity === "people"
+        ? db.from("people").select(`${PEOPLE_COLUMNS}, custom`).eq("center_id", center.id).is("merged_into_id", null).or(filter).limit(CUSTOM_LIMIT)
+        : db.from("households").select("id, display_name, household_number, custom").eq("center_id", center.id).is("merged_into_id", null).or(filter).limit(CUSTOM_LIMIT);
+    const staff = db.from("custom_staff_values").select("record_key, custom").eq("center_id", center.id).eq("entity", entity).or(filter).limit(CUSTOM_LIMIT);
+    const [a, b] = await Promise.all([own, staff]);
+    if (a.error) note(`the ${entity} custom field search`, a.error);
+    if (b.error) note("the staff-only custom field search", b.error);
+    const collect = (id: string, custom: Record<string, unknown>) => {
+      for (const [key, label] of labelOf) {
+        const v = custom[key];
+        if (typeof v === "string" && v.trim()) out.hits.push({ entity, id, hit: { label, value: v.trim() } });
+      }
+    };
+    for (const r of (a.data ?? []) as unknown as (PersonRow & HouseholdRow & { custom: unknown })[]) {
+      (entity === "people" ? out.people : out.households).push(r as never);
+      collect(r.id, asCustom(r.custom));
+    }
+    for (const r of (b.data ?? []) as { record_key: string; custom: unknown }[]) {
+      (entity === "people" ? out.peopleIds : out.householdIds).push(r.record_key);
+      collect(r.record_key, asCustom(r.custom));
+    }
+  }
+  return out;
+}
 
 const empty = (q: Classified, extra: Partial<FindResponse> = {}): FindResponse => ({ query: q.text, kind: q.kind, rows: [], more: 0, filter: null, problem: null, ...extra });
 
@@ -128,14 +180,17 @@ async function lookup(session: CrmSession, q: Classified, problems: string[]): P
   const phoneDigits = q.kind === "phone" || (q.kind === "identifier" && q.shape === "number") ? q.digits : "";
   const bareDigits = /^\d+$/.test(q.search);
   const wantsHits = ((q.kind === "name" || q.kind === "identifier") && q.search.length >= 2) || (q.kind === "phone" && bareDigits);
+  // Three characters, or two in a script without letters to widen (a Han or Hangul word is already a word at two).
+  const wantsCustom = q.kind === "name" && hasLetter && (q.search.length >= 3 || (q.search.length >= 2 && !/[a-z]/i.test(q.search)));
 
-  const [byName, byEmail, byPhone, byMember, hitsRes, familyRes] = await Promise.all([
+  const [byName, byEmail, byPhone, byMember, hitsRes, familyRes, customFound] = await Promise.all([
     nameFilter ? peopleBase().or(nameFilter).limit(PEOPLE_LIMIT) : null,
     q.kind === "email" && safe ? peopleBase().ilike("email", `%${safe}%`).limit(25) : q.kind === "name" && words.length === 1 && words[0].length >= 3 ? peopleBase().ilike("email", `${safeFilterText(words[0])}%`).limit(10) : null,
     phoneDigits.length >= 4 ? peopleBase().like("phone_e164", `%${phoneDigits}%`).limit(25) : null,
     hasDigit && safe && q.kind !== "email" && /^[^\s()+]+$/.test(q.search) ? peopleBase().ilike("member_number", `${safe}%`).limit(25) : null,
     wantsHits ? db.rpc("resolve_identifier", { p_center: center.id, p_value: q.search }) : null,
     familyFilter ? db.from("households").select("id, display_name, household_number").eq("center_id", center.id).is("merged_into_id", null).or(familyFilter).limit(40) : null,
+    wantsCustom ? findCustom(session, q.search, note) : null,
   ]);
 
   const people = new Map<string, PersonRow>();
@@ -147,12 +202,21 @@ async function lookup(session: CrmSession, q: Classified, problems: string[]): P
   const families = new Map<string, HouseholdRow>();
   if (familyRes?.error) note("the family search", familyRes.error);
   for (const h of (familyRes?.data ?? []) as HouseholdRow[]) families.set(h.id, h);
+  // A custom field's value found a record: the record joins the candidates and carries what matched (never decided here: match.ts scores it).
+  const customByPerson = new Map<string, CustomHit[]>();
+  const customByFamily = new Map<string, CustomHit[]>();
+  for (const p of customFound?.people ?? []) if (!people.has(p.id)) people.set(p.id, p);
+  for (const h of customFound?.households ?? []) if (!families.has(h.id)) families.set(h.id, { id: h.id, display_name: h.display_name, household_number: h.household_number });
+  for (const c of customFound?.hits ?? []) {
+    const into = c.entity === "people" ? customByPerson : customByFamily;
+    into.set(c.id, [...(into.get(c.id) ?? []), c.hit]);
+  }
 
   // 2. Identifiers the person may see; their records come in too.
   const hits: RawHit[] = [];
   if (hitsRes?.error) note("the identifier search", hitsRes.error);
   for (const h of (hitsRes?.data ?? []) as RawHit[]) if (hitKindVisible(h.kind, finance)) hits.push(h);
-  const extraPeople = [...new Set(hits.map((h) => h.person_id).filter((id): id is string => !!id && !people.has(id)))].slice(0, 100);
+  const extraPeople = [...new Set([...hits.map((h) => h.person_id), ...(customFound?.peopleIds ?? [])].filter((id): id is string => !!id && !people.has(id)))].slice(0, 100);
   for (const part of chunk(extraPeople)) {
     const res = await db.from("people").select(PEOPLE_COLUMNS).in("id", part).eq("center_id", center.id).is("merged_into_id", null);
     if (res.error) note("reading the people the identifiers point to", res.error);
@@ -169,7 +233,7 @@ async function lookup(session: CrmSession, q: Classified, problems: string[]): P
       if (!cur || (l.is_primary && !cur.is_primary) || (!cur.is_primary && (l.joined_at ?? "") < (cur.joined_at ?? ""))) links.set(l.person_id, l);
     }
   }
-  const hitHouseholds = hits.map((h) => h.household_id).filter((id): id is string => !!id);
+  const hitHouseholds = [...hits.map((h) => h.household_id), ...(customFound?.householdIds ?? [])].filter((id): id is string => !!id);
   const needHouseholds = [...new Set([...[...links.values()].map((l) => l.household_id), ...hitHouseholds])].filter((id) => !families.has(id));
   for (const part of chunk(needHouseholds)) {
     const res = await db.from("households").select("id, display_name, household_number").in("id", part).eq("center_id", center.id).is("merged_into_id", null);
@@ -201,11 +265,12 @@ async function lookup(session: CrmSession, q: Classified, problems: string[]): P
       householdId: link?.household_id ?? null,
       relationship: link ? (link.is_primary ? "primary" : link.role) : null,
       hits: personHits.get(p.id) ?? [],
+      customHits: customByPerson.get(p.id),
     };
   });
   const familyCandidate = (id: string): FamilyCandidate | null => {
     const h = families.get(id);
-    return h ? { id, displayName: h.display_name, householdNumber: h.household_number, hits: familyHits.get(id) ?? [] } : null;
+    return h ? { id, displayName: h.display_name, householdNumber: h.household_number, hits: familyHits.get(id) ?? [], customHits: customByFamily.get(id) } : null;
   };
 
   const familyById = new Map<string, FamilyCandidate>();

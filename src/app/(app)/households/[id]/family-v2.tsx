@@ -8,6 +8,7 @@ import type { FamilyLinks } from "@/components/people-v2/family/family-header";
 import { PageHeader, QueryError } from "@/components/ui";
 import { prepareGlance } from "@/lib/giving-glance/page";
 import { isModuleEnabled } from "@/lib/modules";
+import { loadCustomFields } from "@/lib/people-v2/custom-load";
 import { loadFamily } from "@/lib/people-v2/family-load";
 import { familyChips } from "@/lib/people-v2/family-model";
 import { loadPinState } from "@/lib/people-v2/saved-load";
@@ -38,7 +39,10 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
   const { model, problems } = loaded;
   const base = `/households/${id}`;
   const givingOn = isModuleEnabled(session, "giving");
-  const glance = givingOn ? await prepareGlance(session, sp) : null;
+  const [glance, custom] = await Promise.all([
+    givingOn ? prepareGlance(session, sp) : null,
+    loadCustomFields(session, { personIds: [...model.adults, ...model.children].map((p) => p.id), householdId: id, canEdit: model.canEdit }),
+  ]);
   const canEdit = model.canEdit;
   // The star: whether this person pinned the family (their own pin, read under their own session). A merged family cannot be pinned.
   const pinState = model.mergedIntoId ? null : await loadPinState(session, id);
@@ -74,13 +78,14 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
         detailsTemplate={slideOverHref(base, sp, "__ID__")}
         moveTemplate={slideOverHref(base, sp, "__ID__", "move")}
         problems={problems}
+        custom={custom}
         slots={{
           glance: glance ? <HouseholdGlance session={session} householdId={id} sp={sp} prep={glance} path={base} /> : null,
           tabs: <FamilyTabs session={session} model={model} sp={sp} glance={glance} base={base} />,
           prompt: model.mergedIntoId ? null : <PrimaryPrompt session={session} householdId={id} />,
           after:
             request.kind === "slideover" ? (
-              <PersonSlideOverServer session={session} model={model} sp={sp} base={base} personId={request.personId} prep={glance} />
+              <PersonSlideOverServer session={session} model={model} sp={sp} base={base} personId={request.personId} prep={glance} custom={custom} />
             ) : (
               <PeopleDrawers session={session} sp={sp} base={base} />
             ),

@@ -81,6 +81,19 @@ export function nameColumnFilter(text: string, column: string): string | null {
   return parts.length === 1 ? parts[0] : `and(${parts.join(",")})`;
 }
 
+/**
+ * The text to pass to `.or(…)` that finds a record whose custom values (in any of the listed fields) have every typed word in them:
+ * `custom->>skills.imatch.…` for each field, joined by commas. Only keys that look like a database key are used, so nothing typed or
+ * stored can reach the filter text. Null when there is nothing to look for.
+ */
+export function customValueFilter(text: string, keys: readonly string[]): string | null {
+  const words = typedWords(text);
+  const safe = keys.filter((k) => /^[a-z][a-z0-9_]{0,62}$/.test(k));
+  if (words.length === 0 || safe.length === 0) return null;
+  const patterns = words.map(accentPattern);
+  return safe.map((k) => (patterns.length === 1 ? `custom->>${k}.imatch.${patterns[0]}` : `and(${patterns.map((p) => `custom->>${k}.imatch.${p}`).join(",")})`)).join(",");
+}
+
 /** A person or household identifier kind a viewer may see: the people kinds for anyone who opens People, the finance kinds only for finance readers. */
 const FINANCE_KINDS = new Set(["accounting", "bank_payer", "payment_provider"]);
 export function hitKindVisible(kind: string, financeReader: boolean): boolean {

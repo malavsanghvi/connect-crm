@@ -13,7 +13,7 @@ import { foldName, isAlphabeticScript, scriptOfCodePoint } from "@/lib/commands/
 import { formatPhone } from "@/lib/people";
 
 import { idLabel, type IdLabelRules } from "./labels";
-import type { Classified, FamilyCandidate, PersonCandidate, Scored, Why } from "./types";
+import type { Classified, CustomHit, FamilyCandidate, PersonCandidate, Scored, Why } from "./types";
 
 type Reason = { score: number; why: Why };
 
@@ -93,6 +93,32 @@ function numberReason(q: Classified, value: string | null, label: string, code: 
   return null;
 }
 
+/** A custom field's value never outranks a name, an ID or a phone number: it is how a record is found when none of those was typed. */
+const CUSTOM_SCORE_CAP = 60;
+const CUSTOM_VALUE_SHOWN = 48;
+
+/**
+ * The best custom field a typed word is found in, said as "Custom field: <label> · <value>". Only words are matched (a typed name, never
+ * an ID, number or email), and every typed word must be in the value. `hideValue` is for a child (D2): the row says which field matched but
+ * not what it holds.
+ */
+export function customReason(q: Classified, hits: readonly CustomHit[] | undefined, hideValue: boolean): Reason | null {
+  if (!hits || hits.length === 0 || q.kind !== "name" || !hasLetter(q.search)) return null;
+  const typed = foldWords(q.search);
+  let top: Reason | null = null;
+  for (const h of hits) {
+    const words = foldWords(h.value);
+    const raw = nameScore(typed, words);
+    if (raw <= 0) continue;
+    // Scaled under the cap, with a value that is exactly what was typed ("Evening") ahead of a longer text that contains it.
+    const score = Math.round((raw * CUSTOM_SCORE_CAP) / 94) - (words.length === typed.length ? 0 : 4);
+    if (top && score <= top.score) continue;
+    const value = h.value.length > CUSTOM_VALUE_SHOWN ? `${h.value.slice(0, CUSTOM_VALUE_SHOWN - 1).trimEnd()}…` : h.value;
+    top = { score, why: { code: "custom", label: hideValue ? `Custom field: ${h.label}` : `Custom field: ${h.label} · ${value}` } };
+  }
+  return top;
+}
+
 /** Score a person. Null when nothing about them matches what was typed. */
 export function scorePerson(q: Classified, p: PersonCandidate, rules: IdLabelRules): Scored<PersonCandidate> | null {
   if (!q.search) return null;
@@ -129,6 +155,8 @@ export function scorePerson(q: Classified, p: PersonCandidate, rules: IdLabelRul
 
   const name = nameReason(q, [foldWords([p.firstName, p.preferredName ?? "", p.lastName].join(" ")), foldWords([p.lastName, p.firstName].join(" "))]);
   if (name) reasons.push(name);
+  const custom = customReason(q, p.customHits, p.isChild);
+  if (custom) reasons.push(custom);
 
   const top = best(reasons);
   if (!top) return null;
@@ -148,6 +176,8 @@ export function scoreFamily(q: Classified, f: FamilyCandidate, rules: IdLabelRul
     const name = nameReason(q, [foldWords(f.displayName)]);
     if (name) reasons.push(name);
   }
+  const custom = customReason(q, f.customHits, false);
+  if (custom) reasons.push(custom);
   const top = best(reasons);
   return top ? { item: f, score: top.score, why: top.why } : null;
 }
