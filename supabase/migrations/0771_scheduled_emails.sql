@@ -513,7 +513,7 @@ begin
     if not app._email_schedule_modules_on(a.center_id) then
       update app.email_automations
          set next_run_at = app._email_schedule_next(a.frequency, a.day_of_week, a.day_of_month, a.month_of_year, a.send_hour, v_tz, now()),
-             last_run = jsonb_build_object('skipped', app._email_schedule_modules_message(a.center_id), 'at', now())
+             last_run = jsonb_build_object('not_run', app._email_schedule_modules_message(a.center_id), 'at', now())
        where id = a.id;
     else
       update app.email_automations set run_period = to_char(a.next_run_at at time zone coalesce(v_tz, 'UTC'), 'YYYY-MM-DD') where id = a.id;

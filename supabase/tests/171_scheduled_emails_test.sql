@@ -258,9 +258,10 @@ set role connect_worker;
 select app.worker_email_schedules_due(20) as due_off \gset
 reset role;
 select pg_temp.assert(not (:'due_off'::jsonb @> jsonb_build_array(jsonb_build_object('automation_id', :'sid')))
-                      and (select run_period is null and next_run_at > now() and last_run ? 'skipped' from app.email_automations where id = :'sid'),
+                      and (select run_period is null and next_run_at > now() and last_run ? 'not_run' from app.email_automations where id = :'sid'),
   'F · a run that comes while Communications is off does not go; it waits for its next time and says why');
 rollback to savepoint comms_off;
+reset role;
 select pg_temp.assert_raises($$select app.worker_email_schedules_due(1)$$, 'Only the background service', 'F · only the background service starts runs');
 
 -- ══ G. Givers since the last run; a non-faith community ═══════════════════════
