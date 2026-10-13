@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: 
 vi.mock("@/app/(app)/households/[id]/inline-actions", () => ({ savePersonFieldsAction: vi.fn(), saveHouseholdFieldsAction: vi.fn() }));
 vi.mock("@/app/(app)/households/[id]/custom-actions", () => ({ saveCustomValueAction: vi.fn(), addCustomFieldAction: vi.fn(), setCustomFieldStatusAction: vi.fn() }));
 vi.mock("@/app/(app)/households/[id]/slideover-actions", () => ({ addPersonInlineAction: vi.fn() }));
+vi.mock("@/app/(app)/households/[id]/event-add-actions", () => ({ addToEventAction: vi.fn(), loadAddToEventAction: vi.fn() }));
 vi.mock("@/app/(app)/identifiers/person-id-seam", () => ({ addPersonId: vi.fn(), retirePersonId: vi.fn() }));
 vi.mock("@/app/(app)/people/deceased-actions", () => ({ markDeceasedAction: vi.fn(), undoDeceasedAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
@@ -180,7 +181,7 @@ describe("assign a membership", () => {
     const t = text(html);
     expect(html).toContain('data-testid="membership-assign"');
     expect(t).toContain("It is active at once and does not wait for the Executive Committee.");
-    expect(t).toContain("Adeyemi household (No. 0212 · RCC-H-1048 · Tunde & Folake Adeyemi · Riverside, South Riverside)");
+    expect(t).toContain("Adeyemi household (No. 0212 · RCC-H-1048 · Tunde & Fola Adeyemi · Riverside, South Riverside)");
     expect(t).toContain("Choose a type…");
     expect(t).toContain("Friend · Community · no fee");
     expect(t).toContain("Annual member · Yearly · $50.00");
@@ -188,7 +189,7 @@ describe("assign a membership", () => {
     expect(html).toContain('value="2026-10-12"');
     expect(html).toContain('max="2026-10-12"');
     expect(t).toContain("Tunde Adeyemi");
-    expect(t).toContain("Folake Adeyemi");
+    expect(t).toContain("Fola Adeyemi");
     expect(t).toContain("No holder named");
     expect(t).toContain("Adults of the family only.");
     expect(t).toContain("Review");
@@ -223,7 +224,7 @@ describe("assign a membership", () => {
     const html = section({ family: "adeyemi", ms: "assign-confirm" });
     expect(html).toContain('aria-label="Confirm the new membership"');
     expect(text(html)).toContain(
-      "Assign a Yearly membership (Annual member) to Adeyemi household (No. 0212 · RCC-H-1048 · Tunde & Folake Adeyemi · Riverside, South Riverside), held by Tunde Adeyemi, from Oct 12, 2026, until Oct 12, 2027. " +
+      "Assign a Yearly membership (Annual member) to Adeyemi household (No. 0212 · RCC-H-1048 · Tunde & Fola Adeyemi · Riverside, South Riverside), held by Tunde Adeyemi, from Oct 12, 2026, until Oct 12, 2027. " +
         "It is active at once and does not wait for the Executive Committee. The $50.00 fee is recorded as an open pledge, due in 30 days.",
     );
     expect(text(html)).toContain("Reason: Paid at the office desk");
