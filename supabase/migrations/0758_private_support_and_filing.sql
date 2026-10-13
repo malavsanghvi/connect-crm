@@ -321,4 +321,3 @@ grant execute on function app.care_settings_can(uuid), app.set_support_grant_are
   app.grant_weaver_filing(uuid, uuid, int, text), app.end_weaver_filing(uuid, text), app.support_grant_areas() to authenticated;
 revoke execute on function app.record_history(text, text) from public, anon;
 grant execute on function app.record_history(text, text) to authenticated;
-grant execute on all functions in schema app to service_role;

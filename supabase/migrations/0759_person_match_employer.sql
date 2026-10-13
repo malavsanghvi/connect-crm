@@ -204,4 +204,3 @@ revoke execute on function app.my_match_employer(uuid), app.set_my_match_employe
   app.record_match_employer(uuid, uuid, text) from public, anon;
 grant execute on function app.my_match_employer(uuid), app.set_my_match_employer(uuid, text), app.remove_my_match_employer(uuid),
   app.record_match_employer(uuid, uuid, text) to authenticated;
-grant execute on all functions in schema app to service_role;

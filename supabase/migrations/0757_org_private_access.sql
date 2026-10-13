@@ -363,6 +363,20 @@ drop trigger if exists role_grants_private_notice on app.role_grants;
 create trigger role_grants_private_notice after insert or update of status, role_key, user_id on app.role_grants
   for each row execute function app.role_grants_private_notice();
 
+-- ── Demo communities ─────────────────────────────────────────────────────────
+-- 0629's rule (every role the community's kind shows has a demo person), except a role that opens only products the demo
+-- community does not have: the demo packs make no WeCare or CatchTheMatch data, and both start off for every kind (0750).
+-- (create or replace keeps 0629's grants.)
+create or replace function app.demo_missing_roles(p_center uuid) returns text[]
+language sql stable security definer set search_path = app, public, extensions as $$
+  select coalesce(array_agg(r.key order by r.key), '{}'::text[])
+    from app.roles r
+   where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(p_center))
+     and not exists (select 1 from app.demo_personas d where d.center_id = p_center and d.role_key = r.key)
+     and (cardinality(app.role_private_products(r.key)) = 0
+          or exists (select 1 from unnest(app.role_private_products(r.key)) p where app._org_private_module_on(p_center, p)))
+$$;
+
 -- ── Who may call what ────────────────────────────────────────────────────────
 revoke execute on function app._org_holds(uuid, uuid, text), app._org_private_module_on(uuid, text),
   app._may_grant_private(uuid, uuid, text[]), app._private_grant_refusal(uuid, text, text[]), app._user_label(uuid, uuid)
@@ -375,7 +389,6 @@ grant execute on function app.org_private_can(uuid, text), app.care_can(uuid, te
   app.matching_can(uuid, text), app.role_private_products(text), app.org_private_product(text), app.org_private_keys(),
   app.may_grant_private_role(uuid, text)
   to authenticated;
-grant execute on all functions in schema app to service_role;
 
 comment on function app.org_private_can(uuid, text) is
   'The organization''s own data (0757, W2): the owner, or an active center-wide grant of a non-platform role holding the key (or "*"), with the product''s module on. No platform-admin branch. Every care/matching table and function uses this (or care_can / matching_can), never has_permission.';
