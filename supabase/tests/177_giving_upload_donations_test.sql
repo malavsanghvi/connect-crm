@@ -282,8 +282,10 @@ select pg_temp.assert(((:'h1r'::jsonb)->>'total_cents')::bigint = 2550
 -- ═══════════════════════════════════════════════════════════════════════════
 -- I. No receipt by the upload; grants; the catalog
 -- ═══════════════════════════════════════════════════════════════════════════
-select pg_temp.assert(current_setting('app.donation_upload', true) = 'on',
-  'I: the upload marks its transaction, so the automatic receipt (0770) stays quiet unless the community asked for receipts on uploads');
+select pg_temp.assert(current_setting('app.donation_upload', true) = 'on'
+                      and (select count(*) = 3 from app.email_upload_marks m join app.payments p on p.id = m.payment_id
+                            where p.idempotency_key like 'upl:' || :'u1' || ':%'),
+  'I: the upload marks its transaction (0770): the payment trigger emails nothing and remembers each uploaded payment for app.email_receipts_for_uploaded');
 select pg_temp.assert(has_function_privilege('authenticated', 'app.record_donation_upload(uuid, text, text, text, text, jsonb)', 'execute')
                       and not has_function_privilege('anon', 'app.record_donation_upload(uuid, text, text, text, text, jsonb)', 'execute')
                       and not has_function_privilege('anon', 'app.giving_upload_payment_repeats(uuid, jsonb)', 'execute'),

@@ -24,9 +24,11 @@
 --                                                     refused unless the person ticked "Record anyway". At most 500 rows. The reason (and
 --                                                     the row's note) is the audit entry's reason of each payment. Uploaded payments are
 --                                                     ordinary offline payments: they post to QuickBooks as a payment recorded by hand
---                                                     does. The transaction is marked as an upload (app.mark_donation_upload when the
---                                                     automatic emails of 0770 exist, else the same setting), so no receipt is emailed
---                                                     unless that community switched on receipts for uploaded donations.
+--                                                     does. The transaction is marked as an upload (app.mark_donation_upload, 0770), so
+--                                                     the payment trigger emails nothing and remembers the payments
+--                                                     (app.email_upload_marks); the portal then asks app.email_receipts_for_uploaded,
+--                                                     which queues receipts only where the community switched on receipts for uploaded
+--                                                     donations.
 --
 -- What does NOT change: app.record_offline_payment_once, the two-person rule, refunds, the repeat check of the Record payment sheet, and
 -- every policy and permission. A donations upload is never cancelled (app.cancel_pledge_upload refuses it, 0776).
@@ -136,12 +138,9 @@ begin
                              where p.center_id = p_center and p.idempotency_key like 'upl:' || v_up.id::text || ':%'), '[]'::jsonb));
   end if;
 
-  -- An upload: no receipt is emailed unless the community switched on receipts for uploaded donations (automatic emails, 0770).
-  if to_regprocedure('app.mark_donation_upload()') is not null then
-    execute 'select app.mark_donation_upload()';
-  else
-    perform set_config('app.donation_upload', 'on', true);
-  end if;
+  -- An upload: the payment trigger emails no receipt and remembers each payment (automatic emails, 0770); receipts go out only
+  -- through app.email_receipts_for_uploaded, and only where the community switched on receipts for uploaded donations.
+  perform app.mark_donation_upload();
 
   for x in
     select (e->>'row')::integer as row_no,

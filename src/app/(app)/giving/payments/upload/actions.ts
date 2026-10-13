@@ -12,6 +12,7 @@ import { onDonationsUploaded } from "@/lib/giving-upload/receipts-hook";
 import { MAX_UPLOAD_ROWS, isSha256, isUploadKey, type UploadTable } from "@/lib/giving-upload/sheet";
 import { isModuleEnabled, moduleOffMessage } from "@/lib/modules";
 import { formatCents } from "@/lib/money";
+import { canAccess } from "@/lib/permissions";
 import { authorizeAction } from "@/lib/session";
 
 import type { FileForReview } from "../../pledges/upload/actions";
@@ -120,16 +121,22 @@ async function recordUpload(input: RecordDonationUploadInput): Promise<ActionRes
     amountCents: Number(p.amount_cents ?? 0),
     appliedCents: Number(p.applied_cents ?? 0),
   }));
-  // No receipt is emailed by the upload unless the community asked for receipts on uploads (automatic emails).
-  const receipts = await onDonationsUploaded(
-    payments.map((p) => p.paymentId),
-    { db: session.db, centerId: center.id },
-  );
-  const receiptsSentence = receipts.ok
-    ? receipts.queued > 0
-      ? `${receipts.queued} receipt ${receipts.queued === 1 ? "email was" : "emails were"} queued.${receipts.note ? ` ${receipts.note}` : ""}`
-      : (receipts.note ?? "No receipts were emailed.")
-    : `The payments are recorded, but ${receipts.error[0].toLowerCase()}${receipts.error.slice(1)}`;
+  // No receipt is emailed by the upload unless the community switched on receipts for uploaded donations (automatic emails, 0770).
+  // Queuing them needs giving.manage (app.email_receipts_for_uploaded); a volunteer's upload is told so instead of an error.
+  let receiptsSentence: string;
+  if (!canAccess(session, "givingManage")) {
+    receiptsSentence = "No receipts were emailed: receipts for uploaded donations are sent from a treasurer's upload.";
+  } else {
+    const receipts = await onDonationsUploaded(
+      payments.map((p) => p.paymentId),
+      { db: session.db, centerId: center.id },
+    );
+    receiptsSentence = receipts.ok
+      ? receipts.queued > 0
+        ? `${receipts.queued} receipt ${receipts.queued === 1 ? "email was" : "emails were"} queued.${receipts.note ? ` ${receipts.note}` : ""}`
+        : (receipts.note ?? "No receipts were emailed.")
+      : `The payments are recorded, but ${receipts.error[0].toLowerCase()}${receipts.error.slice(1)}`;
+  }
   const notApplied = typeof j.not_applied === "number" ? j.not_applied : null;
   const data: RecordedDonationUpload = {
     uploadId,
