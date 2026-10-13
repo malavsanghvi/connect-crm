@@ -98,13 +98,19 @@ function IdChip({ id, detail, onGone }: { id: DetailId; detail: PersonDetailMode
   const [confirming, setConfirming] = useState(false);
   const [phase, setPhase] = useState<"idle" | "working">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
   const retireButton = useRef<HTMLButtonElement>(null);
 
   async function retire() {
     if (phase === "working") return;
+    // A reason is required (it goes in the audit log): ask before anything is sent, and keep what was typed.
+    if (!reason.trim()) {
+      setError("Give a reason: it goes in the audit log.");
+      return;
+    }
     setPhase("working");
     setError(null);
-    const call = () => actions.ids.retire({ id: id.id, personId: detail.person.id, householdId: detail.household?.id ?? null });
+    const call = () => actions.ids.retire({ id: id.id, personId: detail.person.id, householdId: detail.household?.id ?? null, reason: reason.trim() });
     try {
       const result = stepUp ? await stepUp.run(call, "Retire an ID") : await call();
       if (result.ok) {
@@ -149,6 +155,27 @@ function IdChip({ id, detail, onGone }: { id: DetailId; detail: PersonDetailMode
           <p className="m-0">
             Retire {id.label} <span className="font-mono font-semibold">{id.value}</span>? It stops matching from today but stays in the history.
           </p>
+          <label className="mt-2 flex flex-col gap-1 text-[13px] font-semibold text-ink">
+            Why? It goes in the audit log.
+            <input
+              type="text"
+              value={reason}
+              maxLength={1000}
+              autoComplete="off"
+              disabled={phase === "working"}
+              onChange={(e) => {
+                setReason(e.target.value);
+                if (error) setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void retire();
+                }
+              }}
+              className="min-h-10 w-full rounded-[10px] border border-[var(--v2-line-input)] bg-white px-3 text-[14px] font-normal text-ink outline-none focus:border-[var(--v2-blue)]"
+            />
+          </label>
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
@@ -163,6 +190,7 @@ function IdChip({ id, detail, onGone }: { id: DetailId; detail: PersonDetailMode
               onClick={() => {
                 setConfirming(false);
                 setError(null);
+                setReason("");
                 window.setTimeout(() => retireButton.current?.focus(), 0);
               }}
               className="inline-flex min-h-10 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-4 text-[13.5px] font-bold text-ink"

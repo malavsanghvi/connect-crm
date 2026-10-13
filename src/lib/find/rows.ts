@@ -26,8 +26,9 @@ const KIND_WORDS: Record<Classified["kind"], string> = {
 };
 
 /** The one line "I understood: …" above the rows. */
-export function understoodLine(kind: Classified["kind"], shape: Classified["shape"], families: number, people: number): string {
-  const what = kind === "identifier" && shape === "payer" ? "a name or bank payer name" : KIND_WORDS[kind];
+export function understoodLine(kind: Classified["kind"], shape: Classified["shape"], families: number, people: number, list?: FindFilter["list"]): string {
+  // A sentence about contact gaps or ages is a list of people (adults), not of families.
+  const what = kind === "identifier" && shape === "payer" ? "a name or bank payer name" : kind === "filter" && list === "people" ? "a list of people" : KIND_WORDS[kind];
   const counts: string[] = [];
   if (families > 0) counts.push(`${families} ${families === 1 ? "family" : "families"}`);
   if (people > 0) counts.push(`${people} ${people === 1 ? "person" : "people"}`);
@@ -55,7 +56,7 @@ export function buildUiRows(
 ): { understood: string; rows: UiRow[] } {
   const families = resp.rows.filter((r) => r.kind === "family").length;
   const people = resp.rows.length - families;
-  const understood = understoodLine(resp.kind, shape, families, people);
+  const understood = understoodLine(resp.kind, shape, families, people, resp.filter?.list);
   const rows: UiRow[] = [];
 
   if (resp.kind === "question") {

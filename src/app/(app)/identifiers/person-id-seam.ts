@@ -8,9 +8,9 @@ import { isUuid } from "@/lib/search-params";
 // through these two functions, and only these two know how: today they call the existing identifier actions (the ones the classic
 // IDs panel uses), so permission per kind, the duplicate warning and the audit trail are unchanged.
 //
-// Slice 6 (the More menu as commands) replaces the two bodies with `runScreenCommand("people.add_identifier", …)` and
-// `runScreenCommand("people.retire_identifier", …)` (and adds the reason retiring will ask for). The components, the types below and
-// their tests stay as they are.
+// Slice 6 (the More menu as commands, migration 0720) made both identifier actions run people.add_identifier and
+// people.retire_identifier. Retiring now needs a reason, so `RetireIdInput` carries one and the slide-over asks for it. The two
+// bodies can call the commands directly later without touching the components.
 
 export type AddIdInput = {
   personId: string;
@@ -22,7 +22,13 @@ export type AddIdInput = {
   label?: string;
 };
 
-export type RetireIdInput = { id: string; personId: string; householdId: string | null };
+export type RetireIdInput = {
+  id: string;
+  personId: string;
+  householdId: string | null;
+  /** Why it is retired. Required: it goes in the audit log (the command refuses without it). */
+  reason: string;
+};
 
 function returnPath(personId: string, householdId: string | null): string {
   return householdId && isUuid(householdId) ? `/households/${householdId}` : `/people/${personId}`;
@@ -42,8 +48,11 @@ export async function addPersonId(input: AddIdInput): Promise<ActionResult> {
 
 export async function retirePersonId(input: RetireIdInput): Promise<ActionResult> {
   if (!input || !isUuid(input.id) || !isUuid(input.personId)) return { ok: false, error: "Could not retire the identifier — it was not found." };
+  const reason = typeof input.reason === "string" ? input.reason.trim().slice(0, 1000) : "";
+  if (!reason) return { ok: false, error: "Could not retire the identifier — give a reason. It goes in the audit log." };
   const fd = new FormData();
   fd.set("id", input.id);
+  fd.set("reason", reason);
   fd.set("returnPath", returnPath(input.personId, input.householdId));
   return retireIdentifierAction(null, fd);
 }

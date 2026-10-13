@@ -166,6 +166,12 @@ export function sampleHome(opts: { recents: boolean; withInbox: boolean }): Peop
         ]
       : [],
     endingSoon: { count: 23, href: "/people?ending=60" },
+    canAddFamily: true,
+    pins: [],
+    pinsHidden: 0,
+    savedViews: [],
+    maxViews: 30,
+    contactGapHref: "/people?noemail=1&view=people",
     lists: listsMenu([{ href: "/people/directory" }, { href: "/people/voting" }, { href: "/memberships/applications" }]),
     problems: [],
   };

@@ -29,6 +29,10 @@ export const ID = {
   reqAdult: "c0000000-0000-4000-8000-000000000001",
   reqChild: "c0000000-0000-4000-8000-000000000002",
   zone: "9a000000-0000-4000-8000-000000000001",
+  // Identifiers (external_ids): a finance one on the Patel household, and the CRM numbers of an adult and of a child.
+  extQb: "ee000000-0000-4000-8000-000000000001",
+  extNikhil: "ee000000-0000-4000-8000-000000000002",
+  extAarav: "ee000000-0000-4000-8000-000000000003",
 };
 
 export const MERGE_PEOPLE_PREVIEW = {
@@ -89,9 +93,9 @@ export function peopleTables(): Record<string, Row[]> {
       { id: ID.reqChild, center_id, household_id: ID.hhPatel, kind: "add_member", status: "open", details: { first_name: "Dev", last_name: "Patel", relationship: "child", dob: "2020-01-01" }, created_at: "2026-10-06" },
     ],
     external_ids: [
-      { id: "x1", center_id, household_id: ID.hhPatel, person_id: null, kind: "accounting", system: "quickbooks", value: "QB-7", valid_to: null },
-      { id: "x2", center_id, household_id: ID.hhPatel, person_id: ID.nikhil, kind: "crm", system: "neon", value: "N-77", valid_to: null },
-      { id: "x3", center_id, household_id: ID.hhPatel, person_id: ID.aarav, kind: "crm", system: "neon", value: "N-99", valid_to: null },
+      { id: ID.extQb, center_id, household_id: ID.hhPatel, person_id: null, kind: "accounting", system: "quickbooks", value: "QB-7", valid_to: null },
+      { id: ID.extNikhil, center_id, household_id: ID.hhPatel, person_id: ID.nikhil, kind: "crm", system: "neon", value: "N-77", valid_to: null },
+      { id: ID.extAarav, center_id, household_id: ID.hhPatel, person_id: ID.aarav, kind: "crm", system: "neon", value: "N-99", valid_to: null },
     ],
     zones: [{ id: ID.zone, center_id }],
   };

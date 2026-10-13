@@ -135,8 +135,10 @@ export function FindRows({ listId, rows, active, understood, onHover, onPick, hi
                 <ListIcon />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-bold text-ink">Show these families: {row.filter.understood}</span>
-                <span className="block truncate text-[13px] text-muted">The same words as a list, with the filters as chips you can change.</span>
+                <span className="block truncate text-[15px] font-bold text-ink">{row.filter.label ?? `Show these families: ${row.filter.understood}`}</span>
+                <span className="block truncate text-[13px] text-muted">
+                  {row.filter.list === "people" ? "As a list of adults, with the filters as chips you can change. You can export it there." : "The same words as a list, with the filters as chips you can change."}
+                </span>
               </span>
               <span className={PILL}>List</span>
             </Link>

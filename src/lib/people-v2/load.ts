@@ -18,7 +18,9 @@ import { formatPhone, relationshipLabel, tierLabel } from "@/lib/people";
 import { can, canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
-import type { HouseholdFilters, Zone } from "./ask";
+import { hasGap, type HouseholdFilters, type Zone } from "./ask";
+import { householdIdsOf } from "./gaps";
+import { loadGapPeople } from "./gap-load";
 import { filterHouseholds, openTotal, pageOf, sortHouseholds, type BaseHousehold, type FilterSets, type SortKey } from "./list";
 import type { CardFact, HouseholdPanel, Problem, Section } from "./model";
 
@@ -115,18 +117,27 @@ export type HouseholdListData = {
 
 type MembershipEmbed = { tier: string; status: string }[];
 
-export async function loadHouseholdList(
-  session: CrmSession,
-  f: HouseholdFilters,
-  opts: { sort: SortKey; page: number; pageSize: number; zones: Zone[] },
-): Promise<HouseholdListData> {
+export type FilteredHouseholds = {
+  sorted: BaseHousehold[];
+  /** Open balance by household, in cents; null when the role cannot see giving (or it could not be read). */
+  balanceMap: Map<string, number> | null;
+  giving: boolean;
+  fails: Fail[];
+  notes: string[];
+};
+
+/**
+ * The households that meet the filters, sorted: no paging and no per-family details. The list takes one page of it and then reads the
+ * details of those few; an export takes all of it. A filter whose read failed shows no one rather than everyone (`fails` says why).
+ */
+export async function loadFilteredHouseholds(session: CrmSession, f: HouseholdFilters, opts: { sort: SortKey; zones: Zone[] }): Promise<FilteredHouseholds> {
   const { db, center } = session;
   const cid = center.id;
   const giving = seesGiving(session);
   const fails: Fail[] = [];
   const notes: string[] = [];
 
-  const [base, search, balances, rsvpd, ending] = await Promise.all([
+  const [base, search, balances, rsvpd, ending, gap] = await Promise.all([
     fetchAll((from, to) => {
       let q = db
         .from("households")
@@ -142,6 +153,8 @@ export async function loadHouseholdList(
     giving ? openBalances(session) : null,
     f.noRsvpYear !== null ? rsvpdIn(session, f.noRsvpYear) : null,
     f.endingDays !== null ? endingWithin(session, f.endingDays) : null,
+    // A contact gap on the list of families means "has an adult with that gap" (the list of people itself is the other way to see it).
+    hasGap(f) ? loadGapPeople(session, { ...f, q: null, zone: null, band: null }) : null,
   ]);
 
   if (base.error) fails.push({ what: "households", error: base.error });
@@ -151,6 +164,12 @@ export async function loadHouseholdList(
   if (rsvpd?.error) fails.push({ what: "the RSVPs for that year", error: rsvpd.error });
   if (ending?.error) fails.push({ what: "the memberships that end soon", error: ending.error });
   if (f.overCents !== null && !giving) notes.push("Open balances need a giving permission, so the balance filter was not used.");
+  if (gap) {
+    fails.push(...gap.problems.map((p) => ({ what: p.what, error: p.message })));
+    notes.push(...gap.notes);
+    if (!gap.failed) notes.push("Showing families that have at least one adult with that gap. See it person by person in the People list.");
+  }
+  if (f.band !== null) notes.push("An age band applies to the People list, so the Families list ignores it.");
 
   const all: BaseHousehold[] = base.data.map((h) => ({
     id: h.id,
@@ -166,12 +185,24 @@ export async function loadHouseholdList(
     balances: balanceMap,
     rsvpd: rsvpd && !rsvpd.error ? rsvpd.set : null,
     ending: ending && !ending.error ? ending.set : null,
+    gap: gap && !gap.failed ? householdIdsOf(gap.people) : null,
   };
   // A failed filter shows no one rather than everyone: the failure is said above the list.
-  const failedFilter = (f.q && search?.error) || (f.noRsvpYear !== null && rsvpd?.error) || (f.endingDays !== null && ending?.error) || (f.overCents !== null && giving && balances?.error);
+  const failedFilter = (f.q && search?.error) || (f.noRsvpYear !== null && rsvpd?.error) || (f.endingDays !== null && ending?.error) || (f.overCents !== null && giving && balances?.error) || gap?.failed;
   const zoneName = new Map(opts.zones.map((z) => [z.id, z.name]));
   const filtered = failedFilter ? [] : filterHouseholds(all, f, sets);
   const sorted = sortHouseholds(filtered, opts.sort, { balances: balanceMap, zoneName: (id) => (id ? (zoneName.get(id) ?? null) : null) });
+  return { sorted, balanceMap, giving, fails, notes };
+}
+
+export async function loadHouseholdList(
+  session: CrmSession,
+  f: HouseholdFilters,
+  opts: { sort: SortKey; page: number; pageSize: number; zones: Zone[] },
+): Promise<HouseholdListData> {
+  const { db, center } = session;
+  const cid = center.id;
+  const { sorted, balanceMap, giving, fails, notes } = await loadFilteredHouseholds(session, f, opts);
   const slice = pageOf(sorted, opts.page, opts.pageSize);
   const ids = slice.items.map((h) => h.id);
 
@@ -202,7 +233,7 @@ export async function loadHouseholdList(
     pages: slice.pages,
     from: slice.from,
     to: slice.to,
-    openTotalCents: openTotal(filtered, balanceMap),
+    openTotalCents: openTotal(sorted, balanceMap),
     canSeeGiving: giving && !!balanceMap,
     problems: fails.map(problem),
     notes,

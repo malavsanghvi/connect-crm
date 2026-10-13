@@ -142,6 +142,8 @@ export const ACCESS = {
   dashboard: [] as string[],
   households: ["people.view", "people.manage"],
   householdsEdit: ["people.manage"],
+  /** Add or retire an identifier (0720's commands): people.manage for a person's or household's own ids, giving.manage for the finance kinds. canManageIdentifierKind checks the kind itself. */
+  identifiersManage: ["people.manage", "giving.manage"],
   /** People module: voting eligibility list (read) and the directory listings. */
   voting: ["people.view", "people.approve"],
   memberships: ["people.view", "people.manage"],

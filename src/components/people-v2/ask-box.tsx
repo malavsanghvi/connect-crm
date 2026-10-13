@@ -5,6 +5,7 @@ import { useId } from "react";
 
 import { useNiva } from "@/components/niva/niva-context";
 import { buttonClass } from "@/components/ui";
+import { AGE_BANDS } from "@/lib/people";
 import type { AskModel } from "@/lib/people-v2/model";
 
 import { FindBox } from "./find/find-box";
@@ -38,12 +39,18 @@ export function PeopleAskBox({ ask }: { ask: AskModel }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{nivaOn ? "Niva read this as" : "Read as"}</span>
-        {ask.chips.map((c) => (
-          <Link key={c.key} href={c.removeHref} scroll={false} aria-label={`Remove the filter: ${c.label}`} title="Remove this filter" className={`${CHIP} border-navy-300 bg-navy-50 text-[#164690] no-underline hover:border-navy`}>
-            {c.label}
-            <span aria-hidden="true">×</span>
-          </Link>
-        ))}
+        {ask.chips.map((c) =>
+          c.fixed ? (
+            <span key={c.key} title="A list of contact gaps is always adults: a child has no email or mobile on file, and a child's record is never part of a work list." className={`${CHIP} border-navy-300 bg-navy-50 text-[#164690]`}>
+              {c.label}
+            </span>
+          ) : (
+            <Link key={c.key} href={c.removeHref} scroll={false} aria-label={`Remove the filter: ${c.label}`} title="Remove this filter" className={`${CHIP} border-navy-300 bg-navy-50 text-[#164690] no-underline hover:border-navy`}>
+              {c.label}
+              <span aria-hidden="true">×</span>
+            </Link>
+          ),
+        )}
         {ask.chips.length === 0 ? (
           <span className="text-[13px] text-muted">
             {ask.unread
@@ -62,6 +69,13 @@ export function PeopleAskBox({ ask }: { ask: AskModel }) {
     </section>
   );
 }
+
+const GAPS = [
+  { key: "noEmail", name: "noemail", label: "No email on file" },
+  { key: "noMobile", name: "nomobile", label: "No mobile on file" },
+  { key: "noAddress", name: "noaddress", label: "No address on file" },
+  { key: "notOnApp", name: "noapp", label: "Not on the app" },
+] as const;
 
 /** "+ Add a filter": the same filters as a small form, so every chip can be set and changed by hand. */
 function AddFilter({ ask }: { ask: AskModel }) {
@@ -132,6 +146,28 @@ function AddFilter({ ask }: { ask: AskModel }) {
               </option>
             ))}
             {f.endingDays !== null && ![30, 60, 90].includes(f.endingDays) ? <option value={f.endingDays}>{f.endingDays} days</option> : null}
+          </select>
+        </div>
+        <fieldset className="m-0 grid gap-1.5 border-0 p-0">
+          <legend className="crm-label">Missing from the record (adults)</legend>
+          {GAPS.map((g) => (
+            <label key={g.name} className="flex min-h-9 items-center gap-2 text-[13px] text-ink">
+              <input type="checkbox" name={g.name} value="1" defaultChecked={f[g.key] === true} className="size-4" />
+              {g.label}
+            </label>
+          ))}
+        </fieldset>
+        <div>
+          <label htmlFor={`${id}-band`} className="crm-label">
+            Who (people list)
+          </label>
+          <select id={`${id}-band`} name="band" defaultValue={f.band ?? ""} className={field}>
+            <option value="">Everyone</option>
+            {AGE_BANDS.filter((b) => b.key !== "all").map((b) => (
+              <option key={b.key} value={b.key}>
+                {b.label}
+              </option>
+            ))}
           </select>
         </div>
         <div>

@@ -87,7 +87,7 @@ function identifierToken(text: string): { token: string; shape: "code" | "number
   return null;
 }
 
-const STRUCTURED = ["zone", "tier", "overCents", "noRsvpYear", "endingDays"] as const;
+const STRUCTURED = ["zone", "tier", "overCents", "noRsvpYear", "endingDays", "noEmail", "noMobile", "noAddress", "notOnApp", "band"] as const;
 
 /** What the existing rule-based reader (People's ask parser) found in a sentence as structured filters; null when none. */
 export function readsAsFilter(text: string, vocab?: AskVocab) {

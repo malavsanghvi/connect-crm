@@ -100,7 +100,15 @@ export type FindRow =
     };
 
 /** A filter the page's rule-based reader found in the words: the same chips the list shows. */
-export type FindFilter = { href: string; chips: string[]; understood: string };
+export type FindFilter = {
+  href: string;
+  chips: string[];
+  understood: string;
+  /** Which list it opens. Absent: the list of families (the first filters this box knew). */
+  list?: "people" | "households";
+  /** The row's own sentence for a list of people: "Show 42 adults with no email" (the count only when it could be read). */
+  label?: string;
+};
 
 /** What the server answers for one typed text. */
 export type FindResponse = {
