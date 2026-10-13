@@ -1331,6 +1331,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      care_message_kinds: {
+        Row: {
+          source: string;
+          key: string;
+          counts: boolean;
+        };
+        Insert: {
+          source: string;
+          key: string;
+          counts: boolean;
+        };
+        Update: {
+          source?: string;
+          key?: string;
+          counts?: boolean;
+        };
+        Relationships: [];
+      };
       care_notes: {
         Row: {
           id: string;
@@ -12419,7 +12437,8 @@ export type Database = {
       care_household_touches: {
         Args: {
           p_household: string;
-          p_before?: string;
+          p_before_at?: string;
+          p_before_key?: string;
           p_limit?: number;
         };
         Returns: Json;
