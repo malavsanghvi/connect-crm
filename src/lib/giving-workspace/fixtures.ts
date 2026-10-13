@@ -132,7 +132,8 @@ export function sampleModel(opts: { recordByCard?: boolean } = {}): GivingWorksp
     locale: "en-US",
     labels: { orgMemberLabel: "member", orgHouseholdLabel: "Club household ID" },
     views: [
-      { key: "conversation", label: "Conversation", href: "/giving" },
+      { key: "today", label: "Today", href: "/dev/giving-today" },
+      { key: "conversation", label: "Ask", href: "/giving/ask" },
       { key: "payments", label: "Payments", href: "/giving/payments" },
       { key: "pledges", label: "Pledges", href: "/giving/pledges" },
       { key: "bank", label: "Bank", href: "/giving/payments/bank" },
@@ -197,7 +198,7 @@ export function sampleModel(opts: { recordByCard?: boolean } = {}): GivingWorksp
               reason: "Paid twice at the autumn fair",
               evidence: ["Card payment of $50.00 on Sep 27, 2026", "Matched to the bank deposit of Sep 30, 2026", "A second $50.00 payment the same day"],
               look_at: ["The two payments are really the same gift", "The refund goes back to the same card"],
-              where_to_approve: "/approvals",
+              where_to_approve: "/giving?show=approvals",
             },
           ],
         },

@@ -24,7 +24,7 @@ vi.mock("@/lib/data/giving-workspace", async () => {
   return { loadGivingWorkspace: async () => f.sampleModel(), RECORD_PAYMENT_COMMAND: "giving.record_payment" };
 });
 
-import GivingWorkspaceRoute from "@/app/(app)/giving/page";
+import GivingWorkspaceRoute from "@/app/(app)/giving/ask/page";
 import { RecordPaymentForm } from "@/app/(app)/giving/payments/record-payment-form";
 import AdminGivingPreview from "@/app/dev/admin-giving/page";
 import { GivingPage } from "@/components/giving-workspace/giving-page";
@@ -43,7 +43,7 @@ describe("the Giving page (New look)", () => {
   it("draws the board: the heading, the views, the sentence, two household cards and the confirmation card", () => {
     const out = html(createElement(GivingPage, { model: sampleModel(), initial: sampleFlowState("first"), demo }));
     expect(out).toContain("Ask, review, confirm. The tables and reports are one tap away.");
-    for (const v of ["Conversation", "Payments", "Pledges", "Bank", "Books"]) expect(out).toContain(`>${v}</a>`);
+    for (const v of ["Today", "Ask", "Payments", "Pledges", "Bank", "Books"]) expect(out).toContain(`>${v}</a>`);
     expect(out).toContain('aria-current="page"');
     expect(out).toContain("2 households match “Okafor”. I will not guess which one gave this. Which household is it?");
     // Never a name alone: numbers, the primary member, where they live and the last gift.
@@ -106,7 +106,7 @@ describe("the Giving page (New look)", () => {
   });
 });
 
-describe("the /giving route", () => {
+describe("the /giving/ask route (the conversation, until slice 2 replaces it)", () => {
   it("in the classic look goes to the first Giving page the person can open (there was never a page here)", async () => {
     look.value = undefined;
     await expect(GivingWorkspaceRoute()).rejects.toMatchObject({ digest: expect.stringContaining("/giving/pledges") });
