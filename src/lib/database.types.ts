@@ -2693,6 +2693,93 @@ export type Database = {
         };
         Relationships: [];
       };
+      email_automation_sends: {
+        Row: {
+          id: string;
+          center_id: string;
+          automation_id: string;
+          ref_id: string;
+          period: string;
+          household_id: string | null;
+          person_id: string | null;
+          to_address: string;
+          outcome: string;
+          reason: string | null;
+          message_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          automation_id: string;
+          ref_id: string;
+          period?: string;
+          household_id?: string | null;
+          person_id?: string | null;
+          to_address?: string;
+          outcome: string;
+          reason?: string | null;
+          message_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          automation_id?: string;
+          ref_id?: string;
+          period?: string;
+          household_id?: string | null;
+          person_id?: string | null;
+          to_address?: string;
+          outcome?: string;
+          reason?: string | null;
+          message_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      email_automations: {
+        Row: {
+          id: string;
+          center_id: string;
+          kind: string;
+          trigger_key: string | null;
+          template_key: string;
+          enabled: boolean;
+          options: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          kind?: string;
+          trigger_key?: string | null;
+          template_key: string;
+          enabled?: boolean;
+          options?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          kind?: string;
+          trigger_key?: string | null;
+          template_key?: string;
+          enabled?: boolean;
+          options?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       email_domains: {
         Row: {
           id: string;
@@ -12750,6 +12837,28 @@ export type Database = {
         };
         Returns: Json;
       };
+      email_automation_log: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      email_automations_state: {
+        Args: {
+          p_center: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      email_receipts_for_uploaded: {
+        Args: {
+          p_center: string;
+          p_payments: string[];
+        };
+        Returns: Json;
+      };
       end_weaver_filing: {
         Args: {
           p_grant: string;
@@ -13615,6 +13724,10 @@ export type Database = {
           p_reason?: string;
         };
         Returns: Json;
+      };
+      mark_donation_upload: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
       };
       mark_person_deceased: {
         Args: {
@@ -15463,6 +15576,16 @@ export type Database = {
         };
         Returns: undefined;
       };
+      save_email_automation_wording: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_language: string;
+          p_subject: string;
+          p_body: string;
+        };
+        Returns: Json;
+      };
       save_email_footer: {
         Args: {
           p_center: string;
@@ -15563,6 +15686,15 @@ export type Database = {
         };
         Returns: number;
       };
+      send_email_automation_test: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_language: string;
+          p_vars: Json;
+        };
+        Returns: string;
+      };
       send_recipient_verification: {
         Args: {
           p_recipient: string;
@@ -15662,6 +15794,15 @@ export type Database = {
         Args: {
           p_enabled: boolean;
           p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_email_automation: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_enabled: boolean;
+          p_uploaded?: boolean;
         };
         Returns: Json;
       };
