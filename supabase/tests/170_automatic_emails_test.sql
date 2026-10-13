@@ -46,6 +46,7 @@ $$;
 \set vol '''17000000-0000-4000-8000-000000000004'''
 \set nptreas '''17000000-0000-4000-8000-000000000005'''
 \set sbtreas '''17000000-0000-4000-8000-000000000006'''
+\set owner '''17000000-0000-4000-8000-000000000007'''
 \set h1 '''17000000-0000-4000-8000-0000000000a1'''
 \set h2 '''17000000-0000-4000-8000-0000000000a2'''
 \set hn '''17000000-0000-4000-8000-0000000000a3'''
@@ -62,7 +63,8 @@ $$;
 -- ══ Fixtures ═════════════════════════════════════════════════════════════════
 insert into auth.users (id, email) values
   (:treas, 'treasurer170@temple.test'), (:admin, 'admin170@temple.test'), (:exec, 'committee170@temple.test'),
-  (:vol, 'volunteer170@temple.test'), (:nptreas, 'treasurer170@nonprofit.test'), (:sbtreas, 'treasurer170@sandbox.test');
+  (:vol, 'volunteer170@temple.test'), (:nptreas, 'treasurer170@nonprofit.test'), (:sbtreas, 'treasurer170@sandbox.test'),
+  (:owner, 'owner170@temple.test');
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:jc, 'jc170', 'Temple 170', 'T170', 'TX', 'active', 'America/Chicago');
 -- A live non-faith community: its category is switched on for this test only (the transaction is rolled back).
@@ -71,6 +73,8 @@ insert into app.centers (id, slug, name, category_key, status, time_zone, curren
   (:np, 'np170', 'Chamber 170', 'chamber_of_commerce', 'active', 'Asia/Kolkata', 'INR', 'IN', 'production');
 insert into app.centers (id, slug, name, environment, category_key, status) values
   (:sb, 'sb170-sandbox', 'Sandbox 170', 'sandbox', 'nonprofit_secular', 'onboarding');
+-- The first center admin becomes the owner (0151), who holds every permission; the second is an ordinary center admin.
+insert into app.role_grants (center_id, user_id, role_key, reason) values (:jc, :owner, 'center_admin', 'test 170');
 insert into app.role_grants (center_id, user_id, role_key, reason) values
   (:jc, :treas, 'treasurer', 'test 170'), (:jc, :admin, 'center_admin', 'test 170'), (:jc, :exec, 'executive_committee', 'test 170'),
   (:jc, :vol, 'finance_volunteer', 'test 170'), (:np, :nptreas, 'treasurer', 'test 170'), (:sb, :sbtreas, 'treasurer', 'test 170');
@@ -192,7 +196,7 @@ select pg_temp.assert(app.email_receipts_for_uploaded(:jc, array['17000000-0000-
                                                              '17000000-0000-4000-8000-0000000009ff']::uuid[]) @> '{"queued": 1, "skipped": 2}',
   'D · with it on, the hook queues the uploaded payment and skips imported history and an unknown id');
 select pg_temp.claims(:exec);
-select pg_temp.assert_raises(format($$select app.email_receipts_for_uploaded(%L, array[]::uuid[])$$, :jc), 'needs giving.manage',
+select pg_temp.assert_raises(format($$select app.email_receipts_for_uploaded(%L, array[]::uuid[])$$, :jc), 'need giving.manage',
   'D · the hook needs giving.manage');
 reset role;
 rollback to savepoint upload;
@@ -351,8 +355,8 @@ select pg_temp.assert(:'f108b'::jsonb->>'skip' like 'Not sent: The templates cha
   'G · and receipts wait for it: the reason is written');
 set role authenticated;
 select pg_temp.claims(:treas);
-select app.approve_statement_templates(:jc, 'New wording approved in test 170');
-select pg_temp.assert((app.check_statement_templates_approved(:jc)->>'ok')::boolean, 'G · the treasurer approves the new wording');
+select app.approve_statement_templates(:jc, 'New wording approved in test 170') as appr \gset
+select pg_temp.assert(:'appr'::jsonb->>'state' = 'current', 'G · the treasurer approves the new wording');
 select app.send_email_automation_test(:jc, 'payment_receipt', 'en', :'vars_pay'::jsonb || '{"payment_amount": "$9.99", "evil": "x"}') as test_msg \gset
 select pg_temp.assert(jsonb_array_length(app.email_automation_log(:jc, 'payment_receipt', 10)) >= 2
                       and (select bool_or(e->>'outcome' = 'skipped' and e->>'reason' like '%no adult%')
