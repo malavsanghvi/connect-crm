@@ -281,4 +281,11 @@ select pg_temp.assert((select why from app.marketplace_audit(:c) where what = 'p
   'E · with the reason or the note, and the pauses and the interest too');
 select pg_temp.no_claims();
 
+-- "We will tell your admins when it is ready": a migration marks WeCare built, and the community that asked is emailed.
+update app.marketplace_products set status = 'available' where key = 'care';
+select pg_temp.assert((select told_at is not null and told_status = 'queued' from app.marketplace_interest where center_id = :c and product_key = 'care')
+                      and (select count(*) from app.messages where template_key = 'marketplace_product_ready' and to_address = 'sam161@temple.test'
+                              and subject = 'WeCare is ready') = 1,
+  'F · when a product is marked built, every community that asked to be told is emailed, and the interest row records it');
+
 rollback;

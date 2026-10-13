@@ -20,7 +20,7 @@ import {
 import { lookAtWebsiteAction, saveSiteAddressesAction, siteStatusAction } from "./actions";
 import type { DraftSummary } from "@/lib/site-draft/types";
 
-import { DraftPanel } from "./draft-panel";
+import { DraftPanel, DraftPanelOff } from "./draft-panel";
 import { FoundReport } from "./found-report";
 import type { Snapshot } from "./load";
 
@@ -54,7 +54,14 @@ const pad = (refs: readonly string[]): string[] => Array.from({ length: MAX_REFE
  * Setup › Your website. Give the organization's own website and up to three it likes, press "Look at my website", watch the
  * reads (the screen asks politely, slower as time goes on, and not at all while the tab is hidden), then read "What we found".
  */
-export function WebsiteForm({ initial, draft = { summary: null, error: null } }: { initial: Snapshot; draft?: { summary: DraftSummary | null; error: string | null } }) {
+export function WebsiteForm({
+  initial,
+  draft = { summary: null, error: null },
+}: {
+  initial: Snapshot;
+  /** `off`: WeaverSite is not on for the community, so the draft panel says so instead (0751). */
+  draft?: { summary: DraftSummary | null; error: string | null; off?: string | null };
+}) {
   const [snap, setSnap] = useState<Snapshot>(initial);
   const [readAt, setReadAt] = useState(() => Date.now());
   const fromProfile = initial.status.ownUrl === null && initial.status.profileWebsite !== null;
@@ -360,7 +367,11 @@ export function WebsiteForm({ initial, draft = { summary: null, error: null } }:
         </section>
       ) : null}
 
-      <DraftPanel initial={draft.summary} canBuild={canBuild} waitingReason={waitingReason} loadError={draft.error} />
+      {draft.off ? (
+        <DraftPanelOff text={draft.off} />
+      ) : (
+        <DraftPanel initial={draft.summary} canBuild={canBuild} waitingReason={waitingReason} loadError={draft.error} />
+      )}
     </div>
   );
 }

@@ -7,7 +7,8 @@
 --                                   settings managers send and cancel; Weaver sees the open ones; turning the product on marks
 --                                   the request done (a trigger on the 0740 grants, so it is done however the grant is made).
 --   app.marketplace_interest        "Tell me when it is ready" for a product that is not built yet: one row per community and
---                                   product, so Weaver can count the demand.
+--                                   product, so Weaver can count the demand. When a migration marks the product built, every
+--                                   community that asked is emailed, and the row records when.
 --   app.marketplace_states(center)  the one read for Settings › Marketplace and Platform › Communities › Products: every product
 --                                   the community's kind offers, with its card copy and its state:
 --                                     included   on, and part of every community that has it (Giving, Events, ...)
@@ -55,10 +56,13 @@ create table if not exists app.marketplace_interest (
   product_key  text not null references app.marketplace_products(key),
   requested_by uuid references auth.users(id) on delete set null,
   created_at   timestamptz not null default now(),
+  -- When the product became ready and the community was told, and whether the emails were queued.
+  told_at      timestamptz,
+  told_status  text check (told_status is null or char_length(told_status) <= 500),
   primary key (center_id, product_key)
 );
 comment on table app.marketplace_interest is
-  '"Tell me when it is ready" for a product that is not built yet (0753): one row per community and product. Written only by app.marketplace_notify_me.';
+  '"Tell me when it is ready" for a product that is not built yet (0753): one row per community and product. Written only by app.marketplace_notify_me, and by the trigger that tells the community when the product is ready.';
 
 do $$
 declare t text;
@@ -110,6 +114,52 @@ end $$;
 drop trigger if exists center_module_grants_close_requests on app.center_module_grants;
 create trigger center_module_grants_close_requests after insert or update on app.center_module_grants
   for each row execute function app.center_module_grants_close_requests();
+
+-- "We will tell your admins when it is ready" is kept: when a migration marks a product built (not_built -> available), every
+-- community that asked is emailed (whoever asked, and the owner), and the interest row records when and whether it was queued.
+insert into app.message_templates (center_id, key, channel, language, subject, body)
+select null, v.key, v.channel::app.channel, 'en', v.subject, v.body
+  from (values
+  ('marketplace_product_ready', 'email', '{{product}} is ready',
+   E'Hello,
+
+You asked to be told when {{product}} is ready. It is ready now: an administrator of {{center_name}} can request it in Settings › Marketplace, and the Weaver team checks the request and turns it on.
+
+The Weaver team')
+  ) as v(key, channel, subject, body)
+ where not exists (select 1 from app.message_templates t
+                    where t.center_id is null and t.key = v.key and t.channel = v.channel::app.channel and t.language = 'en');
+
+create or replace function app.marketplace_products_ready_notice() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare i record; v_to text; v_mail jsonb; v_sent text[];
+begin
+  for i in
+    select x.center_id, x.requested_by, c.name as center_name
+      from app.marketplace_interest x join app.centers c on c.id = x.center_id
+     where x.product_key = new.key and x.told_at is null
+  loop
+    v_sent := '{}';
+    for v_to in
+      select distinct lower(u.email)
+        from auth.users u
+       where u.email is not null
+         and (u.id = i.requested_by or u.id in (select o.user_id from app.center_owners o where o.center_id = i.center_id))
+    loop
+      v_mail := app.platform_send_message(v_to, 'marketplace_product_ready',
+                  jsonb_build_object('product', new.name, 'center_name', i.center_name), 'notification');
+      v_sent := v_sent || app.message_status_text(v_mail);
+    end loop;
+    update app.marketplace_interest
+       set told_at = now(), told_status = case when cardinality(v_sent) = 0 then 'no one to email' else array_to_string(v_sent, ', ') end
+     where center_id = i.center_id and product_key = new.key;
+  end loop;
+  return null;
+end $$;
+drop trigger if exists marketplace_products_ready_notice on app.marketplace_products;
+create trigger marketplace_products_ready_notice after update of status on app.marketplace_products
+  for each row when (old.status = 'not_built' and new.status = 'available')
+  execute function app.marketplace_products_ready_notice();
 
 -- ── 2. Private helpers ───────────────────────────────────────────────────────
 -- How a person is named on these screens: their name in the community ("Sam K."). Someone from Weaver is "Weaver" to the
@@ -427,7 +477,7 @@ begin
 end $$;
 
 -- ── 6. Grants ────────────────────────────────────────────────────────────────
-revoke execute on function app.center_module_grants_close_requests(), app._marketplace_person(uuid, uuid, boolean),
+revoke execute on function app.center_module_grants_close_requests(), app.marketplace_products_ready_notice(), app._marketplace_person(uuid, uuid, boolean),
   app._marketplace_grant_source(uuid, text), app._marketplace_settings_manager(uuid, text) from public, anon, authenticated;
 grant execute on function app._marketplace_person(uuid, uuid, boolean), app._marketplace_grant_source(uuid, text) to service_role;
 revoke execute on function app.marketplace_states(uuid), app.marketplace_request(uuid, text, text),

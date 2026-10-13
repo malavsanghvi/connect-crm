@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { QueryError } from "@/components/ui";
+import { isModuleEnabled } from "@/lib/modules";
 import { getSession } from "@/lib/session";
 
 import { SetupHeader, setupGate } from "../_components/setup-ui";
@@ -27,7 +28,20 @@ export default async function YourWebsitePage() {
       </>
     );
   }
-  // The draft is a second thing on this screen: when it cannot be read, the screen says so beside it and still works.
+  // The draft is a second thing on this screen: when it cannot be read, the screen says so beside it and still works. Building
+  // and keeping a draft is WeaverSite (module `website`, 0751); reading the current website above stays core.
+  if (!isModuleEnabled(session, "website")) {
+    const name = center.short_name || center.name;
+    return (
+      <>
+        <SetupHeader session={session} sub={SUB} />
+        <WebsiteForm
+          initial={loaded.data}
+          draft={{ summary: null, error: null, off: `Building a new website from this is part of WeaverSite, which is not on for ${name}. Reading your current website above still works, and nothing is lost.` }}
+        />
+      </>
+    );
+  }
   const draft = await loadDraftSummary(db, center.id);
   return (
     <>

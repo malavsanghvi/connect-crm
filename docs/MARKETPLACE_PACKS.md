@@ -1,6 +1,7 @@
 # Marketplace packs: iWeaver, WeaverSite, CommunityConnect (plan)
 
-Status: plan, 2026-10-13, nothing built. Backlog **B104**. Owner direction, 2026-10-13: move Niva, AI flyer art and
+Status: plan, 2026-10-13. Slice 1 built (migrations 0750 to 0753: the module rows, grandfathering, the catalog, requests;
+Settings › Marketplace and Platform › Communities › Products follow). Backlog **B104**. Owner direction, 2026-10-13: move Niva, AI flyer art and
 every other AI feature (except AI used in onboarding) into an **iWeaver** pack; move the integrated website into
 **WeaverSite** (working name, to be renamed); put Facebook and Instagram for events and WhatsApp for messages into
 **CommunityConnect**. With WeCare ([`WECARE.md`](WECARE.md)) and CatchTheMatch ([`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md))

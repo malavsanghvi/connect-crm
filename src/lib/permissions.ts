@@ -573,7 +573,8 @@ export const NAV: NavModule[] = [
       // Onboarding (o-messaging): email domain and senders, texting registration, WhatsApp Business.
       { href: "/settings/email", label: "Email", access: "messaging" },
       { href: "/settings/texting", label: "Texting", access: "messaging" },
-      { href: "/settings/whatsapp", label: "WhatsApp", access: "messaging", module: "comms" },
+      // The WhatsApp Business account is CommunityConnect (0751); WhatsApp group links (/comms/whatsapp) stay in Communications.
+      { href: "/settings/whatsapp", label: "WhatsApp", access: "messaging", module: "channels" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },

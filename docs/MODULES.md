@@ -430,7 +430,8 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 
 - **Tables:** notification_topics (global catalog, nothing to switch), notification_preferences,
   channel_optins, push_devices, message_templates, messages, comms_campaigns, inboxes, threads,
-  thread_messages, whatsapp_groups, whatsapp_join_requests, alerts
+  thread_messages, whatsapp_groups, whatsapp_join_requests, alerts (the WhatsApp Business tables moved to
+  CommunityConnect, `channels`, in 0751; WhatsApp group links stay here)
 - **RPCs guarded:** segment_recipient_count, approve_as_second (comms_campaigns)
 - **Portal:** /comms/newsletters, /comms/campaigns/[id], /comms/inbox, /comms/threads/[id],
   /comms/whatsapp, /comms/alerts
@@ -484,9 +485,10 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 - **Switching off:** center health and the publish list show the switched-off page; the public
   `/c/<slug>` page says the community isn't publishing its dashboard; `public_kpis` refuses.
 
-## Niva assistant (depends on Content)
+## Niva assistant (depends on Content and iWeaver)
 
-- **Planned 2026-10-13:** also depends on `ai` (the iWeaver pack, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)).
+- **Since 0750:** also depends on `ai` (iWeaver, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)): where iWeaver is off,
+  Niva reads off everywhere and installed member apps hide it with no release.
 
 - **Tables:** niva_conversations
 - **RPCs guarded:** none
@@ -504,6 +506,22 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 - **Member app:** none
 - **Permissions:** governance.view, governance.manage, governance.vote, pathshala.view/manage (concerns)
 - **Switching off:** resolutions, votes, comments and concerns are hidden.
+
+## The Marketplace products (0750 to 0753; off for every kind until Weaver grants them)
+
+Neutral keys, brand labels ([`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md) P6). Every kind starts each `default_off`;
+a platform admin grants one with a reason and a fresh 2FA check (0740); the community pauses and resumes it. Communities
+that used one before 0750 hold it ("Grandfathered (0750)"); an open sandbox holds iWeaver as a trial that never reaches
+production. The card copy is `app.marketplace_products` (0752); requests and "tell me when it is ready" are
+`app.marketplace_requests` and `app.marketplace_interest`; `app.marketplace_states(center)` is the one read (0753).
+
+| Key | Label | Depends on | Tables | Guards |
+|---|---|---|---|---|
+| `ai` | iWeaver | nothing | none (Niva's follow through its chain) | Niva's, by dependency; the AI gate (0755) |
+| `website` | WeaverSite | People | sites, site_pages, site_blocks | site_draft_save, site_draft_get, site_page_set_status, site_draft_data |
+| `channels` | CommunityConnect | Communications | whatsapp_accounts, whatsapp_template_submissions | save_whatsapp_account, submit_whatsapp_template, send_test_message (WhatsApp), worker_message_to_send (a queued WhatsApp message is not sent) |
+| `care` | WeCare ("Member care" for a faith kind, "Donor care" otherwise) | People | none yet | none yet (not built) |
+| `matching` | CatchTheMatch | Giving | none yet | none yet (not built) |
 
 ## Core platform (not a module)
 
