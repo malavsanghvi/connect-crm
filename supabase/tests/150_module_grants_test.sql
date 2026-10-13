@@ -104,7 +104,7 @@ select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconf
                                                                   '_module_on_snapshot', '_module_snapshot_diff', '_grandfather_module_grants')),
   'A · every function of 0740 runs as the definer with the pinned search path');
 select pg_temp.assert(app._module_chain('bolis') = array['giving', 'bolis'] and app._module_chain('people') = '{}'
-                      and app._module_chain('niva') = array['content', 'niva'] and app._module_chain('nope') = '{}',
+                      and app._module_chain('niva') = array['content', 'niva', 'ai'] and app._module_chain('nope') = '{}',
   'A · a module''s chain is itself and the non-core modules it needs, in catalog order (People is core, so never part of it)');
 
 -- ══ B. Grandfathering ════════════════════════════════════════════════════════
@@ -124,6 +124,8 @@ select pg_temp.assert(not exists (select 1 from app.center_module_grants g join 
 -- that switched Store on (its kind starts it off) and had paused Niva under an earlier kind.
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:gf, 'gf150', 'Grandfather Temple 150', 'GF150', 'TX', 'active', 'America/Chicago');
+-- 0750: the temple uses Niva, so it holds iWeaver (Niva needs it), as 0750 grandfathered every community that did.
+insert into app.center_module_grants (center_id, module_key, granted, reason) values (:gf, 'ai', true, 'Test 150: Niva needs iWeaver (0750)');
 insert into app.centers (id, slug, name, environment, category_key, status)
 values (:gc, 'gc150-sandbox', 'Grandfather Chamber 150', 'sandbox', 'chamber_of_commerce', 'onboarding');
 insert into app.center_modules (center_id, module_key, enabled, reason) values
@@ -149,7 +151,7 @@ select pg_temp.assert((:gf || ':accounting') = any (:'on_before'::text[]) and (:
                       and not ((:gc || ':niva') = any (:'on_before'::text[])),
   'B · under 0594 the temple''s Bolis and Accounting were on with Giving paused, and the chamber''s Store was on');
 select pg_temp.assert(array(select x from unnest(app._module_snapshot_diff(:'on_before'::text[])) x where x like 'gf150:%' or x like 'gc150-sandbox:%')
-                        = array['gc150-sandbox: store was on and would be off', 'gf150: accounting was on and would be off', 'gf150: bolis was on and would be off', 'gf150: giving_bank was on and would be off', 'gf150: giving_counts was on and would be off', 'gf150: giving_insights was on and would be off',
+                        = array['gc150-sandbox: ai was off and would be on', 'gc150-sandbox: store was on and would be off', 'gf150: accounting was on and would be off', 'gf150: ai was off and would be on', 'gf150: bolis was on and would be off', 'gf150: giving_bank was on and would be off', 'gf150: giving_counts was on and would be off', 'gf150: giving_insights was on and would be off',
                                 'gf150: giving_opportunities was on and would be off', 'gf150: giving_recurring was on and would be off',
                                 'gf150: giving_statements was on and would be off', 'gf150: labh was on and would be off'],
   'B · without grants, the check names every module that would change, in words (Giving''s add-ons, 0741, wait for Giving too)');
@@ -164,7 +166,7 @@ select pg_temp.assert((select granted and reason = 'Test 150: grandfathered' and
 select pg_temp.assert(app.module_enabled(:gc, 'store') and not app.module_enabled(:gc, 'niva') and not app.module_enabled(:gc, 'bolis'),
   'B · so the chamber''s Store stays on, Niva stays off, and Bolis (not offered) stays off');
 select pg_temp.assert(array(select x from unnest(app._module_snapshot_diff(:'on_before'::text[])) x where x like 'gf150:%' or x like 'gc150-sandbox:%')
-                        = array['gf150: accounting was on and would be off', 'gf150: bolis was on and would be off', 'gf150: giving_bank was on and would be off', 'gf150: giving_counts was on and would be off', 'gf150: giving_insights was on and would be off',
+                        = array['gc150-sandbox: ai was off and would be on', 'gf150: accounting was on and would be off', 'gf150: ai was off and would be on', 'gf150: bolis was on and would be off', 'gf150: giving_bank was on and would be off', 'gf150: giving_counts was on and would be off', 'gf150: giving_insights was on and would be off',
                                 'gf150: giving_opportunities was on and would be off', 'gf150: giving_recurring was on and would be off',
                                 'gf150: giving_statements was on and would be off', 'gf150: labh was on and would be off'],
   'B · what a grant cannot keep (a module waiting for a paused one) is still reported, so 0740 stops instead of switching it off');
@@ -196,8 +198,9 @@ insert into app.center_users (center_id, user_id, person_id) values (:chm, :chme
 insert into app.store_categories (id, center_id, name) values (:storecat, :chm, 'Chamber store category 150');
 insert into app.bolis (id, center_id, name, kind) values (:boli, :jc, 'Temple boli 150', 'digital');
 select pg_temp.assert((select category_key from app.centers where id = :jc) = 'jain_center'
-                      and not exists (select 1 from app.center_module_grants where center_id in (:chm, :jc, :oc)),
-  'Fixtures · a new community has no grant rows: its kind''s default decides');
+                      and not exists (select 1 from app.center_module_grants where center_id in (:chm, :jc, :oc) and module_key <> 'ai')
+                      and (select count(*) from app.center_module_grants where center_id = :chm and module_key = 'ai' and reason = app._ai_trial_reason()) = 1,
+  'Fixtures · a new community has no grant rows: its kind''s default decides (0750: a new sandbox has one, the iWeaver trial)');
 
 -- ══ C. A chamber of commerce ═════════════════════════════════════════════════
 set role authenticated;
@@ -263,7 +266,7 @@ select pg_temp.assert_raises(format($$select app.set_module_grant(%L, 'store', t
   'Store is already enabled', 'C · granting it again changes nothing and says so');
 -- Who reads the grants.
 select pg_temp.claims(:chadmin, true);
-select pg_temp.assert((select count(*) from app.center_module_grants where center_id = :chm) = 1
+select pg_temp.assert((select count(*) from app.center_module_grants where center_id = :chm and module_key <> 'ai') = 1
                       and (select count(*) from app.store_categories where center_id = :chm) = 1
                       and (select enabled from app.my_modules(:chm) where key = 'store'),
   'C · the chamber''s administrator reads its grant, and Store''s rows; my_modules says on');

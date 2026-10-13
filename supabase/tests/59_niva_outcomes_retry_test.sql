@@ -50,6 +50,10 @@ insert into app.centers (id, slug, name, short_name, state_region, status, time_
   (:c, 'orbit59', 'Orbit Outcomes Community', 'OOC', 'TX', 'active', 'Asia/Kolkata'),
   (:cb, 'orbit59b', 'Orbit Backfill Community', 'OBC', 'TX', 'active', 'America/Chicago'),
   (:ch, 'orbit59h', 'Orbit Health Community', 'OHC', 'TX', 'active', 'America/Chicago');
+-- 0750: Niva needs iWeaver (module `ai`), which every kind starts off; these test communities hold it, as every community
+-- that used Niva before the Marketplace packs does (a sandbox starts with the iWeaver trial).
+insert into app.center_module_grants (center_id, module_key, granted, reason) values (:c, 'ai', true, 'Test 59: Niva needs iWeaver (0750)'), (:cb, 'ai', true, 'Test 59: Niva needs iWeaver (0750)'), (:ch, 'ai', true, 'Test 59: Niva needs iWeaver (0750)')
+on conflict (center_id, module_key) do nothing;
 insert into app.centers (id, slug, name, short_name, state_region, status, environment) values
   (:c3, 'orbit59c', 'Orbit Sandbox Community', 'OSC', 'TX', 'active', 'sandbox');
 insert into app.role_grants (center_id, user_id, role_key) values

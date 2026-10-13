@@ -34,6 +34,10 @@ grant connect_worker to postgres;
 
 insert into auth.users (id, email) values (:manager, 'manager138@example.com');
 insert into app.centers (id, slug, name, short_name, state_region, status) values (:c, 'grace138', 'Grace 138 Church', 'G138', 'TX', 'active');
+-- AI art needs iWeaver (0755): granted here once the catalog has the `ai` module (0750-0754); test 162 covers it off.
+insert into app.center_module_grants (center_id, module_key, granted, reason)
+select x.id, 'ai', true, 'Test: iWeaver granted.' from app.centers x where x.id = :c::uuid and exists (select 1 from app.modules where key = 'ai')
+on conflict (center_id, module_key) do update set granted = true;
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values (:p_manager, :c, 'Mona', 'Manager', date '1980-01-01');
 insert into app.center_users (center_id, user_id, person_id) values (:c, :manager, :p_manager);
 insert into app.role_grants (center_id, user_id, role_key) values (:c, :manager, 'pathshala_committee');  -- events.manage

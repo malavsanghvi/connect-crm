@@ -20,32 +20,47 @@ import { POST as runPOST } from "@/app/api/assistant/run/route";
 import { sameOrigin } from "@/lib/assistant/http";
 import { assistantApiKey, assistantModelClient } from "@/lib/assistant/key";
 import type { ChatEvent, CommandsResponse, ConfirmResponse, RunResponse } from "@/lib/assistant/protocol";
-import { ASSISTANT_OFF, NO_AI_KEY } from "@/lib/assistant/settings";
+import { ASSISTANT_OFF, CHAT_NIVA_OFF, NO_AI_KEY } from "@/lib/assistant/settings";
 import { databaseConversationLog, databaseUsageMeter } from "@/lib/assistant/store";
 import { createCommandContext } from "@/lib/commands/context";
 import { InMemoryProposalStore } from "@/lib/commands/proposals";
 import { isPublicPath } from "@/lib/supabase/proxy";
 import { loadSession } from "@/lib/session";
 
-import { CHILDREN, fakeSession, testContext } from "../commands/helpers";
-import { FakeModel, say } from "./fake-model";
+import { CHILDREN, fakeDb, fakeSession, testContext } from "../commands/helpers";
+import { callTools, FakeModel, say, toolCall } from "./fake-model";
 import { change, executed, MANAGER, ruleSet, testRegistry } from "./test-commands";
 
 // ---------------------------------------------------------------------------
 // A signed-in person, and the requests they make
 // ---------------------------------------------------------------------------
-type Who = { rules?: unknown; permissions?: string[]; grants?: unknown[]; aal?: string; isOwner?: boolean; proposals?: InMemoryProposalStore };
+type Who = {
+  rules?: unknown;
+  permissions?: string[];
+  grants?: unknown[];
+  aal?: string;
+  isOwner?: boolean;
+  proposals?: InMemoryProposalStore;
+  modulesOff?: string[];
+  modulesStatus?: string;
+  status?: string;
+  /** What app.assistant_chat_mode answers (0755): "on" unless a test says otherwise. */
+  chatMode?: unknown;
+};
 
 const NOW = () => new Date("2026-10-10T15:00:00Z");
 let store: InMemoryProposalStore;
 
 function signIn(who: Who = {}) {
   const session = fakeSession({
+    db: fakeDb({ rpc: { assistant_chat_mode: () => (typeof who.chatMode === "function" ? (who.chatMode as () => unknown)() : (who.chatMode ?? "on")) } }),
     permissions: who.permissions ?? MANAGER,
     grants: who.grants ?? [{ role_key: "event_manager" }],
     isOwner: who.isOwner ?? false,
     aal: who.aal ?? "aal2",
-    center: { ...fakeSession().center, rules: who.rules ?? ruleSet(false) },
+    center: { ...fakeSession().center, rules: who.rules ?? ruleSet(false), status: who.status ?? "active" },
+    modulesOff: who.modulesOff ?? [],
+    modulesStatus: who.modulesStatus ?? "ok",
   });
   store = who.proposals ?? new InMemoryProposalStore({ now: NOW });
   vi.mocked(loadSession).mockResolvedValue({ status: "ok", session });
@@ -163,7 +178,7 @@ describe("while Niva for admins is switched off", () => {
     vi.mocked(assistantApiKey).mockResolvedValue("sk-ant-x");
     const res = await commandsGET(get("commands"));
     expect(res.status).toBe(200);
-    expect(await json<CommandsResponse>(res)).toEqual({ ok: true, enabled: false, aiReady: true, commands: [] });
+    expect(await json<CommandsResponse>(res)).toEqual({ ok: true, enabled: false, aiReady: true, chat: "off", commands: [] });
   });
 });
 
@@ -399,5 +414,114 @@ describe("POST /api/assistant/chat", () => {
     const res = await chatPOST(post("chat", { message: "hi" }));
     expect(res.status).toBe(500);
     expect(await json(res)).toEqual({ ok: false, error: "Niva could not start. Nothing was changed. Try again." });
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe("iWeaver (0755): only the chat is AI", () => {
+  const AI_OFF_RE = /^AI features are part of iWeaver, which is not on for your community\./;
+
+  it("keeps the commands working without iWeaver, and says the chat cannot answer", async () => {
+    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"] });
+    vi.mocked(assistantApiKey).mockResolvedValue("sk-ant-x");
+    const list = await json<CommandsResponse>(await commandsGET(get("commands")));
+    expect(list).toMatchObject({ ok: true, enabled: true, aiReady: true, chat: "off", chatOff: "ai" });
+    expect(list.commands.map((c) => c.key)).toContain("events.upcoming");
+    const run = await runPOST(post("run", { key: "events.look" }));
+    expect(run.status).toBe(200);
+    expect(executed).toEqual(["look:"]);
+  });
+
+  it("refuses the chat before any model call or count, with the sentence and what still works", async () => {
+    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"] });
+    const model = new FakeModel([say("never")]);
+    vi.mocked(assistantModelClient).mockResolvedValue(model);
+    const res = await chatPOST(post("chat", { message: "hi", context: { path: "/giving/payments" } }));
+    expect(res.status).toBe(403);
+    const { error } = await json<{ error: string }>(res);
+    expect(error).toMatch(AI_OFF_RE);
+    expect(error).toMatch(/commands list still work/);
+    expect(model.requests).toHaveLength(0);
+    expect(databaseUsageMeter).not.toHaveBeenCalled();
+    expect(createCommandContext).not.toHaveBeenCalled();
+  });
+
+  it("answers on the onboarding pages while the community is onboarding: onboarding commands only, counted as onboarding", async () => {
+    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"], status: "onboarding", chatMode: "onboarding" });
+    expect((await json<CommandsResponse>(await commandsGET(get("commands")))).chat).toBe("onboarding");
+    const model = new FakeModel([say("Start with the people list.")]);
+    vi.mocked(assistantModelClient).mockResolvedValue(model);
+    const res = await chatPOST(post("chat", { message: "What do I bring in first?", context: { path: "/setup/onboarding/start" } }));
+    expect(res.status).toBe(200);
+    expect((await lines(res)).map((e) => e.type)).toEqual(["thread", "text", "done"]);
+    expect(vi.mocked(databaseUsageMeter).mock.calls.at(-1)?.[2]).toBe("onboarding");
+    // The events commands of this test community are not onboarding commands: the model is offered none of them.
+    expect(model.requests[0]!.tools.map((t) => t.name)).toEqual([]);
+
+    // Anywhere else the chat needs iWeaver, onboarding or not.
+    const elsewhere = await chatPOST(post("chat", { message: "hi", context: { path: "/people" } }));
+    expect(elsewhere.status).toBe(403);
+    expect((await json<{ error: string }>(elsewhere)).error).toMatch(AI_OFF_RE);
+    const nowhere = await chatPOST(post("chat", { message: "hi" }));
+    expect(nowhere.status).toBe(403);
+  });
+
+  it("does not open the chat for a live community on the onboarding pages", async () => {
+    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"], status: "active" });
+    const res = await chatPOST(post("chat", { message: "hi", context: { path: "/setup/onboarding/start" } }));
+    expect(res.status).toBe(403);
+  });
+
+  it("with iWeaver on, the chat works everywhere as before and is counted as chat", async () => {
+    signIn({ rules: ruleSet(false), modulesOff: [] });
+    vi.mocked(assistantModelClient).mockResolvedValue(new FakeModel([say("Hello.")]));
+    const res = await chatPOST(post("chat", { message: "hi", context: { path: "/people" } }));
+    expect(res.status).toBe(200);
+    expect(vi.mocked(databaseUsageMeter).mock.calls.at(-1)?.[2]).toBe("chat");
+    expect((await json<CommandsResponse>(await commandsGET(get("commands")))).chat).toBe("on");
+  });
+
+  it("keeps everything off when the modules could not be read: no guessing before an AI call", async () => {
+    signIn({ rules: ruleSet(false), modulesStatus: "error" });
+    const res = await chatPOST(post("chat", { message: "hi", context: { path: "/setup/onboarding/start" } }));
+    expect(res.status).toBe(503);
+  });
+
+  it("still needs Niva: with iWeaver on but Niva paused the chat is off and says why; the commands still work", async () => {
+    signIn({ rules: ruleSet(false), modulesOff: ["niva"] });
+    const model = new FakeModel([say("never")]);
+    vi.mocked(assistantModelClient).mockResolvedValue(model);
+    const res = await chatPOST(post("chat", { message: "hi", context: { path: "/people" } }));
+    expect(res.status).toBe(403);
+    expect((await json<{ error: string }>(res)).error).toBe(CHAT_NIVA_OFF);
+    expect(model.requests).toHaveLength(0);
+    expect(await json<CommandsResponse>(await commandsGET(get("commands")))).toMatchObject({ enabled: true, chat: "off", chatOff: "niva" });
+    expect((await runPOST(post("run", { key: "events.look" }))).status).toBe(200);
+  });
+
+  it("an onboarding community's chat stays off when the database says Niva itself is off, or cannot say", async () => {
+    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"], status: "onboarding", chatMode: "off" });
+    const off = await chatPOST(post("chat", { message: "hi", context: { path: "/setup/onboarding/start" } }));
+    expect(off.status).toBe(403);
+    expect((await json<{ error: string }>(off)).error).toBe(CHAT_NIVA_OFF);
+    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"], status: "onboarding", chatMode: [] });
+    const unknown = await chatPOST(post("chat", { message: "hi", context: { path: "/setup/onboarding/start" } }));
+    expect(unknown.status).toBe(503);
+    expect((await json<CommandsResponse>(await commandsGET(get("commands"))))).toMatchObject({ chat: "off", chatOff: "unknown" });
+  });
+
+  it("stops a message plainly when iWeaver goes off between two model calls", async () => {
+    let mode = "on";
+    signIn({ rules: ruleSet(false), chatMode: () => mode });
+    const model = new FakeModel([callTools(toolCall("events_look", {}, "t1")), say("never")]);
+    vi.mocked(assistantModelClient).mockResolvedValue(model);
+    // The first call is made; before the second the database says iWeaver is off.
+    vi.mocked(databaseUsageMeter).mockReturnValue({
+      check: async () => ((mode = "off"), { state: "allowed", used: 1, limit: 300 }),
+      status: async () => null,
+    });
+    const events = await lines(await chatPOST(post("chat", { message: "what is on?", context: { path: "/people" } })));
+    expect(model.requests).toHaveLength(1);
+    expect(events.find((e) => e.type === "error")).toMatchObject({ type: "error", message: expect.stringMatching(/switched off for your community while it was answering/), retryable: false });
   });
 });

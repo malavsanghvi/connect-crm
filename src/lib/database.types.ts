@@ -1588,6 +1588,7 @@ export type Database = {
           reason: string;
           granted_by: string | null;
           granted_at: string;
+          is_trial: boolean;
         };
         Insert: {
           center_id: string;
@@ -1596,6 +1597,7 @@ export type Database = {
           reason: string;
           granted_by?: string | null;
           granted_at?: string;
+          is_trial?: boolean;
         };
         Update: {
           center_id?: string;
@@ -1604,6 +1606,7 @@ export type Database = {
           reason?: string;
           granted_by?: string | null;
           granted_at?: string;
+          is_trial?: boolean;
         };
         Relationships: [];
       };
@@ -5123,6 +5126,132 @@ export type Database = {
           assigned?: number;
           served?: number;
           status?: string;
+        };
+        Relationships: [];
+      };
+      marketplace_interest: {
+        Row: {
+          center_id: string;
+          product_key: string;
+          requested_by: string | null;
+          created_at: string;
+          told_at: string | null;
+          told_status: string | null;
+        };
+        Insert: {
+          center_id: string;
+          product_key: string;
+          requested_by?: string | null;
+          created_at?: string;
+          told_at?: string | null;
+          told_status?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          product_key?: string;
+          requested_by?: string | null;
+          created_at?: string;
+          told_at?: string | null;
+          told_status?: string | null;
+        };
+        Relationships: [];
+      };
+      marketplace_products: {
+        Row: {
+          key: string;
+          module_key: string | null;
+          name: string;
+          mark: string;
+          line: string;
+          gets: string[];
+          needs: Json;
+          members_line: string | null;
+          data_line: string | null;
+          price_text: string;
+          price_short: string | null;
+          included: boolean;
+          status: string;
+          target_quarter: string | null;
+          on_note: string | null;
+          off_note: string | null;
+          sort: number;
+        };
+        Insert: {
+          key: string;
+          module_key?: string | null;
+          name: string;
+          mark: string;
+          line: string;
+          gets?: string[];
+          needs?: Json;
+          members_line?: string | null;
+          data_line?: string | null;
+          price_text?: string;
+          price_short?: string | null;
+          included?: boolean;
+          status: string;
+          target_quarter?: string | null;
+          on_note?: string | null;
+          off_note?: string | null;
+          sort?: number;
+        };
+        Update: {
+          key?: string;
+          module_key?: string | null;
+          name?: string;
+          mark?: string;
+          line?: string;
+          gets?: string[];
+          needs?: Json;
+          members_line?: string | null;
+          data_line?: string | null;
+          price_text?: string;
+          price_short?: string | null;
+          included?: boolean;
+          status?: string;
+          target_quarter?: string | null;
+          on_note?: string | null;
+          off_note?: string | null;
+          sort?: number;
+        };
+        Relationships: [];
+      };
+      marketplace_requests: {
+        Row: {
+          id: string;
+          center_id: string;
+          product_key: string;
+          note: string;
+          status: string;
+          requested_by: string | null;
+          requested_at: string;
+          closed_by: string | null;
+          closed_at: string | null;
+          close_note: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          product_key: string;
+          note: string;
+          status?: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          closed_by?: string | null;
+          closed_at?: string | null;
+          close_note?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          product_key?: string;
+          note?: string;
+          status?: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          closed_by?: string | null;
+          closed_at?: string | null;
+          close_note?: string | null;
         };
         Relationships: [];
       };
@@ -11748,6 +11877,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      assistant_chat_mode: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
       assistant_confirm: {
         Args: {
           p_proposal: string;
@@ -11799,7 +11934,8 @@ export type Database = {
       assistant_usage_check: {
         Args: {
           p_center: string;
-          p_cost?: number;
+          p_cost: number;
+          p_purpose: string;
         };
         Returns: Json;
       };
@@ -13342,6 +13478,60 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      marketplace_audit: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: { at: string; actor: string; what: string; why: string }[];
+      };
+      marketplace_needs_ok: {
+        Args: {
+          p: Json;
+        };
+        Returns: boolean;
+      };
+      marketplace_notify_me: {
+        Args: {
+          p_center: string;
+          p_product: string;
+        };
+        Returns: Json;
+      };
+      marketplace_open_requests: {
+        Args: Record<PropertyKey, never>;
+        Returns: { id: string; center_id: string; center_name: string; center_slug: string; product_key: string; product_name: string; note: string; requested_at: string; requested_by_name: string }[];
+      };
+      marketplace_request: {
+        Args: {
+          p_center: string;
+          p_product: string;
+          p_note: string;
+        };
+        Returns: Json;
+      };
+      marketplace_request_cancel: {
+        Args: {
+          p_center: string;
+          p_product: string;
+        };
+        Returns: Json;
+      };
+      marketplace_set_product: {
+        Args: {
+          p_center: string;
+          p_product: string;
+          p_on: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      marketplace_states: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { key: string; module_key: string; name: string; module_label: string; mark: string; line: string; gets: string[]; needs: Json; members_line: string; data_line: string; price_text: string; price_short: string; included: boolean; catalog_status: string; target_quarter: string; on_note: string; off_note: string; sort: number; state: string; enabled: boolean; granted: boolean; paused: boolean; waiting_for: string[]; source: string; granted_at: string; granted_by_name: string; grant_reason: string; paused_at: string; paused_by_name: string; pause_reason: string; request_id: string; request_note: string; requested_at: string; requested_by_name: string; notified_at: string }[];
       };
       match_deposit: {
         Args: {

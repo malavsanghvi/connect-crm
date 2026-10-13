@@ -7,7 +7,8 @@
 // "proposal"). Only POST /api/assistant/confirm executes it, after the person presses the button.
 //
 // Pure of the server: the model, the usage meter and the conversation log are passed in, so the tests run it with a scripted
-// model and no network.
+// model and no network. The model is called only while the chat may answer (iWeaver and Niva, or onboarding: 0755): the usage
+// meter's database check before the first call, `stillAllowed` before every later one.
 
 import { randomUUID } from "node:crypto";
 
@@ -52,6 +53,12 @@ export type ChatDeps = {
   /** The person went away (the request was cancelled). */
   signal?: AbortSignal;
   timeoutMs?: number;
+  /**
+   * Asked again before every model call after the first of a message (0755): may the chat still answer (iWeaver and Niva, or
+   * onboarding)? Null means yes; otherwise the plain reason, and the message stops there. The first call is covered by the
+   * route's check and by the usage meter, which the database refuses the same way.
+   */
+  stillAllowed?: () => Promise<{ error: string; retryable: boolean } | null>;
 };
 
 const err = (message: string, retryable: boolean): ChatEvent => ({ type: "error", message, retryable });
@@ -207,6 +214,14 @@ async function* converse(deps: ChatDeps, request: ChatRequest, tally: Tally): As
 
   for (let calls = 0; calls <= maxSteps + 1; calls++) {
     if (signal.aborted) break;
+    // iWeaver or Niva may have been switched off while this message was being answered: check again before each later call.
+    if (calls > 0 && deps.stillAllowed) {
+      const refused = await deps.stillAllowed();
+      if (refused) {
+        yield err(refused.error, refused.retryable);
+        break;
+      }
+    }
     const closing = steps >= maxSteps;
     let response: ModelResponse;
     try {

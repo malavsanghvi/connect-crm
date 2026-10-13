@@ -20,6 +20,7 @@ const noop = () => {};
 const PREVIEW_NIVA: NivaApi = {
   enabled: true,
   aiReady: true,
+  aiOff: false,
   commands: [],
   nav: [],
   context: { path: "/giving" },

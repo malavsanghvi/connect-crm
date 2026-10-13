@@ -195,7 +195,7 @@ select pg_temp.assert(not exists (
                          ('giving_statements'), ('giving_insights')) a(key)
      where app.module_availability(c.id, a.key) <> 'not_available'
        and app.module_enabled(c.id, a.key) is distinct from app.module_enabled(c.id, 'giving'))
-                      and not exists (select 1 from app.center_module_grants where center_id in (:jc, :np)),
+                      and not exists (select 1 from app.center_module_grants where center_id in (:jc, :np) and module_key <> 'ai'),
   'A · every community (with or without grant rows) has each add-on its kind offers on exactly where Giving is on');
 
 -- Before anything is paused, staff and the family see their rows.

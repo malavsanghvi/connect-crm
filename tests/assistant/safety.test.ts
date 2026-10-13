@@ -34,6 +34,7 @@ function api(over: Partial<NivaApi> = {}): NivaApi {
   return {
     enabled: false,
     aiReady: false,
+    aiOff: false,
     commands: [],
     nav: [],
     context: { path: "/" },

@@ -1,15 +1,22 @@
 import "server-only";
 
+import { aiKnownOn, chatMode, isChatMode, type ChatMode } from "@/lib/ai-gate";
+import { untypedRpc } from "@/lib/payments/rpc";
 import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { loadSession, type CrmSession } from "@/lib/session";
 
 import type { ChatEvent } from "./protocol";
-import { ASSISTANT_MODULE_OFF, ASSISTANT_MODULES_UNKNOWN, ASSISTANT_OFF, assistantEnabled, nivaForAdminsOn } from "./settings";
+import { ASSISTANT_MODULES_UNKNOWN, ASSISTANT_OFF, assistantEnabled, CHAT_AI_OFF, CHAT_MODE_UNKNOWN, CHAT_NIVA_OFF, nivaForAdminsOn } from "./settings";
 
 // What every route under /api/assistant does first: find the signed-in person (their own session, never a service account), make
 // sure they work for this community, and make sure Niva for admins is switched on for it. Every refusal is a JSON answer
 // { ok:false, error } in plain English with the right status; a signed-out person gets 401, not a redirect to the sign-in page
 // ("/api/assistant" is in PUBLIC_PATHS, src/lib/supabase/proxy.ts, and each route checks its own session).
+//
+// The commands (/run, /confirm, /reject) use no model and need the community's switch only. The chat (/chat) calls the AI
+// provider from here, so it also needs iWeaver and Niva (0755; `chat` says what it may do, src/lib/ai-gate.ts chatMode, which
+// the database confirms for an onboarding community), and app.assistant_usage_check checks the same again before every
+// message (and the chat asks app.assistant_chat_mode again before every later model call of the message).
 
 const NO_STORE = { "cache-control": "no-store" };
 
@@ -19,7 +26,49 @@ export function json(status: number, body: unknown): Response {
 
 export const fail = (status: number, error: string): Response => json(status, { ok: false, error });
 
-export type Authorized = { ok: true; session: CrmSession; enabled: boolean } | { ok: false; response: Response };
+/** Why the chat cannot answer: iWeaver is off, Niva is off, or the database could not say. */
+export type ChatOff = "ai" | "niva" | "unknown";
+
+export type Authorized =
+  | { ok: true; session: CrmSession; enabled: boolean; chat: ChatMode; chatOff?: ChatOff }
+  | { ok: false; response: Response };
+
+/** What app.assistant_chat_mode says for the community (0755), or null when it could not be read: then the chat stays off. */
+export async function databaseChatMode(db: CrmSession["db"], centerId: string): Promise<ChatMode | null> {
+  try {
+    const res = await untypedRpc(db)("assistant_chat_mode", { p_center: centerId });
+    if (res.error) {
+      console.error("[assistant] app.assistant_chat_mode failed:", res.error);
+      return null;
+    }
+    if (isChatMode(res.data)) return res.data;
+    console.error("[assistant] app.assistant_chat_mode answered something unexpected:", res.data);
+    return null;
+  } catch (error) {
+    console.error("[assistant] app.assistant_chat_mode failed:", error);
+    return null;
+  }
+}
+
+/**
+ * The chat's mode for the session: the session's modules decide "on" (iWeaver and Niva) and "off"; an onboarding community
+ * without iWeaver is confirmed by the database (whether Niva itself is on), and anything unclear keeps the chat off.
+ */
+export async function resolveChatMode(session: CrmSession): Promise<{ chat: ChatMode; chatOff?: ChatOff }> {
+  const first = chatMode(session);
+  if (first === "on") return { chat: "on" };
+  if (first === "off") return { chat: "off", chatOff: aiKnownOn(session) ? "niva" : "ai" };
+  const confirmed = await databaseChatMode(session.db, session.center.id);
+  if (confirmed === null) return { chat: "off", chatOff: "unknown" };
+  if (confirmed === "off") return { chat: "off", chatOff: "niva" };
+  return { chat: confirmed };
+}
+
+/** What /chat answers when the chat cannot answer, in plain words (the commands still work). */
+export function chatOffResponse(why: ChatOff | undefined): Response {
+  if (why === "unknown") return fail(503, CHAT_MODE_UNKNOWN);
+  return fail(403, why === "niva" ? CHAT_NIVA_OFF : CHAT_AI_OFF);
+}
 
 /** A POST from another website must not act as the signed-in person: the browser names the page it came from. */
 export function sameOrigin(headers: Pick<Headers, "get">): boolean {
@@ -40,6 +89,10 @@ export type GateOptions = {
   post: boolean;
   /** Answer 403 when the community has not switched Niva for admins on. /commands says so in its own answer instead. */
   needsEnabled: boolean;
+  /** The chat: answer 403 when it cannot answer (iWeaver or Niva off; the route checks the onboarding page itself). */
+  needsChat?: boolean;
+  /** /commands: work out the chat's mode to report it (the other routes need no model and leave it "off"). */
+  reportsChat?: boolean;
 };
 
 export async function authorizeAssistant(req: Pick<Request, "headers">, gate: GateOptions): Promise<Authorized> {
@@ -60,17 +113,16 @@ export async function authorizeAssistant(req: Pick<Request, "headers">, gate: Ga
   if (securityRedirect({ requires: requires2faForStaff(session.center.rules), isStaff, aal: session.aal, pathname: "/" })) {
     return { ok: false, response: fail(403, "Finish your security check first (Account › Security), then use Niva.") };
   }
-  // The community's switch AND the `niva` module (enabled by Weaver, not paused; 0740).
+  // The community's switch, with its modules read (the commands); the chat needs iWeaver and Niva as well (0755).
   const enabled = nivaForAdminsOn(session.center.rules, session);
-  if (gate.needsEnabled && !enabled) {
+  if ((gate.needsEnabled || gate.needsChat) && !enabled) {
     if (!assistantEnabled(session.center.rules)) return { ok: false, response: fail(403, ASSISTANT_OFF) };
-    if (session.modulesStatus !== "ok") {
-      console.error(`[assistant] the community's modules could not be read (${session.modulesStatus}); Niva for admins stays off`);
-      return { ok: false, response: fail(503, ASSISTANT_MODULES_UNKNOWN) };
-    }
-    return { ok: false, response: fail(403, ASSISTANT_MODULE_OFF) };
+    console.error(`[assistant] the community's modules could not be read (${session.modulesStatus}); Niva for admins stays off`);
+    return { ok: false, response: fail(503, ASSISTANT_MODULES_UNKNOWN) };
   }
-  return { ok: true, session, enabled };
+  const mode = enabled && (gate.needsChat || gate.reportsChat) ? await resolveChatMode(session) : { chat: "off" as const };
+  if (gate.needsChat && mode.chat === "off") return { ok: false, response: chatOffResponse(mode.chatOff) };
+  return { ok: true, session, enabled, ...mode };
 }
 
 /** The JSON body of a POST, or the 400 answer. */

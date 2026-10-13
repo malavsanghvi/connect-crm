@@ -63,6 +63,10 @@ insert into auth.users (id, email) values (:admin, 'admin119@example.com'), (:ed
 insert into app.centers (id, slug, name, short_name, state_region, status) values
   (:c, 'site119', 'Website One', 'WS1', 'TX', 'active'),
   (:c2, 'site119b', 'Website Two', 'WS2', 'TX', 'active');
+-- 0751: the website draft is WeaverSite (module `website`), which every kind starts off; these communities hold it (test 160
+-- covers one that does not).
+insert into app.center_module_grants (center_id, module_key, granted, reason) values
+  (:c, 'website', true, 'Test 119: the draft needs WeaverSite (0751)'), (:c2, 'website', true, 'Test 119: the draft needs WeaverSite (0751)');
 insert into app.role_grants (center_id, user_id, role_key) values
   (:c, :admin, 'center_admin'), (:c, :editor, 'content_editor'), (:c2, :admin2, 'center_admin');
 -- A finished website read for each community (the draft may name the read it was built from).
@@ -225,8 +229,9 @@ select pg_temp.assert(not exists (
      where has_table_privilege(r, t, p)),
   'F · the three tables have no grant for the API at all');
 select pg_temp.assert((select count(*) from pg_class where oid in ('app.sites'::regclass, 'app.site_pages'::regclass, 'app.site_blocks'::regclass) and relrowsecurity) = 3
-                      and not exists (select 1 from pg_policy where polrelid in ('app.sites'::regclass, 'app.site_pages'::regclass, 'app.site_blocks'::regclass)),
-  'F · row level security is on and there is NO policy: nothing but the checked functions reaches the draft');
+                      and not exists (select 1 from pg_policy where polrelid in ('app.sites'::regclass, 'app.site_pages'::regclass, 'app.site_blocks'::regclass)
+                                         and (polpermissive or polname <> 'module_switch')),
+  'F · row level security is on and no policy lets anything in (0751 adds only the restrictive module_switch, which can only narrow): nothing but the checked functions reaches the draft');
 select pg_temp.sign_in(:admin);
 select pg_temp.assert_raises('select * from app.sites', 'permission denied', 'F · even an administrator cannot read the sites table directly');
 select pg_temp.assert_raises('select * from app.site_pages', 'permission denied', 'F · nor the pages');
@@ -254,8 +259,8 @@ select pg_temp.assert((select count(*) from pg_proc p join pg_namespace n on n.o
 select pg_temp.assert((select count(*) from pg_trigger t where t.tgname in ('audit_sites', 'audit_site_pages', 'audit_site_blocks')
                           and t.tgrelid in ('app.sites'::regclass, 'app.site_pages'::regclass, 'app.site_blocks'::regclass)
                           and t.tgfoid = 'app.audit_row'::regproc and not t.tgisinternal) = 3
-                      and (select count(*) from app.module_tables where table_name in ('sites', 'site_pages', 'site_blocks') and module_key is null) = 3,
-  'F · the three tables are audited and mapped to the core platform');
+                      and (select count(*) from app.module_tables where table_name in ('sites', 'site_pages', 'site_blocks') and module_key = 'website') = 3,
+  'F · the three tables are audited and mapped to WeaverSite (0751; they were core platform tables until then)');
 select pg_temp.assert(exists (select 1 from app.audit_log where record_table = 'site_pages' and center_id = :c),
   'F · changes to the pages are in the audit log');
 select pg_temp.assert((select count(*) from app.activity_catalog

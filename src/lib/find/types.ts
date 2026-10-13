@@ -133,8 +133,11 @@ export type FindResponse = {
 
 export type FindResult = { ok: true; data: FindResponse } | { ok: false; error: string };
 
-/** How Niva is for this person: it decides what a question does. */
-export type NivaState = "on" | "no_key" | "off";
+/**
+ * How Niva is for this person: it decides what a question does. "ai_off": Niva for admins is on but iWeaver is not, so a
+ * question cannot go to Niva (0755); the commands still work.
+ */
+export type NivaState = "on" | "no_key" | "ai_off" | "off";
 
 /** What the box draws, one entry per selectable or explanatory line. */
 export type UiRow =

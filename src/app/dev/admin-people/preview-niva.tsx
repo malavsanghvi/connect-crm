@@ -15,6 +15,7 @@ export function PreviewNiva({ enabled, mergeTicked, children }: { enabled: boole
   const value: NivaApi = {
     enabled,
     aiReady: enabled,
+    aiOff: false,
     commands: mergeTicked
       ? [
           { key: "people.merge_households", title: "Merge two households", description: "", level: "confirm", area: "people", fields: [] },

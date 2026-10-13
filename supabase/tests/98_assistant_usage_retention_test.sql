@@ -54,6 +54,10 @@ insert into app.centers (id, slug, name, short_name, state_region, status) value
   (:c1, 'asst98a', 'Assistant 98 A', 'A98', 'TX', 'active'),
   (:c2, 'asst98b', 'Assistant 98 B', 'B98', 'TX', 'active'),
   (:c3, 'asst98c', 'Assistant 98 C', 'C98', 'TX', 'active');
+-- The chat's count needs iWeaver (0755): granted here once the catalog has the `ai` module (0750-0754); test 162 covers it off.
+insert into app.center_module_grants (center_id, module_key, granted, reason)
+select x.id, 'ai', true, 'Test: iWeaver granted.' from app.centers x where x.id in (:c1::uuid, :c2::uuid, :c3::uuid) and exists (select 1 from app.modules where key = 'ai')
+on conflict (center_id, module_key) do update set granted = true;
 insert into app.role_grants (center_id, user_id, role_key) values
   (:c1, :ada, 'center_admin'), (:c1, :bo, 'membership_coordinator'), (:c2, :cy, 'membership_coordinator'), (:c3, :dee, 'membership_coordinator');
 insert into app.people (id, center_id, first_name, last_name) values ('98000000-0000-4000-8000-0000000005b1', :c1, 'Mira', 'Member98');

@@ -18,7 +18,7 @@ import { revalidatePath } from "next/cache";
 import { setModuleGrantAction } from "@/app/(app)/platform/centers/[id]/actions";
 import { ModulesPanel } from "@/app/(app)/platform/centers/[id]/modules-panel";
 import { ModulesForm } from "@/app/(app)/settings/modules/modules-form";
-import { ASSISTANT_MODULE_OFF, nivaForAdminsOn } from "@/lib/assistant/settings";
+import { CHAT_AI_OFF, nivaForAdminsOn } from "@/lib/assistant/settings";
 import { buildModuleRowsFromStates, moduleStatus, switchBlocker, switchWarning, type ModuleStateLike } from "@/lib/modules";
 import { dbWithReason, loadSession } from "@/lib/session";
 
@@ -204,17 +204,18 @@ describe("setModuleGrantAction", () => {
   });
 });
 
-describe("Niva for admins follows the niva module", () => {
+describe("Niva for admins' commands follow the community's switch (0755: only the chat needs iWeaver)", () => {
   const on = { assistant: { enabled: true } };
-  it("is on only when the community's switch is on and the module is on", () => {
+  it("is on when the community's switch is on, whatever the AI modules say: the commands use no model", () => {
     expect(nivaForAdminsOn(on, { modulesOff: [], modulesStatus: "ok" })).toBe(true);
-    expect(nivaForAdminsOn(on, { modulesOff: ["niva"], modulesStatus: "ok" })).toBe(false);
+    expect(nivaForAdminsOn(on, { modulesOff: ["niva"], modulesStatus: "ok" })).toBe(true);
+    expect(nivaForAdminsOn(on, { modulesOff: ["ai", "niva"], modulesStatus: "ok" })).toBe(true);
     expect(nivaForAdminsOn({ assistant: { enabled: false } }, { modulesOff: [], modulesStatus: "ok" })).toBe(false);
   });
   it("is off when the modules could not be read (no guessing)", () => {
     expect(nivaForAdminsOn(on, { modulesOff: [], modulesStatus: "error" })).toBe(false);
     expect(nivaForAdminsOn(on, { modulesOff: [], modulesStatus: "missing" })).toBe(false);
     expect(nivaForAdminsOn(on, {})).toBe(false);
-    expect(ASSISTANT_MODULE_OFF).toMatch(/Niva assistant module is not on/);
+    expect(CHAT_AI_OFF).toMatch(/^AI features are part of iWeaver, which is not on for your community\. .*commands list still work/);
   });
 });

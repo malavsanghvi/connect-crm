@@ -10,6 +10,11 @@ export class PermanentError extends Error {
   override name = "PermanentError";
 }
 
+/** The community does not have a module the job's kind needs (iWeaver, 0755): the job is not run, and not tried again. */
+export class ModuleOffError extends PermanentError {
+  override name = "ModuleOffError";
+}
+
 export function isRetryable(err: unknown): boolean {
   return !(err instanceof NotConfiguredError || err instanceof PermanentError);
 }

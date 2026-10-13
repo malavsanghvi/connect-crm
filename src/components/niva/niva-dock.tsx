@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 
+import { AiOffNote } from "@/components/ai-off-note";
 import { useKind } from "@/components/kind-context";
 import { buttonClass } from "@/components/ui";
 import { isWaitingForFirstPart, type AssistantPart, type ChatMessage } from "@/lib/assistant/chat-state";
@@ -184,7 +185,7 @@ function Dock({ niva }: { niva: NivaApi }) {
                 submit();
               }
             }}
-            placeholder={aiReady ? "Ask Niva…" : "Chat is not switched on yet"}
+            placeholder={aiReady ? "Ask Niva…" : niva.aiOff ? "Chat is part of iWeaver" : "Chat is not switched on yet"}
             className="max-h-40 min-h-[44px] flex-1 resize-none rounded-xl border border-line-input bg-white px-3 py-2 text-[13px] text-ink disabled:bg-canvas disabled:text-faint"
           />
           {chat.busy ? (
@@ -239,7 +240,8 @@ function Welcome({
           </ul>
         </div>
       ) : null}
-      {!niva.aiReady ? (
+      {niva.aiOff ? <AiOffNote stillWorks="Niva can't answer questions in words here, but the commands below still work." /> : null}
+      {!niva.aiReady && !niva.aiOff ? (
         <div role="status" className="rounded-xl border border-saffron-200 bg-saffron-50 px-3 py-2.5 text-brown-900">
           <p className="font-semibold">Chat is not switched on yet.</p>
           <p className="mt-0.5">Niva cannot answer questions in words here, but the commands below still work and need no setup.</p>

@@ -17,11 +17,26 @@ import { NAV, canOpenTab, visibleNav } from "@/lib/permissions";
 const admin = { permissions: [] as string[], isPlatformAdmin: true };
 
 describe("module registry", () => {
-  it("lists the contract's 18 keys and Giving's 7 add-ons once each, with only people core", () => {
+  it("lists the contract's 18 keys, Giving's 7 add-ons and the five Marketplace products once each, with only people core", () => {
     expect(MODULES.map((m) => m.key)).toEqual([...MODULE_KEYS]);
-    expect(new Set(MODULE_KEYS).size).toBe(25);
+    expect(new Set(MODULE_KEYS).size).toBe(30);
     expect(MODULES.filter((m) => m.core).map((m) => m.key)).toEqual(["people"]);
     for (const m of MODULES) for (const d of m.dependsOn) expect(isModuleKey(d)).toBe(true);
+  });
+  it("the Marketplace products (0750): neutral keys, brand labels, and Niva needs iWeaver", () => {
+    expect(MODULES.filter((m) => ["ai", "website", "channels", "care", "matching"].includes(m.key)).map((m) => `${m.key}=${m.label}:${m.dependsOn.join(",")}`)).toEqual([
+      "ai=iWeaver:",
+      "website=WeaverSite:people",
+      "channels=CommunityConnect:comms",
+      "care=WeCare:people",
+      "matching=CatchTheMatch:giving",
+    ]);
+    expect(MODULES.find((m) => m.key === "niva")!.dependsOn).toEqual(["content", "ai"]);
+    expect(isModuleEnabled({ modulesOff: ["ai"] }, "niva")).toBe(false);
+    expect(moduleForPath("/setup/website/preview")).toBe("website");
+    expect(moduleForPath("/setup/website")).toBeNull();
+    expect(moduleForPath("/settings/whatsapp")).toBe("channels");
+    expect(moduleForPath("/comms/whatsapp")).toBe("comms");
   });
   it("Giving's add-ons each need Giving only (0741)", () => {
     const addOns = ["giving_bank", "giving_counts", "giving_insights", "giving_opportunities", "giving_recurring", "giving_statements", "labh"];
@@ -208,7 +223,7 @@ describe("Settings › Modules rows", () => {
     expect(switchBlocker("people", false, rows)).toBe("Members & families is a core module and is always on.");
     expect(switchBlocker("giving", false, rows)).toBeNull();
     expect(switchWarning("giving", false, rows)).toBe(
-      "Bank reconciliation, Offering counts, Insights, Opportunities, Recurring gifts, Statements, Special-day offerings, Bolis and Accounting & QuickBooks go off with it and come back when Pledges & donations is switched on again.",
+      "Bank reconciliation, Offering counts, Insights, Opportunities, Recurring gifts, Statements, Special-day offerings, Bolis, Accounting & QuickBooks and CatchTheMatch go off with it and come back when Pledges & donations is switched on again.",
     );
     expect(switchBlocker("bolis", false, rows)).toBeNull();
     expect(switchWarning("bolis", false, rows)).toBeNull();

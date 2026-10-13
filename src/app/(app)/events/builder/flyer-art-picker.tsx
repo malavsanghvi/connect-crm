@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useKind } from "@/components/kind-context";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
+import { MARKETPLACE_HREF } from "@/lib/ai-gate";
 import { POSTER_LIMITS, type PosterContent } from "@/lib/events/flyer";
 import {
   FLYER_LAYER_KINDS,
@@ -494,6 +496,15 @@ export function FlyerArtPicker({
       ) : notReady ? (
         <div className="rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">
           <p>{notReady.message}</p>
+          {notReady.state === "ai_off" ? (
+            <p className="mt-1">
+              An administrator can ask for it in{" "}
+              <Link href={MARKETPLACE_HREF} className="font-semibold underline">
+                Settings › Marketplace
+              </Link>
+              .
+            </p>
+          ) : null}
           {notReady.state === "unknown" ? (
             <button type="button" className={`${buttonClass("ghost", "xs")} mt-2`} onClick={() => void reload(poster.occasion)} disabled={loading}>
               {loading ? "Checking…" : "Check again"}
