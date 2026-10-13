@@ -96,7 +96,7 @@ filing for at most 366 days, the owner is emailed, it ends when Weaver turns Cat
 `app.log_private_read`); the employer for gift matching (`app.person_match_employers`, with the consent kept in the record:
 source, recorded_by, consented_at, withdrawn_at; adults only, also at read time; set and withdrawn by the person, or
 recorded from a signed paper form by `matching.manage`; `people.employer` is untouched and only prefills it) with a Gift
-matching section in the person slide-over. Weaver's team never holds `matching_lead`; a filing grant counts only while
+matching section in the person slide-over. The record is bound to the sign-in that consented; a paper form for someone with no sign-in binds to their first sign-in if its verified email is the email on file when it was recorded (any later change of that email, or a first link by another account, leaves it to the office). Weaver's team never holds `matching_lead`; a filing grant counts only while
 Weaver's grant of CatchTheMatch is older than it. The filing queue is slice 3.
 
 ## 7. Where the employer-program facts come from

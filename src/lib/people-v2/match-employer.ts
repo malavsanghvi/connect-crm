@@ -25,6 +25,8 @@ export type MatchEmployerFacts = {
   canRecord: boolean;
   /** The person can manage it in the member app: a sign-in of theirs consented to it (0759). */
   personCanManage: boolean;
+  /** A paper form for someone with no sign-in yet: it becomes theirs when they first sign in with the email on file. */
+  waitsForFirstSignIn: boolean;
 };
 
 export async function loadMatchEmployer(session: CrmSession, person: { id: string; profileEmployer: string | null }): Promise<Part<MatchEmployerFacts>> {
@@ -32,7 +34,7 @@ export async function loadMatchEmployer(session: CrmSession, person: { id: strin
   const { db, center } = session;
   const r = await db
     .from("person_match_employers")
-    .select("employer_name, source, recorded_by, consented_at, consented_by_user")
+    .select("employer_name, source, recorded_by, consented_at, consented_by_user, consent_email")
     .eq("center_id", center.id)
     .eq("person_id", person.id)
     .maybeSingle();
@@ -57,21 +59,24 @@ export async function loadMatchEmployer(session: CrmSession, person: { id: strin
     suggestion: row ? null : profile,
     canRecord: matchingCan(session, "manage"),
     personCanManage: Boolean(row?.consented_by_user),
+    waitsForFirstSignIn: !row?.consented_by_user && Boolean(row?.consent_email),
   });
 }
 
 /** The line under the employer: where it came from and when. */
 export function matchEmployerSourceLine(
-  f: Pick<MatchEmployerFacts, "source" | "recordedBy"> & { personCanManage?: boolean },
+  f: Pick<MatchEmployerFacts, "source" | "recordedBy"> & { personCanManage?: boolean; waitsForFirstSignIn?: boolean },
   firstName: string,
   when: string | null,
 ): string {
   const at = when ? `, ${when}` : "";
   if (f.source === "paper_form") {
     const who = `From a signed paper form, recorded by ${f.recordedBy ?? "someone in the office"}${at}.`;
-    return f.personCanManage === false
-      ? `${who} ${firstName} had no sign-in then, so the office changes or withdraws it.`
-      : `${who} ${firstName} can see and remove it in the member app.`;
+    if (f.personCanManage !== false) return `${who} ${firstName} can see and remove it in the member app.`;
+    if (f.waitsForFirstSignIn) {
+      return `${who} ${firstName} can see and remove it in the member app once they first sign in with the email on file; until then only the office changes or withdraws it.`;
+    }
+    return `${who} Only the office changes or withdraws it: ${firstName} had no sign-in when it was recorded, and either the email on file has changed since or the first sign-in used another email.`;
   }
   if (f.source === "member") return `Added by ${firstName} in the member app${at}. Only ${firstName} can change it.`;
   return "";

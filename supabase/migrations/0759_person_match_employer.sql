@@ -17,9 +17,13 @@
 --   BOUND TO THE SIGN-IN THAT CONSENTED. The person's own read, change and withdrawal need auth.uid() = consented_by_user,
 --   not only today's link from a sign-in to the person: a sign-in re-linked to the person, or a new account linked later
 --   (someone who changed the person's email to their own, or was invited as them), can neither read the employer nor change
---   or withdraw it. A record from a paper form is bound to the sign-in the person had when the office recorded it (none:
---   only the office changes or withdraws it). A withdrawn record holds nothing, so anyone linked to the person may consent
---   again.
+--   or withdraw it. A record from a paper form is bound to the sign-in the person had when the office recorded it. When they
+--   had none, the person's email on file at that moment is kept (consent_email, normalised), and the FIRST sign-in that
+--   links to the person afterwards (through the existing linking functions: link_account, an invitation, ...) is bound to it
+--   if, and only if, its verified sign-in email is that same email. Any change of the email on file after the recording
+--   (the forged-email path: staff setting it to their own), or a first link by any other sign-in (a second account), uses
+--   the snapshot up: nothing binds, and only the office changes or withdraws it. A withdrawn record holds nothing, so anyone
+--   linked to the person may consent again.
 --     app.my_match_employer(center)                 what is on file (only if it is this sign-in's), how it got there, and
 --                                                   the suggestion from their profile
 --     app.set_my_match_employer(center, employer)   adds or changes it (CatchTheMatch must be on): their consent, now
@@ -44,6 +48,7 @@ create table if not exists app.person_match_employers (
   source            text not null check (source in ('member', 'paper_form')),
   recorded_by       uuid not null references auth.users(id),
   consented_by_user uuid references auth.users(id),
+  consent_email     text check (consent_email is null or consent_email = lower(btrim(consent_email))),
   consented_at      timestamptz not null default now(),
   withdrawn_at      timestamptz,
   withdrawn_by      uuid references auth.users(id),
@@ -59,7 +64,9 @@ comment on table app.person_match_employers is
   'An adult''s employer for gift matching (0759, CatchTheMatch) and the consent behind it, kept in the record: source (member | paper_form), recorded_by, consented_by_user (the sign-in that consented; the person''s own read and changes need it), consented_at, withdrawn_at. Written only by set_my_match_employer / record_match_employer / remove_my_match_employer / withdraw_match_employer. Not people.employer.';
 comment on column app.person_match_employers.source is 'member: the person gave it in the app. paper_form: the office recorded it from a signed paper form (recorded_by, consented_at).';
 comment on column app.person_match_employers.consented_by_user is
-  'The sign-in that consented: the person''s own in the app, or the one linked to the person when the office recorded a paper form (null when there was none). Only this sign-in reads, changes or withdraws it itself.';
+  'The sign-in that consented: the person''s own in the app, the one linked to the person when the office recorded a paper form, or the first sign-in linked afterwards whose verified email is consent_email. Only this sign-in reads, changes or withdraws it itself.';
+comment on column app.person_match_employers.consent_email is
+  'A paper form for a person with no sign-in: their email on file when it was recorded (lower case, trimmed). Used up by the first link to the person and by any change of the email on file; null otherwise.';
 
 -- The row belongs to its person's community and, while an employer is on file, to an adult; the name is trimmed.
 -- SECURITY DEFINER so the birth date and household roles can be read whoever writes.
@@ -167,8 +174,9 @@ begin
   return app._match_employer_card(app._my_person_or_raise(p_center), auth.uid());
 end $$;
 
-create or replace function app._put_match_employer(p_center uuid, p_person uuid, p_employer text, p_source text, p_consented_by uuid)
-returns void language plpgsql security definer set search_path = app, public, extensions as $$
+create or replace function app._put_match_employer(p_center uuid, p_person uuid, p_employer text, p_source text, p_consented_by uuid,
+                                                   p_consent_email text default null)
+returns void language plpgsql security definer set search_path = app, public, extensions as $
 begin
   if app.person_is_minor(p_person) then
     raise exception 'An employer for gift matching can be recorded for an adult only.' using errcode = '23514';
@@ -176,12 +184,14 @@ begin
   if char_length(btrim(coalesce(p_employer, ''))) not between 1 and 120 then
     raise exception 'Enter the employer''s name (at most 120 characters).' using errcode = '22023';
   end if;
-  insert into app.person_match_employers (person_id, center_id, employer_name, source, recorded_by, consented_by_user,
+  insert into app.person_match_employers (person_id, center_id, employer_name, source, recorded_by, consented_by_user, consent_email,
                                           consented_at, withdrawn_at, withdrawn_by)
-  values (p_person, p_center, p_employer, p_source, auth.uid(), p_consented_by, now(), null, null)
+  values (p_person, p_center, p_employer, p_source, auth.uid(), p_consented_by,
+          case when p_consented_by is null then nullif(lower(btrim(coalesce(p_consent_email, ''))), '') end, now(), null, null)
   on conflict (person_id) do update
     set employer_name = excluded.employer_name, source = excluded.source, recorded_by = excluded.recorded_by,
-        consented_by_user = excluded.consented_by_user, consented_at = excluded.consented_at, withdrawn_at = null, withdrawn_by = null;
+        consented_by_user = excluded.consented_by_user, consent_email = excluded.consent_email,
+        consented_at = excluded.consented_at, withdrawn_at = null, withdrawn_by = null;
 end $$;
 
 create or replace function app.set_my_match_employer(p_center uuid, p_employer text) returns jsonb
@@ -240,11 +250,13 @@ begin
     raise exception 'This person''s record is closed (deceased or merged), so nothing new can be recorded for them.';
   end if;
   perform app.set_audit_context('Recorded from a signed paper form');
-  -- Bound to the sign-in the person has now (none: only the office changes or withdraws it).
+  -- Bound to the sign-in the person has now; with none, to the first sign-in that links later with the email on file now.
   perform app._put_match_employer(p_center, p_person, p_employer, 'paper_form',
-    (select cu.user_id from app.center_users cu where cu.center_id = p_center and cu.person_id = p_person));
+    (select cu.user_id from app.center_users cu where cu.center_id = p_center and cu.person_id = p_person),
+    (select p.email::text from app.people p where p.id = p_person));
   return (select jsonb_build_object('employer', e.employer_name, 'source', e.source, 'consented_at', e.consented_at,
-                                    'person_can_manage_it', e.consented_by_user is not null)
+                                    'person_can_manage_it', e.consented_by_user is not null,
+                                    'waits_for_first_sign_in', e.consent_email is not null)
             from app.person_match_employers e where e.person_id = p_person);
 end $$;
 
@@ -258,15 +270,56 @@ begin
   end if;
   perform app.set_audit_context('Withdrawn by the office at the person''s request: ' || app.audit_clean_reason(p_reason));
   update app.person_match_employers
-     set employer_name = null, withdrawn_at = now(), withdrawn_by = auth.uid()
+     set employer_name = null, withdrawn_at = now(), withdrawn_by = auth.uid(), consent_email = null
    where person_id = p_person and center_id = p_center and withdrawn_at is null;
   get diagnostics v_gone = row_count;
   return v_gone > 0;
 end $$;
 
+-- ── A paper form waiting for the person's first sign-in ─────────────────────
+-- The email on file changes after the recording (staff set it to another address): the snapshot is used up, nothing binds.
+create or replace function app.match_employer_email_changed() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $
+begin
+  if lower(btrim(coalesce(new.email::text, ''))) is distinct from lower(btrim(coalesce(old.email::text, ''))) then
+    update app.person_match_employers set consent_email = null where person_id = new.id and consent_email is not null;
+  end if;
+  return null;
+end $;
+revoke execute on function app.match_employer_email_changed() from public, anon, authenticated;
+drop trigger if exists match_employer_email_changed on app.people;
+create trigger match_employer_email_changed after update of email on app.people
+  for each row execute function app.match_employer_email_changed();
+
+-- The first sign-in linked to the person (any linking function writes app.center_users): bound when its verified sign-in
+-- email is the snapshot (and still the email on file); either way the snapshot is used up, so no later sign-in binds.
+create or replace function app.match_employer_first_link() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $
+declare e app.person_match_employers; v_signin text; v_on_file text;
+begin
+  if tg_op = 'UPDATE' and new.person_id is not distinct from old.person_id and new.user_id is not distinct from old.user_id then
+    return null;
+  end if;
+  select * into e from app.person_match_employers
+   where person_id = new.person_id and consent_email is not null and consented_by_user is null and employer_name is not null
+   for update;
+  if e.person_id is null then return null; end if;
+  select lower(btrim(u.email::text)) into v_signin from auth.users u where u.id = new.user_id and u.email_confirmed_at is not null;
+  select lower(btrim(p.email::text)) into v_on_file from app.people p where p.id = new.person_id;
+  update app.person_match_employers
+     set consented_by_user = case when v_signin = e.consent_email and v_on_file = e.consent_email then new.user_id end,
+         consent_email = null
+   where person_id = new.person_id;
+  return null;
+end $;
+revoke execute on function app.match_employer_first_link() from public, anon, authenticated;
+drop trigger if exists match_employer_first_link on app.center_users;
+create trigger match_employer_first_link after insert or update of person_id, user_id on app.center_users
+  for each row execute function app.match_employer_first_link();
+
 -- ── Who may call what ────────────────────────────────────────────────────────
 revoke execute on function app._my_person_or_raise(uuid), app._match_employer_card(uuid, uuid),
-  app._put_match_employer(uuid, uuid, text, text, uuid), app._match_office_check(uuid, uuid)
+  app._put_match_employer(uuid, uuid, text, text, uuid, text), app._match_office_check(uuid, uuid)
   from public, anon, authenticated;
 revoke execute on function app.my_match_employer(uuid), app.set_my_match_employer(uuid, text), app.remove_my_match_employer(uuid),
   app.record_match_employer(uuid, uuid, text), app.withdraw_match_employer(uuid, uuid, text) from public, anon;

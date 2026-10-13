@@ -95,6 +95,11 @@ end $$;
 \set pz '''16300000-0000-4000-8000-0000000000a6'''
 \set hijack '''16300000-0000-4000-8000-000000000013'''
 \set second '''16300000-0000-4000-8000-000000000014'''
+\set quinn '''16300000-0000-4000-8000-000000000015'''
+\set rae '''16300000-0000-4000-8000-000000000016'''
+\set raealt '''16300000-0000-4000-8000-000000000017'''
+\set pq '''16300000-0000-4000-8000-0000000000a7'''
+\set pr '''16300000-0000-4000-8000-0000000000a8'''
 
 -- ══ A. The shape ═════════════════════════════════════════════════════════════
 select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
@@ -108,7 +113,7 @@ select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconf
                               'enforce_role_grant', 'ensure_center_owner', 'center_owners_self_rule', 'center_owners_weaver_notice',
                               'role_grants_weaver_notice', '_weaver_change_email', 'matching_readable_centers', '_module_records',
                               'may_grant_private_role', 'demo_missing_roles', 'link_account', 'transfer_ownership', 'withdraw_match_employer',
-                              'match_employer_adult', '_match_office_check')),
+                              'match_employer_adult', '_match_office_check', 'match_employer_email_changed', 'match_employer_first_link')),
   'A · every function of 0757-0759 (and the ones they replace) runs as the definer with the pinned search path');
 select pg_temp.assert((select bool_and(not p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
                          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -163,6 +168,9 @@ insert into auth.users (id, email) values
   (:carefin, 'carefin163@c1.test'), (:c2owner, 'owner163@c2.test'), (:newbie, 'newbie163@c1.test'),
   (:expired, 'expired163@c1.test'), (:scoped, 'scoped163@c1.test'), (:pending, 'pending163@c1.test'),
   (:invitee, 'invitee163@c1.test'), (:weaverinv, 'weaverinv163@weaver.test'), (:hijack, 'hijack163@c1.test'), (:second, 'second163@c1.test');
+-- Sign-ins whose email was verified (section N: a paper form binds only to a verified email).
+insert into auth.users (id, email, email_confirmed_at) values
+  (:quinn, 'quinn163@c1.test', now()), (:rae, 'rae163@c1.test', now()), (:raealt, 'raealt163@c1.test', now());
 insert into app.accounts (user_id, is_platform_admin) values (:plat, true), (:weaver, true), (:weaverinv, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
 -- The platform admin has an authenticator app, so a fresh 2FA check is required of them (section I).
@@ -203,10 +211,15 @@ insert into app.people (id, center_id, first_name, last_name, date_of_birth, emp
   (:pa, :c1, 'Ari', 'Member163', null, 'Globex'),
   (:pn, :c1, 'Ned', 'Newbie163', date '1990-01-01', null),
   (:pc, :c1, 'Cal', 'Admin163', date '1970-01-01', null),
-  (:pz, :c1, 'Zed', 'Target163', date '1980-02-02', null);
+  (:pz, :c1, 'Zed', 'Target163', date '1980-02-02', null),
+  (:pq, :c1, 'Quinn', 'Paper163', date '1981-03-03', null),
+  (:pr, :c1, 'Rae', 'Paper163', date '1982-04-04', null);
+update app.people set email = 'zed163@c1.test' where id = :pz;
+update app.people set email = 'Quinn163@C1.test' where id = :pq;
+update app.people set email = 'rae163@c1.test' where id = :pr;
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
   (:h1, :pm, :c1, 'primary', true), (:h1, :pk, :c1, 'child', false), (:h1, :pa, :c1, 'spouse', false), (:h2, :pn, :c1, 'primary', true),
-  (:h2, :pz, :c1, 'other', false);
+  (:h2, :pz, :c1, 'other', false), (:h2, :pq, :c1, 'other', false), (:h2, :pr, :c1, 'other', false);
 insert into app.center_users (center_id, user_id, person_id) values (:c1, :member, :pm), (:c1, :kid, :pk), (:c1, :newbie, :pn), (:c1, :cadmin, :pc);
 select pg_temp.assert((select status from app.role_grants where center_id = :c1 and user_id = :pending) = 'pending'
                       and app.module_enabled(:c1, 'care') and app.module_enabled(:c1, 'matching') and not app.module_enabled(:c2, 'care'),
@@ -724,12 +737,16 @@ select pg_temp.assert((select person_id from app.center_users where center_id = 
 -- The office records Zed's employer from a paper form before Zed has a sign-in.
 set role authenticated;
 select pg_temp.claims(:matchlead);
-select pg_temp.assert((app.record_match_employer(:c1, :pz, 'Zed Corp'))->>'person_can_manage_it' = 'false',
-  'N · a paper form for someone with no sign-in yet: only the office can change or withdraw it');
--- (1) An existing link is never re-pointed: Mia's sign-in, matched to Zed (Zed's email set to hers), stays Mia's.
+select pg_temp.assert((app.record_match_employer(:c1, :pz, 'Zed Corp')) @> '{"person_can_manage_it": false, "waits_for_first_sign_in": true}'::jsonb,
+  'N · a paper form for someone with no sign-in yet waits for their first sign-in');
 reset role;
+select pg_temp.assert((select consent_email = 'zed163@c1.test' and consented_by_user is null from app.person_match_employers where person_id = :pz),
+  'N · it keeps the email on file at that moment');
+-- (1) An existing link is never re-pointed: Mia's sign-in, matched to Zed (Zed's email set to hers), stays Mia's.
 select pg_temp.no_claims();
 update app.people set email = 'member163@c1.test' where id = :pz;
+select pg_temp.assert((select consent_email is null and consented_by_user is null from app.person_match_employers where person_id = :pz),
+  'N · a staff change of the email on file after the recording uses the snapshot up: nothing will bind (the forged-email path)');
 set role authenticated;
 select pg_temp.claims(:member);
 select pg_temp.assert_raises(format($$select app.link_account(%L, %L)$$, :c1, :pz),
@@ -749,8 +766,43 @@ select pg_temp.assert((app.my_match_employer(:c1))->>'employer' is null
 select pg_temp.assert_raises(format($$select app.set_my_match_employer(%L, 'Hijack Inc')$$, :c1),
   'already on file for you', 'N · nor change it');
 reset role;
-select pg_temp.assert((select employer_name = 'Zed Corp' and withdrawn_at is null from app.person_match_employers where person_id = :pz),
-  'N · Zed''s record is as the office recorded it');
+select pg_temp.assert((select employer_name = 'Zed Corp' and withdrawn_at is null and consented_by_user is null
+                         from app.person_match_employers where person_id = :pz),
+  'N · Zed''s record is as the office recorded it, bound to no sign-in');
+-- Owner answer 4 kept: a paper form binds to the person's FIRST sign-in when its verified email is the email on file.
+set role authenticated;
+select pg_temp.claims(:matchlead);
+select app.record_match_employer(:c1, :pq, 'Quinn Ltd');
+select app.record_match_employer(:c1, :pr, 'Rae Ltd');
+select pg_temp.claims(:quinn);
+select pg_temp.assert(app.link_account(:c1, :pq) = :pq
+                      and (app.my_match_employer(:c1)) @> '{"employer": "Quinn Ltd", "source": "paper_form"}'::jsonb,
+  'N · Quinn links with the email on file (another case): the paper form is now theirs to see');
+select pg_temp.assert(app.remove_my_match_employer(:c1), 'N · and to remove');
+reset role;
+select pg_temp.assert((select consented_by_user = :quinn and consent_email is null and withdrawn_by = :quinn
+                         from app.person_match_employers where person_id = :pq),
+  'N · bound to Quinn''s sign-in, which withdrew it');
+-- A second account linked first (invited as Rae, with another email): nothing binds, and not later either.
+set role authenticated;
+select pg_temp.claims(:owner);
+select token as rae_token from app.invite_staff(:c1, 'raealt163@c1.test', null, :pr, array['teacher'], '{"kind":"center"}'::jsonb, 'Rae', 'Alt', 7) \gset
+select pg_temp.claims(:raealt);
+select (app.accept_invitation(:'rae_token'))->>'person_id' as rae_linked \gset
+select pg_temp.assert(:'rae_linked' = :pr and (app.my_match_employer(:c1))->>'employer' is null,
+  'N · a second account invited as Rae is linked to her, but sees nothing of her paper form');
+reset role;
+select pg_temp.assert((select consented_by_user is null and consent_email is null from app.person_match_employers where person_id = :pr),
+  'N · and nothing bound: the first link used the snapshot up');
+select pg_temp.no_claims();
+delete from app.center_users where center_id = :c1 and user_id = :raealt;
+set role authenticated;
+select pg_temp.claims(:rae);
+select pg_temp.assert(app.link_account(:c1, :pr) = :pr and (app.my_match_employer(:c1))->>'employer' is null,
+  'N · a sign-in with the right email that links later binds nothing either: only the office changes or withdraws it');
+select pg_temp.claims(:matchlead);
+select pg_temp.assert(app.withdraw_match_employer(:c1, :pr, 'Test 163: Rae asked at the front desk'), 'N · (the office withdraws it when Rae asks)');
+reset role;
 -- (3) An invitation never names a person who already signs in.
 set role authenticated;
 select pg_temp.claims(:owner);
