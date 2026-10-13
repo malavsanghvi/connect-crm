@@ -115,6 +115,9 @@ export type CountIn = { id: string; countedOn: string; totalCents: number | null
 
 export type CloseIn = { month: string; label: string; locked: boolean; done: string[]; blockers: { item: string; why: string; key: string | null }[] };
 
+/** Year-end statements waiting for review (src/lib/giving-statements/review.ts statementSeason). */
+export type StatementsDueIn = { year: number; households: number; needFix: number; sentence: string };
+
 export type TodayInput = {
   /** Home's task list, the Giving sources only (GIVING_TASK_SOURCES), and the sources that could not be read. */
   tasks: HomeTask[];
@@ -126,6 +129,8 @@ export type TodayInput = {
   apply: Part<ApplyListIn> | null;
   counts: Part<CountIn[]> | null;
   close: Part<CloseIn> | null;
+  /** Last year's statements, January to March only (slice 8); left out, or null, the rest of the year and for whoever cannot see them. */
+  statements?: Part<StatementsDueIn> | null;
 };
 
 /** What the person may do (UI convenience: the database refuses the rest anyway). */
@@ -922,6 +927,28 @@ function bookTaskRows(tasks: HomeTask[]): QueueRow[] {
     }));
 }
 
+/** "Year-end statements for 2026": Review and send opens the review sheet (section 2: three clicks; the send stays off). */
+function statementRows(s: StatementsDueIn): QueueRow[] {
+  if (s.households === 0) return [];
+  return [
+    {
+      id: `statements:${s.year}`,
+      group: "books",
+      tone: "indigo",
+      icon: "book",
+      title: `Year-end statements for ${s.year}`,
+      lines: [
+        `${plural(s.households, "household")} gave in ${s.year}: ${s.sentence}.`,
+        "Review them now; sending stays off until the statements service is connected.",
+      ],
+      family: null,
+      since: null,
+      acts: [{ kind: "link", href: `/giving/statements?year=${s.year}&review=1`, label: "Review and send", primary: true }],
+      count: 1,
+    },
+  ];
+}
+
 // ---------------------------------------------------------------------------- The queue
 
 const SOURCE_GROUP: Record<string, GroupKey> = { refund: "approvals", payee: "approvals", writeoff: "approvals", credit: "approvals", deposits: "bank", quickbooks: "books" };
@@ -954,6 +981,7 @@ export function buildQueue(input: TodayInput, ctx: TodayContext): TodayQueue {
     ...partRows(input.apply, "pledges", problems, (a) => applyRows(a, ctx)),
     ...partRows(input.counts, "counts", problems, (c) => countRows(c, ctx)),
     ...partRows(input.close, "books", problems, (c) => closeRows(c, ctx)),
+    ...partRows(input.statements ?? null, "books", problems, statementRows),
     ...bookTaskRows(input.tasks),
   ];
   problems.sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group));

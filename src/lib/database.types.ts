@@ -14315,6 +14315,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      receipt_copy: {
+        Args: {
+          p_payment: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
       recheck_email_domain: {
         Args: {
           p_domain: string;
@@ -15854,6 +15861,14 @@ export type Database = {
       worker_stale_after: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      year_end_review: {
+        Args: {
+          p_center: string;
+          p_year: number;
+          p_majority?: number;
+        };
+        Returns: { household_id: string; household_name: string; household_number: string; org_household_id: string; city: string; adults: Json; gift_count: number; given_cents: number; refunded_cents: number; refunded_count: number; opening_balance_count: number; opening_balance_cents: number; mail_opt_in: boolean; address_complete: boolean }[];
       };
       year_end_statement: {
         Args: {
