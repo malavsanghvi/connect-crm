@@ -15806,6 +15806,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_pledge_due_on: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_due_on: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       set_qbo_basis: {
         Args: {
           p_center: string;

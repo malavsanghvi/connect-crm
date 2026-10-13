@@ -21,6 +21,7 @@ import {
   requestWriteOffAction,
 } from "@/app/(app)/approvals/actions";
 import { openPledgesAction, type OpenPledge } from "@/app/(app)/giving/actions";
+import { changePledgeDueAction } from "@/app/(app)/giving/pledges/due-date-actions";
 import { grantSuggestionsAction, type GrantSuggestion } from "@/app/(app)/giving/lists-actions";
 import { applyPaymentAction } from "@/app/(app)/giving/payments/actions";
 import { confirmBankMatchAction, matchDepositAction } from "@/app/(app)/giving/payments/bank/actions";
@@ -33,6 +34,7 @@ import { useStepUp } from "@/components/step-up";
 import { buttonClass } from "@/components/ui";
 import { previewAllocation } from "@/lib/allocation";
 import { formatDate } from "@/lib/dates";
+import { isRealDate } from "@/lib/giving-due";
 import { familyFrom, familyLine, familyRef, type Act, type BehindView, type CloseItemView, type Family, type QueueRow, type ZellePairView } from "@/lib/giving-today/queue";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 
@@ -683,6 +685,57 @@ function RequestWriteOffAct({ act, row, ctx }: { act: Extract<Act, { kind: "requ
   );
 }
 
+/** Every pledge has a due date (0775): a treasurer moves it, with a reason that shows in the family's History. No money moves. */
+function ChangeDueAct({ act, row, ctx }: { act: Extract<Act, { kind: "change_due" }>; row: RowLike; ctx: ActContext }) {
+  const [due, setDue] = useState(act.dueOn ?? "");
+  const [reason, setReason] = useState("");
+  const valid = isRealDate(due) && due >= act.pledgedOn;
+  const shown = valid ? formatDate(due, ctx.timeZone) : null;
+  return (
+    <SheetAct
+      buttonLabel={act.label}
+      primary={false}
+      title="Change the due date"
+      family={row.family}
+      what={
+        <>
+          <p className="m-0 font-bold text-ink">{row.title}</p>
+          <p className="m-0">
+            {act.dueOn ? `Due now on ${formatDate(act.dueOn, ctx.timeZone)}.` : "It has no due date yet."} No money moves. The new date and your reason show in
+            the family&apos;s History, and the pledge counts as behind from the new date.
+          </p>
+        </>
+      }
+      confirmLabel={shown ? `Make ${act.reference} due on ${shown}` : "Choose the new due date"}
+      ctx={ctx}
+      ready={valid && due !== act.dueOn && reason.trim().length >= 3}
+      onOpen={() => {
+        setDue(act.dueOn ?? "");
+        setReason("");
+      }}
+      doing="Change the due date"
+      call={() => changePledgeDueAction({ pledgeId: act.id, dueOn: due, reason: reason.trim() })}
+      done={(r) => doneFrom(r.message, "Done: due date changed.")}
+    >
+      <div>
+        <label htmlFor={`due-${act.id}`} className="mb-1 block text-[13px] font-bold text-ink">
+          New due date
+        </label>
+        <input
+          id={`due-${act.id}`}
+          type="date"
+          min={act.pledgedOn}
+          value={due}
+          onChange={(e) => setDue(e.target.value)}
+          className="crm-input min-h-[44px] w-full"
+        />
+        {due && isRealDate(due) && due < act.pledgedOn ? <InlineError>The due date cannot be before the day it was pledged.</InlineError> : null}
+      </div>
+      <ReasonField id={`due-why-${act.id}`} value={reason} onChange={setReason} label="Reason (shows in the family's History)" />
+    </SheetAct>
+  );
+}
+
 function WithdrawWriteOffAct({ act, row, ctx }: { act: Extract<Act, { kind: "withdraw_write_off" }>; row: RowLike; ctx: ActContext }) {
   return (
     <SheetAct
@@ -1062,6 +1115,8 @@ export function ActButtons({ acts, row, ctx }: { acts: readonly Act[]; row: RowL
             return <RequestWriteOffAct key={i} act={a} row={row} ctx={ctx} />;
           case "withdraw_write_off":
             return <WithdrawWriteOffAct key={i} act={a} row={row} ctx={ctx} />;
+          case "change_due":
+            return <ChangeDueAct key={i} act={a} row={row} ctx={ctx} />;
           case "request_refund":
             return <RequestRefundAct key={i} act={a} row={row} ctx={ctx} />;
           case "provider_refund":

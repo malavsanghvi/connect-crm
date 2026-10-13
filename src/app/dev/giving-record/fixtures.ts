@@ -6,6 +6,7 @@ import type { OpenPledge } from "@/app/(app)/giving/actions";
 import type { RecordPaymentInput, RecordPaymentResult } from "@/app/(app)/giving/payments/actions";
 import type { GivingSheetBackend } from "@/components/giving-actions/backend";
 import { previewAllocation } from "@/lib/allocation";
+import { addDays } from "@/lib/dates";
 import type { ActionResult } from "@/lib/errors";
 import { buildGivingLane, readGivingIntent, type FindScope, type GivingFound } from "@/lib/find/giving";
 import type { FindResult, FindRow } from "@/lib/find/types";
@@ -195,7 +196,10 @@ export const PREVIEW_BACKEND: GivingSheetBackend = {
     const h = householdId ? byId.get(householdId) : null;
     // Invented adults: the household card's primary adult (a child is never offered).
     const adults = h?.primary ? [{ id: "9c000000-0000-4000-8000-000000000001", name: h.primary, isPrimary: true }] : [];
-    return later<ActionResult<PledgeSheetOptions>>({ ok: true, data: { funds: FUNDS, campaigns: PLEDGE_CAMPAIGNS, opportunities: [], adults } });
+    return later<ActionResult<PledgeSheetOptions>>({
+      ok: true,
+      data: { funds: FUNDS, campaigns: PLEDGE_CAMPAIGNS, opportunities: [], adults, dueDays: 30, defaultDueOn: addDays(TODAY, 30) },
+    });
   },
   recordPledge: async (input: RecordPledgeInput) => {
     const checked = checkPledge(input, TODAY);
