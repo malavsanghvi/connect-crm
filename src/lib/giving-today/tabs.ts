@@ -52,7 +52,7 @@ export function canOpenToday(ctx: ScopedContext): boolean {
   return canAccess(ctx, "payments") || canAccess(ctx, "givingApprove");
 }
 
-/** The tab row for this person, in the plan's order. Insights has no screen yet, so it is not offered. */
+/** The tab row for this person, in the plan's order. */
 export function givingTabs(ctx: TabContext): GivingTab[] {
   const nav = visibleNav(ctx);
   const giving = nav.find((m) => m.key === "giving");
@@ -80,6 +80,8 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
   }
   const statements = tab("/giving/statements");
   if (statements && on(GIVING_ADDONS.statements)) out.push({ key: "statements", label: "Statements", href: statements.href, paths: ["/giving/statements"] });
+  // Insights (B98 slice 1): the community's own numbers, for the giving staff (giving.view or giving.manage).
+  if (giving && canAccess(ctx, "paymentsAll") && on(GIVING_ADDONS.insights)) out.push({ key: "insights", label: "Insights", href: "/giving/insights", paths: ["/giving/insights"] });
   if (giving && canAccess(ctx, "counting") && on(GIVING_ADDONS.counts)) {
     // A view of Payments until slice 5 gives the counts their own tab.
     out.push({ key: "counts", label: countsWord(ctx.kind), href: "/giving/payments?view=counts", paths: [] });
