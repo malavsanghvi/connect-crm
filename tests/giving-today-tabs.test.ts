@@ -10,9 +10,10 @@ const treasurer = ROLE_PERMISSIONS.treasurer;
 
 describe("Giving's one tab row", () => {
   it("a treasurer in a neutral community: every tab with a screen today, in the plan's order (no Labh, Bolis off)", () => {
-    expect(keys(ctx(treasurer))).toEqual(["today", "pledges", "payments", "recurring", "bank", "campaigns", "statements", "counts", "books"]);
+    expect(keys(ctx(treasurer))).toEqual(["today", "pledges", "payments", "bank", "campaigns", "statements", "counts", "books"]);
     const tabs = givingTabs(ctx(treasurer));
-    expect(tabs.find((t) => t.key === "counts")).toMatchObject({ label: "Cash counts", href: "/giving/payments#counting" });
+    // Until slice 5 the counts are a view of Payments.
+    expect(tabs.find((t) => t.key === "counts")).toMatchObject({ label: "Cash counts", href: "/giving/payments?view=counts" });
     expect(tabs.find((t) => t.key === "campaigns")).toMatchObject({ label: "Campaigns & opportunities", href: "/giving/opportunities" });
     expect(tabs.find((t) => t.key === "books")?.href).toBe("/accounting/close");
     // Insights has no screen yet: it is not offered.
@@ -28,7 +29,7 @@ describe("Giving's one tab row", () => {
 
   it("a kind with Labh and Bolis keeps their tabs, in its own words, until slice 6 folds them in", () => {
     const jain = ctx([...treasurer, "bolis.manage"], [], LEGACY_KIND);
-    expect(keys(jain)).toEqual(["today", "pledges", "payments", "recurring", "bank", "campaigns", "labh", "bolis", "statements", "counts", "books"]);
+    expect(keys(jain)).toEqual(["today", "pledges", "payments", "bank", "campaigns", "labh", "bolis", "statements", "counts", "books"]);
     expect(givingTabs(jain).find((t) => t.key === "counts")?.label).toBe("Bhandar counts");
     expect(keys(ctx(treasurer, ["labh"], LEGACY_KIND))).not.toContain("labh");
   });

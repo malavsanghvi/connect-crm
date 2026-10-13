@@ -142,6 +142,8 @@ export type TodayContext = {
   countsWord: string;
   /** The Zelle plugin's name. */
   zelleWord: string;
+  /** PayPal is connected by its Business email only: an approved PayPal refund is made in PayPal and recorded by hand. */
+  paypalEmailOnly?: boolean;
   /** Which groups this person sees at all (a tile per group, even when nothing waits). */
   visible: Record<GroupKey, boolean>;
 };
@@ -167,7 +169,25 @@ export type Act =
   | { kind: "count_deposit"; id: string; totalCents: number | null; label: string; what: string }
   | { kind: "apply"; paymentId: string; householdId: string; label: string; what: string }
   | { kind: "close"; month: string; items: CloseItemView[]; canMark: boolean }
-  | { kind: "link"; href: string; label: string; primary?: boolean };
+  | { kind: "link"; href: string; label: string; primary?: boolean }
+  // Pledges and Payments (slice 3): the same sheets, one pledge or one payment at a time.
+  | { kind: "request_write_off"; id: string; openCents: number; reference: string; label: string }
+  | { kind: "withdraw_write_off"; id: string; reference: string; label: string }
+  | { kind: "request_refund"; id: string; refundableCents: number; reference: string; label: string }
+  | { kind: "provider_refund"; id: string; amountCents: number; provider: "stripe" | "paypal"; reference: string; label: string; what: string }
+  | { kind: "paypal_refund"; id: string; amountCents: number; reason: string | null; reference: string; label: string; what: string }
+  | {
+      kind: "grant_match";
+      txnId: string;
+      amountCents: number;
+      reference: string;
+      /** Who sent it, as the bank wrote it (a fund sponsor or an employer, never the family). */
+      source: string;
+      grant: "daf" | "matching_gift" | "payroll_giving";
+      postedOn: string;
+      memo: string;
+      label: string;
+    };
 
 export type RowTone = "blue" | "sun" | "green" | "indigo" | "plain";
 export type RowIcon = "approve" | "refund" | "bank" | "deposit" | "pledge" | "count" | "book" | "info";
@@ -231,6 +251,57 @@ function daysAgo(date: string, ctx: TodayContext): number {
 
 function openFamily(f: Family | null): Act[] {
   return f ? [{ kind: "link", href: `/households/${f.id}`, label: "Open family" }] : [];
+}
+
+// ---------------------------------------------------------------------------- Refunds, shared with Payments
+
+const PROVIDER_NAME: Record<"stripe" | "paypal", string> = { stripe: "Stripe", paypal: "PayPal" };
+
+/**
+ * The act that records a refund two people approved, the same on Today and in Payments: by hand for an offline or bank payment;
+ * through Stripe or PayPal for an online one (the database asks for a fresh code); by hand after refunding in PayPal when PayPal is
+ * connected by email only. null for a provider Weaver cannot refund from here.
+ */
+export function recordRefundAct(
+  r: { id: string; provider: string | null; amountCents: number; reference: string; reason: string | null },
+  fam: string,
+  money: string,
+  paypalEmailOnly: boolean,
+): Act | null {
+  if (r.provider === "offline" || r.provider === "bank") {
+    return {
+      kind: "record_refund",
+      id: r.id,
+      amountCents: r.amountCents,
+      label: `Record ${money} refund for ${fam}`,
+      what: `Records the refund on ${r.reference}. This cannot be undone here. A mistake is fixed with a refund that a second person approves.`,
+      familyRef: fam,
+    };
+  }
+  if (r.provider === "paypal" && paypalEmailOnly) {
+    return {
+      kind: "paypal_refund",
+      id: r.id,
+      amountCents: r.amountCents,
+      reason: r.reason,
+      reference: r.reference,
+      label: `Record ${money} PayPal refund for ${fam}`,
+      what: "This PayPal account is connected by email only, so Weaver cannot refund through it. Refund it in PayPal first, then record it here with PayPal's transaction id. This cannot be undone here.",
+    };
+  }
+  if (r.provider === "stripe" || r.provider === "paypal") {
+    const name = PROVIDER_NAME[r.provider];
+    return {
+      kind: "provider_refund",
+      id: r.id,
+      amountCents: r.amountCents,
+      provider: r.provider,
+      reference: r.reference,
+      label: `Refund ${money} to ${fam} through ${name}`,
+      what: `${name} sends the money back to the card or account that paid. The refund shows on ${r.reference} once ${name} accepts it. This cannot be undone here.`,
+    };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------- Approvals
@@ -310,6 +381,8 @@ function approvalRow(t: HomeTask, d: GivingTaskDetail, ctx: TodayContext, input:
   }
   if (d.kind === "refund") {
     const online = d.provider !== "offline" && d.provider !== "bank";
+    // Recorded in place for every provider Weaver can refund (slice 3); any other provider is refunded on its own screen.
+    const act = recordRefundAct({ id: d.id, provider: d.provider, amountCents: d.amountCents ?? 0, reference: ref, reason: d.reason }, fam, amt, ctx.paypalEmailOnly ?? false);
     return {
       ...base,
       tone: "green",
@@ -317,21 +390,11 @@ function approvalRow(t: HomeTask, d: GivingTaskDetail, ctx: TodayContext, input:
       title: `Ready to record: refund of ${amt}`,
       lines: [
         `Receipt ${ref} · approved by two people (${asked} asked)`,
-        ...(online ? ["Card and online payments are refunded through the payment provider, on the Payments screen."] : []),
+        ...(online ? ["Card and online payments are refunded through the payment provider; it asks for a fresh code."] : []),
       ],
-      acts: online
-        ? [{ kind: "link", href: "/giving/payments", label: "Refund in Payments", primary: true }, ...openFamily(family)]
-        : [
-            {
-              kind: "record_refund",
-              id: d.id,
-              amountCents: d.amountCents ?? 0,
-              label: `Record ${amt} refund for ${fam}`,
-              what: `Records the refund on ${ref}. This cannot be undone here. A mistake is fixed with a refund that a second person approves.`,
-              familyRef: fam,
-            },
-            ...openFamily(family),
-          ],
+      acts: act
+        ? [act, ...openFamily(family)]
+        : [{ kind: "link", href: `/giving/payments?view=refunds&q=${encodeURIComponent(d.reference ?? "")}`, label: "Refund in Payments", primary: true }, ...openFamily(family)],
     };
   }
   if (d.kind === "write_off") {
@@ -794,7 +857,7 @@ function countRows(list: CountIn[], ctx: TodayContext): QueueRow[] {
           label: `Record the deposit for the ${date} count`,
           what: "Enter the deposit slip or reference, and the counted total if it is not saved yet.",
         },
-        { kind: "link" as const, href: "/giving/payments#counting", label: "Record a new count" },
+        { kind: "link" as const, href: "/giving/payments?view=counts", label: "Record a new count" },
       ],
       count: 1,
     };

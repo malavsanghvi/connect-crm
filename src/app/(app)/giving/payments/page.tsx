@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
@@ -34,6 +35,7 @@ import { isModuleEnabled } from "@/lib/modules";
 import { formatCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { getSession } from "@/lib/session";
 import { word } from "@/lib/wording";
 
@@ -41,6 +43,7 @@ import type { Suggestion } from "./bank/gift-line-matcher";
 import { recordCountingDepositAction } from "./counting-actions";
 import { CountingForm, type CounterOption } from "./counting-form";
 import { DafMatchButton } from "./daf-match-drawer";
+import { PaymentsV2 } from "./payments-v2";
 import { RecordPaymentForm } from "./record-payment-form";
 
 export const metadata: Metadata = { title: "Payments & deposits" };
@@ -49,7 +52,13 @@ const PAGE_SIZE = 50;
 type Method = Enums<"payment_method">;
 const METHODS = Object.keys(PAYMENT_METHOD_LABEL) as Method[];
 
-export default async function PaymentsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+/** The New look draws Payments anew (docs/GIVING_REDESIGN.md slice 3); the classic look is the page below, unchanged. */
+export default async function PaymentsRoute({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") return <PaymentsV2 searchParams={searchParams} />;
+  return <PaymentsPage searchParams={searchParams} />;
+}
+
+async function PaymentsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
     <PageHeader

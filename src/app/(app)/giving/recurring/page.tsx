@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
 import { HistoryButton } from "@/components/record-history";
@@ -12,6 +14,7 @@ import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Recurring gifts" };
@@ -26,7 +29,16 @@ const VIEWS = [
   { key: "cancelled", label: "Cancelled" },
 ] as const;
 
-export default async function RecurringPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+/** In the New look Recurring is a view of Payments (owner decision 1, slice 3); the classic look keeps this page, unchanged. */
+export default async function RecurringRoute({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") {
+    const status = param(await searchParams, "status");
+    redirect(hrefWith("/giving/payments", {}, { view: "recurring", rstatus: status }));
+  }
+  return <RecurringPage searchParams={searchParams} />;
+}
+
+async function RecurringPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
     <PageHeader
