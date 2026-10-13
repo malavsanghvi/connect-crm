@@ -208,6 +208,9 @@ export function pledgeRow(p: PledgeIn, family: Family | null, ctx: ListContext, 
   const menu: Act[] = [];
   let note: string | null = null;
   if (open && ctx.can.record) menu.push({ kind: "record_payment", householdId: p.householdId, href: recordPaymentHref(p.householdId), label: "Record payment" });
+  if (open && ctx.can.manage) {
+    menu.push({ kind: "change_due", id: p.id, reference: ref, dueOn: p.dueOn, pledgedOn: dateInTz(p.pledgedAt, ctx.timeZone), label: "Change due date…" });
+  }
   if (open && !p.writeOffBy && ctx.can.manage && openCents > 0) {
     menu.push({ kind: "request_write_off", id: p.id, openCents, reference: ref, label: "Write off…" });
   }

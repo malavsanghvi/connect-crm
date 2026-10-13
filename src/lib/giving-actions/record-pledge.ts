@@ -40,9 +40,12 @@ export type PledgeSheetOptions = {
   opportunities: PledgeOpportunityOption[];
   /** The household's adults (never a child), primary first. Empty when no household was given. */
   adults: PledgeAdult[];
+  /** Every pledge has a due date (0775): the community's rule (days after it is made) and the date it gives for a pledge made today. */
+  dueDays: number;
+  defaultDueOn: string | null;
 };
 
-export const EMPTY_PLEDGE_OPTIONS: PledgeSheetOptions = { funds: [], campaigns: [], opportunities: [], adults: [] };
+export const EMPTY_PLEDGE_OPTIONS: PledgeSheetOptions = { funds: [], campaigns: [], opportunities: [], adults: [], dueDays: 30, defaultDueOn: null };
 
 /** The input the sheet sends to the server. `designation` is "fund:<id>", "campaign:<id>", "opportunity:<id>" or "" (general). */
 export type RecordPledgeInput = {
