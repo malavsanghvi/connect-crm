@@ -52,6 +52,7 @@ const STEPS = [
   "pd-emergency",
   "pd-emergency-save",
   "pd-emergency-bad",
+  "pd-view",
 ] as const satisfies readonly Step[];
 
 /**

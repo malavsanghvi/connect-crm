@@ -43,7 +43,8 @@ export type Step =
   | "pd-dietary-save"
   | "pd-emergency"
   | "pd-emergency-save"
-  | "pd-emergency-bad";
+  | "pd-emergency-bad"
+  | "pd-view";
 
 // What someone else "just saved" for the member's details, for the conflict state (every field of each group, as the server sends).
 const PROFILE_THEIRS = {
@@ -150,7 +151,8 @@ function run(step: Step) {
     click(root, '[data-testid="ids-section"] button[aria-label^="Retire"]');
     if (step === "ids-retire-save") later(120, () => document.querySelector<HTMLElement>('[data-testid="ids-section"] [role="group"] button')?.click());
   }
-  if (step.startsWith("pd-")) {
+  if (step === "pd-view") document.querySelector('[data-testid="profile-row"][data-group="dietary"]')?.scrollIntoView({ block: "center" });
+  else if (step.startsWith("pd-")) {
     const group = step.includes("anniversary") ? "anniversary" : step.includes("dietary") ? "dietary" : "emergency";
     const row = () => document.querySelector<HTMLElement>(`[data-testid="profile-row"][data-group="${group}"]`);
     row()?.scrollIntoView({ block: "center" });
