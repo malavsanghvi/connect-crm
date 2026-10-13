@@ -118,11 +118,11 @@ Each slice ships on its own; migration and test numbers are reserved when a slic
 | 5 | CommunityConnect Meta: connection, posting from the publish box, scheduling, status back on the event | L | **Yes: outside service, tokens**; Meta review first (owner) |
 | 6 | CommunityConnect WhatsApp: Business account sign-up flow instead of status recorded by hand | M | Messaging cost |
 
-## 7. Open questions for the owner
+## 7. Owner answers (2026-10-13: every recommendation approved)
 
 1. **Neutral keys** (`ai`, `website`, `channels`, `care`, `matching`) with brand labels, so renaming a product never
-   breaks an installed app. *Recommend* yes.
-2. **Grandfathering by use** and **iWeaver on for sandboxes** (section 5). *Recommend* yes.
-3. **WhatsApp group links stay in Communications**; only Business API messaging moves. *Recommend* yes.
+   breaks an installed app. **Approved.**
+2. **Grandfathering by use** and **iWeaver on for sandboxes** (section 5). **Approved.**
+3. **WhatsApp group links stay in Communications**; only Business API messaging moves. **Approved.**
 4. **The website crawl stays core** (it teaches the agent at onboarding); building and publishing the site is
-   WeaverSite. *Recommend* yes.
+   WeaverSite. **Approved.**
