@@ -70,6 +70,7 @@ export function Card({
   className = "",
   padded = true,
   span,
+  id,
 }: {
   title?: ReactNode;
   description?: ReactNode;
@@ -78,11 +79,13 @@ export function Card({
   className?: string;
   padded?: boolean;
   span?: BlockSpan;
+  /** An anchor other pages link to (Giving's counts tab opens /giving/payments#counting). */
+  id?: string;
 }) {
   const spanClass = span ? `col-span-12 ${SPAN[span]}` : "";
   const hasHead = Boolean(title || actions);
   return (
-    <section className={`cc-card ${spanClass} ${className}`}>
+    <section id={id} className={`cc-card ${spanClass} ${className}`}>
       {hasHead ? (
         <div className="flex flex-wrap items-center gap-2.5 px-[18px] pt-4">
           <div className="min-w-0 flex-1">

@@ -246,6 +246,7 @@ export function approvalsRow(d: SecondApproverData): WaitingRow {
     text: d.total === 0 ? "Nothing is waiting for a second approver" : `${plural(d.total, "request", "requests")} waiting for a second approver`,
     detail: parts.length > 0 ? parts.join(" · ") : null,
     count: d.total,
-    href: "/approvals",
+    // Giving › Today, filtered to its Approvals tile (there was never an /approvals page).
+    href: "/giving?show=approvals",
   };
 }

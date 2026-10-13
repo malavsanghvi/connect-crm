@@ -26,6 +26,8 @@ const WORDS = {
   cash_box: ["bhandar", "cash box"],
   cash_box_counting: ["Bhandar counting sessions", "Cash box counting sessions"],
   cash_box_new_session: ["New bhandar counting session", "New cash box counting session"],
+  // Giving › Today and its tab row: the offering box's counts (a church's own term can say "Collection counts").
+  offering_counts: ["Bhandar counts", "Offering counts"],
   cash_method: ["Cash (bhandar)", "Cash"],
   pledge_item: ["Pujan", "Item"],
   pledge_items_section: ["Pujans and fixed bolis", "Fixed items"],

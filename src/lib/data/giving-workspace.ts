@@ -68,7 +68,8 @@ async function fromCommand<T, V>(key: string, input: unknown, doing: string, vie
   return { state: "ok", data: view(res.data) };
 }
 
-async function loadPledgeTotals(session: CrmSession): Promise<Part<PledgeTotals>> {
+/** The open pledges added up (Giving › Today's month numbers read it too). */
+export async function loadPledgeTotals(session: CrmSession): Promise<Part<PledgeTotals>> {
   if (!canAccess(session, "pledges")) return { state: "no_access" };
   const { db, center } = session;
   const { data, error, truncated } = await fetchAll<{ household_id: string; amount_cents: number; paid_cents: number }>((from, to) =>
@@ -128,8 +129,10 @@ export async function loadGivingWorkspace(session: CrmSession): Promise<GivingWo
     { text: "What do I need to send for year-end statements?", href: null, comingNext: true },
   ];
 
+  // The conversation lives at /giving/ask until slice 2 replaces it; /giving is Today, the work queue.
   const views: GivingView[] = [
-    { key: "conversation", label: "Conversation", href: "/giving" },
+    { key: "today", label: "Today", href: "/giving" },
+    { key: "conversation", label: "Ask", href: "/giving/ask" },
     ...(canAccess(session, "payments") ? [{ key: "payments", label: "Payments", href: "/giving/payments" }] : []),
     ...(canAccess(session, "pledges") ? [{ key: "pledges", label: "Pledges", href: "/giving/pledges" }] : []),
     ...(seesBank ? [{ key: "bank", label: "Bank", href: "/giving/payments/bank" }] : []),

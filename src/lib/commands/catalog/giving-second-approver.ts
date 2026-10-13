@@ -53,7 +53,8 @@ const input = object({
   kind: f.withDefault(f.enum("Which requests to show.", ["all", "refunds", "write_offs"] as const), "all"),
 });
 
-const WHERE = "/approvals";
+/** Giving › Today, filtered to its Approvals tile, where a second approver approves in the row. */
+const WHERE = "/giving?show=approvals";
 
 function methodWord(method: string | null, provider: string | null): string {
   const label = PAYMENT_METHOD_LABEL[method ?? ""] ?? method ?? "payment";

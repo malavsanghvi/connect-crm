@@ -346,7 +346,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         ) : null}
 
         {seesCounting ? (
-          <Card span={7} title={word(session.kind, "cash_box_counting")} description="Two counters from different households · sealed, numbered bags" padded={false}>
+          <Card id="counting" span={7} title={word(session.kind, "cash_box_counting")} description="Two counters from different households · sealed, numbered bags" padded={false}>
             {counting?.error ? (
               <div className="p-2.5">
                 <QueryError what="counting sessions" error={counting.error} retryHref="/giving/payments" />
