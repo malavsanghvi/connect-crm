@@ -166,11 +166,11 @@ select pg_temp.assert((select due_on = :'today'::date + 30 and source = 'general
 -- ═══════════════════════════════════════════════════════════════════════════
 -- D. Required
 -- ═══════════════════════════════════════════════════════════════════════════
-select pg_temp.assert((select is_nullable = 'NO' from information_schema.columns
-                        where table_schema = 'app' and table_name = 'pledges' and column_name = 'due_on'),
-  'D: app.pledges.due_on is required');
+select pg_temp.assert(exists (select 1 from pg_constraint where conrelid = 'app.pledges'::regclass and conname = 'pledges_due_on_required'
+                                and contype = 'c' and convalidated),
+  'D: app.pledges.due_on is required (the check pledges_due_on_required, validated against every row)');
 select pg_temp.assert(not exists (select 1 from app.pledges where due_on is null), 'D: no pledge is without a due date (the backfill)');
-select pg_temp.assert_raises(format($$update app.pledges set due_on = null where id = %L$$, :p2), 'null value',
+select pg_temp.assert_raises(format($$update app.pledges set due_on = null where id = %L$$, :p2), 'pledges_due_on_required',
   'D: a due date cannot be emptied');
 
 -- ═══════════════════════════════════════════════════════════════════════════

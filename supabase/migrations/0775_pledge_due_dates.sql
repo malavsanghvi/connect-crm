@@ -18,7 +18,10 @@
 --                                                   already counted from, so no number on those screens changes. The audit entry of
 --                                                   each row carries the reason below. updated_at is left as it was: the write-off queue
 --                                                   reads "waiting since" from it.
---   app.pledges.due_on not null                     after the backfill.
+--   app.pledges.due_on required                     after the backfill, by the check pledges_due_on_required. A check rather
+--                                                   than NOT NULL so that the generated types keep due_on optional on insert: the
+--                                                   member app's insert sends none (the trigger fills it) and keeps compiling. The
+--                                                   database refuses a pledge without one either way.
 --   app._record_manual_pledge_core(..., p_pledged_on)
 --                                                   the body of app.record_manual_pledge (latest 0745) with two changes: a day it was
 --                                                   pledged (an upload of last week's pledge cards, 0776), and a replay that compares
@@ -74,7 +77,8 @@ update app.pledges p
    set due_on = (p.pledged_at at time zone coalesce((select nullif(c.time_zone, '') from app.centers c where c.id = p.center_id), 'UTC'))::date + 30
  where p.due_on is null;
 alter table app.pledges enable trigger touch_pledges;
-alter table app.pledges alter column due_on set not null;
+alter table app.pledges drop constraint if exists pledges_due_on_required;
+alter table app.pledges add constraint pledges_due_on_required check (due_on is not null);
 comment on column app.pledges.due_on is
   'When the pledge is due. Every pledge has one (0775): given when it is made, or the community''s default (app.pledge_default_due_on).';
 
