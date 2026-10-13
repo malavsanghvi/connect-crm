@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PeopleDrawers } from "@/app/(app)/people/_components/drawers";
+import { CareCard } from "@/components/care/care-card";
 import { HouseholdGlance } from "@/components/giving-glance/glance-panels";
 import { FamilyView } from "@/components/people-v2/family/family-view";
 import type { FamilyLinks } from "@/components/people-v2/family/family-header";
 import { PageHeader, QueryError } from "@/components/ui";
+import { loadCareCard, seesCare } from "@/lib/data/care";
 import { prepareGlance } from "@/lib/giving-glance/page";
 import { isModuleEnabled } from "@/lib/modules";
 import { loadCustomFields } from "@/lib/people-v2/custom-load";
@@ -39,9 +41,12 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
   const { model, problems } = loaded;
   const base = `/households/${id}`;
   const givingOn = isModuleEnabled(session, "giving");
-  const [glance, custom] = await Promise.all([
+  // The Care card (WeCare slice 2) only for someone with a care role, and never on a merged household; the database decides
+  // what it holds (no platform-admin branch) and logs the read.
+  const [glance, custom, care] = await Promise.all([
     givingOn ? prepareGlance(session, sp) : null,
     loadCustomFields(session, { personIds: [...model.adults, ...model.children].map((p) => p.id), householdId: id, canEdit: model.canEdit }),
+    seesCare(session) && !model.mergedIntoId ? loadCareCard(session, id) : null,
   ]);
   const canEdit = model.canEdit;
   // The star: whether this person pinned the family (their own pin, read under their own session). A merged family cannot be pinned.
@@ -83,6 +88,7 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
           glance: glance ? <HouseholdGlance session={session} householdId={id} sp={sp} prep={glance} path={base} /> : null,
           tabs: <FamilyTabs session={session} model={model} sp={sp} glance={glance} base={base} />,
           prompt: model.mergedIntoId ? null : <PrimaryPrompt session={session} householdId={id} />,
+          care: care ? <CareCard load={care} householdId={id} timeZone={session.center.time_zone} retryHref={base} /> : null,
           after:
             request.kind === "slideover" ? (
               <PersonSlideOverServer session={session} model={model} sp={sp} base={base} personId={request.personId} prep={glance} custom={custom} />

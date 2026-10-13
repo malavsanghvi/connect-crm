@@ -51,7 +51,7 @@ export const WORKSPACES: readonly WorkspaceDef[] = [
   {
     key: "people",
     label: "People",
-    modules: ["people"],
+    modules: ["people", "care"],
     icon: "M15.5 8a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z M4.5 21c0-3.9 3.4-6 7.5-6s7.5 2.1 7.5 6",
     placement: "start",
   },

@@ -611,6 +611,16 @@ export const NAV: NavModule[] = [
     paths: ["/reports"],
   },
   {
+    // WeCare (module `care`, 0760-0763): the organization's own care records. Shown only to roles the organization gives a
+    // care key (`can` never lets a platform admin through on care.*), and only while Weaver has turned the product on. Named by
+    // the kind (Donor care / Member care). Not recorded in the activity stream (W2): see tests/activity-catalog.test.ts.
+    key: "care",
+    module: "care",
+    label: "WeCare",
+    tabs: [{ href: "/care", label: "Households", access: "care" }],
+    paths: ["/care"],
+  },
+  {
     // Onboarding (ONBOARDING_PLAN §4): the organization's own Setup checklist.
     key: "setup",
     label: "Setup",
