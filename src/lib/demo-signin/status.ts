@@ -46,10 +46,8 @@ export function parseStatus(raw: unknown): DemoSigninStatus | null {
 
 /** The next thing to do, in one sentence, from what is set up. */
 export function nextStep(s: DemoSigninStatus): string {
-  const kinds = new Set(s.communities.map((c) => c.kind));
-  if (!kinds.has("faith") || !kinds.has("neutral")) {
-    return `Create the ${!kinds.has("faith") && !kinds.has("neutral") ? "two demo communities" : !kinds.has("faith") ? "faith-based demo community" : "not faith-based demo community"} first.`;
-  }
+  // One demo community is enough to run the demo; the other kind can be added at any time.
+  if (s.communities.length === 0) return "Create a demo community first. One is enough to start; the other kind can be added later.";
   if (s.peopleReady < s.peopleTotal) return "Set up the sign-ins: every demo person needs one before the demo can be turned on.";
   if (!s.enabled) return "Everything is ready. Turn the demo on when you want visitors to be able to try it.";
   return "The demo is on. Turn it off at any time: running demos end at once.";

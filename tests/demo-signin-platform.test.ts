@@ -48,7 +48,7 @@ describe("Platform › Setup › Demo sign-in (the kill switch)", () => {
     expect(html).toContain("Demo sign-in");
     expect(html).toContain('data-demo-state="off"');
     expect(html).toContain("Off — nobody can start a demo");
-    expect(html).toContain("Create the two demo communities first");
+    expect(html).toContain("Create a demo community first");
     expect(html).toContain("Sign-ins ready: <b>0</b> of <b>47</b>");
     expect(html).toContain("Each demo session lasts 2 hours");
   });
@@ -88,6 +88,18 @@ describe("Platform › Setup › Demo sign-in (the kill switch)", () => {
     expect(none).toMatch(/<button[^>]*disabled=""[^>]*>Turn the demo on<\/button>/);
     expect(none).toMatch(/<button[^>]*disabled=""[^>]*>Set up the sign-ins<\/button>/);
     expect(none).not.toContain("Replace the passwords");
+  });
+
+  it("lets the sign-ins be set up with just one demo community (the faith-based one)", async () => {
+    const one = [{ id: "c1", name: "Sunrise Jain Temple (Demo)", kind: "faith" }];
+    const controls = render(createElement(DemoSigninControls, { enabled: false, allReady: false, anyReady: false, kindsMissing: ["neutral"], communities: one }));
+    expect(controls).not.toMatch(/<button[^>]*disabled=""[^>]*>Set up the sign-ins<\/button>/);
+    expect(controls).toContain("Set up the sign-ins");
+    expect(controls).toContain("Create the not faith-based demo");
+    expect(controls).toMatch(/<button[^>]*disabled=""[^>]*>Turn the demo on<\/button>/);
+    const html = await panel({ data: status({ communities: one, people_total: 26, people_ready: 0 }), error: null });
+    expect(html).toContain("Set up the sign-ins: every demo person needs one");
+    expect(html).not.toContain("Create a demo community first");
   });
 });
 
