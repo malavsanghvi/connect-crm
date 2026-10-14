@@ -170,6 +170,16 @@ select pg_temp.assert(not (:'pv'::jsonb #> '{sample,household}' ? 'minor_first_n
 select pg_temp.assert((app.email_schedule_preview(:jc, 'pledges_past_due', '{}', 'monthly', 18)->>'households')::int = 1
                       and (app.email_schedule_preview(:jc, 'pledges_past_due', format('{"since": "%s"}', :'today'::date + 1)::jsonb, 'monthly', 18)->>'households')::int = 0,
   'C · past due: one household; "made on or after" a later date leaves it out');
+-- Near midnight: a pledge made at 23:30 on March 10 in Chicago is 04:30 on March 11 in UTC. "Made on or after" is a date on
+-- the community's own calendar (0780), so it counts as made on March 10 whatever the database's clock or time of day.
+reset role;
+update app.pledges set pledged_at = timestamptz '2026-03-10 23:30 America/Chicago' where id = '17100000-0000-4000-8000-000000000203';
+set role authenticated;
+set local timezone = 'UTC';
+select pg_temp.assert((app.email_schedule_preview(:jc, 'pledges_past_due', '{"since": "2026-03-10"}', 'monthly', 18)->>'households')::int = 1
+                      and (app.email_schedule_preview(:jc, 'pledges_past_due', '{"since": "2026-03-11"}', 'monthly', 18)->>'households')::int = 0,
+  'C · "made on or after" uses the community''s calendar: a pledge made late in the evening in Chicago counts on its local date, not the UTC one');
+reset timezone;
 select pg_temp.assert((app.email_schedule_preview(:jc, 'pledges_due_soon', '{"days": 7, "include_imported": true}', 'weekly', 18)->>'households')::int = 4,
   'C · ticking "include imported" brings the imported pledges in');
 select pg_temp.claims(:treas);
