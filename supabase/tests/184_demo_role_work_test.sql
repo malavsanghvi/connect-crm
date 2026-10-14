@@ -48,6 +48,7 @@ insert into auth.users (id, email) values (:admin, 'admin184@platform.test');
 insert into app.accounts (user_id, is_platform_admin) values (:admin, true) on conflict (user_id) do update set is_platform_admin = true;
 select pg_temp.claims(:admin, true);
 select (app.create_demo_community('faith'))->>'center_id' as fc \gset
+select (app.create_demo_community('neutral'))->>'center_id' as nc \gset
 select set_config('t.center', :'fc', false);
 select app.demo_signin_setup('Set up the demo sign-ins for the role-work test') as setup \gset
 select app.set_demo_signin(true, 'Switch the demo on for the role-work test') as sw \gset
@@ -55,8 +56,8 @@ select app.demo_id(:'fc', 'ev:tapasvi') as ev_tap, app.demo_id(:'fc', 'class:j2'
        app.demo_id(:'fc', 'boli:diwali') as boli_d \gset
 
 -- ══ A. Who is who ═══════════════════════════════════════════════════════════
-select pg_temp.assert((:'setup'::jsonb ->> 'created')::int = 26 and jsonb_array_length(:'setup'::jsonb -> 'refused') = 0,
-  'A · every one of the 26 demo people got a sign-in');
+select pg_temp.assert((:'setup'::jsonb ->> 'created')::int = 47 and jsonb_array_length(:'setup'::jsonb -> 'refused') = 0,
+  'A · every demo person (26 of the faith community and 21 of the other) got a sign-in');
 select pg_temp.assert((select count(*) = 26 from app.demo_personas p join app.demo_auth_users a on a.email = p.email where p.center_id = :'fc')
                       and (select count(*) = 26 from app.role_grants g where g.center_id = :'fc' and g.status = 'active'
                                 and g.user_id in (select a.user_id from app.demo_auth_users a)),
@@ -283,5 +284,93 @@ select pg_temp.assert((select count(*) = 26 from app.role_grants g where g.cente
 
 -- ══ F. And the work is there again, for every role ══════════════════════════
 select pg_temp.run_work('F');
+select pg_temp.as_none();
+
+-- ══ G. The other demo community (a club that is not faith-based, 21 roles) has the same ══════════════════
+-- The questions are the faith community's, minus what a club does not have (bolis, Pathshala). Its event is the spring clean-up day, five days away.
+select app.demo_id(:'nc', 'ev:cleanup') as ev_cu, app.demo_id(:'nc', 'zone:north') as zone_nn \gset
+select set_config('t.center', :'nc', false);
+truncate pg_temp.work;
+insert into pg_temp.work (role_key, what, door, q, min_n)
+select v.role_key, v.what, v.door, format(v.q, :'nc', :'ev_cu', :'ev_cu', :'zone_nn'), v.min_n
+  from (values
+  ('center_admin', 'data requests to answer (Home task "Privacy")', 'perm:privacy.manage',
+   $q$select count(*) from app.data_requests where center_id = %1$L and status in ('open', 'in_progress')$q$, 2),
+  ('center_admin', 'volunteers missing a signed waiver for an event in the next 14 days (Home task "Event")', 'perm:events.manage',
+   $q$select count(*) from app.volunteer_assignments a join app.volunteer_shifts s on s.id = a.shift_id join app.events e on e.id = s.event_id
+       where e.center_id = %1$L and e.status in ('published', 'rsvp_closed', 'live') and e.starts_at >= now() and e.starts_at <= now() + interval '14 days'
+         and a.status in ('assigned', 'confirmed') and a.waiver_consent_id is null$q$, 1),
+  ('center_admin', 'bank lines to match', 'perm:giving.view',
+   $q$select count(*) from app.bank_transactions where center_id = %1$L and status in ('unmatched', 'suggested') and amount_cents > 0$q$, 4),
+  ('executive_committee', 'a membership application waiting for the executive committee (Home task "Membership")', 'perm:people.approve',
+   $q$select count(*) from app.membership_applications where center_id = %1$L and status = 'awaiting_ec'$q$, 1),
+  ('executive_viewer', 'people coming to the next event (Home "At a glance"), read only', 'perm:events.view',
+   $q$select count(*) from app.attendees where event_id = %2$L and status in ('rsvpd', 'confirmed', 'attended')$q$, 5),
+  ('treasurer', 'a write-off a colleague asked for, waiting for the second approver (Home task "Write-off")', 'perm:giving.approve',
+   $q$select count(*) from app.pledges where center_id = %1$L and written_off_by is not null and written_off_by <> auth.uid()
+        and written_off_second_approver is null and status in ('open', 'partially_paid')$q$, 1),
+  ('treasurer', 'bank lines to match (Home task "Deposits")', 'perm:giving.record_offline',
+   $q$select count(*) from app.bank_transactions where center_id = %1$L and status in ('unmatched', 'suggested') and amount_cents > 0$q$, 4),
+  ('finance_volunteer', 'bank lines to match (Home task "Deposits")', 'perm:giving.record_offline',
+   $q$select count(*) from app.bank_transactions where center_id = %1$L and status in ('unmatched', 'suggested') and amount_cents > 0$q$, 4),
+  ('membership_coordinator', 'membership applications to decide (Home task "Membership")', 'perm:people.approve',
+   $q$select count(*) from app.membership_applications where center_id = %1$L and status in ('awaiting_center', 'awaiting_ec')$q$, 2),
+  ('membership_coordinator', 'a family change request to decide', 'perm:people.manage',
+   $q$select count(*) from app.household_change_requests where center_id = %1$L and status = 'open'$q$, 1),
+  ('communications_officer', 'a message waiting for approval (Home task "Newsletter")', 'perm:comms.approve',
+   $q$select count(*) from app.comms_campaigns where center_id = %1$L and status = 'pending_approval'$q$, 1),
+  ('communications_officer', 'member questions nobody has taken (Home task "Inbox")', 'perm:comms.inbox',
+   $q$select count(*) from app.threads where center_id = %1$L and status = 'open' and assignee_user is null$q$, 5),
+  ('communications_officer', 'WhatsApp join requests (Home task "WhatsApp")', 'perm:comms.send',
+   $q$select count(*) from app.whatsapp_join_requests where center_id = %1$L and status = 'pending'$q$, 2),
+  ('content_editor', 'drafts to write and send for approval', 'perm:content.draft',
+   $q$select count(*) from app.content_items where center_id = %1$L and status = 'draft'$q$, 2),
+  ('privacy_officer', 'data requests in progress (Home task "Privacy")', 'perm:privacy.manage',
+   $q$select count(*) from app.data_requests where center_id = %1$L and status in ('open', 'in_progress')$q$, 2),
+  ('volunteer_coordinator', 'people who asked to volunteer (Events > Volunteers)', 'perm:volunteers.manage',
+   $q$select count(*) from app.volunteer_interests where center_id = %1$L and status = 'interested'$q$, 1),
+  ('volunteer_coordinator', 'a background check that was asked for and has not come back', 'perm:safety.view',
+   $q$select count(*) from app.background_checks where center_id = %1$L and status = 'requested'$q$, 1),
+  ('event_lead', 'people to check in at the clean-up day', 'none',
+   $q$select count(*) from app.attendees where event_id = %2$L and checked_in_at is null and status in ('rsvpd', 'confirmed')$q$, 5),
+  ('event_lead', 'open actions on the event''s checklist', 'none',
+   $q$select count(*) from app.actions where event_id = %2$L and state not in ('completed', 'removed')$q$, 3),
+  ('checkin_volunteer', 'people to check in at the clean-up day', 'none',
+   $q$select count(*) from app.attendees where event_id = %2$L and checked_in_at is null and status in ('rsvpd', 'confirmed')$q$, 5),
+  ('kitchen_lead', 'the store orders to prepare (prep list)', 'none+kitchen.view',
+   $q$select count(*) from app.store_order_lines l join app.store_orders o on o.id = l.order_id where o.center_id = %1$L and o.status in ('placed', 'preparing', 'ready')$q$, 2),
+  ('store_lead', 'items at or under their reorder level (Home task "Inventory")', 'perm:store.manage',
+   $q$select count(*) from app.store_items where center_id = %1$L and status = 'active' and track_inventory and low_stock_threshold is not null and stock_on_hand <= low_stock_threshold$q$, 2),
+  ('store_pickup', 'orders waiting for pickup (My Store > Orders by pickup)', 'perm:store.pickup',
+   $q$select count(*) from app.store_orders where center_id = %1$L and status in ('placed', 'preparing', 'ready')$q$, 2),
+  ('zone_lead', 'questions in the north shore''s inbox', 'none',
+   $q$select count(*) from app.threads t join app.inboxes i on i.id = t.inbox_id where i.zone_id = %4$L and t.status = 'open'$q$, 2),
+  ('community_member', 'his membership application, waiting for his reference to answer', 'none',
+   $q$select count(*) from app.my_membership_application(%1$L) where status = 'awaiting_reference'$q$, 1),
+  ('community_member', 'a tools shift to confirm', 'none',
+   $q$select count(*) from app.volunteer_assignments where status = 'assigned'$q$, 1),
+  ('membership_reference', 'an application that names him, waiting for his answer', 'none',
+   $q$select count(*) from app.my_reference_requests()$q$, 1),
+  ('primary_adult', 'an open family pledge', 'none',
+   $q$select count(*) from app.pledges where center_id = %1$L and status in ('open', 'partially_paid')$q$, 1),
+  ('adult_member', 'a welcome shift to confirm', 'none',
+   $q$select count(*) from app.volunteer_assignments where status = 'assigned'$q$, 1),
+  ('child', 'events to see', 'none',
+   $q$select count(*) from app.events where center_id = %1$L and status = 'published' and starts_at > now()$q$, 2)
+) v(role_key, what, door, q, min_n);
+select pg_temp.assert((select count(distinct role_key) = 21 from pg_temp.work)
+                      and not exists (select 1 from app.demo_personas d where d.center_id = :'nc' and d.role_key not in (select role_key from pg_temp.work)),
+  'G · every one of the 21 roles of the club has at least one question');
+select pg_temp.assert((select count(distinct role_key) = 9 from pg_temp.work where door like 'none%')
+                      and not exists (select 1 from pg_temp.work where door like 'none%'
+                                       and role_key not in ('event_lead', 'checkin_volunteer', 'kitchen_lead', 'zone_lead',
+                                                            'community_member', 'membership_reference', 'primary_adult', 'adult_member', 'child')),
+  'G · its roles with no portal screen are the same, minus the boli recorder it does not have (9)');
+select pg_temp.run_work('G');
+select pg_temp.as_none();
+select pg_temp.claims(:admin, true);
+select app.reset_demo_community(:'nc') as rn \gset
+select pg_temp.as_none();
+select pg_temp.run_work('H');
 select pg_temp.as_none();
 rollback;

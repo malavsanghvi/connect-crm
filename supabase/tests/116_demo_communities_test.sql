@@ -80,7 +80,7 @@ select (select count(*) from app.people where center_id = :jsh) as jp, (select c
        (select count(*) from auth.users) as users_before \gset
 
 -- ── A. The packs ─────────────────────────────────────────────────────────────
-select pg_temp.assert((select count(*) = 2 and bool_and(not active) and bool_and(content is not null) and bool_and(version = case key when 'demo_faith_jain_v1' then 3 else 1 end)
+select pg_temp.assert((select count(*) = 2 and bool_and(not active) and bool_and(content is not null) and bool_and(version = case key when 'demo_faith_jain_v1' then 3 else 2 end)
                          from app.demo_packs where key in ('demo_faith_jain_v1', 'demo_neutral_club_v1')),
   'both packs are in the catalog as data, and are not offered on Setup > Demo');
 select pg_temp.assert((select content->'center'->>'kind' = 'faith' and content->'center'->>'category_key' = 'jain_center'

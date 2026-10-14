@@ -148,7 +148,7 @@ function givingOps(spec) {
   if (spec.bank) {
     ops.push(t("bank_accounts", { id: "@bank:main", name: spec.bank.name, institution: spec.bank.institution, last4: spec.bank.last4, statement_format: spec.bank.format, active: true }));
     ops.push(rows("bank_transactions", spec.bank.lines.map(([desc, type, cents, ago]) => ({
-      bank_account_id: "@bank:main", posted_on: d(-ago), amount_cents: cents, description: desc, bank_type: type, bank_details: "CREDIT", status: "unmatched",
+      bank_account_id: "@bank:main", posted_on: d(-ago), amount_cents: cents, description: desc, ...(type ? { bank_type: type, bank_details: "CREDIT" } : {}), status: "unmatched",
     }))));
   }
   return ops;
@@ -614,6 +614,16 @@ const club = {
     { k: "community", name: "Neighbor (free)", fee: 0, spouse: false, ref: false },
     { k: "yearly", name: "Member (yearly)", fee: 5000, months: 12, spouse: true, ref: true },
   ],
+  // Mateo's waits for his reference to answer, Patrick's for the membership team, Camille's for the executive committee.
+  applications: [
+    { k: "mateo", who: "reyes.mateo", tier: "yearly", ref: "okonkwo.emeka", status: "awaiting_reference", ago: 2, note: "Emeka and I are in the garden crew together." },
+    { k: "patrick", who: "sullivan.patrick", tier: "yearly", ref: "nakamura.hana", status: "awaiting_center", ago: 6, note: "Hana has been my neighbor for twenty years." },
+    { k: "camille", who: "moreau.camille", tier: "yearly", ref: "brightwater.dana", status: "awaiting_ec", ago: 9, note: "Dana and I run the book swap together.",
+      centerReason: "Reference confirmed; sent to the executive committee." },
+  ],
+  changeRequests: [
+    { k: "osei", hh: "osei", kind: "add_member", ago: 1, details: { first_name: "Femi", last_name: "Osei", relationship: "child", dob: "2019-06-03" } },
+  ],
   memberships: [
     ["alvarez", "marisol", "yearly", -200, 165], ["brightwater", "dana", "yearly", -180, 185], ["okonkwo", "ngozi", "yearly", -150, 215], ["petrov", "irina", "yearly", -120, 245],
     ["lindqvist", "sofia", "yearly", -100, 265], ["nakamura", "hana", "yearly", -400, 100], ["haddad", "layla", "community", -90], ["whitfield", "grace", "community", -500],
@@ -630,6 +640,8 @@ const club = {
     { ref: "g3", hh: "osei", who: "kwame", camp: "garden", source: "sponsorship", cents: 12500, ago: 60 },
     { ref: "g4", hh: "sullivan", who: "patrick", fund: "general", source: "general", cents: 5000, ago: 40 },
     { ref: "g5", hh: "reyes", who: "mateo", fund: "general", source: "general", cents: 2500, ago: 20 },
+    // A write-off the record-keeper asked for: the treasurer is the second, different person who confirms or turns it down.
+    { ref: "w1", hh: "whitfield", who: "grace", camp: "annual", source: "general", cents: 10000, ago: 230, writeOff: "The family moved away and asked to be released (demo)." },
   ],
   payments: [
     { ref: "a1", hh: "alvarez", who: "marisol", cents: 30000, method: "card", ago: 195, pledges: ["a1"] },
@@ -643,7 +655,7 @@ const club = {
   ],
   events: [
     { k: "potluck", name: "Neighbors potluck", descr: "Bring a dish to share and meet the neighbors.", venue: "Lakeside hall", day: -10, from: "17:00", to: "20:00", cap: 80, audience: "members_and_guests", opens: -30, closes: -11, owner: "petrov.irina", status: "completed" },
-    { k: "cleanup", name: "Spring clean-up day", descr: "Gloves, bags and lunch provided; we tidy the shoreline and the garden.", venue: "Lakeside park", day: 12, from: "09:00", to: "13:00", cap: 60, audience: "members_and_guests", opens: -14, closes: 11, owner: "petrov.irina", status: "published", waitlist: true },
+    { k: "cleanup", name: "Spring clean-up day", descr: "Gloves, bags and lunch provided; we tidy the shoreline and the garden.", venue: "Lakeside park", day: 5, from: "09:00", to: "13:00", cap: 60, audience: "members_and_guests", opens: -14, closes: 4, owner: "petrov.irina", status: "published", waitlist: true },
     { k: "concert", name: "Summer concert in the park", descr: "An evening of local bands on the lawn.", venue: "Lakeside park", day: 45, from: "18:00", to: "21:00", cap: null, audience: "public", opens: -5, closes: 44, owner: "lindqvist.sofia", status: "published" },
     { k: "bookswap", name: "Book swap", descr: "Bring a book, take a book (being planned).", venue: "Lakeside hall", day: 60, from: "10:00", to: "12:00", cap: 40, audience: "members_only", opens: null, closes: null, owner: "okonkwo.ngozi", status: "draft" },
   ],
@@ -655,14 +667,56 @@ const club = {
     ["concert", "alvarez", "rsvpd"], ["concert", "lindqvist", "rsvpd"], ["concert", "sullivan", "rsvpd"],
   ],
   shifts: [
-    { k: "cu_welcome", ev: "cleanup", station: "welcome", day: 12, from: "08:30", to: "11:00", cap: 4, notes: "Greet people and hand out gloves" },
-    { k: "cu_refresh", ev: "cleanup", station: "refreshments", day: 12, from: "10:30", to: "13:00", cap: 4 },
-    { k: "cu_tools", ev: "cleanup", station: "tools", day: 12, from: "08:30", to: "10:30", cap: 3 },
+    { k: "cu_welcome", ev: "cleanup", station: "welcome", day: 5, from: "08:30", to: "11:00", cap: 4, notes: "Greet people and hand out gloves" },
+    { k: "cu_refresh", ev: "cleanup", station: "refreshments", day: 5, from: "10:30", to: "13:00", cap: 4 },
+    { k: "cu_tools", ev: "cleanup", station: "tools", day: 5, from: "08:30", to: "10:30", cap: 4 },
   ],
-  assignments: [["cu_welcome", "petrov.nikolai", "confirmed"], ["cu_welcome", "moreau.jules", "assigned"], ["cu_refresh", "nakamura.ken", "confirmed"], ["cu_refresh", "haddad.omar", "assigned"], ["cu_tools", "osei.kwame", "assigned"], ["cu_tools", "whitfield.henry", "assigned"]],
+  assignments: [["cu_welcome", "petrov.nikolai", "confirmed"], ["cu_welcome", "moreau.jules", "assigned"], ["cu_refresh", "nakamura.ken", "confirmed"], ["cu_refresh", "haddad.omar", "assigned"], ["cu_tools", "osei.kwame", "assigned"], ["cu_tools", "whitfield.henry", "assigned"],
+                // Mateo asked to help with the tools: the shift waits for him to confirm it in the member app.
+                ["cu_tools", "reyes.mateo", "assigned"]],
+  // The checklist for the two coming events: one overdue, some due soon, two nobody owns.
+  actions: [
+    { k: "gloves", ev: "cleanup", phase: "pre", name: "Collect gloves, bags and tools from the shed", owner: "petrov.irina", due: 1, priority: "high", state: "in_progress" },
+    { k: "signs", ev: "cleanup", phase: "pre", name: "Print the sign-in sheet and the route map", owner: "lindqvist.sofia", due: -1, priority: "medium", state: "not_started" },
+    { k: "lunch", ev: "cleanup", phase: "pre", name: "Order lunch for the volunteers", owner: "nakamura.ken", due: 3, priority: "high", state: "not_started" },
+    { k: "permit", ev: "cleanup", phase: "pre", name: "Confirm the park permit", owner: null, due: 2, priority: "medium", state: "not_started" },
+    { k: "thanks", ev: "cleanup", phase: "after", name: "Send thank-you notes to the volunteers", owner: "alvarez.marisol", due: 8, priority: "low", state: "not_started" },
+    { k: "stage", ev: "concert", phase: "pre", name: "Book the stage and the sound", owner: "lindqvist.sofia", due: 12, priority: "high", state: "not_started" },
+    { k: "bands", ev: "concert", phase: "pre", name: "Confirm the local bands", owner: null, due: 20, priority: "medium", state: "not_started" },
+  ],
+  // Texts waiting on people, and the shared inboxes with what members have asked in them.
+  inboxes: [["office", "Front office", 48, null], ["membership", "Membership", 72, null], ["zone-north", "North shore", 48, "north"], ["zone-south", "South shore", 48, "south"]],
+  threads: [
+    { k: "member", inbox: "membership", from: "reyes.mateo", ago: 2, time: "11:00", subject: "How do I become a member?", body: "Hello, I have been coming to the potluck for two months. How do I apply for a yearly membership, and who can vouch for me?" },
+    { k: "rsvp", inbox: "office", from: "osei.kwame", ago: 1, time: "19:30", subject: "Can we bring a guest to the clean-up day?", body: "My cousin is visiting and would like to help. Does she need to sign up, and do I change our RSVP in the app?" },
+    { k: "garden", inbox: "office", from: "haddad.layla", ago: 1, time: "08:15", subject: "Who has the key to the garden shed?", body: "I would like to start on the raised beds before the clean-up day. Who can open the shed for me?" },
+    { k: "carpool", inbox: "zone-north", from: "reyes.mateo", ago: 1, time: "15:00", subject: "Is anyone driving from the north shore to the clean-up day?", body: "I do not have a car. Is there a carpool from the north shore on the morning of the clean-up day?" },
+    { k: "gathering", inbox: "zone-north", from: "okonkwo.ngozi", ago: 3, time: "10:20", subject: "Who is hosting this month's north shore get-together?", body: "Nobody has written yet about this month's get-together. Can the zone lead confirm the host and the day?" },
+  ],
+  whatsapp: {
+    groups: [["north", "North shore neighbors", "Updates for the neighbors of the north shore.", "zone", "north"], ["crew", "Volunteer crews", "Shift reminders for people who volunteer.", "volunteers", null]],
+    requests: [["north", "reyes.mateo", "+13125550148", 2], ["crew", "moreau.jules", "+13125550149", 1]],
+  },
+  content: [
+    { k: "welcome", kind: "faq", slug: "who-can-vote-demo", title: "Who can vote at the annual meeting? (demo)", body: "Every yearly member can vote. The text is waiting for the administrator to approve. (Demo.)", status: "in_review", ago: 2 },
+    { k: "talk", kind: "audio_lesson", slug: "welcome-talk-demo", title: "Welcome talk for new members (demo)", body: "Notes for the talk. The recording is still to be made. (Demo.)", meta: { series: "Getting started", length_minutes: 8 }, status: "draft", ago: 1 },
+    { k: "tour", kind: "audio_lesson", slug: "hall-tour-demo", title: "A tour of the hall (demo)", body: null, meta: { series: "Getting started", length_minutes: 5 }, status: "draft", ago: 3 },
+  ],
+  dataRequests: [["reyes.mateo", "export", "open", 9, 21], ["moreau.jules", "deletion", "in_progress", 22, 8]],
+  checks: [["lindqvist.erik", "requested", 3]],
+  bank: {
+    name: "Lakeside operating ··2210", institution: "Lakeside Savings", last4: "2210", format: "generic_csv",
+    lines: [
+      ["ZELLE FROM GRACE WHITFIELD REF # PP7QX21LMN", "", 25000, 1],
+      ["ZELLE FROM KWAME OSEI REF # PP3TT90KQW", "", 12500, 2],
+      ["DEPOSIT ID NUMBER 2208", "", 18000, 3],
+      ["ZELLE FROM PAULO ANDRADE REF # PP9ZK44ABC", "", 7500, 4],
+    ],
+  },
   groups: [["garden", "Garden crew", false], ["events", "Events crew", false], ["welcome", "Welcome team", false], ["youth", "Youth helpers", true]],
   interests: [["petrov.nikolai", "events", "active"], ["nakamura.ken", "events", "active"], ["moreau.jules", "garden", "active"], ["osei.kwame", "garden", "active"],
-             ["haddad.omar", "welcome", "interested"], ["whitfield.henry", "garden", "interested"], ["lindqvist.erik", "events", "interested"], ["okonkwo.emeka", "welcome", "active"]],
+             ["haddad.omar", "welcome", "interested"], ["whitfield.henry", "garden", "interested"], ["lindqvist.erik", "events", "interested"], ["okonkwo.emeka", "welcome", "active"],
+             ["lindqvist.erik", "youth", "interested"]],
   guide: [
     ["welcome", "Welcome to the club", "We are neighbors who like to do things together: meals, clean-ups, concerts and the garden.\n\n(Demo content.)", false],
     ["how-to-join", "How to join", "Say hello at any event, then apply for a yearly membership in the app. Two members vouch for you.\n\n(Demo content.)", false],
@@ -672,11 +726,12 @@ const club = {
     where: "Lakeside hall office",
     categories: [["shop", "Club shop"], ["treats", "Treats"]],
     items: [
-      { sku: "101", cat: "shop", name: "Club T-shirt", descr: "Soft cotton, in the club's lake blue", cents: 1800, pack: "one shirt", taxable: true, gift: true },
+      // Counted on the shelf: the orders below take 2 shirts and 3 boxes of lemon bars out, which leaves both at or under their reorder level.
+      { sku: "101", cat: "shop", name: "Club T-shirt", descr: "Soft cotton, in the club's lake blue", cents: 1800, pack: "one shirt", taxable: true, gift: true, stock: 4, low: 5 },
       { sku: "102", cat: "shop", name: "Canvas tote bag", descr: "Sturdy bag with the club's lighthouse", cents: 1200, pack: "one bag", taxable: true, gift: true },
       { sku: "103", cat: "shop", name: "Enamel mug", descr: "Holds a full cup of coffee", cents: 1000, pack: "one mug", taxable: true, gift: true },
       { sku: "104", cat: "shop", name: "Neighborhood cookbook", descr: "Recipes from the potlucks", cents: 2200, pack: "one book", taxable: false },
-      { sku: "201", cat: "treats", name: "Lemon bars", descr: "A box of six, baked by the garden crew", cents: 900, pack: "box of 6", taxable: false },
+      { sku: "201", cat: "treats", name: "Lemon bars", descr: "A box of six, baked by the garden crew", cents: 900, pack: "box of 6", taxable: false, stock: 5, low: 6 },
     ],
     orders: [
       { ref: "o1", hh: "alvarez", who: "marisol", win: "past", status: "picked_up", lines: [["101", 2], ["201", 1]] },
@@ -686,13 +741,15 @@ const club = {
     ],
   },
   alerts: [
-    { sev: "important", title: "Parking for the clean-up day", body: "Please use the lakeside lot and carpool if you can. (Demo notice.)", from: -1, to: 14 },
+    { sev: "important", title: "Parking for the clean-up day", body: "Please use the lakeside lot and carpool if you can. (Demo notice.)", from: -1, to: 6 },
     { sev: "info", title: "Garden gate code has changed", body: "Ask any garden crew member for the new code. (Demo notice.)", from: -40, to: -35 },
   ],
   campaigns: [
     { k: "news", kind: "newsletter", name: "Monthly newsletter", title: "Lakeside Neighbors Club newsletter", body: "## This month\n\n- Thank you to everyone who came to the potluck\n- Clean-up day is coming\n- Garden fund update\n\n(Demo newsletter.)", channels: ["email"], status: "sent", sentDay: -20, createdDay: -22 },
     { k: "invite", kind: "event", name: "Clean-up day invitation", title: "You're invited: spring clean-up day", body: "Join us at the shoreline. RSVP in the app. (Demo.)", channels: ["push", "email"], status: "sent", sentDay: -5, createdDay: -6 },
     { k: "draft", kind: "event", name: "Summer concert", title: "Save the date: summer concert in the park", body: "Local bands on the lawn; bring a blanket. (Demo draft.)", channels: ["push"], status: "draft", sentDay: null, createdDay: 0 },
+    // Written by a colleague and waiting for the communications officer's approval; an all-member send needs two different approvers.
+    { k: "welcome", kind: "announcement", name: "Welcome, new neighbors", title: "Welcome to Lakeside Neighbors Club", body: "A warm welcome to everyone who joined this season. The clean-up day is next week; bring gloves if you have them. (Demo.)", channels: ["push", "email"], status: "pending_approval", sentDay: null, createdDay: -1, second: true },
   ],
 };
 
@@ -735,7 +792,7 @@ const packs = [
   { key: "demo_faith_jain_v1", spec: faith, title: "Sunrise Worship Center (Demo)", expect: { households: 13, people: 34, personas: 26 },
     descr: "A small worship center of invented people (in a Jain Center's words: Pathshala, bolis, tapasvis): 13 households, 34 people, pledges and test-mode payments, events with RSVPs, a small store, notices, volunteer groups and a Pathshala term. One demo person for every role, and something waiting for each of them to do (applications, bank lines, a write-off, questions in the inboxes, texts to approve, an event checklist)." },
   { key: "demo_neutral_club_v1", spec: club, title: "Lakeside Neighbors Club (Demo)", expect: { households: 12, people: 29, personas: 21 },
-    descr: "A neighborhood club that is not faith-based, of invented people: 12 households, 29 people, pledges and test-mode payments, events with RSVPs, a small shop, notices and volunteer groups. One demo person for every role." },
+    descr: "A neighborhood club that is not faith-based, of invented people: 12 households, 29 people, pledges and test-mode payments, events with RSVPs, a small shop, notices and volunteer groups. One demo person for every role, and something waiting for each of them to do (applications, bank lines, a write-off, questions in the inboxes, texts to approve, an event checklist)." },
 ];
 
 const built = packs.map((p) => {
