@@ -135,7 +135,6 @@ insert into app.households (id, center_id, display_name, address_line1, city, st
   (:hd, :dm, 'Demo184 household', null, null, null, null),
   (:hs, :sb, 'Sandbox184 household', null, null, null, null),
   (:ho, :oc, 'Other184 household', null, null, null, null);
-select household_number as hn1 from app.households where id = :h1 \gset
 insert into app.people (id, center_id, first_name, last_name, date_of_birth, email) values
   (:mira, :jc, 'Mira', 'Member184', date '1980-01-01', 'Mira184@Temple.test'),
   (:kiran, :jc, 'Kiran', 'Member184', (current_date - interval '10 years')::date, 'kiran184@temple.test'),
@@ -297,7 +296,7 @@ select pg_temp.assert(:'doc'::jsonb #>> '{center,name}' = 'Temple 184' and :'doc
                       and :'doc'::jsonb #>> '{organization,legal_name}' = 'Temple 184 Inc.' and :'doc'::jsonb #>> '{organization,ein}' = '12-3456789'
                       and :'doc'::jsonb #>> '{pledge,amount_cents}' = '10000' and :'doc'::jsonb #>> '{pledge,status}' in ('open', 'partially_paid')
                       and :'doc'::jsonb #>> '{pledge,pledged_at}' = ((now() - interval '5 days') at time zone 'America/Chicago')::date::text
-                      and :'doc'::jsonb #>> '{household,number}' = :'hn1' and :'doc'::jsonb #>> '{household,primary_member}' = 'Mira Member184'
+                      and :'doc'::jsonb #>> '{household,number}' is not distinct from (select household_number from app.households where id = :h1) and :'doc'::jsonb #>> '{household,primary_member}' = 'Mira Member184'
                       and :'doc'::jsonb #>> '{household,address,line1}' = '12 Oak St' and :'doc'::jsonb #>> '{household,address,city}' = 'Houston'
                       and :'doc'::jsonb #>> '{wording,signed_by}' = 'The Treasurer 184' and :'doc'::jsonb #>> '{wording,personal_note}' = 'Thank you 184',
   'D · the PDF facts: the community''s brand and profile, the pledge, the household as its card shows it, the primary member and address, the signer and note');
@@ -320,11 +319,11 @@ select pg_temp.assert_raises(format($$select app.worker_pledge_document(%L, %L, 
 reset role;
 set role connect_worker;
 select app.worker_pledge_document(:'msg6', :p6, 18) as wdoc \gset
-select app.worker_pledge_document(:'msg6', :p1, 18) as wdoc_other \gset
-select app.worker_pledge_document('18400000-0000-4000-8000-0000000009ff', :p6, 18) as wdoc_nomsg \gset
+select app.worker_pledge_document(:'msg6', :p1, 18) is null as wdoc_other_null \gset
+select app.worker_pledge_document('18400000-0000-4000-8000-0000000009ff', :p6, 18) is null as wdoc_nomsg_null \gset
 reset role;
 select pg_temp.assert(:'wdoc'::jsonb #>> '{pledge,number}' is not distinct from :'doc'::jsonb #>> '{pledge,number}' and :'wdoc'::jsonb #>> '{pledge,amount_cents}' = '10000'
-                      and :'wdoc_other' = '' and :'wdoc_nomsg' = '',
+                      and :'wdoc_other_null' = 't' and :'wdoc_nomsg_null' = 't',
   'D · the background service gets the pledge the message names, nothing for another pledge or a message that does not exist');
 
 -- ══ E. Emailing by hand ══════════════════════════════════════════════════════
