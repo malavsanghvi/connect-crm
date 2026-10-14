@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
+import { RefreshWhileBusy } from "@/components/refresh-while-busy";
 import { Alert, Badge, BlockGrid, buttonClass, Card, DefinitionList, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { parseMappingOverview, roleStateView, type MappingRole } from "@/lib/books/mapping";
 import { formatDate, formatDateTime } from "@/lib/dates";
@@ -29,7 +30,6 @@ import {
   approveQboTestPostAction,
   disconnectQboAction,
   postQboNowAction,
-  pullQboListsAction,
   runQboTestPostAction,
   saveFundClassAction,
   saveQboBasisAction,
@@ -37,6 +37,7 @@ import {
   saveQboSettingsAction,
 } from "./actions";
 import { ConnectQboForm } from "./connect-form";
+import { PullNowForm } from "./pull-now-form";
 
 export const metadata: Metadata = { title: "QuickBooks setup" };
 
@@ -210,7 +211,8 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
             <>
               {conn?.connect_state === "exchanging" ? (
                 <Alert tone="info" title="Finishing the connection">
-                  Intuit&apos;s sign-in arrived; the background service is finishing it. Reload in a moment.
+                  Intuit&apos;s sign-in arrived; the background service is finishing it.
+                  <RefreshWhileBusy active seconds={2} maxSeconds={120} className="mt-1" />
                 </Alert>
               ) : (
                 <p className="mb-3 text-sm text-muted">
@@ -338,7 +340,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
 
           <BlockGrid className="mb-4">
             <Card span={7} title="3 · Chart of accounts and lists" description="Pulled from QuickBooks, read-only here, refreshed daily. Never uploaded by hand."
-              actions={connected && canConnect ? <ActionForm action={pullQboListsAction} submitLabel="Pull now" pendingLabel="Queuing…" variant="secondary" size="sm" /> : null}>
+              actions={connected && canConnect ? <PullNowForm lastPullAt={s.last_pull?.finished_at ?? null} /> : null}>
               <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {Object.entries(LIST_LABEL).map(([k, label]) => (
                   <div key={k} className="rounded-lg border border-line px-3 py-2">
@@ -582,6 +584,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                     {test.mode === "dry_run" ? "(checked, nothing posted)" : "(posted)"} · {formatDateTime(test.requested_at, tz)}
                     {test.requested_by ? ` by ${test.requested_by}` : ""}
                   </p>
+                  <RefreshWhileBusy active={test.status !== "succeeded" && test.status !== "failed"} seconds={3} maxSeconds={180} className="mt-1" />
                   {test.error ? <p className="mt-1 text-sm text-danger">{test.error}</p> : null}
                   {test.results.length > 0 ? (
                     <ul className="mt-2 space-y-1 text-sm">
