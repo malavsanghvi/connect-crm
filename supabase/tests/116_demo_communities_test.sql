@@ -80,11 +80,11 @@ select (select count(*) from app.people where center_id = :jsh) as jp, (select c
        (select count(*) from auth.users) as users_before \gset
 
 -- ── A. The packs ─────────────────────────────────────────────────────────────
-select pg_temp.assert((select count(*) = 2 and bool_and(not active) and bool_and(content is not null) and bool_and(version = 1)
+select pg_temp.assert((select count(*) = 2 and bool_and(not active) and bool_and(content is not null) and bool_and(version = case key when 'demo_faith_jain_v1' then 2 else 1 end)
                          from app.demo_packs where key in ('demo_faith_jain_v1', 'demo_neutral_club_v1')),
   'both packs are in the catalog as data, and are not offered on Setup > Demo');
 select pg_temp.assert((select content->'center'->>'kind' = 'faith' and content->'center'->>'category_key' = 'jain_center'
-                         and content->'center'->>'name' = 'Sunrise Jain Temple (Demo)' from app.demo_packs where key = 'demo_faith_jain_v1')
+                         and content->'center'->>'name' = 'Sunrise Worship Center (Demo)' from app.demo_packs where key = 'demo_faith_jain_v1')
                       and (select content->'center'->>'kind' = 'neutral' and content->'center'->>'category_key' = 'nonprofit_secular'
                          and content->'center'->>'name' = 'Lakeside Neighbors Club (Demo)' from app.demo_packs where key = 'demo_neutral_club_v1'),
   'the faith pack is a Jain Center, the other a non-faith non-profit, with the names the owner chose');
@@ -114,7 +114,7 @@ select pg_temp.assert_raises($$select app.create_demo_community(null)$$, 'Choose
 select app.create_demo_community('faith') as r \gset
 select (:'r'::jsonb)->>'center_id' as fc, (:'r'::jsonb)->>'created' as fc_created \gset
 select pg_temp.assert(:'fc_created' = 'true', 'creating the faith community says it was created');
-select pg_temp.assert((select c.environment = 'sandbox' and c.category_key = 'jain_center' and c.name = 'Sunrise Jain Temple (Demo)'
+select pg_temp.assert((select c.environment = 'sandbox' and c.category_key = 'jain_center' and c.name = 'Sunrise Worship Center (Demo)'
                               and c.status = 'onboarding' and c.rules->'demo' = 'true'::jsonb and c.rules->>'demo_kind' = 'faith'
                               and c.rules->>'demo_pack' = 'demo_faith_jain_v1' and app.is_demo_center(c.id)
                          from app.centers c where c.id = :'fc'),
