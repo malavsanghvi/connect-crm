@@ -203,6 +203,11 @@ select has_column_privilege('anon', 'app.centers', 'rules', 'select') as guests_
 
 What the lead checks live, in this order. Anything marked **stop** means run the rollback and report.
 
+0. **SQL editor (the grants as they really are on the hosted database).** `select has_table_privilege('anon', 'app.centers', 'select')`
+   is false; `select count(*) from information_schema.column_privileges where table_schema = 'app' and table_name = 'centers' and
+   grantee = 'anon' and privilege_type = 'SELECT'` is 12; `select policyname from pg_policies where schemaname = 'app' and
+   tablename = 'centers' order by 1` shows `centers_admin_update`, `centers_guest_read`, `centers_linked_read` and
+   `centers_platform_all`, and no `centers_public_read`. **Stop** if not.
 1. **Guest, anon key (the closing itself).** `GET <project>/rest/v1/centers?select=rules` with the anon key and the
    `Accept-Profile: app` header is refused (`permission denied for table centers`, code 42501), and so are `select=*`,
    `select=branding` and `select=feature_flags`. **Stop** if any of them returns a row.
