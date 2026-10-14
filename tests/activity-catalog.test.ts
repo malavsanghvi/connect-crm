@@ -35,7 +35,11 @@ function sourceFiles(dir: string): string[] {
 const KEY = "[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*){1,2}";
 const FORMS = [new RegExp(`withActivity\\(\\s*"(${KEY})"`, "g"), new RegExp(`\\{\\s*key:\\s*"(${KEY})"\\s*,\\s*entityFrom`, "g")];
 
+// Read once: scanning every source file takes seconds, and two tests ask.
+let recorded: Map<string, string> | null = null;
+
 function recordedKeys(): Map<string, string> {
+  if (recorded) return recorded;
   const found = new Map<string, string>();
   for (const file of sourceFiles(join(ROOT, "src"))) {
     // The wrapper's own documentation and the test helpers are not recording sites.
@@ -43,6 +47,7 @@ function recordedKeys(): Map<string, string> {
     const text = readFileSync(file, "utf8");
     for (const form of FORMS) for (const m of text.matchAll(form)) found.set(m[1], file);
   }
+  recorded = found;
   return found;
 }
 
@@ -63,10 +68,20 @@ describe("the keys the portal records", () => {
   });
 });
 
+// The organization's own data (WeCare, docs/WECARE.md section 3, W2) is never recorded in the activity stream: its screens are
+// left out of the catalog on purpose, so the database drops their events and none can reach the share-with-Weaver set.
+const PRIVATE_SCREENS = ["/care"];
+
 describe("the screens of the navigation", () => {
   it.skipIf(!catalogSql)("each tab's address is a screen key the database lists", () => {
-    const hrefs = NAV.flatMap((m) => m.tabs.map((t) => t.href));
+    const hrefs = NAV.flatMap((m) => m.tabs.map((t) => t.href)).filter((href) => !PRIVATE_SCREENS.some((p) => href === p || href.startsWith(`${p}/`)));
     const missing = hrefs.filter((href) => !catalogSql.includes(`'screen:${href}'`));
     expect(missing).toEqual([]);
+  });
+
+  it.skipIf(!catalogSql)("never lists WeCare's screens or actions, so nothing of them is recorded (W2)", () => {
+    expect(NAV.some((m) => m.tabs.some((t) => t.href === "/care"))).toBe(true);
+    expect(catalogSql).not.toMatch(/'screen:\/care/);
+    expect([...recordedKeys().keys()].filter((k) => k.startsWith("care."))).toEqual([]);
   });
 });
