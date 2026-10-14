@@ -75,7 +75,7 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
           </div>
           <h1 className="font-display text-[32px] font-semibold leading-[1.15] sm:text-[38px]">Try the demo</h1>
           <p className="max-w-[640px] text-base leading-normal text-navy-200">
-            Explore {PRODUCT_NAME} as the people who use it every day. Choose a community, then choose who to be. Everything in it is invented: no
+            Experience {PRODUCT_NAME} in less than a minute, as the people who use it every day: choose a community, choose who to be, press Start. Everything in it is invented: no
             message is ever sent, payments are only for practice, and the demo starts over every night.
           </p>
         </div>
