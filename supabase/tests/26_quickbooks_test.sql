@@ -269,6 +269,10 @@ insert into ctx select 'plan', app.qbo_worker_test_post_plan((select v::uuid fro
 select pg_temp.assert((select jsonb_agg(d->>'entity' order by d->>'entity') = '["Deposit","JournalEntry","RefundReceipt","SalesReceipt"]'::jsonb
                          from jsonb_array_elements((select v::jsonb from ctx where k = 'plan')->'docs') d),
   'the test post is one SalesReceipt, RefundReceipt, Deposit and JournalEntry');
+select pg_temp.assert(((select v::jsonb from ctx where k = 'plan') #>> '{docs,0,entity}') = 'SalesReceipt'
+                      and ((select v::jsonb from ctx where k = 'plan') #>> '{docs,2,entity}') = 'Deposit'
+                      and ((select v::jsonb from ctx where k = 'plan') #>> '{docs,2,lines,0,link_to}') = 'SalesReceipt',
+  'the test Deposit names the Sales receipt it deposits (QuickBooks takes money out of Undeposited Funds only by a link, 0783)');
 select pg_temp.assert(((select v::jsonb from ctx where k = 'plan') #>> '{docs,0,lines,0,item_id}') = '20'
                       and ((select v::jsonb from ctx where k = 'plan') #>> '{docs,0,lines,0,class_id}') = '30',
   'the sales line goes through the item that posts to the income account, with the fund''s class');

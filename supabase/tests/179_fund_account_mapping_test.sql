@@ -676,10 +676,39 @@ select pg_temp.claims('83000000-0000-4000-8000-000000000003');
 set local role authenticated;
 select app.decide_account_mapping_change(:'req12', true, 'Matches the savings statement');
 reset role;
+-- QuickBooks takes cash and checks out of Undeposited Funds only by linking the receipts they came in on: a plain deposit line
+-- naming Undeposited Funds is refused with "Select a bank account for this deposit" (code 6000; checked against an Intuit
+-- sandbox company 2026-10-14, 0783). So the deposit waits, with a plain reason, until its receipts are linked and in QuickBooks.
+select pg_temp.claim(:c);
+select pg_temp.assert((select status = 'failed' and last_error like 'No receipts are linked to this deposit%' and needs_mapping is null
+                         from app.ledger_postings where id = :'lp7'),
+  'once confirmed, a deposit with no receipts linked to it is still not sent (it would be a plain Undeposited Funds line)');
+insert into app.payments (id, center_id, household_id, amount_cents, method, provider, received_on, receipt_number, deposit_bank_transaction_id)
+values ('83000000-0000-4000-8000-00000000b311', :c, :h1, 2500, 'check', 'offline', current_date - 1, 'R83-D1', '83000000-0000-4000-8000-00000000b301'),
+       ('83000000-0000-4000-8000-00000000b312', :c, :h1, 2000, 'cash', 'offline', current_date - 1, 'R83-D2', '83000000-0000-4000-8000-00000000b301');
+select (pg_temp.posting('83000000-0000-4000-8000-00000000b311')).id as lpd1 \gset
+select (pg_temp.posting('83000000-0000-4000-8000-00000000b312')).id as lpd2 \gset
+update app.ledger_postings set status = 'queued' where id = :'lp7';
+select pg_temp.claim(:c);
+select pg_temp.assert((select status = 'failed' and last_error like '2 of the 2 receipts in this deposit are not in QuickBooks yet%'
+                         from app.ledger_postings where id = :'lp7'),
+  'nor while the receipts in it are not in QuickBooks yet');
+select pg_temp.done(:'lpd1', 'QB-D1');
+select pg_temp.done(:'lpd2', 'QB-D2');
+update app.ledger_postings set status = 'queued', amount_cents = 4600 where id = :'lp7';
+select pg_temp.claim(:c);
+select pg_temp.assert((select status = 'failed' and last_error like 'The QuickBooks receipts of this deposit total $45.00 but the deposit is $46.00%'
+                         from app.ledger_postings where id = :'lp7'),
+  'a deposit whose receipts do not add up to it is not sent');
+update app.ledger_postings set status = 'queued', amount_cents = 4500 where id = :'lp7';
 select pg_temp.claim(:c) as cl8 \gset
 select pg_temp.assert((select u->'doc'->>'deposit_account' = '22' and u->'doc'->>'entity' = 'Deposit'
+                              and jsonb_array_length(u->'doc'->'lines') = 2
+                              and (select array_agg(l->'linked_txn'->>'id' order by l->'linked_txn'->>'id') from jsonb_array_elements(u->'doc'->'lines') l) = array['QB-D1', 'QB-D2']
+                              and (select bool_and(l->'linked_txn'->>'type' = 'SalesReceipt') from jsonb_array_elements(u->'doc'->'lines') l)
+                              and (select sum((l->>'amount_cents')::bigint) from jsonb_array_elements(u->'doc'->'lines') l) = 4500
                          from (select pg_temp.unit_of(:'cl8'::jsonb, :'lp7') u) x),
-  'once confirmed the deposit goes back in the queue and lands in the savings register');
+  'once its receipts are in QuickBooks the deposit links each of them and lands in the savings register');
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Only a required account stops all posting: a bad optional account or bank register holds only its own postings
 -- ═════════════════════════════════════════════════════════════════════════════
