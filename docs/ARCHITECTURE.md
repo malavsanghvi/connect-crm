@@ -41,6 +41,10 @@ flowchart LR
   - Family: `app.in_my_household`, `app.adult_of_household`, `app.can_act_for_person`.
   - Money (pledges, payments, bolis, store checkout, RSVP) is **adults only**; children see events, learning and My Jain Way.
 - Everything sensitive is audited automatically (hash-chained, append-only `app.audit_log`).
+  The log only grows, so its read policy (`audit_read`, 0788) asks the caller's answer **once per statement**
+  (`app._audit_can_read_any()` as a sub-select, then the row's community looked up in the set `app._audit_read_centers(...)`),
+  never `has_permission(center_id, …)` per row: a member with no audit permission gets an empty answer at once, not a
+  statement timeout. Do the same for any policy on a table that grows without bound.
 - Card data never touches the platform: payments go through the provider (Stripe
   Connect, one connected account per center).
 
