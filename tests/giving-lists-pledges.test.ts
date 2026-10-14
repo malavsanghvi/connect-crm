@@ -161,7 +161,17 @@ describe("a pledge row acts as Today does", () => {
     expect(r.status.label).toBe("Written off");
     expect(r.lines).toContain("Reason: “Hardship”");
     expect(r.lines).toContain("Posted to QuickBooks as a credit memo.");
-    expect(kinds(r, "menu")).toEqual(["link"]);
+    expect(kinds(r, "menu")).toEqual(["edit_pledge", "link"]);
+    // Edit is giving.manage only; without it a closed pledge only opens the family.
+    expect(kinds(pledgeRow(byNumber("PL-0301"), F.kim, ctx({ can: { manage: false } })), "menu")).toEqual(["link"]);
+  });
+
+  it("a treasurer can edit any pledge but a deleted one (0782); nobody else is offered it", () => {
+    const open = byNumber("PL-0455");
+    const r = pledgeRow(open, F.adeyemi, ctx());
+    expect(r.menu[0]).toEqual({ kind: "edit_pledge", id: open.id, reference: "PL-0455", label: "Edit pledge…" });
+    expect(kinds(pledgeRow(open, F.adeyemi, ctx({ can: { manage: false } })), "menu")).not.toContain("edit_pledge");
+    expect(kinds(pledgeRow({ ...open, status: "cancelled" }, F.adeyemi, ctx()), "menu")).not.toContain("edit_pledge");
   });
 });
 

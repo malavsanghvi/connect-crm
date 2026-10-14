@@ -211,6 +211,8 @@ export type Act =
   | { kind: "request_write_off"; id: string; openCents: number; reference: string; label: string }
   | { kind: "withdraw_write_off"; id: string; reference: string; label: string }
   /** Every pledge has a due date (0775): a treasurer moves an open pledge's, with a reason. `pledgedOn` is the earliest it may be. */
+  /** Edit or delete one pledge (0782, giving.manage): the Edit pledge sheet in place, with the database's own locks. */
+  | { kind: "edit_pledge"; id: string; reference: string; label: string }
   | { kind: "change_due"; id: string; reference: string; dueOn: string | null; pledgedOn: string; label: string }
   | { kind: "request_refund"; id: string; refundableCents: number; reference: string; label: string }
   | { kind: "provider_refund"; id: string; amountCents: number; provider: "stripe" | "paypal"; reference: string; label: string; what: string }

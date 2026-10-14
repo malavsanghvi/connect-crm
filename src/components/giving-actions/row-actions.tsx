@@ -40,7 +40,7 @@ import { formatCents, parseAmountToCents } from "@/lib/money";
 
 import { MatchCountAct, UnmatchCountAct } from "./count-acts";
 import { GiftAct } from "./gift-act";
-import { RecordPaymentButton } from "./provider";
+import { RecordPaymentButton, useGivingSheets } from "./provider";
 import { FamilyCard, GivingSheet, NO_UNDO } from "./sheet";
 
 export type ActContext = {
@@ -736,6 +736,17 @@ function ChangeDueAct({ act, row, ctx }: { act: Extract<Act, { kind: "change_due
   );
 }
 
+/** Edit or delete one pledge (0782): the sheet opens in place; where no sheet can open (the classic look) nothing is drawn. */
+function EditPledgeAct({ act, ctx }: { act: Extract<Act, { kind: "edit_pledge" }>; ctx: ActContext }) {
+  const sheets = useGivingSheets();
+  if (!sheets?.canEditPledge) return null;
+  return (
+    <button type="button" className={triggerClass(ctx, false)} onClick={() => sheets.openEditPledge({ pledgeId: act.id, onDone: (message) => ctx.onDone(`Done: ${message}`) })}>
+      {act.label}
+    </button>
+  );
+}
+
 function WithdrawWriteOffAct({ act, row, ctx }: { act: Extract<Act, { kind: "withdraw_write_off" }>; row: RowLike; ctx: ActContext }) {
   return (
     <SheetAct
@@ -1115,6 +1126,8 @@ export function ActButtons({ acts, row, ctx }: { acts: readonly Act[]; row: RowL
             return <RequestWriteOffAct key={i} act={a} row={row} ctx={ctx} />;
           case "withdraw_write_off":
             return <WithdrawWriteOffAct key={i} act={a} row={row} ctx={ctx} />;
+          case "edit_pledge":
+            return <EditPledgeAct key={i} act={a} ctx={ctx} />;
           case "change_due":
             return <ChangeDueAct key={i} act={a} row={row} ctx={ctx} />;
           case "request_refund":
