@@ -661,8 +661,11 @@ Community Connect server yet".
    `app.set_messaging_review_status('texting', <id>, 'approved', <note>, '{"from_number":…,"brand_id":…,"campaign_id":…}')`
    (platform admin). WhatsApp numbers and templates are submitted to Meta the same way and
    recorded with `'whatsapp_account'` / `'whatsapp_template'`.
-3. **Expo push**: nothing is required; optionally an access token (`EXPO_ACCESS_TOKEN`) if
-   "enhanced push security" is turned on for the Expo project.
+3. **Expo push**: the server needs nothing (optionally an access token, `EXPO_ACCESS_TOKEN`, if
+   "enhanced push security" is turned on for the Expo project). **Android phones also need Firebase
+   (FCM)**: a `google-services.json` in the app build and an FCM V1 key uploaded to Expo, or the app
+   cannot get a push token and no push reaches them. Not done yet; steps in
+   [ANDROID_PUSH_SETUP.md](ANDROID_PUSH_SETUP.md).
 4. **Supabase Auth hooks** (the sign-in blocker): Supabase › Authentication › Hooks →
    *Send Email hook* → HTTPS → `https://<portal>/api/auth-hooks/send-email`; *Send SMS hook* →
    `https://<portal>/api/auth-hooks/send-sms`. Supabase generates each secret
