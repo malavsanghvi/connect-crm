@@ -46,44 +46,44 @@ create or replace function pg_temp.told(p_announcement uuid, p_user uuid) return
 
 grant connect_worker to postgres;
 
-\set c '''81000000-0000-4000-8000-0000000000c1'''
-\set term '''81000000-0000-4000-8000-0000000000b1'''
-\set track '''81000000-0000-4000-8000-0000000000b2'''
-\set plevel '''81000000-0000-4000-8000-0000000000b3'''
-\set classA '''81000000-0000-4000-8000-0000000000b4'''
-\set classB '''81000000-0000-4000-8000-0000000000b5'''
-\set u_teacher '''81000000-0000-4000-8000-0000000000a1'''
-\set u_principal '''81000000-0000-4000-8000-0000000000a2'''
-\set u_mom '''81000000-0000-4000-8000-0000000000a3'''
-\set u_dad '''81000000-0000-4000-8000-0000000000a4'''
-\set u_kid '''81000000-0000-4000-8000-0000000000a5'''
-\set u_nb '''81000000-0000-4000-8000-0000000000a6'''
-\set u_wd '''81000000-0000-4000-8000-0000000000a7'''
-\set u_wl '''81000000-0000-4000-8000-0000000000a8'''
-\set p_mom '''81000000-0000-4000-8000-0000000000d1'''
-\set p_dad '''81000000-0000-4000-8000-0000000000d2'''
-\set p_kid '''81000000-0000-4000-8000-0000000000d3'''
-\set p_nb '''81000000-0000-4000-8000-0000000000d4'''
-\set p_nbkid '''81000000-0000-4000-8000-0000000000d5'''
-\set p_wd '''81000000-0000-4000-8000-0000000000d6'''
-\set p_wdkid '''81000000-0000-4000-8000-0000000000d7'''
-\set p_wl '''81000000-0000-4000-8000-0000000000d8'''
-\set p_wlkid '''81000000-0000-4000-8000-0000000000d9'''
-\set h1 '''81000000-0000-4000-8000-0000000000e1'''
-\set h2 '''81000000-0000-4000-8000-0000000000e2'''
-\set h3 '''81000000-0000-4000-8000-0000000000e3'''
-\set h4 '''81000000-0000-4000-8000-0000000000e4'''
-\set annA '''81000000-0000-4000-8000-0000000000f1'''
-\set annAll '''81000000-0000-4000-8000-0000000000f2'''
-\set annDraft '''81000000-0000-4000-8000-0000000000f3'''
+\set c '''18100000-0000-4000-8000-0000000000c1'''
+\set term '''18100000-0000-4000-8000-0000000000b1'''
+\set track '''18100000-0000-4000-8000-0000000000b2'''
+\set plevel '''18100000-0000-4000-8000-0000000000b3'''
+\set classA '''18100000-0000-4000-8000-0000000000b4'''
+\set classB '''18100000-0000-4000-8000-0000000000b5'''
+\set u_teacher '''18100000-0000-4000-8000-0000000000a1'''
+\set u_principal '''18100000-0000-4000-8000-0000000000a2'''
+\set u_mom '''18100000-0000-4000-8000-0000000000a3'''
+\set u_dad '''18100000-0000-4000-8000-0000000000a4'''
+\set u_kid '''18100000-0000-4000-8000-0000000000a5'''
+\set u_nb '''18100000-0000-4000-8000-0000000000a6'''
+\set u_wd '''18100000-0000-4000-8000-0000000000a7'''
+\set u_wl '''18100000-0000-4000-8000-0000000000a8'''
+\set p_mom '''18100000-0000-4000-8000-0000000000d1'''
+\set p_dad '''18100000-0000-4000-8000-0000000000d2'''
+\set p_kid '''18100000-0000-4000-8000-0000000000d3'''
+\set p_nb '''18100000-0000-4000-8000-0000000000d4'''
+\set p_nbkid '''18100000-0000-4000-8000-0000000000d5'''
+\set p_wd '''18100000-0000-4000-8000-0000000000d6'''
+\set p_wdkid '''18100000-0000-4000-8000-0000000000d7'''
+\set p_wl '''18100000-0000-4000-8000-0000000000d8'''
+\set p_wlkid '''18100000-0000-4000-8000-0000000000d9'''
+\set h1 '''18100000-0000-4000-8000-0000000000e1'''
+\set h2 '''18100000-0000-4000-8000-0000000000e2'''
+\set h3 '''18100000-0000-4000-8000-0000000000e3'''
+\set h4 '''18100000-0000-4000-8000-0000000000e4'''
+\set annA '''18100000-0000-4000-8000-0000000000f1'''
+\set annAll '''18100000-0000-4000-8000-0000000000f2'''
+\set annDraft '''18100000-0000-4000-8000-0000000000f3'''
 
 -- ── Fixtures ─────────────────────────────────────────────────────────────────────
 -- One community with a term and two classes (A "Jainism 6", B "Jainism 7"). Household 1 (mom and dad, and a child with her own
 -- login and phone) has the child ACTIVE in class A; household 2 (a parent) has a child PLACED in class B; household 3's child
 -- was WITHDRAWN from class A and household 4's child is WAITLISTED for it (both parents have the app).
 insert into auth.users (id, email) values
-  (:u_teacher, 'teacher81@example.com'), (:u_principal, 'principal81@example.com'), (:u_mom, 'mom81@example.com'), (:u_dad, 'dad81@example.com'),
-  (:u_kid, 'kid81@example.com'), (:u_nb, 'nb81@example.com'), (:u_wd, 'wd81@example.com'), (:u_wl, 'wl81@example.com');
+  (:u_teacher, 'teacher181@example.com'), (:u_principal, 'principal181@example.com'), (:u_mom, 'mom181@example.com'), (:u_dad, 'dad181@example.com'),
+  (:u_kid, 'kid181@example.com'), (:u_nb, 'nb181@example.com'), (:u_wd, 'wd181@example.com'), (:u_wl, 'wl181@example.com');
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:c, 'ann81', 'Announcement 81 Community', 'A81', 'TX', 'active', 'America/Chicago');
 update app.centers
@@ -93,14 +93,14 @@ update app.centers
 insert into app.households (id, center_id, display_name) values
   (:h1, :c, 'Shah household 81'), (:h2, :c, 'Mehta household 81'), (:h3, :c, 'Rao household 81'), (:h4, :c, 'Patel household 81');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth, email) values
-  (:p_mom, :c, 'Mira', 'Shah', date '1982-01-01', 'mom81@example.com'),
-  (:p_dad, :c, 'Raj', 'Shah', date '1980-01-01', 'dad81@example.com'),
-  (:p_kid, :c, 'Anya', 'Shah', (current_date - interval '10 years')::date, 'kid81@example.com'),
-  (:p_nb, :c, 'Nita', 'Mehta', date '1981-05-05', 'nb81@example.com'),
+  (:p_mom, :c, 'Mira', 'Shah', date '1982-01-01', 'mom181@example.com'),
+  (:p_dad, :c, 'Raj', 'Shah', date '1980-01-01', 'dad181@example.com'),
+  (:p_kid, :c, 'Anya', 'Shah', (current_date - interval '10 years')::date, 'kid181@example.com'),
+  (:p_nb, :c, 'Nita', 'Mehta', date '1981-05-05', 'nb181@example.com'),
   (:p_nbkid, :c, 'Veer', 'Mehta', (current_date - interval '8 years')::date, null),
-  (:p_wd, :c, 'Wanda', 'Rao', date '1979-03-03', 'wd81@example.com'),
+  (:p_wd, :c, 'Wanda', 'Rao', date '1979-03-03', 'wd181@example.com'),
   (:p_wdkid, :c, 'Rhea', 'Rao', (current_date - interval '9 years')::date, null),
-  (:p_wl, :c, 'Wil', 'Patel', date '1978-04-04', 'wl81@example.com'),
+  (:p_wl, :c, 'Wil', 'Patel', date '1978-04-04', 'wl181@example.com'),
   (:p_wlkid, :c, 'Pia', 'Patel', (current_date - interval '9 years')::date, null);
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
   (:h1, :p_mom, :c, 'primary', true), (:h1, :p_dad, :c, 'spouse', false), (:h1, :p_kid, :c, 'child', false),
@@ -147,7 +147,7 @@ select pg_temp.assert((select count(*) = 3 and bool_and(exists (select 1 from un
                          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                         where n.nspname = 'app' and p.proname in ('worker_pathshala_announcement_notify', '_pathshala_announcement_recipients', 'class_announcement_published')),
   'each of the three pins the search path app, public, extensions');
-select pg_temp.assert_raises($$select app.worker_pathshala_announcement_notify('81000000-0000-4000-8000-0000000000ff', 0, 50)$$,
+select pg_temp.assert_raises($$select app.worker_pathshala_announcement_notify('18100000-0000-4000-8000-0000000000ff', 0, 50)$$,
   'only the background service', 'it asserts the worker role itself, even for the database owner');
 select pg_temp.assert(exists (select 1 from app.message_templates t where t.center_id is null and t.key = 'pathshala_announcement' and t.channel = 'push' and t.language = 'en'
                                  and t.subject = '{{audience}}: {{title}}' and t.body = '{{snippet}}'),
