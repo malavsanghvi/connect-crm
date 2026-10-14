@@ -1,11 +1,12 @@
 import { Icon } from "@/components/brand/icons";
 import { SectionHeading, buttonStyles, container } from "@/components/site/ui";
-import { portalUrl } from "@/lib/site";
+import { memberAppDemoUrl, portalUrl } from "@/lib/site";
 
 /**
  * "Experience Weaver in less than a minute": the home page's way into the demo (the portal's /demo page, docs/DEMO_SIGNIN.md). It says
  * only what the demo does today: three choices and a button, invented people, nothing real is ever sent, payments are only for
- * practice, and the demo starts over every night. In-page anchor: #experience.
+ * practice, and the demo starts over every night. A quieter second link under the button opens the member app's own demo in the
+ * browser (memberAppDemoUrl, docs/MEMBER_APP_DEMO.md). In-page anchor: #experience.
  */
 const STEPS = [
   { n: "1", title: "Choose a community", text: "A faith-based one, or one that is not." },
@@ -44,6 +45,13 @@ export function ExperienceBand() {
               <Icon name="arrow" className="h-5 w-5" />
             </a>
             <p className="text-[14px] text-navy-200">Takes about a minute. Nothing to install.</p>
+            <a
+              href={memberAppDemoUrl()}
+              className="inline-flex min-h-[44px] items-center text-[14.5px] text-navy-200 underline underline-offset-4 transition-colors hover:text-white"
+              data-testid="experience-member-app"
+            >
+              Or see the member app in your browser
+            </a>
           </div>
         </div>
       </div>

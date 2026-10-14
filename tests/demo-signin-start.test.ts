@@ -67,7 +67,7 @@ describe("starting a demo session: the mechanism", () => {
   it("asks the database, signs in as the demo person it names, ties the new session to the demo session, and says where to go", async () => {
     const { deps, calls, signIns } = fakes();
     const res = await startDemoSession({ personaId: PERSONA, ip: "203.0.113.9" }, deps);
-    expect(res).toEqual({ ok: true, data: { centerSlug: "sunrise-demo", expiresAt: "2026-10-11T22:00:00Z" } });
+    expect(res).toEqual({ ok: true, data: { centerSlug: "sunrise-demo", expiresAt: "2026-10-11T22:00:00Z", role: "Treasurer", name: "Tara Test" } });
     expect(calls).toEqual([`begin:${PERSONA}:hash(203.0.113.9)`, "endPrevious", "signIn", `attach:${DEMO_SESSION}:${AUTH_SESSION}`]);
     expect(signIns).toEqual([{ email: "treasurer@demo.weaverams.org", password: PASSWORD }]);
   });

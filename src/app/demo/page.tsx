@@ -13,11 +13,13 @@ import {
   KIND_LABEL,
   endedNotice,
   isDemoClaims,
+  peopleByArea,
   type DemoCommunity,
   type DemoKind,
 } from "@/lib/demo-signin/rules";
 import { loadDemoBanner, loadDemoChoices } from "@/lib/demo-signin/server";
 import { readPublicEnv } from "@/lib/env";
+import { memberAppDemoUrl } from "@/lib/site";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { PersonaCard } from "./persona-card";
@@ -75,6 +77,13 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
           <p className="max-w-[640px] text-base leading-normal text-navy-200">
             Experience {PRODUCT_NAME} in less than a minute, as the people who use it every day: choose a community, choose who to be, press Start. Everything in it is invented: no
             message is ever sent, payments are only for practice, and the demo starts over every night.
+          </p>
+          <p className="max-w-[640px] text-[14px] leading-normal text-navy-200">
+            Want to see the app members use on their phones instead?{" "}
+            <a href={memberAppDemoUrl()} className="font-bold text-white underline underline-offset-2" data-testid="demo-member-app">
+              Try the member app in your browser
+            </a>
+            , with nothing to install.
           </p>
         </div>
       </header>
@@ -147,13 +156,21 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
                 2 · Choose who to be in {community.name}
               </h2>
               <p className="mt-1 text-[14px] text-muted">
-                Each person sees only what their role allows. Press Start to open {PRODUCT_NAME} as them; your demo lasts {DEMO_SESSION_HOURS} hours.
+                Choose one person and press Start to open {PRODUCT_NAME} as them; your demo lasts {DEMO_SESSION_HOURS} hours.
               </p>
-              <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {community.people.map((p) => (
-                  <PersonaCard key={p.id} person={p} />
-                ))}
-              </ul>
+              {peopleByArea(community).map((group) => (
+                <div key={group.area} className="mt-5" role="group" aria-labelledby={`demo-area-${group.area}`} data-testid={`demo-area-${group.area}`}>
+                  <h3 id={`demo-area-${group.area}`} className="font-display text-[18px] font-semibold text-ink">
+                    {group.label}
+                  </h3>
+                  <p className="mt-0.5 text-[13px] text-muted">{group.blurb}</p>
+                  <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.people.map((p) => (
+                      <PersonaCard key={p.id} person={p} />
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </section>
           </>
         )}

@@ -14,7 +14,7 @@ import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/ser
 import { newRequestId, traceHeaders } from "@/lib/supabase/trace";
 
 import { DEMO_SESSION_HOURS, ipLimitKey, parseBanner, parseChoices, type DemoBannerInfo, type DemoChoices } from "./rules";
-import { startDemoSession, type StartDeps } from "./start";
+import { startDemoSession, type StartDeps, type StartResult } from "./start";
 
 // The server side of "Try the demo" (B88 part 2). The portal holds no service-role key: it reaches the demo sign-in through the
 // connect_worker connection it already uses for the sign-in hooks and the platform keys (src/lib/messaging/server-db.ts), calling
@@ -36,6 +36,23 @@ async function workerCall(sql: string, params: unknown[]): Promise<unknown> {
   return rows[0]?.r ?? null;
 }
 
+/** The steps that go through the database's worker connection, the same for the portal's page and for the member app. */
+function workerStartDeps(): Pick<StartDeps, "hashIp" | "begin" | "attach"> {
+  return {
+    hashIp,
+    begin: async (persona, ipHash) => {
+      try {
+        return await workerCall("select app.worker_demo_begin($1, $2) as r", [persona, ipHash]);
+      } catch (error) {
+        // Others are already waiting for the demo's one connection: say so as the database would (nothing was signed in).
+        if (error instanceof DemoBusyError) return { ok: false, code: "busy" };
+        throw error;
+      }
+    },
+    attach: (demoSessionId, authSessionId) => workerCall("select app.worker_demo_attach($1, $2) as r", [demoSessionId, authSessionId]),
+  };
+}
+
 async function visitorIp(): Promise<string | null> {
   try {
     const h = await headers();
@@ -52,16 +69,7 @@ export async function startDemoFromRequest(personaId: unknown): Promise<ActionRe
   if (!check.ok) return { ok: false, error: "Could not start the demo — the site is not configured. Please try again later." };
   const db = await createSupabaseServerClient({ clientApp: "portal", reason: "Try the demo" });
   const deps: StartDeps = {
-    hashIp,
-    begin: async (persona, ipHash) => {
-      try {
-        return await workerCall("select app.worker_demo_begin($1, $2) as r", [persona, ipHash]);
-      } catch (error) {
-        // Others are already waiting for the demo's one connection: say so as the database would (nothing was signed in).
-        if (error instanceof DemoBusyError) return { ok: false, code: "busy" };
-        throw error;
-      }
-    },
+    ...workerStartDeps(),
     endPrevious: async () => {
       // Only someone who is signed in has a previous session to end (and only they may call it).
       const { data: who } = await db.auth.getClaims();
@@ -78,7 +86,6 @@ export async function startDemoFromRequest(personaId: unknown): Promise<ActionRe
       const { error } = await db.auth.signOut({ scope: "local" });
       if (error) throw error;
     },
-    attach: (demoSessionId, authSessionId) => workerCall("select app.worker_demo_attach($1, $2) as r", [demoSessionId, authSessionId]),
   };
   const res = await startDemoSession({ personaId, ip: await visitorIp() }, deps);
   if (!res.ok) return res;
@@ -95,6 +102,56 @@ export async function startDemoFromRequest(personaId: unknown): Promise<ActionRe
     return failure("Could not start the demo", error);
   }
   return res;
+}
+
+/** The Auth session a start hands to the member app: Supabase's own fields, nothing else (no user record, no provider token). */
+export type DemoAppSession = { access_token: string; refresh_token: string; expires_in: number; expires_at: number; token_type: "bearer" };
+
+/** The failure the app is told when this server cannot even begin (nothing was asked of the database, nothing was signed in). */
+const NOT_CONFIGURED: StartResult = { ok: false, error: "Could not start the demo — the site is not configured. Please try again later.", code: "failed" };
+
+/**
+ * Start a demo session for the member app (POST /api/demo/session): the same core as the portal's page (`startDemoSession`: the
+ * switch, the person, the limits, the audit entry, the Auth session tied to the demo session), but the session is RETURNED, not
+ * stored. There is no caller session here: nothing is signed out and no cookie is read or set, and no earlier demo session is ended
+ * (the app ends its own with demo_leave before it starts another). The sign-in runs on a client that keeps nothing.
+ */
+export async function startDemoForApp(personaId: unknown, ip: string | null): Promise<{ result: StartResult; session: DemoAppSession | null }> {
+  const check = readPublicEnv();
+  if (!check.ok) return { result: NOT_CONFIGURED, session: null };
+  const auth = createClient<Database, "app">(check.env.supabaseUrl, check.env.supabaseAnonKey, {
+    db: { schema: "app" },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { headers: traceHeaders({ requestId: newRequestId(), screen: "/api/demo/session" }) },
+  });
+  let issued: DemoAppSession | null = null;
+  const deps: StartDeps = {
+    ...workerStartDeps(),
+    // The member app has no portal session to end. A visitor who switches person ends the old demo with demo_leave first.
+    endPrevious: async () => {},
+    signIn: async (email, password) => {
+      const { data, error } = await auth.auth.signInWithPassword({ email, password });
+      const s = data?.session;
+      if (error || !s?.access_token || !s.refresh_token) return { ok: false, detail: error ?? "no session came back" };
+      const expiresIn = Number.isFinite(s.expires_in) ? Math.trunc(s.expires_in) : 3600;
+      issued = {
+        access_token: s.access_token,
+        refresh_token: s.refresh_token,
+        expires_in: expiresIn,
+        expires_at: Number.isFinite(s.expires_at) ? Math.trunc(s.expires_at as number) : Math.floor(Date.now() / 1000) + expiresIn,
+        token_type: "bearer",
+      };
+      return { ok: true, accessToken: s.access_token };
+    },
+    signOut: async () => {
+      issued = null;
+      const { error } = await auth.auth.signOut({ scope: "local" });
+      if (error) throw error;
+    },
+  };
+  const result = await startDemoSession({ personaId, ip }, deps);
+  // Only a recorded session is ever handed over.
+  return { result, session: result.ok ? issued : null };
 }
 
 /** End the visitor's own demo session (the database deletes its Auth session), sign out here and forget the demo community. */

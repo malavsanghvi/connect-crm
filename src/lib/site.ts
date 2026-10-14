@@ -49,6 +49,23 @@ export function portalUrl(path = "", configured: string | null | undefined = pro
   return `${base}${path}`;
 }
 
+/**
+ * The member web app's address: NEXT_PUBLIC_MEMBER_APP_URL (the repository variable MEMBER_APP_URL, docs/DEPLOY.md "Member addresses")
+ * when it is an http(s) address, else app.<domain>. No trailing slash.
+ */
+export function memberAppUrl(configured: string | null | undefined = process.env.NEXT_PUBLIC_MEMBER_APP_URL, domain: string = publicSiteDomain()): string {
+  const base = (configured ?? "").trim().replace(/\/+$/, "");
+  return /^https?:\/\/[^\s/?#]+(?:\/[^\s?#]*)?$/i.test(base) ? base : `https://app.${domain}`;
+}
+
+/** The page of the member web app that starts its demo (connect-mobile, route /demo; docs/MEMBER_APP_DEMO.md). */
+export const MEMBER_APP_DEMO_PATH = "/demo";
+
+/** Where the website sends a visitor who would rather try the member app in the browser. */
+export function memberAppDemoUrl(configured: string | null | undefined = process.env.NEXT_PUBLIC_MEMBER_APP_URL, domain: string = publicSiteDomain()): string {
+  return `${memberAppUrl(configured, domain)}${MEMBER_APP_DEMO_PATH}`;
+}
+
 /** True for the website's own names: the bare domain and www. */
 export function isPublicSiteHost(rawHost: string | null | undefined, domain: string = publicSiteDomain()): boolean {
   const host = hostName(rawHost);

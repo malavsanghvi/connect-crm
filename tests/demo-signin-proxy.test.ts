@@ -14,7 +14,8 @@ vi.mock("@supabase/ssr", () => ({
   }),
 }));
 
-import { updateSession } from "@/lib/supabase/proxy";
+import { isDemoApiPath } from "@/lib/demo-signin/guard";
+import { isPublicPath, updateSession } from "@/lib/supabase/proxy";
 
 const ENV = { supabaseUrl: "https://example.supabase.co", supabaseAnonKey: "anon", centerSlug: "jsh" };
 const COOKIES = "sb-abc-auth-token=tokenvalue; cc_center=sunrise-demo; cc_look=v2";
@@ -127,5 +128,52 @@ describe("the proxy and a demo session", () => {
     const res = await updateSession(req("/demo"), ENV);
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
+  });
+});
+
+describe("the proxy and the member app's demo endpoints (/api/demo/*)", () => {
+  it("knows the paths: only /api/demo and what is under it", () => {
+    for (const p of ["/api/demo", "/api/demo/choices", "/api/demo/session"]) expect(isDemoApiPath(p), p).toBe(true);
+    for (const p of ["/demo", "/api/demos", "/api/demonstrate", "/api", "/api/assistant/demo", "/x/api/demo"]) expect(isDemoApiPath(p), p).toBe(false);
+    expect(isPublicPath("/api/demo/session")).toBe(true);
+    expect(isPublicPath("/api/demo/choices")).toBe(true);
+  });
+
+  it("lets a call with no session through to the route: no redirect to sign-in, no session work, no cookie", async () => {
+    fake.claims = null;
+    for (const path of ["/api/demo/choices", "/api/demo/session"]) {
+      const res = await updateSession(new NextRequest(`https://admin.weaverams.org${path}`), ENV);
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get("location"), path).toBeNull();
+      expect(setCookies(res), path).toBe("");
+    }
+    expect(fake.rpc).not.toHaveBeenCalled();
+  });
+
+  it("does not treat the caller's cookies as a demo session: an ended one is neither answered 401 nor signed out nor cleared", async () => {
+    fake.claims = { sub: "u1", email: "treasurer@demo.weaverams.org" };
+    fake.rpc.mockResolvedValue({ data: { state: "expired" }, error: null });
+    for (const path of ["/api/demo/choices", "/api/demo/session"]) {
+      const res = await updateSession(req(path), ENV);
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get("location"), path).toBeNull();
+      expect(setCookies(res), path).toBe("");
+    }
+    expect(fake.rpc).not.toHaveBeenCalled();
+    expect(fake.signOut).not.toHaveBeenCalled();
+  });
+
+  it("is also let through for a signed-in person of a real community (their cookies are left alone)", async () => {
+    fake.claims = { sub: "u2", email: "ada@jsh.org" };
+    const res = await updateSession(req("/api/demo/session"), ENV);
+    expect(res.status).toBe(200);
+    expect(setCookies(res)).toBe("");
+    expect(fake.rpc).not.toHaveBeenCalled();
+  });
+
+  it("leaves the other API paths as they were: an ended demo session still gets its 401", async () => {
+    fake.claims = { sub: "u1", email: "member@demo.weaverams.org" };
+    fake.rpc.mockResolvedValue({ data: { state: "expired" }, error: null });
+    expect((await updateSession(req("/api/assistant/chat"), ENV)).status).toBe(401);
   });
 });
