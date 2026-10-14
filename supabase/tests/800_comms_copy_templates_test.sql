@@ -320,6 +320,8 @@ select pg_temp.assert((select status = 'working_draft' and name = 'September new
   'communications made from the template, and the one it was saved from, are not touched');
 
 -- ══ F. Communications switched off ════════════════════════════════════════════
+-- The switch is flipped by the platform (no one signed in): a signed-in staff write there would ask for a fresh 2FA check.
+select set_config('request.jwt.claims', '', true), set_config('request.jwt.claim.sub', '', true);
 insert into app.center_modules (center_id, module_key, enabled, reason) values (:a, 'comms', false, 'test 800');
 select pg_temp.claims(:u_officer);
 set local role authenticated;
