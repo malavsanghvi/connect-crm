@@ -70,7 +70,7 @@ insert into app.qbo_accounts (center_id, connection_id, qbo_id, name, account_ty
 insert into app.qbo_items (center_id, connection_id, qbo_id, name, active, raw) values
   (:'fc', :conn, '20', 'Donation', true, '{"Type":"Service","IncomeAccountRef":{"value":"1"}}'),
   (:'fc', :conn, '23', 'Store item', true, '{"Type":"Service","IncomeAccountRef":{"value":"7"}}');
-insert into app.qbo_classes (center_id, connection_id, qbo_id, name, active) values (:'fc', :conn, '30', 'General fund');
+insert into app.qbo_classes (center_id, connection_id, qbo_id, name, active) values (:'fc', :conn, '30', 'General fund', true);
 insert into app.qbo_pull_runs (center_id, connection_id, status, finished_at) values (:'fc', :conn, 'succeeded', now());
 -- A bank account the pack does not have (so it goes with the clear), linked to a QuickBooks bank account.
 insert into app.bank_accounts (id, center_id, name, institution, last4, statement_format)
