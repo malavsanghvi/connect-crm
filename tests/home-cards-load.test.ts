@@ -248,6 +248,110 @@ describe("the assignments' reads", () => {
   });
 });
 
+describe("Start here's reads", () => {
+  const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+  const FUTURE = new Date(Date.now() + 5 * 86_400_000).toISOString();
+
+  const EXEC = ["reports.view", "events.view", "bolis.view", "store.view", "content.view", "comms.view", "governance.view"];
+  const EDITOR = ["content.view", "content.draft"];
+  const COORDINATOR = ["volunteers.view", "volunteers.manage", "safety.view", "safety.manage", "events.view"];
+  const COMMITTEE = ["pathshala.view", "events.view", "events.manage", "governance.view", "governance.vote"];
+
+  it("the content editor: the drafts, counted as themselves", async () => {
+    const fake = fakeDb({ content_items: { data: null, count: 2 } });
+    const cards = await loadHomeCards(session(fake, { permissions: EDITOR }));
+    expect(cards.memberWork).toBeNull();
+    expect(cards.assignments).toBeNull();
+    expect(cards.startHere).toMatchObject({ key: "content", screen: "Content › Library", href: "/content/library", lines: ["2 drafts to finish."], problems: [] });
+    expect(fake.asked("content_items")[0].steps).toContain(`eq("status","draft")`);
+  });
+
+  it("a failed count is a plain failure line, never a silent zero", async () => {
+    const fake = fakeDb({ content_items: { error: { message: "fetch failed" } } });
+    const cards = await loadHomeCards(session(fake, { permissions: EDITOR }));
+    expect(cards.startHere?.lines).toEqual([]);
+    expect(cards.startHere?.problems).toEqual(["Could not count the drafts — the database could not be reached — check the connection and try again."]);
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it("the volunteer coordinator: people who asked, and the shifts that still have places", async () => {
+    const fake = fakeDb({
+      volunteer_interests: { data: null, count: 3 },
+      volunteer_shifts: {
+        data: [
+          { id: "s1", capacity: 3, starts_at: FUTURE, ends_at: null },
+          { id: "s2", capacity: 1, starts_at: FUTURE, ends_at: null },
+          { id: "s3", capacity: 2, starts_at: FUTURE, ends_at: null },
+        ],
+      },
+      volunteer_assignments: { data: [{ shift_id: "s1", status: "assigned" }, { shift_id: "s2", status: "confirmed" }] },
+    });
+    const cards = await loadHomeCards(session(fake, { permissions: COORDINATOR }));
+    expect(cards.startHere).toMatchObject({ key: "volunteers", screen: "Events › Volunteers", lines: ["3 people asked to volunteer.", "2 shifts with free places."], problems: [] });
+  });
+
+  it("a safety-only reader cannot read the sign-ups, so nothing is counted (no wrong number)", async () => {
+    const fake = fakeDb();
+    const cards = await loadHomeCards(session(fake, { permissions: ["safety.view", "events.view"] }));
+    expect(cards.startHere?.key).toBe("volunteers");
+    expect(cards.startHere?.lines).toEqual([]);
+    expect(fake.asked("volunteer_interests")).toHaveLength(0);
+    expect(fake.asked("volunteer_assignments")).toHaveLength(0);
+  });
+
+  it("store pickup and the kitchen lead: the orders waiting", async () => {
+    for (const permissions of [["store.pickup"], ["kitchen.view"]]) {
+      const fake = fakeDb({ store_orders: { data: null, count: 2 } });
+      const cards = await loadHomeCards(session(fake, { permissions }));
+      expect(cards.startHere).toMatchObject({ key: "store", screen: "My Store › Orders by pickup", lines: ["2 orders waiting for pickup."] });
+      expect(fake.asked("store_orders")[0].steps).toContain(`in("status",["placed","preparing","ready"])`);
+    }
+  });
+
+  it("the Pathshala committee: the dashboard's own rule over the open actions", async () => {
+    const fake = fakeDb({
+      actions: {
+        data: [
+          { id: "a1", state: "open", due_on: "2000-01-01", owner_person_id: "p1" },
+          { id: "a2", state: "open", due_on: day(1), owner_person_id: null },
+          { id: "a3", state: "open", due_on: day(9), owner_person_id: null },
+          { id: "a4", state: "open", due_on: day(9), owner_person_id: "p1" },
+          { id: "a5", state: "open", due_on: day(60), owner_person_id: null },
+        ],
+      },
+    });
+    const cards = await loadHomeCards(session(fake, { permissions: COMMITTEE }));
+    // a1 is overdue and a2 due within 3 days; a2 and a3 are open in the next two weeks with no owner (a5 is later).
+    expect(cards.startHere).toMatchObject({ key: "committee", lines: ["2 actions overdue or due within 3 days.", "2 actions in the next two weeks with no owner."] });
+    expect(fake.asked("actions")[0].steps).toContain(`eq("is_idea",false)`);
+  });
+
+  it("Reports has nothing to count, so nothing is asked", async () => {
+    const fake = fakeDb();
+    const cards = await loadHomeCards(session(fake, { permissions: EXEC }));
+    expect(cards.startHere).toMatchObject({ key: "reports", lines: [], problems: [] });
+    expect(fake.calls).toHaveLength(0);
+  });
+
+  it("never for a person who already has a queue, assignments or the member-app card", async () => {
+    const fake = fakeDb({ content_items: { data: null, count: 2 } });
+    // A staff queue (the newsletter approver) plus a draft-writing permission.
+    const withQueue = await loadHomeCards(session(fake, { permissions: [...EDITOR, "content.approve", "content.manage"] }));
+    expect(withQueue.startHere).toBeNull();
+    const assigned = await loadHomeCards(
+      session(fake, {
+        permissions: EDITOR,
+        grants: [{ role_key: "zone_lead", scope_kind: "zone", scope_id: ZONE }],
+      }),
+    );
+    expect(assigned.assignments).not.toBeNull();
+    expect(assigned.startHere).toBeNull();
+    const family = await loadHomeCards(session(fakeDb(ROWS, { i_am_adult: { data: true } })));
+    expect(family.memberWork).not.toBeNull();
+    expect(family.startHere).toBeNull();
+  });
+});
+
 describe("what Home gets", () => {
   it("a family adult: the member-app card, no assignments", async () => {
     const fake = fakeDb(ROWS, { i_am_adult: { data: true } });
@@ -268,7 +372,7 @@ describe("what Home gets", () => {
     const fake = fakeDb();
     const treasurer = session(fake, { permissions: ["giving.view", "giving.manage", "giving.approve", "giving.record_offline"], grants: [{ role_key: "treasurer", scope_kind: "center", scope_id: null }] });
     const cards = await loadHomeCards(treasurer);
-    expect(cards).toEqual({ memberWork: null, assignments: null });
+    expect(cards).toEqual({ memberWork: null, assignments: null, startHere: null });
     expect(fake.calls).toHaveLength(0);
   });
 

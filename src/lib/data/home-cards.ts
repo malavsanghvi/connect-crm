@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { communityFormat } from "@/lib/community-format";
+import { chunk } from "@/lib/data/fetch-all";
 import { explainError } from "@/lib/errors";
 import { buildAssignments, eventsToCount, scopedAssignments, type AssignmentFacts, type AssignmentsCard, type ClassFact, type EventFact, type EventNumbers, type ZoneFact } from "@/lib/home/assignments";
 import type { HomeCards } from "@/lib/home/cards";
@@ -17,12 +18,17 @@ import {
   type OpenPledges,
 } from "@/lib/home/member-work";
 import { readFailed, readOk, type Read } from "@/lib/home/read";
+import { buildStartHere, countShiftsWithFreePlaces, startScreenFor, wantsStartHere, type StartCounts, type StartHere, type StartScreen } from "@/lib/home/start-here";
+import { committeeDashboard } from "@/lib/logic/eams";
+import { todayIso } from "@/lib/pathshala/format";
+import { can } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
-// The two cards Home shows a person whose work is not in a staff queue (docs/DEMO_ROLE_WORK.md):
+// The cards Home shows a person whose work is not in a staff queue (docs/DEMO_ROLE_WORK.md):
 //   "Your work is in the member app": counts read the way the member app reads them (connect-mobile: i_am_adult,
 //     my_membership_application, my_reference_requests, the household's open pledges and RSVPs, the notices);
-//   "My assignments": the events, classes and zones the person holds a role for through a scoped grant.
+//   "My assignments": the events, classes and zones the person holds a role for through a scoped grant;
+//   "Start here": for a person who holds a screen but nothing else on Home, the screen and what waits there.
 // Every read runs as the signed-in person, so row level security decides what comes back. A read that fails becomes a line on the
 // card that says so (with a retry), never a zero. The rules that turn the reads into sentences and links are in src/lib/home/.
 
@@ -216,12 +222,62 @@ export const loadAssignments = cache(async (session: CrmSession): Promise<Assign
 });
 
 // ---------------------------------------------------------------------------
-// Both, for Home and Today
+// Start here
+// ---------------------------------------------------------------------------
+
+/**
+ * What waits on the screen a person starts from, where a count is cheap and their own access reads it. A screen with nothing to count (Reports) or a
+ * count this person's access cannot read (a volunteer safety officer cannot read the shifts' sign-ups) asks nothing, rather than show a wrong number.
+ */
+export async function loadStartHere(session: CrmSession, screen: StartScreen): Promise<StartHere> {
+  const { db, center } = session;
+  const counts: StartCounts = {};
+  const headCount = async (table: "content_items" | "volunteer_interests" | "store_orders", status: string | string[]) => {
+    const q = db.from(table).select("id", { count: "exact", head: true }).eq("center_id", center.id);
+    const res = await (Array.isArray(status) ? q.in("status", status) : q.eq("status", status));
+    if (res.error) throw res.error;
+    return res.count ?? 0;
+  };
+
+  if (screen.key === "content") {
+    counts.drafts = await attempt("count the drafts", () => headCount("content_items", "draft"));
+  } else if (screen.key === "volunteers" && can(session, ["volunteers.view", "volunteers.manage"])) {
+    const [asked, free] = await Promise.all([
+      attempt("count the people who asked to volunteer", () => headCount("volunteer_interests", "interested")),
+      attempt("count the shifts with free places", async () => {
+        const shifts = rowsOf(await db.from("volunteer_shifts").select("id, capacity, starts_at, ends_at").eq("center_id", center.id).not("capacity", "is", null).limit(500));
+        const taken: { shift_id: string; status: string }[] = [];
+        for (const part of chunk(shifts.map((s) => s.id))) {
+          taken.push(...rowsOf(await db.from("volunteer_assignments").select("shift_id, status").in("shift_id", part).in("status", ["assigned", "confirmed"])));
+        }
+        return countShiftsWithFreePlaces(shifts, taken, new Date());
+      }),
+    ]);
+    counts.askedToVolunteer = asked;
+    counts.shiftsWithFreePlaces = free;
+  } else if (screen.key === "store") {
+    counts.ordersWaiting = await attempt("count the orders waiting for pickup", () => headCount("store_orders", ["placed", "preparing", "ready"]));
+  } else if (screen.key === "committee" && can(session, ["events.view", "events.manage"])) {
+    // The committee dashboard's own rule (src/lib/logic/eams.ts): overdue, due within 3 days, and open actions in the next two weeks with no owner.
+    counts.committee = await attempt("count the committee's actions", async () => {
+      const actions = rowsOf(
+        await db.from("actions").select("id, state, due_on, owner_person_id").eq("center_id", center.id).eq("is_idea", false).not("state", "in", "(completed,removed)"),
+      );
+      const dash = committeeDashboard(actions, [], todayIso(center.time_zone));
+      return { atRisk: dash.overdue.length + dash.dueSoon.length, unassigned: dash.unassigned.length };
+    });
+  }
+  return buildStartHere(screen, counts);
+}
+
+// ---------------------------------------------------------------------------
+// All of them, for Home and Today
 // ---------------------------------------------------------------------------
 
 /**
  * What Home shows besides My tasks. The member-app card is for a person who holds no staff queue and no module screen; My
- * assignments is for anyone who holds a role for one event, class or zone, staff included. Cached per request.
+ * assignments is for anyone who holds a role for one event, class or zone, staff included; Start here is for a person who holds a screen
+ * but has no queue and neither of those cards. Cached per request.
  */
 export const loadHomeCards = cache(async (session: CrmSession): Promise<HomeCards> => {
   const fmt = communityFormat(session.center);
@@ -231,5 +287,6 @@ export const loadHomeCards = cache(async (session: CrmSession): Promise<HomeCard
       : Promise.resolve(null),
     loadAssignments(session),
   ]);
-  return { memberWork, assignments };
+  const screen = wantsStartHere(session, { memberWork: memberWork !== null, assignments: assignments !== null }) ? startScreenFor(session) : null;
+  return { memberWork, assignments, startHere: screen ? await loadStartHere(session, screen) : null };
 });

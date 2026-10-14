@@ -1,8 +1,9 @@
 import { AssignmentsCard } from "@/components/home/assignments-card";
 import { MemberAppCard } from "@/components/home/member-app-card";
 import { MyTasksCard } from "@/components/home/my-tasks-card";
+import { StartHereCard } from "@/components/home/start-here-card";
 import { Alert, BlockGrid, PageHeader } from "@/components/ui";
-import { showsTasksCard, type HomeCards } from "@/lib/home/cards";
+import { NO_HOME_CARDS, showsTasksCard, type HomeCards } from "@/lib/home/cards";
 import type { BriefingItem } from "@/lib/routines/briefing";
 import type { ResolvedRoutine } from "@/lib/routines/resolve";
 import type { HomeTask, TaskFailure } from "@/lib/tasks";
@@ -29,7 +30,7 @@ export type TodayViewProps = {
 
 /** Today (the new look's Home): a greeting and the date, one box that takes anything, the routine, the morning briefing and My tasks. */
 export function TodayView(props: TodayViewProps) {
-  const cards: HomeCards = props.cards ?? { memberWork: null, assignments: null };
+  const cards: HomeCards = props.cards ?? NO_HOME_CARDS;
   return (
     <>
       <PageHeader title={props.firstName ? `${props.greeting}, ${props.firstName}` : props.greeting} description={props.dateLabel} tabs={false} />
@@ -49,6 +50,7 @@ export function TodayView(props: TodayViewProps) {
         )}
         {cards.assignments ? <AssignmentsCard card={cards.assignments} /> : null}
         {cards.memberWork ? <MemberAppCard work={cards.memberWork} /> : null}
+        {cards.startHere ? <StartHereCard start={cards.startHere} /> : null}
         {showsTasksCard(props.hasSources, cards) ? <MyTasksCard tasks={props.tasks} failures={props.failures} hasSources={props.hasSources} span={12} /> : null}
       </BlockGrid>
     </>
