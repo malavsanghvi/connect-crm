@@ -1,0 +1,1 @@
+The 21 website icons: 24px grid, stroke 2, round caps and joins, no fill. These files are drawn in a single ink, `navy` (#2b2a8a); in the interface each icon takes the colour of its text instead. Icons are decorative, so the words beside them carry the meaning. Show a section's icon in a 48px tile (`radius-tile`) on `navy-50` (navy ink) or `saffron-50` (brown ink).
