@@ -218,3 +218,35 @@ weekly tasks done. These are targets to measure, not promises to make to anyone.
 3. **Thank-you tracker inside WeCare** (paid), while organizations without WeCare keep receipts as today.
    **Approved.**
 4. **Weaver support** may open WeCare settings with a support grant, never care records. **Approved.**
+
+## 12. Slices 3 and 4: plan awaiting the owner (2026-10-13)
+
+Slice 2 shipped as crm #245 (0760-0763, tests 164-165). Slices 3 and 4 are planned, not approved: the owner asked to see
+the prototypes first (`docs/handoff/prototypes/wecare-catchthematch-2026-10/`). Numbers: slice 3 = migrations 0800-0802,
+test 190; slice 4 = 0803-0805, test 191 (the earlier 0769-0774 collided with other work).
+
+**Slice 3, thank-you tracker.** `care_settings` (thank window 2 days; a first gift needs a personal touch; an optional
+amount from which a gift needs one, integer cents; fees and memberships off; thanks start the day the rules are first
+saved, with an optional "include the last 30 days"); `care_thanks`, one step per gift, opened by an idempotent sync the
+reads run (no trigger on payments: the money path is untouched); gifts found with 0749's rule (completed donations,
+after refunds, no opening balances or history imports); a receipt or any thank-you touch closes an ordinary step, a
+personal step needs a call, visit, card or video; voiding that touch reopens it; reads `care_thanks_queue`,
+`care_thanks_summary` (median hours, share within the window); without amounts the screens say "Thank them warmly".
+Portal: the Care card, /care, a Home task source and a Giving Today group for care holders only, Settings > WeCare
+(which also opens the W8 support area).
+
+**Slice 4, engagement signs.** `care_health_facts` per household (gifts in the last 12 months and the 12 before, taking
+part, last personal touch, touches per ask, unthanked gifts; adults only; every read logged); `care_dashboard` (care.view:
+kept, lost, first-year retention, last year but not this, some year but not this, thank-you speed, touches per ask, key
+households with an owner); `src/lib/care/health.ts`: Lapsed (no gift or taking part in 18 months), At risk (gave the
+year before, not the last 12 months), Cooling (fewer gifts, or nothing for 6 months), Thriving (steady giving, takes
+part, 3 or more no-ask touches per ask), Steady (the rest); "Not enough history yet" under about 12 months; wording
+templates, no amounts, no AI.
+
+**Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
+households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt
+closes an ordinary step; start from the first save with "include the last 30 days"; relationship owners see gift dates
+and counts, never amounts; the defaults and thresholds above.
+
+**Owner decisions made while building slice 2:** partly refunded payments count as receipt touches (the remaining
+amount shows to those who may see amounts); do-not-ask survives a household merge if either household asked.

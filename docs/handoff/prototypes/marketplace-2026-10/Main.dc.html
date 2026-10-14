@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Marketplace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+a{color:#2b2a8a}a:hover{color:#1e1d5c}
+button,textarea{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1280px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; align-items: center; gap: 6px;">
+<img src="/_blob/e46c59943372e9ebb2657b2e221d2407" alt="" style="height: 40px; width: auto;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; letter-spacing: -0.01em; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700; color: #1e1d5c;">Riverbend Community Center</span>
+<span style="background: #ffffff; color: #1e1d5c; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1280px; margin: 0 auto; padding: 32px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">Settings › Marketplace</nav>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; color: #2b2a8a;">Marketplace</h1>
+<p style="margin: 0; max-width: 760px; font-size: 18px; line-height: 1.6; color: #33325f;">Choose what your community uses. Weaver checks each request and turns the product on. Your admins can pause and resume it at any time.</p>
+</div>
+<ol aria-label="How it works" style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px;">
+<li style="flex: 1 1 260px; display: flex; gap: 12px; align-items: flex-start; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px 16px;">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 9999px; background: #ffb82a; color: #1e1d5c; display: flex; align-items: center; justify-content: center; font-weight: 700;">1</span>
+<span style="font-size: 15.5px; color: #33325f;">Request a product here, with a note on what it is for.</span>
+</li>
+<li style="flex: 1 1 260px; display: flex; gap: 12px; align-items: flex-start; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px 16px;">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 9999px; background: #ffb82a; color: #1e1d5c; display: flex; align-items: center; justify-content: center; font-weight: 700;">2</span>
+<span style="font-size: 15.5px; color: #33325f;">Weaver checks it and turns it on, confirmed with a fresh sign-in code.</span>
+</li>
+<li style="flex: 1 1 260px; display: flex; gap: 12px; align-items: flex-start; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px 16px;">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 9999px; background: #ffb82a; color: #1e1d5c; display: flex; align-items: center; justify-content: center; font-weight: 700;">3</span>
+<span style="font-size: 15.5px; color: #33325f;">Pause or resume it any time. Pausing never deletes anything.</span>
+</li>
+</ol>
+<div role="tablist" aria-label="Filter products" style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button role="tab" aria-selected="{{t.selected}}" onClick="{{t.pick}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid {{t.border}}; background: {{t.bg}}; color: {{t.fg}}; font-size: 15px; font-weight: 700;">{{t.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
+<section aria-label="Products" style="flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px;">
+<sc-for list="{{cards}}" as="c" hint-placeholder-count="6">
+<button onClick="{{c.pick}}" aria-pressed="{{c.selected}}" style="text-align: left; background: #ffffff; border: 1px solid #eee3d9; box-shadow: {{c.ring}}; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; color: #1e1d5c; min-height: 196px;">
+<span style="display: flex; align-items: center; gap: 12px;">
+<span aria-hidden="true" style="flex: none; width: 48px; height: 48px; border-radius: 16px; background: #f1eefc; color: #2b2a8a; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 17px; font-weight: 700;">{{c.mono}}</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 19px; line-height: 1.3; font-weight: 600;">{{c.name}}</span>
+</span>
+<span style="font-size: 15px; line-height: 1.55; color: #555a79; flex-grow: 1;">{{c.line}}</span>
+<span style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;">
+<span style="background: {{c.chipBg}}; color: {{c.chipFg}}; border: 1px solid {{c.chipBd}}; border-radius: 9999px; padding: 3px 10px; font-size: 13px; font-weight: 700;">{{c.chip}}</span>
+<span style="font-size: 13px; color: #555a79;">{{c.priceShort}}</span>
+</span>
+</button>
+</sc-for>
+</section>
+<aside aria-label="Product details" style="flex: 1 1 380px; min-width: 0; background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+<div style="display: flex; gap: 14px; align-items: center;">
+<span aria-hidden="true" style="flex: none; width: 56px; height: 56px; border-radius: 16px; background: #f1eefc; color: #2b2a8a; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 20px; font-weight: 700;">{{d.mono}}</span>
+<div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start;">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 26px; line-height: 1.15; font-weight: 600; letter-spacing: -0.01em; color: #2b2a8a;">{{d.name}}</h2>
+<span style="background: {{d.chipBg}}; color: {{d.chipFg}}; border: 1px solid {{d.chipBd}}; border-radius: 9999px; padding: 3px 10px; font-size: 13px; font-weight: 700;">{{d.chip}}</span>
+</div>
+</div>
+<p style="margin: 0; font-size: 16px; line-height: 1.6; color: #33325f;">{{d.line}}</p>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">WHAT YOU GET</h3>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 15.5px; color: #1e1d5c;">
+<sc-for list="{{d.gets}}" as="g" hint-placeholder-count="3"><li>{{g}}</li></sc-for>
+</ul>
+</div>
+<sc-if value="{{d.hasNeeds}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">NEEDS</h3>
+<sc-for list="{{d.needs}}" as="n" hint-placeholder-count="1">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 15.5px; border-bottom: 1px solid #f6eee6; padding-bottom: 6px;">
+<span>{{n.label}}</span>
+<span style="font-weight: 700; color: {{n.fg}};">{{n.mark}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{d.hasMembers}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">WHAT MEMBERS SEE</h3>
+<p style="margin: 0; font-size: 15.5px; color: #33325f;">{{d.members}}</p>
+</div>
+</sc-if>
+<sc-if value="{{d.hasData}}" hint-placeholder-val="{{false}}">
+<div style="background: #fff1e6; border: 1px solid #ffd6b8; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;">
+<strong style="font-size: 15px;">Who can see its data</strong>
+<span style="font-size: 15px; line-height: 1.55; color: #33325f;">{{d.data}}</span>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">PRICE</h3>
+<p style="margin: 0; font-size: 15.5px; color: #1e1d5c;">{{d.price}}</p>
+</div>
+<div style="border-top: 1px solid #eee3d9; padding-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+<sc-if value="{{d.isIncluded}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 15.5px; color: #33325f;">Included with your community. It is always on.</p>
+</sc-if>
+<sc-if value="{{d.isOn}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 15.5px; color: #33325f;">{{d.since}}</p>
+<sc-if value="{{d.noConfirm}}" hint-placeholder-val="{{true}}">
+<button onClick="{{askPause}}" style="align-self: flex-start; min-height: 52px; padding: 0 22px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 16px; font-weight: 700;">Pause {{d.name}}</button>
+</sc-if>
+<sc-if value="{{confirm}}" hint-placeholder-val="{{false}}">
+<div style="background: #fff6ee; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 12px;">
+<p style="margin: 0; font-size: 15.5px; color: #1e1d5c;">Pausing hides {{d.name}} for everyone in your community. Nothing is deleted, and you can resume it at any time.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<button onClick="{{doPause}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Pause it</button>
+<button onClick="{{keepOn}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 16px; font-weight: 700;">Keep it on</button>
+</div>
+</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{d.isPaused}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 15.5px; color: #33325f;">{{d.since}}. Members and staff do not see it while it is paused. Everything is kept.</p>
+<button onClick="{{resume}}" style="align-self: flex-start; min-height: 52px; padding: 0 22px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Resume {{d.name}}</button>
+</sc-if>
+<sc-if value="{{d.isAvailable}}" hint-placeholder-val="{{true}}">
+<sc-if value="{{d.noForm}}" hint-placeholder-val="{{true}}">
+<button onClick="{{openForm}}" style="align-self: flex-start; min-height: 52px; padding: 0 22px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Request {{d.name}}</button>
+<p style="margin: 0; font-size: 14.5px; color: #555a79;">Weaver turns it on after a quick check. Nothing changes until then.</p>
+</sc-if>
+<sc-if value="{{form}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<label for="mkt-reason" style="font-size: 15px; font-weight: 700;">What will your community use it for?</label>
+<textarea id="mkt-reason" rows="3" value="{{reason}}" onChange="{{onReason}}" placeholder="A sentence is enough" style="border: 1px solid #e3d6ca; border-radius: 16px; padding: 12px 14px; font-size: 15.5px; color: #1e1d5c; background: #ffffff; resize: vertical;"></textarea>
+<p style="margin: 0; font-size: 14.5px; color: #555a79;">Price: {{d.price}}</p>
+</div>
+<sc-if value="{{error}}" hint-placeholder-val="{{false}}">
+<div role="alert" style="background: #fbe3e1; color: #b3261e; border-radius: 16px; padding: 12px 14px; font-size: 15px; line-height: 1.5;">Could not send the request: Weaver did not answer. Your note is kept. Try again.</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<button onClick="{{send}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">{{sendLabel}}</button>
+<button onClick="{{cancelForm}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 16px; font-weight: 700;">Cancel</button>
+</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{d.isRequested}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 15.5px; color: #33325f;">{{d.since}}. Weaver checks the request and turns {{d.name}} on. Your admins get a message when it is on.</p>
+<button onClick="{{cancelRequest}}" style="align-self: flex-start; min-height: 52px; padding: 0 22px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 16px; font-weight: 700;">Cancel the request</button>
+</sc-if>
+<sc-if value="{{d.isComing}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 15.5px; color: #33325f;">Not built yet. Target: {{d.target}}.</p>
+<button onClick="{{notify}}" style="align-self: flex-start; min-height: 52px; padding: 0 22px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 16px; font-weight: 700;">Tell me when it is ready</button>
+</sc-if>
+<sc-if value="{{d.isNotified}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 15.5px; color: #1f7a4d; font-weight: 700;">We will tell your admins when {{d.name}} is ready.</p>
+</sc-if>
+<p style="margin: 0; font-size: 14px; line-height: 1.5; color: #555a79;">Only Weaver turns a product on or off, after a check and a fresh sign-in code. Every change is recorded with who made it and why.</p>
+</div>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showFailure":{"editor":"boolean","default":false,"section":"Prototype"},"$preview":{"width":1440,"height":1240}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      tab: 'all',
+      sel: 'care',
+      st: { giving: 'included', events: 'included', comms: 'included', accounting: 'on', ai: 'on', store: 'paused', care: 'available', matching: 'available', website: 'requested', channels: 'available', gala: 'coming' },
+      since: {
+        accounting: 'On since Sep 3, turned on by Weaver',
+        ai: 'On since Aug 20. Included because your community used Niva before packs began',
+        store: 'Paused by Sam K. on Oct 2',
+        website: 'Requested by Sam K. on Oct 10'
+      },
+      form: false, reason: '', confirm: false, error: false, failedOnce: false
+    };
+  }
+
+  catalog() {
+    return [
+      { id: 'giving', mono: 'Gi', name: 'Giving', line: 'Pledges, payments, receipts and statements, each matched to the right household.',
+        gets: ['Record and find payments in place', 'Pledges, campaigns and receipts', 'Add-ons Weaver can turn on: Bank, Cash counts, Opportunities, Recurring gifts, Statements, Insights'],
+        needs: [['People and families', true]], price: 'Included', priceShort: 'Included' },
+      { id: 'events', mono: 'Ev', name: 'Event Weaver', line: 'Events, RSVP, tickets, check-in, volunteer shifts and flyers.',
+        gets: ['RSVP, tickets and check-in', 'Volunteer shifts', 'Flyer templates (AI flyer art is part of iWeaver)'],
+        needs: [['People and families', true]], price: 'Included', priceShort: 'Included' },
+      { id: 'comms', mono: 'Co', name: 'Communications', line: 'Email, text and app messages, sent only to people who agreed to each channel.',
+        gets: ['Email, text and app messages', 'Audiences that respect each consent', 'WhatsApp group links'],
+        needs: [['People and families', true]], price: 'Included', priceShort: 'Included' },
+      { id: 'accounting', mono: 'QB', name: 'Accounting and QuickBooks', line: 'Payments post to QuickBooks after the treasurer gives the final click.',
+        gets: ['Deposits and payments posted to QuickBooks', 'Donors matched to QuickBooks customers'],
+        needs: [['Giving', true]], price: '[YOUR PRICE]', priceShort: '[YOUR PRICE]' },
+      { id: 'ai', mono: 'iW', name: 'iWeaver', line: 'Niva for members and staff, and AI flyer art. AI does the busywork. People make the final decisions.',
+        gets: ['Ask Niva in the member app', 'Niva for staff: answers, and actions you confirm', 'AI flyer art for events'],
+        needs: [], members: 'Members see Ask Niva in the app. AI used during setup works without iWeaver.',
+        price: '[YOUR PRICE]', priceShort: '[YOUR PRICE]' },
+      { id: 'store', mono: 'DS', name: 'Digital Store', line: 'Sell items and passes, with orders and pickup lists.',
+        gets: ['Items, passes and orders', 'Pickup lists for volunteers'],
+        needs: [['People and families', true]], price: 'Included', priceShort: 'Included' },
+      { id: 'care', mono: 'WC', name: 'WeCare', line: 'Donor care and member care: a care plan from your mission, every gift thanked, and a short weekly list for each relationship owner.',
+        gets: ['A yearly care plan drawn from your mission', 'A thank-you tracker for every gift', 'A relationship owner for each household', 'Your 5 this week, each with a reason and a ready draft'],
+        needs: [['People and families', true], ['Giving (for gift signs)', true]],
+        data: 'Only the roles you choose can see care records, and amounts show only to roles that can see giving. Weaver staff cannot see them.',
+        price: '[YOUR PRICE]', priceShort: '[YOUR PRICE]' },
+      { id: 'matching', mono: 'CT', name: 'CatchTheMatch', line: 'Finds gifts that employers will match. Weaver’s team files the claims for you.',
+        gets: ['Gifts that may be matched, found for you', 'A ready request sent to the donor', 'Claims verified and filed by Weaver’s team', 'Matches reconciled in the Bank tab'],
+        needs: [['Giving', true]],
+        data: 'Weaver’s filing team sees matching claims only, through a role you grant.',
+        price: '10% of each match you receive, never more than $500 a match. Nothing if no match arrives.', priceShort: '10%, max $500 a match' },
+      { id: 'website', mono: 'WS', name: 'WeaverSite', line: 'Your website, built from what Weaver already knows: events, giving and news.',
+        gets: ['A first draft built from your current site', 'Events and giving pages fed from Weaver', 'Publishing and your own domain: target [QUARTER]'],
+        needs: [['People and families', true]], price: '[YOUR PRICE]', priceShort: '[YOUR PRICE]' },
+      { id: 'channels', mono: 'CC', name: 'CommunityConnect', line: 'WhatsApp messages from your Business account, and Facebook and Instagram posts for events.',
+        gets: ['WhatsApp messages through your WhatsApp Business account', 'Facebook and Instagram posts for events: target [QUARTER]'],
+        needs: [['Communications', true], ['Event Weaver', true]],
+        data: 'Meta may charge per WhatsApp conversation. The cost is shown before you send.',
+        price: '[YOUR PRICE]', priceShort: '[YOUR PRICE]' },
+      { id: 'gala', mono: 'GA', name: 'Gala and Auctions', line: 'Ticketed evenings with live and silent auctions.',
+        gets: ['Ticket tiers, tables and seating', 'Live and silent auctions with paddle numbers'],
+        needs: [['Event Weaver', true], ['Giving', true]], target: '[QUARTER]', price: '[YOUR PRICE]', priceShort: 'Target [QUARTER]' }
+    ];
+  }
+
+  chipFor(s) {
+    const m = {
+      included: ['Included', '#f1eefc', '#2b2a8a', '#f1eefc'],
+      on: ['On', '#e4f2ea', '#1f7a4d', '#e4f2ea'],
+      paused: ['Paused', '#f6eee6', '#33325f', '#e3d6ca'],
+      requested: ['Requested', '#fff1e6', '#a8400d', '#ffd6b8'],
+      available: ['Available', '#ffffff', '#1e1d5c', '#e3d6ca'],
+      coming: ['Not built yet', '#fff6ee', '#555a79', '#eee3d9'],
+      notified: ['We will tell you', '#fff6ee', '#555a79', '#eee3d9']
+    };
+    const v = m[s] || m.available;
+    return { chip: v[0], chipBg: v[1], chipFg: v[2], chipBd: v[3] };
+  }
+
+  setProduct(id, state, sinceText) {
+    const st = Object.assign({}, this.state.st);
+    st[id] = state;
+    const since = Object.assign({}, this.state.since);
+    if (sinceText) since[id] = sinceText;
+    this.setState({ st: st, since: since, form: false, confirm: false, error: false, reason: '', failedOnce: false });
+  }
+
+  renderVals() {
+    const st = this.state.st;
+    const all = this.catalog();
+    const groups = {
+      all: null,
+      inuse: ['included', 'on', 'paused'],
+      available: ['available', 'requested'],
+      coming: ['coming', 'notified']
+    };
+    const count = (g) => all.filter((p) => !groups[g] || groups[g].indexOf(st[p.id]) >= 0).length;
+    const tabDefs = [['all', 'All'], ['inuse', 'In use'], ['available', 'Available'], ['coming', 'Not built yet']];
+    const tabs = tabDefs.map((t) => {
+      const on = this.state.tab === t[0];
+      return {
+        label: t[1] + ' · ' + count(t[0]),
+        selected: on ? 'true' : 'false',
+        bg: on ? '#2b2a8a' : '#ffffff', fg: on ? '#ffffff' : '#1e1d5c', border: on ? '#2b2a8a' : '#e3d6ca',
+        pick: () => this.setState({ tab: t[0] })
+      };
+    });
+    const shown = all.filter((p) => !groups[this.state.tab] || groups[this.state.tab].indexOf(st[p.id]) >= 0);
+    const cards = shown.map((p) => Object.assign({
+      mono: p.mono, name: p.name, line: p.line, priceShort: p.priceShort,
+      selected: this.state.sel === p.id ? 'true' : 'false',
+      ring: this.state.sel === p.id ? '0 0 0 2px #2b2a8a' : 'none',
+      pick: () => this.setState({ sel: p.id, form: false, confirm: false, error: false, reason: '', failedOnce: false })
+    }, this.chipFor(st[p.id])));
+
+    const p = all.find((x) => x.id === this.state.sel) || all[0];
+    const s = st[p.id];
+    const d = Object.assign({
+      mono: p.mono, name: p.name, line: p.line, gets: p.gets, price: p.price, target: p.target || '[QUARTER]',
+      needs: p.needs.map((n) => ({ label: n[0], mark: n[1] ? 'On' : 'Off: turn it on first', fg: n[1] ? '#1f7a4d' : '#b3261e' })),
+      hasNeeds: p.needs.length > 0,
+      members: p.members || '', hasMembers: !!p.members,
+      data: p.data || '', hasData: !!p.data,
+      since: this.state.since[p.id] || '',
+      isIncluded: s === 'included', isOn: s === 'on', isPaused: s === 'paused', isAvailable: s === 'available',
+      isRequested: s === 'requested', isComing: s === 'coming', isNotified: s === 'notified',
+      noForm: !this.state.form, noConfirm: !this.state.confirm
+    }, this.chipFor(s));
+
+    return {
+      tabs: tabs, cards: cards, d: d,
+      form: this.state.form, confirm: this.state.confirm, error: this.state.error, reason: this.state.reason,
+      sendLabel: this.state.error ? 'Try again' : 'Send request',
+      onReason: (e) => this.setState({ reason: e.target.value }),
+      openForm: () => this.setState({ form: true, error: false }),
+      cancelForm: () => this.setState({ form: false, reason: '', error: false, failedOnce: false }),
+      send: () => {
+        if (this.props.showFailure && !this.state.failedOnce) { this.setState({ error: true, failedOnce: true }); return; }
+        this.setProduct(p.id, 'requested', 'Requested by you today');
+      },
+      cancelRequest: () => this.setProduct(p.id, 'available'),
+      askPause: () => this.setState({ confirm: true }),
+      keepOn: () => this.setState({ confirm: false }),
+      doPause: () => this.setProduct(p.id, 'paused', 'Paused by you today'),
+      resume: () => this.setProduct(p.id, 'on', 'On again since today'),
+      notify: () => this.setProduct(p.id, 'notified')
+    };
+  }
+}
+</script>
+</body>
+</html>

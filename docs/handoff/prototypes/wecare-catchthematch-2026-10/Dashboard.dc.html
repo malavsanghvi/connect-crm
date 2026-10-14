@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WeCare dashboard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+a{color:#2b2a8a}a:hover{color:#1e1d5c}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1320px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; align-items: center; gap: 6px;">
+<img src="/_blob/a892f24db66aedf02e346cf7a7d298a6" alt="" style="height: 40px; width: auto;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; letter-spacing: -0.01em; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700; color: #1e1d5c;">Riverbend Community Center</span>
+<span style="color: #1e1d5c; font-size: 15px;">Signed in as Amira S. (WeCare lead)</span>
+<span style="background: #ffffff; color: #1e1d5c; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1320px; margin: 0 auto; padding: 28px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="align-self: flex-start; background: #fff1e6; color: #a8400d; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;">SLICE 4 · PLAN</span>
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">People › {{careLabel}} › Dashboard</nav>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; color: #2b2a8a;">How our relationships are doing</h1>
+<p style="margin: 0; max-width: 780px; font-size: 18px; line-height: 1.6; color: #33325f;">Simple counts from your own records, the last 12 months against the 12 before. No AI, and no household's amounts on this page.</p>
+</div>
+
+<sc-if value="{{short}}" hint-placeholder-val="{{false}}">
+<div role="status" style="background: #fff6ee; border: 1px solid #eee3d9; border-radius: 24px; padding: 24px; display: flex; flex-direction: column; gap: 6px; max-width: 760px;">
+<strong style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 22px; font-weight: 600;">Not enough history yet</strong>
+<span style="font-size: 16px; color: #33325f;">Your community has 5 months of records in Weaver. Who stayed and who drifted show after about 12 months. Until then you can see thank-you speed, touches per ask and owner coverage.</span>
+</div>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="7">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 14px; color: #555a79;">{{t.label}}</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; color: #1e1d5c;">{{t.value}}</span>
+<span style="font-size: 14px; line-height: 1.45; color: #33325f;">{{t.note}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
+<section aria-label="Health of households" style="flex: 1 1 460px; min-width: 0; background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 22px; font-weight: 600; color: #2b2a8a;">Health of key households</h2>
+<div style="overflow-x: auto;">
+<table style="width: 100%; border-collapse: collapse; font-size: 15px;">
+<thead><tr style="text-align: left; color: #555a79; font-size: 13px;"><th scope="col" style="padding: 8px 6px;">HEALTH</th><th scope="col" style="padding: 8px 6px;">HOUSEHOLDS</th><th scope="col" style="padding: 8px 6px;">WHAT IT MEANS</th></tr></thead>
+<tbody>
+<sc-for list="{{health}}" as="h" hint-placeholder-count="6">
+<tr style="border-top: 1px solid #f6eee6;">
+<td style="padding: 10px 6px;"><span style="background: {{h.bg}}; color: {{h.fg}}; border-radius: 9999px; padding: 3px 10px; font-size: 13px; font-weight: 700; white-space: nowrap;">{{h.label}}</span></td>
+<td style="padding: 10px 6px; font-weight: 700;">{{h.count}}</td>
+<td style="padding: 10px 6px; color: #33325f;">{{h.means}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<span style="font-size: 13.5px; color: #555a79;">Key households: a gift in the last 24 months, or a care profile. Every member household counts when Giving is off.</span>
+</section>
+
+<section aria-label="Households to look at" style="flex: 1 1 460px; min-width: 0; background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 22px; font-weight: 600; color: #2b2a8a;">Households to look at</h2>
+<div role="tablist" aria-label="Which health" style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{lookTabs}}" as="lt" hint-placeholder-count="3">
+<button role="tab" aria-selected="{{lt.selected}}" onClick="{{lt.pick}}" style="min-height: 44px; padding: 0 16px; border-radius: 9999px; border: 1px solid {{lt.bd}}; background: {{lt.bg}}; color: {{lt.fg}}; font-size: 14.5px; font-weight: 700;">{{lt.label}}</button>
+</sc-for>
+</div>
+<sc-for list="{{look}}" as="l" hint-placeholder-count="2">
+<div style="border-top: 1px solid #f6eee6; padding-top: 10px; display: flex; flex-direction: column; gap: 2px;">
+<strong style="font-size: 16px;">{{l.name}}</strong>
+<span style="font-size: 14px; color: #555a79;">{{l.card}}</span>
+<span style="font-size: 15px; color: #33325f;">{{l.reason}}</span>
+</div>
+</sc-for>
+<span style="font-size: 13.5px; color: #555a79;">A suggestion to reach out with care, never a list of people to ask for money.</span>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"history":{"editor":"enum","options":["14 months of records","5 months of records"],"default":"14 months of records","section":"Prototype"},"careLabel":{"editor":"enum","options":["Donor care","Member care"],"default":"Donor care","section":"Prototype"},"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { look: 'At risk' };
+  }
+
+  renderVals() {
+    const short = (this.props.history || '14 months of records') === '5 months of records';
+    const all = [
+      { label: 'Kept from last year', value: '71%', note: '142 of the 200 households that gave last year gave again', needs: true },
+      { label: 'First-year givers who came back', value: '38%', note: '19 of 50 who first gave last year gave again this year', needs: true },
+      { label: 'Gave last year, not yet this year', value: '58', note: 'households: worth a personal touch before year end', needs: true },
+      { label: 'Gave in an earlier year, not since', value: '31', note: 'households that gave two or more years ago', needs: true },
+      { label: 'Thanked on time', value: '84%', note: 'of gifts this month, within 2 days', needs: false },
+      { label: 'Touches with no ask, for each ask', value: '3.4', note: 'aim for 3 or more', needs: false },
+      { label: 'Key households with an owner', value: '76%', note: '182 of 240. 58 need an owner', needs: false }
+    ];
+    const tiles = all.filter((t) => !short || !t.needs);
+    const health = [
+      { label: 'Thriving', count: '41', means: 'Steady giving, takes part, 3 or more no-ask touches per ask', bg: '#e4f2ea', fg: '#1f7a4d' },
+      { label: 'Steady', count: '96', means: 'Giving and taking part about as before', bg: '#f1eefc', fg: '#2b2a8a' },
+      { label: 'Cooling', count: '37', means: 'Fewer gifts than the year before, or nothing for 6 months', bg: '#fff1e6', fg: '#a8400d' },
+      { label: 'At risk', count: '28', means: 'Gave the year before, nothing in the last 12 months', bg: '#fbe3e1', fg: '#b3261e' },
+      { label: 'Lapsed', count: '19', means: 'No gift and no taking part in 18 months', bg: '#f6eee6', fg: '#33325f' },
+      { label: 'Not enough history yet', count: '19', means: 'Fewer than about 12 months of records', bg: '#fff6ee', fg: '#555a79' }
+    ].map((h) => short ? Object.assign({}, h, { count: h.label === 'Not enough history yet' ? '240' : '·' }) : h);
+    const lookList = {
+      'At risk': [{ name: 'Kowalski household', card: 'H-0765 · 2 adults · owner Sam K.', reason: 'Gave last year, nothing so far this year. No touch in 4 months.' }, { name: 'Ferreira household', card: 'H-0834 · 3 adults · no owner yet', reason: 'Gave the last 3 years, nothing since February. Needs an owner.' }],
+      'Cooling': [{ name: 'García Morales household', card: 'H-0988 · 2 adults · 2 children · no owner yet', reason: 'Fewer gifts than the year before. No personal touch in 2 months.' }],
+      'Lapsed': [{ name: 'Lindqvist household', card: 'H-0612 · 2 adults · owner Amira S.', reason: 'No gift and no taking part in 18 months.' }]
+    };
+    const lookTabs = ['At risk', 'Cooling', 'Lapsed'].map((k) => {
+      const on = this.state.look === k;
+      return { label: k, selected: on ? 'true' : 'false', bg: on ? '#2b2a8a' : '#ffffff', fg: on ? '#ffffff' : '#1e1d5c', bd: on ? '#2b2a8a' : '#e3d6ca', pick: () => this.setState({ look: k }) };
+    });
+    return {
+      short: short, careLabel: this.props.careLabel || 'Donor care',
+      tiles: tiles, health: health,
+      lookTabs: lookTabs, look: short ? [] : (lookList[this.state.look] || [])
+    };
+  }
+}
+</script>
+</body>
+</html>

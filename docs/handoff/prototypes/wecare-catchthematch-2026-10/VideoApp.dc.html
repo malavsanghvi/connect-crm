@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Video message in the member app</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+button,textarea{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,textarea:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+
+<sc-if value="{{onHome}}" hint-placeholder-val="{{true}}">
+<div style="height: 100%; display: flex; flex-direction: column;">
+<div style="background: #ff7640; padding: 18px 18px 16px; display: flex; justify-content: space-between; align-items: center;">
+<div style="display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 13px; font-weight: 700; color: #1e1d5c;">Riverbend Community Center</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #1e1d5c;">Good evening, Adaeze</span>
+</div>
+<button onClick="{{open}}" aria-label="Messages, 1 new" style="position: relative; width: 44px; height: 44px; border-radius: 9999px; border: none; background: #ffffff; color: #2b2a8a; display: flex; align-items: center; justify-content: center;">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+<span style="position: absolute; top: 4px; right: 4px; width: 12px; height: 12px; border-radius: 9999px; background: #b3261e; border: 2px solid #ffffff;"></span>
+</button>
+</div>
+<div style="flex: 1; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px;">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 13px; font-weight: 700; color: #a8400d; letter-spacing: 0.06em;">THIS WEEK</span>
+<strong style="font-size: 16.5px;">Harvest supper</strong>
+<span style="font-size: 14.5px; color: #555a79;">Saturday, 6 pm · Main hall</span>
+</div>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 13px; font-weight: 700; color: #a8400d; letter-spacing: 0.06em;">YOUR GIVING</span>
+<strong style="font-size: 16.5px;">Thank you for your gift on Oct 11</strong>
+<span style="font-size: 14.5px; color: #555a79;">Your receipt is in Give › History.</span>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid #eee3d9; background: #ffffff; padding: 8px 4px 20px; font-size: 12px; font-weight: 700; color: #555a79; text-align: center;">
+<span style="color: #2b2a8a;">Home</span><span>Events</span><span>Give</span><span>Guide</span><span>More</span>
+</div>
+</div>
+<sc-if value="{{showBanner}}" hint-placeholder-val="{{true}}">
+<button onClick="{{open}}" style="position: absolute; left: 10px; right: 10px; top: 10px; text-align: left; background: #ffffff; border: 1px solid #e3d6ca; border-radius: 18px; padding: 12px 14px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.12), 0 8px 10px -6px rgba(0,0,0,0.1); display: flex; gap: 10px; align-items: flex-start; color: #1e1d5c;">
+<span aria-hidden="true" style="flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid #eee3d9; display: flex; align-items: center; justify-content: center; background: #ffffff;"><img src="/_blob/a892f24db66aedf02e346cf7a7d298a6" alt="" style="width: 26px; height: 26px;"></span>
+<span style="display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 12.5px; color: #555a79;">Riverbend Community Center · now</span>
+<strong style="font-size: 15px;">Amira sent you a video message</strong>
+<span style="font-size: 14px; color: #33325f;">A thank-you from Amira · tap to watch</span>
+</span>
+</button>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{onPlayer}}" hint-placeholder-val="{{false}}">
+<div style="height: 100%; display: flex; flex-direction: column;">
+<div style="padding: 14px 12px 8px; display: flex; align-items: center; gap: 6px;">
+<button onClick="{{back}}" aria-label="Back" style="width: 44px; height: 44px; border-radius: 9999px; border: none; background: transparent; color: #2b2a8a; display: flex; align-items: center; justify-content: center;">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+</button>
+<span style="font-size: 15px; font-weight: 700;">Video message</span>
+</div>
+<div style="padding: 0 18px; display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; flex-direction: column; gap: 2px;">
+<strong style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 22px; line-height: 1.2; font-weight: 600; color: #2b2a8a;">A thank-you from Amira</strong>
+<span style="font-size: 14px; color: #555a79;">Amira S., Riverbend Community Center · Oct 14</span>
+</div>
+<div style="position: relative; width: 100%; height: 198px; border-radius: 16px; background: #2b2a8a; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+<span aria-hidden="true" style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 48px; font-weight: 700; color: #d4d2f5;">AS</span>
+<button onClick="{{toggle}}" aria-label="{{playLabel}}" style="position: absolute; width: 64px; height: 64px; border-radius: 9999px; border: none; background: rgba(255,255,255,0.92); color: #2b2a8a; display: flex; align-items: center; justify-content: center;">
+<sc-if value="{{playing}}" hint-placeholder-val="{{false}}">
+<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 5v14"></path><path d="M15 5v14"></path></svg>
+</sc-if>
+<sc-if value="{{paused}}" hint-placeholder-val="{{true}}">
+<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l11 7-11 7z"></path></svg>
+</sc-if>
+</button>
+<sc-if value="{{showCaption}}" hint-placeholder-val="{{true}}">
+<span style="position: absolute; left: 10px; right: 10px; bottom: 10px; background: rgba(30,29,92,0.85); color: #ffffff; border-radius: 8px; padding: 4px 8px; font-size: 14px; text-align: center;">{{caption}}</span>
+</sc-if>
+</div>
+<div style="display: flex; align-items: center; gap: 10px;">
+<div role="progressbar" aria-label="Played" aria-valuemin="0" aria-valuemax="48" aria-valuenow="{{t}}" style="flex: 1; height: 6px; border-radius: 9999px; background: #f6eee6; overflow: hidden;">
+<div style="height: 6px; width: {{pct}}; background: #2b2a8a; border-radius: 9999px;"></div>
+</div>
+<span style="font-size: 13px; color: #555a79; min-width: 72px; text-align: right;">{{timeLabel}}</span>
+</div>
+<div style="display: flex; gap: 8px;">
+<button onClick="{{toggleCaptions}}" aria-pressed="{{captionsOn}}" style="min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 14px; font-weight: 700;">{{captionsLabel}}</button>
+</div>
+<p style="margin: 0; font-size: 15px; color: #33325f;">Thank you for standing with the food pantry this autumn.</p>
+<div style="background: #fff6ee; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; font-size: 13.5px; line-height: 1.45; color: #33325f;">This video plays only here in the app. It can't be saved, downloaded or shared, and it is available until Nov 13.</div>
+<sc-if value="{{finished}}" hint-placeholder-val="{{false}}">
+<sc-if value="{{notReplied}}" hint-placeholder-val="{{true}}">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14.5px; font-weight: 700;">Send Amira a short reply (optional)
+<textarea rows="2" value="{{reply}}" onChange="{{onReply}}" placeholder="Thank you, that was lovely" style="border: 1px solid #e3d6ca; border-radius: 12px; padding: 10px 12px; font-size: 15px; color: #1e1d5c; background: #ffffff;"></textarea></label>
+<button onClick="{{sendReply}}" style="align-self: flex-start; min-height: 48px; padding: 0 20px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 15px; font-weight: 700;">Send reply</button>
+</sc-if>
+<sc-if value="{{replied}}" hint-placeholder-val="{{false}}">
+<div role="status" style="background: #e4f2ea; color: #1f7a4d; border-radius: 14px; padding: 10px 12px; font-size: 14.5px; font-weight: 700;">Reply sent to Amira.</div>
+</sc-if>
+</sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"start":{"editor":"enum","options":["Notification","Video"],"default":"Notification","section":"Prototype"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { screen: (props.start === 'Video') ? 'player' : 'home', banner: true, playing: false, t: 0, captionsOn: true, reply: '', replied: false };
+    this.timer = null;
+  }
+
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      if (!this.state.playing) return;
+      const t = Math.min(48, this.state.t + 1);
+      this.setState({ t: t, playing: t < 48 });
+    }, 250);
+  }
+
+  componentWillUnmount() {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  renderVals() {
+    const st = this.state;
+    const lines = ['Hello, it’s Amira from Riverbend.', 'I wanted to say thank you, in person,', 'for your gift to the food pantry this autumn.', 'See you at the harvest supper.'];
+    const fmt = (s) => '0:' + (s < 10 ? '0' : '') + s;
+    return {
+      onHome: st.screen === 'home', onPlayer: st.screen === 'player', showBanner: st.banner,
+      open: () => this.setState({ screen: 'player', banner: false, playing: true }),
+      back: () => this.setState({ screen: 'home', playing: false }),
+      playing: st.playing, paused: !st.playing, playLabel: st.playing ? 'Pause' : 'Play',
+      toggle: () => this.setState(st.t >= 48 ? { t: 0, playing: true } : { playing: !st.playing }),
+      t: String(st.t), pct: Math.round(st.t / 48 * 100) + '%', timeLabel: fmt(st.t) + ' / 0:48',
+      captionsOn: st.captionsOn ? 'true' : 'false', captionsLabel: st.captionsOn ? 'Captions on' : 'Captions off',
+      toggleCaptions: () => this.setState({ captionsOn: !st.captionsOn }),
+      showCaption: st.captionsOn && st.t > 0, caption: lines[Math.min(3, Math.floor(st.t / 12))],
+      finished: st.t >= 48, notReplied: !st.replied, replied: st.replied,
+      reply: st.reply, onReply: (e) => this.setState({ reply: e.target.value }),
+      sendReply: () => this.setState({ replied: true })
+    };
+  }
+}
+</script>
+</body>
+</html>
