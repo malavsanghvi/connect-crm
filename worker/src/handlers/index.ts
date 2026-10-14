@@ -46,6 +46,7 @@ import * as paymentsSyncPayouts from "./payments.sync_payouts";
 import * as paymentsTestCharge from "./payments.test_charge";
 import * as paymentsWebhookPaypal from "./payments.webhook.paypal";
 import * as paymentsWebhookStripe from "./payments.webhook.stripe";
+import * as pathshalaAnnouncementNotify from "./pathshala.announcement_notify";
 import * as pathshalaHoldsSweep from "./pathshala.holds_sweep";
 import * as photosImportAlbum from "./photos.import_album";
 import * as siteCrawl from "./site.crawl";
@@ -121,6 +122,8 @@ export const HANDLERS: HandlerModule[] = [
   siteCrawl,
   // Pathshala registration (0591): every 15 minutes, reminders and releases of the seats held for payment, and the waitlist
   pathshalaHoldsSweep,
+  // Class announcements (0781): queued by the database when one is published; pushes the families it is for, in batches
+  pathshalaAnnouncementNotify,
   // Member notices (0598): every 5 minutes, the RSVP confirmation, the boli notice before it closes and a special day's labh prompt
   noticesSweep,
   // Activity stream (0622, 0623): once a day, find repeated sequences of actions (automation ideas) and delete activity older than 400 days
