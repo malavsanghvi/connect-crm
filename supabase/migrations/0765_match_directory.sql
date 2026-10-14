@@ -657,13 +657,13 @@ language sql stable security definer set search_path = app, public, extensions a
                     and app._match_same_country(g.country, p_country))
 $$;
 
--- A near-duplicate of an entry Weaver's team checked: one of these keys contains, or is contained in, a name it gives now
--- (the shorter at least 3 characters), for the same country.
+-- A near-duplicate of an entry Weaver's team checked (active or ended): one of these keys contains, or is contained in, a
+-- name it gives now (the shorter at least 3 characters), for the same country.
 create or replace function app._match_near_weaver(p_keys text[], p_country text, p_except uuid) returns boolean
 language sql stable security definer set search_path = app, public, extensions as $$
   select exists (select 1 from app.match_program_names n join app.match_programs g on g.id = n.program_id
                    cross join unnest(p_keys) k
-                  where g.status = 'active' and g.verified_by_kind = 'weaver' and g.id is distinct from p_except
+                  where g.status in ('active', 'retired') and g.verified_by_kind = 'weaver' and g.id is distinct from p_except
                     and n.retired_at is null and app._match_same_country(g.country, p_country)
                     and ((char_length(k) >= 3 and strpos(n.name_key, k) > 0)
                          or (char_length(n.name_key) >= 3 and strpos(k, n.name_key) > 0)))
@@ -838,8 +838,8 @@ begin
    where id = p_id;
 end $$;
 
--- Two entries for one program: p_drop's names move to p_keep (one p_keep has already stays with p_drop, retired) and p_drop
--- points at it from then on. Links and submissions that name p_drop follow it when read (they are the organizations' own
+-- Two entries for one program: p_drop's names move to p_keep (one p_keep has already stays with p_drop, retired), p_drop
+-- points at it from then on, and p_keep counts as checked by Weaver's team today. Links and submissions that name p_drop follow it when read (they are the organizations' own
 -- and are not rewritten). Returns p_keep.
 create or replace function app.merge_match_programs(p_keep uuid, p_drop uuid, p_reason text) returns uuid
 language plpgsql security definer set search_path = app, public, extensions as $$
@@ -875,6 +875,10 @@ begin
   update app.match_programs set merged_into = p_keep where merged_into = p_drop;
   update app.match_programs set status = 'merged', merged_into = p_keep, status_reason = app.audit_clean_reason(p_reason)
    where id = p_drop;
+  -- The merge is Weaver's team's check of the entry it keeps: from now on a community no longer changes the names it absorbed
+  -- (or any other fact) directly.
+  update app.match_programs set verified_by_kind = 'weaver', last_verified_on = current_date, verified_submission_id = null
+   where id = p_keep;
   perform app._match_snapshot(p_keep, 'weaver', null, 'Merged "' || d.company_name || '" into it: ' || app.audit_clean_reason(p_reason), false);
   return p_keep;
 end $$;

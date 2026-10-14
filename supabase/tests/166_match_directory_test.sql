@@ -633,6 +633,23 @@ select pg_temp.assert(exists (select 1 from jsonb_array_elements(app.platform_ma
                                  and (e->>'paused')::boolean = false)
                       and not exists (select 1 from jsonb_array_elements(app.platform_match_communities()) e where e->>'center_id' = :c3),
   'E · and each community''s publishing, cap and pause (communities where CatchTheMatch is on)');
+-- A rename or a new alias is checked as a new company's name is.
+select pg_temp.claims(:lead1);
+select app.submit_match_program(:c1, null, '{"company_name": "Zzyzx166"}'::jsonb) as sq \gset
+select (app.decide_match_submission(:'sq', 'approve'))->>'program_id' as zzyzx \gset
+select app.submit_match_program(:c1, :'zzyzx', '{"company_name": "Acme Holdings"}'::jsonb) as sq2 \gset
+select pg_temp.decided(app.decide_match_submission(:'sq2', 'approve')) as sq2_status \gset
+select app.submit_match_program(:c1, :'zzyzx', '{"company_name": "Zzyzx166", "names": ["Acme Holdings"]}'::jsonb) as sq3 \gset
+select pg_temp.decided(app.decide_match_submission(:'sq3', 'approve')) as sq3_status \gset
+select app.submit_match_program(:c1, :'zzyzx', '{"company_name": "Zzyzx166", "match_ratio_bp": 10000}'::jsonb) as sq4 \gset
+select pg_temp.decided(app.decide_match_submission(:'sq4', 'approve')) as sq4_status \gset
+select app.submit_match_program(:c1, null, '{"company_name": "Globex Labs", "gift_match": false, "volunteer_grant": true}'::jsonb) as sq5 \gset
+select pg_temp.decided(app.decide_match_submission(:'sq5', 'approve')) as sq5_status \gset
+select pg_temp.assert(:'sq2_status' = 'forwarded:near_duplicate' and :'sq3_status' = 'forwarded:near_duplicate'
+                      and :'sq4_status' = 'approved' and :'sq5_status' = 'forwarded:near_duplicate'
+                      and (select company_name = 'Zzyzx166' and match_ratio_bp = 10000 from app.match_programs where id = :'zzyzx')
+                      and not exists (select 1 from app.match_program_names where program_id = :'zzyzx' and name = 'Acme Holdings'),
+  'E · renaming an entry, or adding an alias, close to a name Weaver''s team checked goes to them (an ended entry of theirs too); an edit that adds no name publishes');
 reset role;
 
 -- ══ F. Versions ══════════════════════════════════════════════════════════════
@@ -767,6 +784,19 @@ select pg_temp.decided(app.decide_match_submission(:'sm', 'approve', null, null,
 select pg_temp.assert(:'sm_status' = 'forwarded:weaver_checked'
                       and (select program_id = :'acme' from app.match_program_submissions where id = :'sm'),
   'G · approving into a merged entry follows it to the entry it joined (Weaver''s team checked it: forwarded)');
+-- Weaver's team merges its own entry into one a community verified: the entry it keeps is Weaver's check from then on.
+select pg_temp.claims(:weaver);
+select id as zwi from app.match_programs where company_name = 'Zeta Widgets Intl' \gset
+select app.merge_match_programs(:'zwi', :'zeta', 'Test 166: the same program');
+select pg_temp.assert((select verified_by_kind = 'weaver' and verified_submission_id is null and last_verified_on = current_date
+                         from app.match_programs where id = :'zwi')
+                      and exists (select 1 from app.match_program_names where program_id = :'zwi' and name = 'Zeta' and retired_at is null),
+  'G · the entry Weaver''s team keeps in a merge counts as checked by them, with the names it absorbed');
+select pg_temp.claims(:lead1);
+select app.submit_match_program(:c1, :'zwi', '{"company_name": "Zeta Widgets Intl", "names": ["Zeta"], "match_ratio_bp": 10000}'::jsonb) as sw \gset
+select pg_temp.decided(app.decide_match_submission(:'sw', 'approve')) as sw_status \gset
+select pg_temp.assert(:'sw_status' = 'forwarded:weaver_checked',
+  'G · so the community that verified it first no longer changes it, or the names it absorbed, directly');
 -- The employer on file changes, or is withdrawn: the link goes.
 select app.record_match_employer(:c1, :pm, 'Acme Corp');
 select pg_temp.assert(not exists (select 1 from app.person_match_programs where person_id = :pm),

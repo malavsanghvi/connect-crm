@@ -38,7 +38,7 @@ function approveHint(target: ProgramBrief | null | undefined, ownCheck: boolean,
   if (target.status !== "active") return "This entry has ended in the directory, so approving sends the change to Weaver's team.";
   if (target.verified_by_kind === "weaver") return "Weaver's team checked this entry, so approving sends the change to them, with your edits.";
   if (!ownCheck) return "Another community verified this entry, so approving sends the change to Weaver's team, with your edits.";
-  return "Your community verified this entry, so approving changes it for every community at once. A new or changed link goes to Weaver's team instead.";
+  return "Your community verified this entry, so approving changes it for every community at once. A new or changed link, or a new name close to an entry Weaver's team checked, goes to them instead.";
 }
 
 /** How many waiting submissions get their look-alikes searched (for "It is a duplicate"). */

@@ -282,7 +282,7 @@ export const FORWARD_REASON_TEXT: Record<string, string> = {
   weaver_checked: "Weaver's team checked this entry, so they decide on changes to it",
   other_community: "another community verified this entry, so Weaver's team decides on changes to it",
   links_changed: "it adds or changes a link, and Weaver's team checks every link",
-  near_duplicate: "its name is close to an entry Weaver's team checked",
+  near_duplicate: "a name it adds is close to an entry Weaver's team checked",
   name_in_use: "another entry goes, or went, by this name",
 };
 

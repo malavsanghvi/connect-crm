@@ -25,8 +25,9 @@
 --                  weaver_checked    Weaver's team checked the entry
 --                  other_community   another community verified the entry: a community changes only what it verified
 --                  links_changed     the portal's link or the source's link would be new or different
---                  near_duplicate    a new company whose name contains, or is contained in, a name of an entry Weaver's
---                                    team checked (the shorter at least 3 characters)
+--                  near_duplicate    a name it adds or changes (a new company's, a rename, a new alias) contains, or is
+--                                    contained in, a name of an entry Weaver's team checked, active or ended (the
+--                                    shorter at least 3 characters)
 --                  name_in_use       a name another entry goes or went by (a retired alias, a merged entry)
 --                A name of another ACTIVE entry is refused outright (mark it a duplicate, or approve into that entry).
 --                At most app.match_publishing_cap(center) approvals that publish per community per day (20 unless Weaver's
@@ -222,7 +223,7 @@ create or replace function app.decide_match_submission(p_submission uuid, p_deci
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare s app.match_program_submissions; d app.match_program_submissions; v_kind text; g app.match_programs; c jsonb;
         v_reason text := app.audit_clean_reason(p_reason); v_who text; v_id uuid; v_label text; v_target uuid;
-        v_because text; v_keys text[]; v_clash jsonb; v_verifier uuid; v_center_name text;
+        v_because text; v_keys text[]; v_new_keys text[]; v_clash jsonb; v_verifier uuid; v_center_name text;
 begin
   select * into s from app.match_program_submissions where id = p_submission for update;
   if s.id is null then raise exception 'That submission was not found.'; end if;
@@ -309,6 +310,12 @@ begin
     if g.id is not null and g.verified_by_kind = 'community' then
       select x.center_id into v_verifier from app.match_program_submissions x where x.id = g.verified_submission_id;
     end if;
+    -- The names this approval adds or changes (all of them for a new company): a rename or a new alias is checked as a new
+    -- company's name is, so a community cannot publish one name and then rename it to one close to Weaver's.
+    v_new_keys := array(select k from unnest(v_keys) k
+                         where g.id is null
+                            or not exists (select 1 from app.match_program_names n
+                                            where n.program_id = g.id and n.name_key = k and n.retired_at is null));
     v_because := case
       when coalesce((select pc.paused from app.match_publishing_controls pc where pc.center_id = s.center_id), false) then 'paused'
       when g.id is not null and g.status <> 'active' then 'retired'
@@ -316,7 +323,7 @@ begin
       when g.id is not null and g.verified_by_kind = 'weaver' then 'weaver_checked'
       when g.id is not null and v_verifier is distinct from s.center_id then 'other_community'
       when (c->>'portal_url') is distinct from g.portal_url or (c->>'source_url') is distinct from g.source_url then 'links_changed'
-      when g.id is null and app._match_near_weaver(v_keys, c->>'country', null) then 'near_duplicate'
+      when cardinality(v_new_keys) > 0 and app._match_near_weaver(v_new_keys, c->>'country', g.id) then 'near_duplicate'
       when app._match_name_used(v_keys, c->>'country', g.id) then 'name_in_use'
     end;
     if v_because is not null then
