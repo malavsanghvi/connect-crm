@@ -136,7 +136,7 @@ describe("visibleNav (flat module list)", () => {
       "Texting",
       "WhatsApp",
     ]);
-    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "Platform setup", "New sandbox", "Verification", "Requests", "Sandbox codes", "Onboarding", "Go-live approvals", "Support access", "Agreements", "HTTPS", "Payments", "Automation backlog"]);
+    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "Platform setup", "New sandbox", "Verification", "Requests", "Sandbox codes", "Onboarding", "Go-live approvals", "Support access", "Agreements", "HTTPS", "Payments", "Automation backlog", "Gift matching directory"]);
   });
   it("shows Settings › Automation ideas to settings.manage holders only, and Platform › Automation backlog to platform admins only", () => {
     const tabs = (ctx: Parameters<typeof visibleNav>[0], module: string) => visibleNav(ctx).find((m) => m.key === module)?.tabs.map((t) => t.href) ?? [];

@@ -34,6 +34,7 @@ export type GivingTabKey =
   | "bolis"
   | "statements"
   | "insights"
+  | "matching"
   | "counts"
   | "books";
 
@@ -82,6 +83,8 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
   if (statements && on(GIVING_ADDONS.statements)) out.push({ key: "statements", label: "Statements", href: statements.href, paths: ["/giving/statements"] });
   // Insights (B98 slice 1): the community's own numbers, for the giving staff (giving.view or giving.manage).
   if (giving && canAccess(ctx, "paymentsAll") && on(GIVING_ADDONS.insights)) out.push({ key: "insights", label: "Insights", href: "/giving/insights", paths: ["/giving/insights"] });
+  // Gift matching (CatchTheMatch, 0765-0767): its own keys and module, through the Giving tab (never a platform admin as such).
+  if (tab("/giving/matching")) out.push({ key: "matching", label: "Gift matching", href: "/giving/matching", paths: ["/giving/matching"] });
   if (giving && canAccess(ctx, "counting") && on(GIVING_ADDONS.counts)) {
     // Their own tab since slice 5 (the address /giving/payments?view=counts sends here).
     out.push({ key: "counts", label: countsWord(ctx.kind), href: "/giving/counts", paths: ["/giving/counts"] });

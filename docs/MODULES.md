@@ -523,7 +523,7 @@ never reaches production. The card copy is `app.marketplace_products` (0752); re
 | `website` | WeaverSite | People | sites, site_pages, site_blocks | site_draft_save, site_draft_get, site_page_set_status, site_draft_data |
 | `channels` | CommunityConnect | Communications | whatsapp_accounts, whatsapp_template_submissions | save_whatsapp_account, submit_whatsapp_template, send_test_message (WhatsApp), worker_message_to_send (a queued WhatsApp message is not sent) |
 | `care` | WeCare ("Member care" for a faith kind, "Donor care" otherwise) | People | none yet | none yet (not built) |
-| `matching` | CatchTheMatch | Giving | none yet | none yet (not built) |
+| `matching` | CatchTheMatch | Giving | person_match_employers (0759), match_program_submissions (0766), person_match_programs (0767); the shared directory match_programs and match_program_names (0765) is core platform (it belongs to no community; its readers need CatchTheMatch on somewhere) | matching_can (0757/0758, no platform-admin branch) in every policy and function: record_match_employer, withdraw_match_employer, submit_match_program, decide_match_submission, match_program_candidates, link_match_program, unlink_match_program, match_employers_queue |
 
 ## Core platform (not a module)
 
