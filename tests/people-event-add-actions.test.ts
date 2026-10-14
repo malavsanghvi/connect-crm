@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const held = vi.hoisted(() => ({ session: null as unknown, access: null as unknown }));
 
@@ -21,7 +21,7 @@ import { withActivity } from "@/lib/activity/with-activity";
 import { addToEventAction, loadAddToEventAction } from "@/app/(app)/households/[id]/event-add-actions";
 import type { EventAccess } from "@/lib/events/access";
 
-import { MANAGER, VIEWER, W, database, leadOf, world } from "./people-event-add-world";
+import { MANAGER, NOW, VIEWER, W, database, leadOf, world } from "./people-event-add-world";
 import { fakeSession } from "./commands/helpers";
 
 // The two Server Actions behind the panel: the gate is the one that edits an event, an unexpected failure is said in words, and
@@ -38,8 +38,16 @@ function as(access: EventAccess, opts: { modulesOff?: string[]; expired?: boolea
 const call = { householdId: W.hh, eventId: W.picnic, personIds: [W.samira, W.layla] };
 
 beforeEach(() => {
+  // The events the actions list are those not over yet "now" (the fixtures are dated around NOW): without a fixed clock this test
+  // starts failing the moment real time passes the fixtures' dates (it did on 2026-10-14, when "Weekend camp" ended).
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.mocked(withActivity).mockClear();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("loadAddToEventAction", () => {
