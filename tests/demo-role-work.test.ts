@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { scopedAssignments } from "@/lib/home/assignments";
+import { holdsNoStaffWork } from "@/lib/home/member-work";
 import { sessionPermissions, visibleNav, type RoleLike } from "@/lib/permissions";
 import { visibleTaskSources } from "@/lib/tasks";
 
@@ -53,22 +55,26 @@ function portalOf(role: SeedRole, roles: SeedRole[]) {
     modulesOff: [] as string[],
     grants: grants.map((g) => ({ role_key: g.role_key, scope_kind: g.scope_kind, scope_id: g.scope_id })),
   };
-  return { permissions, tasks: visibleTaskSources(ctx).map((s) => s.key as string), nav: visibleNav(ctx).map((m) => m.key) };
+  const nav = visibleNav(ctx);
+  return {
+    permissions,
+    tasks: visibleTaskSources(ctx).map((s) => s.key as string),
+    nav: nav.map((m) => m.key),
+    tabs: (key: string) => nav.find((m) => m.key === key)?.tabs.map((t) => t.href) ?? [],
+    // The cards on Home (docs/DEMO_ROLE_WORK.md): "Your work is in the member app" and "My assignments".
+    memberAppCard: holdsNoStaffWork(ctx),
+    assignments: scopedAssignments(ctx.grants, ctx).map((a) => `${a.kind}`),
+  };
 }
 
-/** Roles whose work is in the member app or the event-day app: the portal shows them Home and nothing else. */
-const NO_PORTAL_SCREEN = [
-  "event_lead",
-  "checkin_volunteer",
-  "kitchen_lead",
-  "boli_recorder",
-  "zone_lead",
-  "community_member",
-  "membership_reference",
-  "primary_adult",
-  "adult_member",
-  "child",
-];
+/** Roles with no queue and no screen: the portal shows them Home, and Home carries a card for their work (the member app, or their assignments). */
+const HOME_CARD_ONLY = ["event_lead", "checkin_volunteer", "boli_recorder", "zone_lead", "community_member", "membership_reference", "primary_adult", "adult_member", "child"];
+
+/** The family roles: they hold no permission at all, and no scoped grant. */
+const FAMILY = ["community_member", "membership_reference", "primary_adult", "adult_member", "child"];
+
+/** What "My assignments" lists for the roles that are held for one event, class or zone. */
+const ASSIGNED_TO: Record<string, string> = { event_lead: "event", checkin_volunteer: "event", boli_recorder: "event", zone_lead: "zone", teacher: "class" };
 
 /** Roles with a queue on Home "My tasks": the task sources that hold the demo's work for them. */
 const HOME_TASKS: Record<string, string[]> = {
@@ -91,6 +97,8 @@ const SCREEN_ONLY: Record<string, string> = {
   content_editor: "content",
   volunteer_coordinator: "events",
   store_pickup: "store",
+  // The kitchen lead's prep list: kitchen.view opens My Store › Orders by pickup (and only that tab).
+  kitchen_lead: "store",
   pathshala_committee: "pathshala",
   teacher: "pathshala",
 };
@@ -112,14 +120,32 @@ describe("the faith demo's people in the portal", () => {
     expect(personas).toHaveLength(26);
   });
 
-  it("sorts all 26 roles: a queue on Home, a screen with their work, or the member / event-day app", () => {
-    const sorted = [...NO_PORTAL_SCREEN, ...Object.keys(HOME_TASKS), ...Object.keys(SCREEN_ONLY)].sort();
+  it("sorts all 26 roles: a queue on Home, a screen with their work, or a Home card", () => {
+    const sorted = [...HOME_CARD_ONLY, ...Object.keys(HOME_TASKS), ...Object.keys(SCREEN_ONLY)].sort();
     expect(sorted).toEqual(personas.map((p) => p.role).sort());
   });
 
-  it.each(NO_PORTAL_SCREEN)("%s: the portal shows Home and nothing else (their work is in the member app or the event-day app)", (role) => {
+  it.each(HOME_CARD_ONLY)("%s: the portal shows Home and nothing else, and Home has a card for their work", (role) => {
     expect(matrix[role].tasks).toEqual([]);
     expect(matrix[role].nav).toEqual(["home"]);
+    // "Your work is in the member app" (they hold no staff queue and no screen), so Home never says "Nothing here for your role".
+    expect(matrix[role].memberAppCard).toBe(true);
+  });
+
+  it.each(FAMILY)("%s: a family role holds no permission and no scoped grant, so Home has the member-app card and no assignments", (role) => {
+    expect(matrix[role].permissions).toEqual([]);
+    expect(matrix[role].assignments).toEqual([]);
+  });
+
+  it.each(Object.entries(ASSIGNED_TO))("%s: holds a role for one %s, so Home lists it under My assignments", (role, kind) => {
+    expect(matrix[role].assignments).toEqual([kind]);
+  });
+
+  it("only the event, class and zone roles have assignments, and a role with a queue or a screen has no member-app card", () => {
+    for (const p of personas) {
+      expect(matrix[p.role].assignments.length > 0, `${p.role} assignments`).toBe(p.role in ASSIGNED_TO);
+      if (!HOME_CARD_ONLY.includes(p.role)) expect(matrix[p.role].memberAppCard, `${p.role} member-app card`).toBe(false);
+    }
   });
 
   it.each(Object.entries(HOME_TASKS))("%s: Home 'My tasks' can list %j", (role, sources) => {
@@ -129,6 +155,12 @@ describe("the faith demo's people in the portal", () => {
   it.each(Object.entries(SCREEN_ONLY))("%s: no Home queue, but %s has a screen for their work", (role, moduleKey) => {
     expect(matrix[role].tasks).toEqual([]);
     expect(matrix[role].nav).toContain(moduleKey);
+  });
+
+  it("the kitchen lead holds kitchen.view only, and it opens My Store › Orders by pickup and nothing else in the store", () => {
+    expect(matrix.kitchen_lead.permissions).toEqual(["kitchen.view"]);
+    expect(matrix.kitchen_lead.nav).toEqual(["home", "store"]);
+    expect(matrix.kitchen_lead.tabs("store")).toEqual(["/store/orders"]);
   });
 
   it("the Pathshala principal, the Pathshala committee and the store lead are granted whole-community roles, which the portal honours", () => {

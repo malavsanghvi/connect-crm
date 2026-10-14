@@ -470,7 +470,8 @@ To give every organization its own address (`jsh.communityconnect.app`,
      Platform › Centers › *center* › Limits & addresses.
 2. **Repository variable** in connect-crm: `SITE_WILDCARD_DOMAIN = communityconnect.app`.
    Optionally `MEMBER_APP_URL = https://app.communityconnect.app` (the member web app's
-   address) so Settings › Member app prints an https join link and QR code.
+   address) so Settings › Member app prints an https join link and QR code, and Home's "Your work is in the member app" card (for a person whose
+   work is not in a staff queue) has a link to open it. Unset, that card says there is no link yet and draws none.
 3. Re-run Deploy. `release.sh` then serves any HTTPS name with **on-demand
    certificates**: Caddy asks the portal (`/api/tenancy/tls-ask`) before issuing one,
    and the portal says yes only for `<slug>.communityconnect.app` of a real community

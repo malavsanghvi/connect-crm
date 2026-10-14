@@ -1,5 +1,6 @@
 import { TodayView } from "@/components/today/today-view";
 import { communityFormat } from "@/lib/community-format";
+import { loadHomeCards } from "@/lib/data/home-cards";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 import { loadRoutineFacts } from "@/lib/data/today";
 import { buildBriefing, type BriefingItem } from "@/lib/routines/briefing";
@@ -16,7 +17,7 @@ const NO_ROUTINE: ResolvedRoutine = { roles: [], groups: [], later: [], total: 0
  */
 export async function TodayHome({ session }: { session: CrmSession }) {
   const { center } = session;
-  const home = await loadHomeTasks(session);
+  const [home, cards] = await Promise.all([loadHomeTasks(session), loadHomeCards(session)]);
 
   let routine = NO_ROUTINE;
   let briefing: BriefingItem[] = [];
@@ -41,6 +42,7 @@ export async function TodayHome({ session }: { session: CrmSession }) {
       tasks={home.tasks}
       failures={home.failures}
       hasSources={visibleTaskSources(session).length > 0}
+      cards={cards}
     />
   );
 }
