@@ -7,8 +7,10 @@ import { RowActions } from "@/components/row-actions";
 import { Alert, BlockGrid, Card, KeyValueRow, NoAccess, PageHeader, QueryError, StatusText } from "@/components/ui";
 import { loadCommunityLocale } from "@/lib/community-locale";
 import { campaignStatusLabel, campaignStatusTone, describeAudience, languagesNeedingTranslation, openRate, requiresSecondApprover, translationLanguages } from "@/lib/comms";
+import { campaignMenu, templateDefaultName } from "@/lib/comms-templates";
 import { languageName } from "@/lib/languages";
 import { audienceOptions } from "@/lib/data/content-comms";
+import { loadChannels } from "@/lib/data/comms-templates";
 import { kindSchool } from "@/lib/kind";
 import { userNames } from "@/lib/data/lookups";
 import { formatDateTime, isoToLocalDateTime } from "@/lib/dates";
@@ -17,6 +19,7 @@ import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
 import { approveCampaignAction, setCampaignStatusAction } from "../../actions";
+import { CampaignActions } from "../../campaign-menu";
 import { NewsletterCompose } from "../../newsletter-form";
 import { audienceNames } from "../../shared";
 
@@ -64,8 +67,12 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
   const needsSecond = c.requires_second_approver || requiresSecondApprover(c.audience);
   const canApprove = canAccess(session, "commsApprove");
   const canSend = canAccess(session, "commsSend");
-  const editable = canSend && ["draft", "pending_approval", "scheduled"].includes(c.status);
+  const isDraft = c.status === "working_draft";
+  const editable = canSend && ["working_draft", "draft", "pending_approval", "scheduled"].includes(c.status);
   const awaiting = c.status === "draft" || (c.status === "pending_approval" && c.approved_by !== session.userId);
+  // Copy as new draft and Save as template, on a communication of a channel the community has (campaignMenu decides; the database checks again).
+  const channels = canSend ? await loadChannels(db, session) : null;
+  const menu = campaignMenu({ canWrite: canSend, kind: c.kind, channels: c.channels, available: channels?.available ?? [] });
   const rate = openRate(c.recipients_count, c.opened_count);
 
   return (
@@ -89,11 +96,36 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
               <RowActions action={setCampaignStatusAction} fields={{ id: c.id }} buttons={[{ label: "Back to approval", value: "draft", variant: "ghost" }]} />
             ) : null}
             {editable ? (
-              <RowActions action={setCampaignStatusAction} fields={{ id: c.id }} buttons={[{ label: "Cancel send", value: "cancelled", variant: "bad", confirm: "Cancel this newsletter? It will not go out." }]} />
+              <RowActions
+                action={setCampaignStatusAction}
+                fields={{ id: c.id }}
+                buttons={[
+                  isDraft
+                    ? { label: "Discard draft", value: "cancelled", variant: "bad", confirm: "Discard this draft? It was never sent. It is cancelled and cannot be brought back." }
+                    : { label: "Cancel send", value: "cancelled", variant: "bad", confirm: "Cancel this newsletter? It will not go out." },
+                ]}
+              />
             ) : null}
+            <CampaignActions
+              layout="buttons"
+              campaign={{ id: c.id, label: c.name || c.title, defaultTemplateName: templateDefaultName(c.name, c.title), channels: c.channels }}
+              items={menu}
+            />
           </>
         }
       />
+      {channels?.error ? (
+        <div className="mb-4">
+          <QueryError what="which channels are set up (the copy and template buttons are hidden for text and WhatsApp until it loads)" error={channels.error} retryHref={`/comms/campaigns/${id}`} />
+        </div>
+      ) : null}
+      {isDraft ? (
+        <div className="mb-4">
+          <Alert tone="info" title="This is a draft">
+            Nothing has been sent and nobody has been asked to approve it. Change anything below, then save the draft, or send it for approval when it is ready.
+          </Alert>
+        </div>
+      ) : null}
       {c.status === "pending_approval" ? (
         <div className="mb-4">
           <Alert tone="warning" title="Waiting for a second approver">
@@ -127,6 +159,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
               audience: c.audience,
               translations: c.translations,
               scheduled_local: isoToLocalDateTime(c.scheduled_at, tz),
+              status: c.status,
             }}
           />
         ) : (

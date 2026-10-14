@@ -2402,6 +2402,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      comms_templates: {
+        Row: {
+          id: string;
+          center_id: string;
+          name: string;
+          channels: Database["app"]["Enums"]["channel"][];
+          title: string;
+          body_md: string;
+          translations: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          name: string;
+          channels: Database["app"]["Enums"]["channel"][];
+          title?: string;
+          body_md?: string;
+          translations?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          name?: string;
+          channels?: Database["app"]["Enums"]["channel"][];
+          title?: string;
+          body_md?: string;
+          translations?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       concerns: {
         Row: {
           id: string;
@@ -13526,6 +13568,22 @@ export type Database = {
         };
         Returns: Json;
       };
+      copy_campaign_as_draft: {
+        Args: {
+          p_center: string;
+          p_campaign: string;
+          p_name?: string;
+        };
+        Returns: string;
+      };
+      create_campaign_from_template: {
+        Args: {
+          p_center: string;
+          p_template: string;
+          p_name?: string;
+        };
+        Returns: string;
+      };
       create_checkout: {
         Args: {
           p_center: string;
@@ -13703,6 +13761,13 @@ export type Database = {
           p_import_run?: string;
         };
         Returns: string;
+      };
+      delete_comms_template: {
+        Args: {
+          p_center: string;
+          p_template: string;
+        };
+        Returns: undefined;
       };
       delete_pledge: {
         Args: {
@@ -16318,6 +16383,14 @@ export type Database = {
         };
         Returns: boolean;
       };
+      rename_comms_template: {
+        Args: {
+          p_center: string;
+          p_template: string;
+          p_name: string;
+        };
+        Returns: undefined;
+      };
       reopen_platform_setup_step: {
         Args: {
           p_key: string;
@@ -16809,6 +16882,14 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      save_campaign_as_template: {
+        Args: {
+          p_center: string;
+          p_campaign: string;
+          p_name?: string;
+        };
+        Returns: string;
       };
       save_care_profile: {
         Args: {

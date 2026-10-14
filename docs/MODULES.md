@@ -433,11 +433,13 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 ## Communications (depends on People)
 
 - **Tables:** notification_topics (global catalog, nothing to switch), notification_preferences,
-  channel_optins, push_devices, message_templates, messages, comms_campaigns, inboxes, threads,
+  channel_optins, push_devices, message_templates, messages, comms_campaigns, comms_templates (saved templates, 0800), inboxes, threads,
   thread_messages, whatsapp_groups, whatsapp_join_requests, alerts (the WhatsApp Business tables moved to
   CommunityConnect, `channels`, in 0751; WhatsApp group links stay here)
-- **RPCs guarded:** segment_recipient_count, approve_as_second (comms_campaigns)
-- **Portal:** /comms/newsletters, /comms/campaigns/[id], /comms/inbox, /comms/threads/[id],
+- **RPCs guarded:** segment_recipient_count, approve_as_second (comms_campaigns), copy_campaign_as_draft,
+  save_campaign_as_template, create_campaign_from_template, rename_comms_template, delete_comms_template
+  (docs/COMMS_HUB_TEMPLATES.md)
+- **Portal:** /comms/newsletters, /comms/templates, /comms/campaigns/[id], /comms/inbox, /comms/threads/[id],
   /comms/whatsapp, /comms/alerts
 - **Member app:** preferences, guide/whatsapp
 - **Permissions:** comms.view, comms.send, comms.approve, comms.inbox

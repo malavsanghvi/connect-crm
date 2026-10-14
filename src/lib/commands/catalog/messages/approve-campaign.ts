@@ -69,6 +69,8 @@ export const approveCampaign = defineCommand<ApproveInput, ApproveData>({
     if (c.status === "pending_approval") {
       if (c.approved_by === ctx.session.userId) throw new CommandError(`Could not approve "${label}" — you gave the first approval; the two-person rule needs a different approver.`);
       if (ctx.via === "assistant") throw new CommandError(SECOND_IS_YOURS);
+    } else if (c.status === "working_draft") {
+      throw new CommandError(`Could not approve "${label}" — it is a draft that has not been sent for approval yet. Its writer sends it for approval from the draft's page.`);
     } else if (c.status !== "draft") {
       throw new CommandError(`Could not approve "${label}" — it is no longer awaiting approval.`);
     }
@@ -131,6 +133,9 @@ export const approveCampaign = defineCommand<ApproveInput, ApproveData>({
       if (error) return dbFail(`Your approval of "${label}" was recorded, but it could not be scheduled`, error);
       revalidateAfterCommand(["/comms", "/"]);
       return { ok: true, data: { campaign: ref, result: "scheduled" }, message: `"${label}" approved by two people and scheduled.${NOT_SENDING}` };
+    }
+    if (c.status === "working_draft") {
+      return { ok: false, error: `Could not approve "${label}" — it is a draft that has not been sent for approval yet. Its writer sends it for approval from the draft's page.` };
     }
     return { ok: false, error: `Could not approve "${label}" — it is no longer awaiting approval.` };
   },

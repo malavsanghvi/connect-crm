@@ -65,6 +65,8 @@ const input = object({
 function approvalsLine(c: CampaignRow, me: string): string {
   const second = c.requires_second_approver || requiresSecondApprover(c.audience);
   switch (c.status) {
+    case "working_draft":
+      return "A draft that has not been sent for approval yet. Its writer sends it for approval when it is ready.";
     case "draft":
       return second ? "Nobody has approved it yet. It goes to all members, so two different people must approve it." : "Nobody has approved it yet.";
     case "pending_approval":
