@@ -1,0 +1,195 @@
+-- A QuickBooks deposit moves the receipts held in Undeposited Funds by LINKING them (Deposit.Line.LinkedTxn, with its
+-- TxnLineId), never as a plain line whose account is Undeposited Funds.
+--
+-- Found 2026-10-14 on the first real QuickBooks (an Intuit sandbox company): the test post's Deposit was refused with
+-- "Business Validation Error: Select a bank account for this deposit" (code 6000). Reproduced in Intuit's API tool on the
+-- same company: the same Deposit with the line on any other account is accepted, and with the line linking the Sales receipt
+-- it deposits (LinkedTxn: TxnType SalesReceipt, TxnLineId "0") is accepted. Weaver's own tests only ran against a mock,
+-- which allowed it. The same shape was used by real bank deposits (a payout_deposit posting), so they were refused too.
+--
+-- Two documents change here; the worker (worker/src/qbo/documents.ts) turns a line with linked_txn into the LinkedTxn
+-- JSON, so the document keeps the line's account_id (the database still checks it exists and is active) and adds the
+-- receipt's QuickBooks id.
+--   1. The test post's Deposit names the Sales receipt it deposits (link_to); the worker fills in the id QuickBooks gave
+--      that receipt in the same run.
+--   2. A real bank deposit (match_deposit already groups offline checks and cash into one bank line and checks their total):
+--      one line per QuickBooks receipt the payments of that deposit were posted as. If any of those payments is not in
+--      QuickBooks yet, or none is linked, or a daily-summary receipt also holds money from another deposit (QuickBooks cannot
+--      split a receipt), the posting fails with a plain reason, the person fixes it and presses Retry.
+
+create or replace function app._qbo_test_docs(p_center uuid) returns jsonb
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare c app.integration_connections; v_gen text := app._qbo_account(p_center, 'income.general'); v_class text; v_line jsonb;
+        v_note text := 'Community Connect test post — safe to void'; v_day text := to_char(current_date, 'YYYY-MM-DD');
+begin
+  select * into c from app.qbo_connection(p_center);
+  select qbo_class_id into v_class from app.funds where center_id = p_center and key = 'general';
+  v_line := app._qbo_sales_line(c.id, v_gen, v_class, 100, 'Community Connect test post');
+  return jsonb_build_array(
+    jsonb_build_object('entity', 'SalesReceipt', 'txn_date', v_day, 'doc_number', 'CCTEST-SR', 'private_note', v_note,
+                       'customer_ref', null, 'customer_status', 'none', 'deposit_account', app._qbo_account(p_center, 'undeposited_funds'),
+                       'lines', jsonb_build_array(v_line)),
+    jsonb_build_object('entity', 'RefundReceipt', 'txn_date', v_day, 'doc_number', 'CCTEST-RR', 'private_note', v_note,
+                       'customer_ref', null, 'customer_status', 'none', 'deposit_account', app._qbo_account(p_center, 'bank'),
+                       'lines', jsonb_build_array(v_line)),
+    jsonb_build_object('entity', 'Deposit', 'txn_date', v_day, 'doc_number', null, 'private_note', v_note,
+                       'customer_ref', null, 'customer_status', 'none', 'deposit_account', app._qbo_account(p_center, 'bank'),
+                       'lines', jsonb_build_array(jsonb_build_object('amount_cents', 100, 'description', 'Community Connect test post',
+                                                                     'account_id', app._qbo_account(p_center, 'undeposited_funds'),
+                                                                     'link_to', 'SalesReceipt'))),
+    jsonb_build_object('entity', 'JournalEntry', 'txn_date', v_day, 'doc_number', 'CCTEST-JE', 'private_note', v_note,
+                       'customer_ref', null, 'customer_status', 'none', 'deposit_account', null,
+                       'lines', jsonb_build_array(
+                         jsonb_build_object('amount_cents', 100, 'posting', 'Debit', 'description', 'Community Connect test post',
+                                            'account_id', app._qbo_account(p_center, 'merchant_fees')),
+                         jsonb_build_object('amount_cents', 100, 'posting', 'Credit', 'description', 'Community Connect test post',
+                                            'account_id', app._qbo_account(p_center, 'payment_clearing')))));
+end $$;
+
+-- 0779's document for one posting; only the payout_deposit branch (and its variables) change.
+create or replace function app._qbo_posting_doc_before_0412(p_posting uuid) returns jsonb
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare lp app.ledger_postings; c app.integration_connections; p app.payments; t app.bank_transactions; o app.store_orders;
+        v_doc jsonb; v_dep text; v_cust jsonb; v_problem text; v_lines jsonb := '[]'; v_bank_account uuid;
+        v_msg text; v_detail text; v_undeposited text; v_sum bigint; v_partial int; v_n_pay int; v_n_posted int;
+begin
+  select * into lp from app.ledger_postings where id = p_posting;
+  if lp.id is null then return jsonb_build_object('ok', false, 'error', 'The posting was not found.'); end if;
+  select * into c from app.qbo_connection(lp.center_id);
+
+  if lp.source_table = 'payments' and lp.txn_type in ('donation_card','recurring_charge','boli_payment','membership_fee','offline_receipt',
+                                                       'bank_receipt','stock_gift','refund') then
+    select * into p from app.payments where id = lp.source_id;
+    if p.id is null then return jsonb_build_object('ok', false, 'error', 'The payment behind this posting was not found.'); end if;
+    if p.provider = 'bank' then
+      -- The register of the bank line the money arrived on: the payment's own deposit line first, then a line matched to it.
+      -- With no line and more than one bank account, Weaver cannot tell which register: the posting waits (no main-bank default).
+      select bt.bank_account_id into v_bank_account from app.bank_transactions bt where bt.id = p.deposit_bank_transaction_id;
+      if v_bank_account is null then
+        select bt.bank_account_id into v_bank_account from app.bank_transactions bt where bt.payment_id = p.id order by bt.posted_on desc limit 1;
+      end if;
+      if v_bank_account is null then
+        select case when count(*) = 1 then (array_agg(b.id))[1] end into v_bank_account
+          from app.bank_accounts b where b.center_id = lp.center_id and b.active;
+        if v_bank_account is null and exists (select 1 from app.bank_accounts b where b.center_id = lp.center_id and b.active) then
+          raise exception 'This bank payment is not linked to the bank line it arrived on, and this organization has more than one bank account, so Weaver cannot tell which QuickBooks bank account it landed in. Match it to its bank line in Giving › Bank, then Retry.'
+            using errcode = 'CCMAP';
+        end if;
+      end if;
+      v_dep := case when v_bank_account is not null then app.account_for_bank_account(lp.center_id, v_bank_account)
+                    else app.account_for_role(lp.center_id, 'bank') end;
+    elsif p.method = 'stock' then
+      v_dep := app.account_for_role(lp.center_id, 'stock_clearing');
+    elsif p.provider = 'offline' then
+      v_dep := app.account_for_role(lp.center_id, 'undeposited_funds');
+    else
+      v_dep := app.account_for_role(lp.center_id, 'payment_clearing');
+    end if;
+    v_cust := app._qbo_customer_ref(p.household_id, p.payer_person_id);
+    v_doc := jsonb_build_object(
+      'entity', case when lp.txn_type = 'refund' then 'RefundReceipt' else 'SalesReceipt' end,
+      'txn_date', to_char(p.received_on, 'YYYY-MM-DD'),
+      'doc_number', left(coalesce(p.receipt_number, 'CC-' || left(p.id::text, 8)) || case when lp.txn_type = 'refund' then '-R' else '' end, 21),
+      'private_note', 'Community Connect ' || case when lp.txn_type = 'refund' then 'refund of ' else '' end || 'receipt '
+                      || coalesce(p.receipt_number, left(p.id::text, 8)) || ' · posting ' || lp.id,
+      'customer_ref', v_cust->>'ref', 'customer_status', v_cust->>'status',
+      'deposit_account', v_dep,
+      'lines', app._qbo_payment_lines(c.id, p, lp.amount_cents));
+  elsif lp.txn_type = 'processor_fee' then
+    select * into p from app.payments where id = lp.source_id;
+    v_doc := jsonb_build_object('entity', 'JournalEntry', 'txn_date', to_char(coalesce(p.received_on, lp.period_month), 'YYYY-MM-DD'),
+      'doc_number', left('FEE-' || coalesce(p.receipt_number, left(lp.source_id::text, 8)), 21),
+      'private_note', 'Community Connect processor fee · posting ' || lp.id,
+      'customer_ref', null, 'customer_status', 'none', 'deposit_account', null,
+      'lines', jsonb_build_array(
+        jsonb_build_object('amount_cents', lp.amount_cents, 'posting', 'Debit', 'account_id', app.account_for_role(lp.center_id, 'merchant_fees'),
+                           'description', 'Card processing fee'),
+        jsonb_build_object('amount_cents', lp.amount_cents, 'posting', 'Credit', 'account_id', app.account_for_role(lp.center_id, 'payment_clearing'),
+                           'description', 'Card processing fee')));
+  elsif lp.txn_type = 'payout_deposit' and lp.source_table = 'bank_transactions' then
+    select * into t from app.bank_transactions where id = lp.source_id;
+    if t.id is null then return jsonb_build_object('ok', false, 'error', 'The bank line behind this deposit was not found.'); end if;
+    -- The bank register first (a bank account with no QuickBooks account of its own still waits for one, as before).
+    v_dep := app.account_for_bank_account(lp.center_id, t.bank_account_id);
+    v_undeposited := app.account_for_role(lp.center_id, 'undeposited_funds');
+    -- QuickBooks refuses a plain deposit line on Undeposited Funds (code 6000, 2026-10-14): the receipts held there leave it by
+    -- being linked, so one line per QuickBooks receipt the payments of this deposit were posted as (app.match_deposit has
+    -- already checked that the payments total the bank line).
+    select count(*), count(*) filter (where exists (select 1 from app.ledger_postings rp
+                                                     where rp.center_id = p.center_id and rp.source_table = 'payments' and rp.source_id = p.id
+                                                       and rp.qbo_entity = 'SalesReceipt' and rp.status = 'posted'))
+      into v_n_pay, v_n_posted
+      from app.payments p
+     where p.center_id = lp.center_id and p.deposit_bank_transaction_id = t.id and p.provider = 'offline';
+    if v_n_pay = 0 then
+      return jsonb_build_object('ok', false, 'error',
+        'No receipts are linked to this deposit, so there is nothing to move out of Undeposited Funds in QuickBooks. Link the receipts to the bank line in Giving › Bank, then Retry.');
+    end if;
+    if v_n_posted < v_n_pay then
+      return jsonb_build_object('ok', false, 'error', format(
+        '%s of the %s receipts in this deposit are not in QuickBooks yet, and QuickBooks moves them out of Undeposited Funds one receipt at a time. Wait for them to post (or fix the ones that failed in Accounting › QuickBooks sync), then Retry.',
+        v_n_pay - v_n_posted, v_n_pay));
+    end if;
+    -- One line per QuickBooks receipt (a daily-summary receipt holds several payments). A receipt that also holds money from
+    -- another deposit cannot be deposited in part, so that one is left to a person.
+    select coalesce(jsonb_agg(jsonb_build_object('amount_cents', g.amount, 'description', left('Receipts ' || g.what, 200), 'account_id', v_undeposited,
+                                                 'linked_txn', jsonb_build_object('type', 'SalesReceipt', 'id', g.qbo_ref))
+                              order by g.first_on, g.qbo_ref), '[]'::jsonb),
+           coalesce(sum(g.amount), 0), count(*) filter (where not g.whole)
+      into v_lines, v_sum, v_partial
+      from (select rp.qbo_ref, sum(rp.amount_cents)::bigint as amount, min(p.received_on) as first_on,
+                   string_agg(coalesce(p.receipt_number, left(p.id::text, 8)), ', ' order by p.received_on, p.id) as what,
+                   sum(rp.amount_cents) = (select sum(o.amount_cents) from app.ledger_postings o
+                                            where o.center_id = lp.center_id and o.qbo_entity = 'SalesReceipt' and o.qbo_ref = rp.qbo_ref
+                                              and o.status = 'posted') as whole
+              from app.payments p
+              join app.ledger_postings rp on rp.center_id = p.center_id and rp.source_table = 'payments' and rp.source_id = p.id
+                                         and rp.qbo_entity = 'SalesReceipt' and rp.status = 'posted'
+             where p.center_id = lp.center_id and p.deposit_bank_transaction_id = t.id and p.provider = 'offline'
+             group by rp.qbo_ref) g;
+    if v_partial > 0 then
+      return jsonb_build_object('ok', false, 'error',
+        'A QuickBooks receipt in this deposit also holds money from other deposits (a daily summary receipt), and QuickBooks cannot deposit part of a receipt. Record this deposit in QuickBooks by hand.');
+    end if;
+    if v_sum <> lp.amount_cents then
+      return jsonb_build_object('ok', false, 'error', format(
+        'The QuickBooks receipts of this deposit total $%s but the deposit is $%s, so Weaver will not send a deposit that does not add up.',
+        to_char(v_sum / 100.0, 'FM999,999,990.00'), to_char(lp.amount_cents / 100.0, 'FM999,999,990.00')));
+    end if;
+    v_doc := jsonb_build_object('entity', 'Deposit', 'txn_date', to_char(t.posted_on, 'YYYY-MM-DD'), 'doc_number', null,
+      'private_note', 'Community Connect deposit · ' || left(coalesce(t.description, ''), 60) || ' · posting ' || lp.id,
+      'customer_ref', null, 'customer_status', 'none',
+      'deposit_account', v_dep,
+      'lines', v_lines);
+  elsif lp.txn_type = 'store_sale' and lp.source_table = 'store_orders' then
+    select * into o from app.store_orders where id = lp.source_id;
+    if o.id is null then return jsonb_build_object('ok', false, 'error', 'The store order behind this posting was not found.'); end if;
+    v_cust := app._qbo_customer_ref(o.household_id, o.person_id);
+    if o.subtotal_cents > 0 then
+      v_lines := v_lines || jsonb_build_array(app._qbo_sales_line(c.id, app.account_for_role(lp.center_id, 'store.sales'), null, o.subtotal_cents, 'Store sales'));
+    end if;
+    if o.gift_packing_cents > 0 then
+      v_lines := v_lines || jsonb_build_array(app._qbo_sales_line(c.id, app.account_for_role(lp.center_id, 'store.gift_packing'), null, o.gift_packing_cents, 'Gift packing'));
+    end if;
+    if o.tax_cents > 0 then
+      v_lines := v_lines || jsonb_build_array(app._qbo_sales_line(c.id, app.account_for_role(lp.center_id, 'sales_tax_payable'), null, o.tax_cents, 'Sales tax'));
+    end if;
+    v_doc := jsonb_build_object('entity', 'SalesReceipt', 'txn_date', to_char(coalesce(o.picked_up_at, o.placed_at, o.created_at), 'YYYY-MM-DD'),
+      'doc_number', left(o.order_number, 21), 'private_note', 'Community Connect store order ' || o.order_number || ' · posting ' || lp.id,
+      'customer_ref', v_cust->>'ref', 'customer_status', v_cust->>'status',
+      'deposit_account', app.account_for_role(lp.center_id, 'payment_clearing'), 'lines', v_lines);
+  else
+    return jsonb_build_object('ok', false, 'error',
+      format('Posting "%s" entries to QuickBooks is not built yet; a person records this one in QuickBooks.', replace(lp.txn_type, '_', ' ')));
+  end if;
+
+  v_problem := app._qbo_doc_problem(c.id, v_doc);
+  if v_problem is not null then return jsonb_build_object('ok', false, 'error', v_problem); end if;
+  return jsonb_build_object('ok', true, 'doc', v_doc);
+exception
+  when sqlstate 'CCMAP' then
+    get stacked diagnostics v_msg = message_text, v_detail = pg_exception_detail;
+    return jsonb_build_object('ok', false, 'error', v_msg, 'needs_mapping', nullif(v_detail, ''));
+  when others then
+    return jsonb_build_object('ok', false, 'error', sqlerrm);
+end $$;

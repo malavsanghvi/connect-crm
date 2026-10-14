@@ -10,6 +10,15 @@ export type DocLine = {
   posting?: "Debit" | "Credit";
   /** A journal line's customer (QuickBooks needs one on an Accounts Receivable line). */
   customer_ref?: string | null;
+  /**
+   * A deposit line that moves a receipt out of Undeposited Funds: the receipt QuickBooks already holds there, by id.
+   * QuickBooks refuses a plain deposit line whose account is Undeposited Funds ("Select a bank account for this
+   * deposit", code 6000, checked against an Intuit sandbox 2026-10-14); the money leaves it only through a link.
+   * The line's account_id stays on the document (the database checks it exists and is active) but is not sent.
+   */
+  linked_txn?: { type: "SalesReceipt"; id: string } | null;
+  /** The test post's Deposit names the receipt it deposits before that receipt exists; the handler fills linked_txn in. */
+  link_to?: "SalesReceipt" | null;
 };
 
 export type QboDoc = {
@@ -62,6 +71,27 @@ export function checkDoc(doc: QboDoc): void {
     throw new Error("A sales line has no QuickBooks item");
   }
   if (doc.entity === "Deposit" && doc.lines.some((l) => !l.account_id)) throw new Error("A deposit line has no account");
+  if (doc.entity === "Deposit" && doc.lines.some((l) => l.link_to && !l.linked_txn)) {
+    throw new Error("A deposit line is waiting for the receipt it deposits");
+  }
+}
+
+/**
+ * Fills in the receipt a test-post Deposit names (link_to) from what the same run created. A read-only run creates
+ * nothing, so its JSON shows a placeholder; a real run whose receipt was not created says so instead of sending a deposit
+ * QuickBooks would refuse.
+ */
+export function resolveLinks(doc: QboDoc, created: Partial<Record<string, string>>, dryRun: boolean): QboDoc {
+  if (!doc.lines.some((l) => l.link_to && !l.linked_txn)) return doc;
+  return {
+    ...doc,
+    lines: doc.lines.map((l) => {
+      if (!l.link_to || l.linked_txn) return l;
+      const id = created[l.link_to] ?? (dryRun ? `(the ${l.link_to === "SalesReceipt" ? "sales receipt" : l.link_to} above)` : null);
+      if (!id) throw new Error(`Not attempted: the ${l.link_to === "SalesReceipt" ? "sales receipt" : l.link_to} it deposits was not created`);
+      return { ...l, linked_txn: { type: l.link_to, id } };
+    }),
+  };
 }
 
 export function totalCents(doc: QboDoc): number {
@@ -97,16 +127,23 @@ export function toQbo(doc: QboDoc): Record<string, unknown> {
         ...head,
         DepositToAccountRef: ref(doc.deposit_account),
         Line: doc.lines.map((l) =>
-          strip({
-            Amount: dollars(l.amount_cents),
-            Description: l.description ?? undefined,
-            DetailType: "DepositLineDetail",
-            DepositLineDetail: strip({
-              AccountRef: ref(l.account_id),
-              ClassRef: ref(l.class_id),
-              Entity: doc.customer_ref ? { value: doc.customer_ref, type: "Customer" } : undefined,
-            }),
-          }),
+          l.linked_txn
+            ? // Money held in Undeposited Funds: the receipt it came in on, TxnLineId "0" (QuickBooks asks for it).
+              strip({
+                Amount: dollars(l.amount_cents),
+                Description: l.description ?? undefined,
+                LinkedTxn: [{ TxnId: l.linked_txn.id, TxnType: l.linked_txn.type, TxnLineId: "0" }],
+              })
+            : strip({
+                Amount: dollars(l.amount_cents),
+                Description: l.description ?? undefined,
+                DetailType: "DepositLineDetail",
+                DepositLineDetail: strip({
+                  AccountRef: ref(l.account_id),
+                  ClassRef: ref(l.class_id),
+                  Entity: doc.customer_ref ? { value: doc.customer_ref, type: "Customer" } : undefined,
+                }),
+              }),
         ),
       };
     case "CreditMemo":
