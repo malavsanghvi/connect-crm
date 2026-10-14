@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { OWNER_FACTS } from "@/components/site/facts";
 import { Icon, type IconName } from "@/components/site/icons";
+import { ExperienceBand } from "@/components/site/experience-band";
 import { EventMock, GivingMock, HandoverMock, HouseholdMock, LearningMock, PhoneMock } from "@/components/site/mockups";
 import { ProductTour } from "@/components/site/product-tour";
 import { FaqList, IconTile, SectionHeading, SiteLink, Ticks, buttonStyles, container } from "@/components/site/ui";
@@ -27,6 +28,7 @@ export default function HomePage() {
   return (
     <>
       <Hero />
+      <ExperienceBand />
       <WhoWeServe />
       <Pains />
       <HowWeUseAi />
@@ -76,6 +78,13 @@ function Hero() {
                 Try the demo
               </a>
             </div>
+            <p className="text-[15px] text-ink-2" data-testid="hero-demo-line">
+              Under a minute, no sign-up:{" "}
+              <a href="#experience" className="font-semibold text-navy underline underline-offset-4">
+                see Weaver as a treasurer, a teacher or a parent
+              </a>
+              .
+            </p>
             <ul className="flex flex-wrap gap-x-5 gap-y-2 text-[15px] font-semibold text-ink-2">
               {["No subscription", "No setup fee", "No cut of your gifts", "No lock-in"].map((t) => (
                 <li key={t} className="flex items-center gap-2">

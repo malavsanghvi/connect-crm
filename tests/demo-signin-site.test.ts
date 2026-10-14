@@ -25,6 +25,25 @@ describe("Try the demo on the public website", () => {
     expect(src.slice(at - 400, at)).toContain("Get started free");
   });
 
+  it("is also a band right under the hero that says it takes under a minute and links to the demo", () => {
+    const home = read("src/app/site/page.tsx");
+    expect(home).toContain("<ExperienceBand />");
+    expect(home.indexOf("<Hero />")).toBeLessThan(home.indexOf("<ExperienceBand />"));
+    expect(home.indexOf("<ExperienceBand />")).toBeLessThan(home.indexOf("<WhoWeServe />"));
+    expect(home).toContain('href="#experience"');
+    const band = read("src/components/site/experience-band.tsx");
+    expect(band).toContain("Experience Weaver in less than a minute");
+    expect(band).toContain('id="experience"');
+    expect(band).toMatch(/<a href=\{portalUrl\("\/demo"\)\}[\s\S]{0,200}?>\s*Start the demo/);
+    // Only what the demo does today: invented people, nothing sent, practice payments.
+    expect(band).toContain("nothing real is ever sent");
+    expect(band).toContain("payments are only for practice");
+  });
+
+  it("the demo page itself says it takes under a minute", () => {
+    expect(read("src/app/demo/page.tsx")).toContain("in less than a minute");
+  });
+
   it("opens the portal's demo page, not a page of the website", () => {
     expect(portalUrl("/demo")).toMatch(/^https:\/\/admin\.[a-z0-9.-]+\/demo$/);
     expect(PORTAL_PATH_PREFIXES).toContain("/demo");
