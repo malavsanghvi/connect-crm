@@ -252,7 +252,7 @@ function PrivacySwitch({
             aria-busy={edit.busy || undefined}
             disabled={edit.busy}
             onClick={() => edit.commit({ [fieldKey]: on ? "off" : "on" })}
-            className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)] ${on ? "bg-navy" : "bg-[#b8c4d6]"}`}
+            className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)] ${on ? "bg-navy" : "bg-toggle-off"}`}
           >
             <span aria-hidden="true" className={`absolute top-1 size-6 rounded-full bg-white shadow transition-all ${on ? "left-7" : "left-1"}`} />
             <span className="sr-only">{on ? "On" : "Off"}</span>

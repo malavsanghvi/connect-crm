@@ -52,7 +52,7 @@ export function GivingTabRow({
               >
                 {t.label}
                 {n ? (
-                  <span className="rounded-full bg-saffron-50 px-2 py-px text-[12px] font-extrabold text-saffron">
+                  <span className="rounded-full bg-saffron-50 px-2 py-px text-[12px] font-bold text-brown">
                     {n}
                     <span className="sr-only"> waiting</span>
                   </span>

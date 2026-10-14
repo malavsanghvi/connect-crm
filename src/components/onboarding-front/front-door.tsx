@@ -50,13 +50,13 @@ function StepMark({ step }: { step: FrontStep }) {
   }
   if (step.state === "now") {
     return (
-      <span aria-hidden="true" className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-navy text-[13px] font-extrabold text-white">
+      <span aria-hidden="true" className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-navy text-[13px] font-bold text-white">
         {step.n}
       </span>
     );
   }
   return (
-    <span aria-hidden="true" className="box-border flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border-2 border-[#9fb0c6] text-[12px] font-extrabold text-muted">
+    <span aria-hidden="true" className="box-border flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border-2 border-navy-300 text-[12px] font-bold text-muted">
       {step.n}
     </span>
   );
@@ -86,8 +86,8 @@ export function StepsNav({ steps, setupHref, guidedHref }: { steps: readonly Fro
         <span className="text-[13px] text-muted">
           Step {current} of {steps.length}
         </span>
-        <div aria-hidden="true" className="h-2 overflow-hidden rounded-[4px] bg-[#eaf0f7]">
-          <div className="h-2" style={{ width: pct, background: "linear-gradient(90deg, #34c4cb, #2f8ed8, #6cc68f)" }} />
+        <div aria-hidden="true" className="h-2 overflow-hidden rounded-[4px] bg-navy-50">
+          <div className="h-2 bg-navy" style={{ width: pct }} />
         </div>
       </div>
       <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -99,7 +99,7 @@ export function StepsNav({ steps, setupHref, guidedHref }: { steps: readonly Fro
           >
             <StepMark step={s} />
             <span className="flex flex-col gap-0.5">
-              <span className={`text-[14px] ${s.state === "now" ? "font-extrabold text-navy-hover" : s.state === "todo" ? "font-bold text-muted" : "font-bold text-ink"}`}>
+              <span className={`text-[14px] ${s.state === "now" ? "font-bold text-navy-hover" : s.state === "todo" ? "font-bold text-muted" : "font-bold text-ink"}`}>
                 {s.title}
                 <span className="sr-only"> ({STATE_WORD[s.state]})</span>
               </span>
@@ -112,7 +112,7 @@ export function StepsNav({ steps, setupHref, guidedHref }: { steps: readonly Fro
         <div className="rounded-[14px] border border-line bg-ground px-[14px] py-3 text-[12px] leading-[1.55] text-ink-2">
           Nothing is saved until you confirm, and every load can be undone in Settings › Data import.
         </div>
-        <div className="rounded-[14px] bg-saffron-50 px-[14px] py-3 text-[12px] leading-[1.55] text-[#5c2a0b]">
+        <div className="rounded-[14px] bg-saffron-50 px-[14px] py-3 text-[12px] leading-[1.55] text-brown-900">
           <b>Children.</b> Nothing about anyone under 18 is ever sent to an AI service.
         </div>
       </div>
@@ -178,7 +178,7 @@ const QBO_TONE: Record<FrontModel["qbo"]["tone"], PillTone> = { ok: "green", war
 function TileHead({ mono, name }: { mono: string; name: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span aria-hidden="true" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-navy-50 text-[13px] font-extrabold text-navy">
+      <span aria-hidden="true" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-navy-50 text-[13px] font-bold text-navy">
         {mono}
       </span>
       <span className="text-[15px] font-bold text-ink">{name}</span>

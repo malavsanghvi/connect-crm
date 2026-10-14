@@ -354,7 +354,7 @@ export function EmailPledgeFields({
             role={outcome.tone === "bad" ? "alert" : "status"}
             data-testid="email-outcome"
             className={`m-0 rounded-[12px] border px-3 py-2 text-[14px] ${
-              outcome.tone === "ok" ? "border-success/30 bg-success-50 font-bold text-success-900" : outcome.tone === "bad" ? "border-[#f0b9b4] bg-danger-50 text-[#7a1a14]" : "border-line bg-ground text-ink-2"
+              outcome.tone === "ok" ? "border-success/30 bg-success-50 font-bold text-success-900" : outcome.tone === "bad" ? "border-danger/30 bg-danger-50 text-danger" : "border-line bg-ground text-ink-2"
             }`}
           >
             {outcome.text}

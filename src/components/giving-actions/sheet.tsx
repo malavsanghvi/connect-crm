@@ -96,7 +96,7 @@ export function GivingSheet({
   // Drawn on the document body, so it sits above the top bar and the phone bars whatever the page's own layers are.
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(18,32,58,0.45)] sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 sm:items-center sm:p-6"
       onMouseDown={(e) => e.target === e.currentTarget && !pending && onClose()}
     >
       <div
@@ -107,7 +107,7 @@ export function GivingSheet({
         tabIndex={-1}
         onKeyDown={onKeyDown}
         data-testid="giving-sheet"
-        className="flex max-h-[94vh] w-full flex-col gap-3 overflow-y-auto rounded-t-[22px] bg-white px-5 pt-5 shadow-[0_24px_60px_rgba(18,32,58,0.28)] sm:max-w-[540px] sm:rounded-[22px] sm:px-6"
+        className="flex max-h-[94vh] w-full flex-col gap-3 overflow-y-auto rounded-t-[22px] bg-white px-5 pt-5 shadow-window sm:max-w-[540px] sm:rounded-[22px] sm:px-6"
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id={titleId} className="m-0 font-display text-[22px] font-semibold leading-tight text-ink">
@@ -128,7 +128,7 @@ export function GivingSheet({
         {what ? <div className="m-0 rounded-[12px] bg-ground px-3 py-2 text-[14px] leading-[1.5] text-ink-2">{what}</div> : null}
         {children}
         {error ? (
-          <p role="alert" className="m-0 rounded-[12px] border border-[#f0b9b4] bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-[#7a1a14]">
+          <p role="alert" className="m-0 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
             {error}
           </p>
         ) : null}

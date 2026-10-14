@@ -195,7 +195,7 @@ function PaletteDialog({ niva }: { niva: NivaApi }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[55] flex items-start justify-center bg-[rgba(20,18,14,0.5)] p-4 pt-[10vh]"
+      className="fixed inset-0 z-[55] flex items-start justify-center bg-ink/50 p-4 pt-[10vh]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) close();
       }}
@@ -215,7 +215,7 @@ function PaletteDialog({ niva }: { niva: NivaApi }) {
         {mode.name === "list" ? (
           <>
             <div className="flex items-center gap-2 border-b border-line-soft px-4 py-3">
-              <span className="text-saffron">
+              <span className="text-brown">
                 <Sparkle className="h-5 w-5" />
               </span>
               <label htmlFor={inputId} className="sr-only">
@@ -300,7 +300,7 @@ function PaletteDialog({ niva }: { niva: NivaApi }) {
                         onClick={() => choose(row)}
                         className={`flex cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 ${i === activeIndex ? "bg-navy-50" : ""}`}
                       >
-                        <span className="text-saffron">
+                        <span className="text-brown">
                           <Sparkle />
                         </span>
                         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">Ask Niva: {row.text}</span>

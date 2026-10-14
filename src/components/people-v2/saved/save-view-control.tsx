@@ -60,7 +60,7 @@ export function SaveViewControl({
           if (e.key === "Escape") setOpen(false);
         }}
       >
-        <label htmlFor={id} className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">
+        <label htmlFor={id} className="text-[12px] font-bold uppercase tracking-[0.04em] text-muted">
           Name this view
         </label>
         <input id={id} autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={120} dir="auto" className="crm-input w-full" aria-describedby={`${id}-hint${error ? ` ${id}-err` : ""}`} />

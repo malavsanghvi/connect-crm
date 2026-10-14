@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { brandPageStyle } from "@/lib/brand-html";
 import { workerQuery } from "@/lib/messaging/server-db";
 import { verifyLink } from "@/lib/messaging/signatures";
 import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
@@ -14,7 +15,7 @@ function page(status: number, title: string, text: string) {
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
   return new NextResponse(
     `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title></head>` +
-      `<body style="font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;color:#1f1a14"><h1 style="font-size:1.4rem">${esc(title)}</h1><p>${esc(text)}</p></body></html>`,
+      `<body style="${brandPageStyle()};font-size:16px;line-height:1.5;max-width:32rem;margin:3rem auto;padding:0 1rem"><h1 style="font-size:1.4rem">${esc(title)}</h1><p>${esc(text)}</p></body></html>`,
     { status, headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }

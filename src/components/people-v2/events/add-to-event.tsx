@@ -256,7 +256,7 @@ export function AddToEventView({ props, state, on, yesRef }: { props: AddToEvent
                 </ul>
                 {children.length > 0 ? (
                   <>
-                    <p className="m-0 mt-2 text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-muted">Children · staff only</p>
+                    <p className="m-0 mt-2 text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">Children · staff only</p>
                     <ul className="m-0 flex list-none flex-col p-0">
                       {children.map((c) => (
                         <PersonRow key={c.id} c={c} compact checked={chosen.has(c.id) && c.state === "free"} onToggle={on.toggle} disabled={adding} />
@@ -467,7 +467,7 @@ export function Toast({ text, onClose }: { text: string | null; onClose: () => v
       role="status"
       aria-live="polite"
       data-testid="add-to-event-toast"
-      className="fixed bottom-[13rem] left-1/2 z-50 w-[min(34rem,calc(100vw-1.5rem))] -translate-x-1/2 rounded-[14px] bg-[var(--v2-ink)] text-white shadow-[0_10px_30px_rgba(18,32,58,0.35)] md:bottom-20 md:[html[data-slideover]_&]:left-[calc((100vw-520px)/2)] md:[html[data-slideover]_&]:w-[min(34rem,calc(100vw-560px))]"
+      className="fixed bottom-[13rem] left-1/2 z-50 w-[min(34rem,calc(100vw-1.5rem))] -translate-x-1/2 rounded-[14px] bg-[var(--v2-ink)] text-white shadow-toast md:bottom-20 md:[html[data-slideover]_&]:left-[calc((100vw-520px)/2)] md:[html[data-slideover]_&]:w-[min(34rem,calc(100vw-560px))]"
     >
       <div className="flex items-center gap-3 px-4 py-3 text-[14px]">
         <span dir="auto" className="min-w-0 flex-1">

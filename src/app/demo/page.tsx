@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { WeaverMark } from "@/components/brand/weaver-mark";
+import { LogoTile } from "@/components/brand/logo";
 import { DemoLeaveButton } from "@/components/demo-leave";
 import { SetupScreen } from "@/components/setup-screen";
 import { Alert } from "@/components/ui";
@@ -66,9 +66,7 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
       <header className="bg-navy px-6 py-8 text-white sm:px-12">
         <div className="mx-auto flex max-w-[1040px] flex-col gap-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white">
-              <WeaverMark className="h-9 w-9" />
-            </span>
+            <LogoTile size={48} />
             <p className="text-[13px] font-semibold uppercase tracking-wide text-navy-200">
               {PRODUCT_NAME} · {GENEROSITY_LINE}
             </p>

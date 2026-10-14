@@ -23,7 +23,7 @@ export function GivingPage({ model, initial, demo }: { model: GivingWorkspaceMod
               <p className="m-0 text-[14px] text-muted">Ask, review, confirm. The tables and reports are one tap away.</p>
             </div>
             <nav aria-label={`${model.title} views`} className="max-w-full overflow-x-auto">
-              <ul className="m-0 flex list-none gap-1 rounded-[24px] bg-[#e9eff7] p-1">
+              <ul className="m-0 flex list-none gap-1 rounded-[24px] bg-navy-50 p-1">
                 {model.views.map((v) => {
                   const current = v.key === "conversation";
                   return (

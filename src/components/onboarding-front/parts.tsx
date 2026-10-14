@@ -22,7 +22,7 @@ export const btn = {
 
 export const card = "rounded-[16px] border border-line bg-white p-5";
 
-/** The board's headings in sections: Fraunces 600. */
+/** The board's headings in sections: display face 600. */
 export const h2 = "m-0 font-display text-[20px] font-semibold leading-[1.25] text-ink";
 
 /** Niva's mark: the sun gradient (kept for Niva alone) with the sparkle. */
@@ -76,8 +76,8 @@ export function UserBubble({ children }: { children: ReactNode }) {
 const TONE = {
   blue: "bg-navy-50 text-navy-hover",
   green: "bg-success-50 text-success-900",
-  sun: "bg-saffron-50 text-saffron",
-  grey: "bg-[#eaf0f7] text-ink-2",
+  sun: "bg-saffron-50 text-brown",
+  grey: "bg-navy-50 text-ink-2",
   danger: "bg-danger-50 text-danger",
 } as const;
 

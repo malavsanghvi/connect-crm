@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { OWNER_FACTS } from "@/components/site/facts";
 import { Icon } from "@/components/site/icons";
 import { SectionHeading, Ticks, container } from "@/components/site/ui";
+import { brandColor, type BrandColorName } from "@/lib/brand-colors";
 import { SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -89,7 +90,7 @@ function Logos() {
         <SectionHeading eyebrow="Logo" title="Download the logo" titleId="logos-title" />
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
           {LOGOS.map((l) => (
-            <li key={l.title} className="flex flex-col overflow-hidden rounded-[24px] border border-line bg-white">
+            <li key={l.title} className="flex flex-col overflow-hidden rounded-card border border-line bg-white">
               <div className={`flex h-[200px] items-center justify-center p-6 ${l.ground}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- a plain file from public/brand, shown as it is downloaded */}
                 <img src={l.preview} alt={`${l.title}, preview`} className="max-h-full max-w-full object-contain" />
@@ -116,7 +117,7 @@ function Logos() {
             </li>
           ))}
         </ul>
-        <div className="mx-auto w-full max-w-[760px] rounded-[24px] border border-line bg-white p-5 sm:p-6">
+        <div className="mx-auto w-full max-w-[760px] rounded-card border border-line bg-white p-5 sm:p-6">
           <Ticks
             compact
             items={[
@@ -133,14 +134,14 @@ function Logos() {
 
 // ── Colours ──────────────────────────────────────────────────────────────────
 
-/** The same values as brand/tokens.json; the swatch classes are the website's own tokens (src/app/site/site.css). */
-const COLOURS: { name: string; hex: string; swatch: string; use: string; dark: boolean }[] = [
-  { name: "Indigo", hex: "#2B2A8A", swatch: "bg-navy", use: "Headings, buttons, bands", dark: true },
-  { name: "Sunrise", hex: "#FF7640", swatch: "bg-saffron", use: "The header and hero band, never text", dark: false },
-  { name: "Sun gold", hex: "#FFB82A", swatch: "bg-gold", use: "One highlight per view", dark: false },
-  { name: "Ember", hex: "#A8400D", swatch: "bg-brown", use: "Accent text", dark: true },
-  { name: "Ink", hex: "#1E1D5C", swatch: "bg-ink", use: "Body text", dark: true },
-  { name: "Canvas", hex: "#FFFAF5", swatch: "bg-canvas", use: "Page background", dark: false },
+/** The values are read from brand/tokens.json (src/lib/brand-colors.ts); the swatch classes are the kit's tokens (src/styles/brand-tokens.css). */
+const COLOURS: { name: string; token: BrandColorName; swatch: string; use: string; dark: boolean }[] = [
+  { name: "Indigo", token: "navy", swatch: "bg-navy", use: "Headings, buttons, bands", dark: true },
+  { name: "Sunrise", token: "saffron", swatch: "bg-saffron", use: "The header and hero band, never text", dark: false },
+  { name: "Sun gold", token: "gold", swatch: "bg-gold", use: "One highlight per view", dark: false },
+  { name: "Ember", token: "brown", swatch: "bg-brown", use: "Accent text", dark: true },
+  { name: "Ink", token: "ink", swatch: "bg-ink", use: "Body text", dark: true },
+  { name: "Canvas", token: "canvas", swatch: "bg-canvas", use: "Page background", dark: false },
 ];
 
 function Colours() {
@@ -150,9 +151,9 @@ function Colours() {
         <SectionHeading eyebrow="Colour" title="Indigo and sunrise" lead="Taken from the mark: indigo carries the brand, sunrise orange and sun gold bring the warmth." titleId="colours-title" />
         <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-6">
           {COLOURS.map((c) => (
-            <li key={c.name} className="flex flex-col overflow-hidden rounded-[20px] border border-line bg-white">
+            <li key={c.name} className="flex flex-col overflow-hidden rounded-window border border-line bg-white">
               <div className={`flex h-[96px] items-end p-3 ${c.swatch} ${c.name === "Canvas" ? "border-b border-line" : ""}`}>
-                <span className={`font-mono text-[13px] font-semibold ${c.dark ? "text-white" : "text-ink"}`}>{c.hex}</span>
+                <span className={`font-mono text-[13px] font-semibold ${c.dark ? "text-white" : "text-ink"}`}>{brandColor(c.token).toUpperCase()}</span>
               </div>
               <div className="p-3">
                 <p className="font-display text-[17px] font-semibold text-navy">{c.name}</p>
@@ -187,7 +188,7 @@ function TypeAndWords() {
           <SectionHeading align="left" eyebrow="Type" title="Two faces, both free" titleId="type-title" />
           <ul className="flex flex-col gap-3">
             {faces.map((f) => (
-              <li key={f.name} className="rounded-[24px] border border-line bg-white p-5 sm:p-6">
+              <li key={f.name} className="rounded-card border border-line bg-white p-5 sm:p-6">
                 <p className={`text-navy ${f.className}`}>{f.sample}</p>
                 <p className="mt-3 text-[15px] text-muted">
                   <span className="font-bold text-ink">{f.name}</span> · {f.role} ·{" "}
@@ -203,7 +204,7 @@ function TypeAndWords() {
           <SectionHeading align="left" eyebrow="Words" title="The lines we use" titleId="words-title" />
           <ul className="flex flex-col gap-3">
             {LINES.map((l) => (
-              <li key={l.use} className="rounded-[24px] border border-line bg-white p-5">
+              <li key={l.use} className="rounded-card border border-line bg-white p-5">
                 <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-brown">{l.use}</p>
                 <p className="mt-1 font-display text-[19px] font-semibold leading-snug text-navy">{l.line}</p>
               </li>

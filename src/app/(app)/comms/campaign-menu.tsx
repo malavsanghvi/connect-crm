@@ -174,7 +174,7 @@ function RowMenu({
               role="menu"
               aria-label={`More about ${label}`}
               style={{ position: "fixed", top: at.top, right: at.right }}
-              className="z-[60] m-0 w-[min(20rem,calc(100vw-1rem))] list-none rounded-2xl border border-line bg-white p-1.5 text-left shadow-[0_12px_32px_rgba(18,32,58,0.18)]"
+              className="z-[60] m-0 w-[min(20rem,calc(100vw-1rem))] list-none rounded-2xl border border-line bg-white p-1.5 text-left shadow-menu"
             >
               {items.map((i) => (
                 <li key={i.key} role="none">

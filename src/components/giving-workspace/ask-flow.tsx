@@ -118,7 +118,7 @@ function NivaTurn({ says, status, children }: { says: ReactNode; status?: boolea
 /** A problem, the way the board shows one: what went wrong, that nothing was saved, and a retry. */
 function Problem({ children, onRetry, extra }: { children: ReactNode; onRetry?: () => void; extra?: ReactNode }) {
   return (
-    <div role="alert" className="flex max-w-[760px] flex-wrap items-center gap-3 rounded-[14px] border border-[#f0b9b4] bg-danger-50 px-4 py-3 text-[14px] leading-[1.45] text-[#7a1a14]">
+    <div role="alert" className="flex max-w-[760px] flex-wrap items-center gap-3 rounded-[14px] border border-danger/30 bg-danger-50 px-4 py-3 text-[14px] leading-[1.45] text-danger">
       <span className="min-w-[240px] flex-1">{children}</span>
       {onRetry ? (
         <button type="button" onClick={onRetry} className="inline-flex min-h-[40px] items-center rounded-[20px] bg-danger px-4 text-[13px] font-bold text-white">
@@ -184,7 +184,7 @@ function HouseholdChoice({
         <span className="text-[13px] text-muted">
           {where || "No city on file"} · {card.last_gift_on ? `last gift ${formatDate(card.last_gift_on, timeZone)}` : "no gift yet"}
         </span>
-        <span className={`text-[13px] font-bold ${open ? "text-saffron" : "text-muted"}`}>{open ? `Open pledges: ${formatCents(card.open_pledge_cents, currency)} left` : "No open pledge"}</span>
+        <span className={`text-[13px] font-bold ${open ? "text-brown" : "text-muted"}`}>{open ? `Open pledges: ${formatCents(card.open_pledge_cents, currency)} left` : "No open pledge"}</span>
       </span>
     </label>
   );
@@ -457,7 +457,7 @@ export function AskFlow(props: AskFlowProps) {
       </section>
 
       <form onSubmit={submit} aria-label="Tell Niva about the payment" className="sticky bottom-[84px] z-10 md:bottom-4">
-        <div className="flex min-h-[56px] items-center gap-3 rounded-[28px] border border-line-input bg-white py-1.5 pl-[18px] pr-2.5 shadow-[0_6px_20px_rgba(18,32,58,0.06)]">
+        <div className="flex min-h-[56px] items-center gap-3 rounded-[28px] border border-line-input bg-white py-1.5 pl-[18px] pr-2.5 shadow-sm">
           <span aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24">
               <defs>
@@ -541,12 +541,12 @@ function DraftCard({
   const view = draftCard(data, { locale, about });
   const byCard = recordByCard && nivaCanConfirm;
   const titleId = useId();
-  const tone = { plain: "", strong: "font-bold", money: "text-[18px] font-extrabold text-saffron", danger: "font-bold text-danger" } as const;
+  const tone = { plain: "", strong: "font-bold", money: "text-[18px] font-bold text-brown", danger: "font-bold text-danger" } as const;
 
   return (
     <div className="flex max-w-[760px] flex-col gap-3">
       <section aria-labelledby={titleId} className="overflow-hidden rounded-[16px] border border-line bg-white">
-        <h2 id={titleId} className="m-0 flex items-center gap-2.5 border-b border-[#ffd3b3] bg-saffron-50 px-[18px] py-2.5 text-[12px] font-extrabold uppercase tracking-[0.04em] text-[#7a2e08]">
+        <h2 id={titleId} className="m-0 flex items-center gap-2.5 border-b border-saffron-200 bg-saffron-50 px-[18px] py-2.5 text-[12px] font-bold uppercase tracking-[0.04em] text-brown-900">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z" />
           </svg>
@@ -563,7 +563,7 @@ function DraftCard({
         {view.notes.map((n, i) => (
           <p
             key={i}
-            className={`mx-[18px] mb-3.5 mt-0 rounded-[12px] border px-3.5 py-2.5 text-[13px] leading-[1.5] ${n.tone === "danger" ? "border-[#f0b9b4] bg-danger-50 text-[#7a1a14]" : "border-[#ffd3b3] bg-saffron-50 text-[#7a2e08]"}`}
+            className={`mx-[18px] mb-3.5 mt-0 rounded-[12px] border px-3.5 py-2.5 text-[13px] leading-[1.5] ${n.tone === "danger" ? "border-danger/30 bg-danger-50 text-danger" : "border-saffron-200 bg-saffron-50 text-brown-900"}`}
           >
             {n.text}
           </p>
@@ -610,7 +610,7 @@ function DraftCard({
         {flow.editing ? <ChangeForm request={request} ask={flow.ask} allocation={flow.allocation} today={today} onSave={onSave} onClose={onEdit} /> : null}
 
         {flow.proposal ? null : (
-          <div className="flex flex-wrap gap-2.5 border-t border-[#eaf0f7] bg-ground px-[18px] py-3.5">
+          <div className="flex flex-wrap gap-2.5 border-t border-line-soft bg-ground px-[18px] py-3.5">
             {byCard ? (
               <button
                 type="button"
@@ -651,7 +651,7 @@ function DraftCard({
         <Problem
           onRetry={onPropose}
           extra={
-            <Link href={recordPaymentHref(request)} className="inline-flex min-h-[40px] items-center rounded-[20px] border border-danger px-4 text-[13px] font-bold text-[#7a1a14] no-underline">
+            <Link href={recordPaymentHref(request)} className="inline-flex min-h-[40px] items-center rounded-[20px] border border-danger px-4 text-[13px] font-bold text-danger no-underline">
               Open in Record payment
             </Link>
           }

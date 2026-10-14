@@ -228,7 +228,7 @@ export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = 
   }
 
   const status = saving ? "Saving…" : saveError ? "Not saved" : !draft.id ? "Not saved yet" : dirty ? "Changes not saved yet" : "Draft saved";
-  const statusTone = saving || (!saveError && draft.id && !dirty) ? "text-success-900 bg-success-50" : saveError ? "text-danger bg-danger-50" : "text-ink-2 bg-[#eaf0f7]";
+  const statusTone = saving || (!saveError && draft.id && !dirty) ? "text-success-900 bg-success-50" : saveError ? "text-danger bg-danger-50" : "text-ink-2 bg-navy-50";
 
   return (
     <div data-v2-tokens className="@container">

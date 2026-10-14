@@ -124,6 +124,8 @@ Some of these steps depend on things that are not built (statement generation, n
 
 ## Visual identity: the logo's colors
 
+> **Superseded 2026-10-14.** Both looks of the portal now use the Weaver brand kit's tokens (`brand/tokens.json`; see [BRAND_CONFORMANCE.md](BRAND_CONFORMANCE.md)): indigo `#2B2A8A`, canvas `#FFFAF5`, Bricolage Grotesque and Hanken Grotesk. The table below is the redesign's first proposal and is kept for its reasoning; its blue, teal and cool surfaces are not in the portal. The `--v2-*` names in `globals.css` remain as aliases of kit tokens.
+
 The Weaver mark is a ribbon "W" in teal, blue and green, with indigo and lavender below and an orange-yellow sun above (`src/components/brand/weaver-mark.tsx`, `src/app/icon.svg`). The portal's current tokens (navy, saffron, warm paper) come from the older Jain prototype. The prototype uses the logo palette instead:
 
 | Token | Value | Use |

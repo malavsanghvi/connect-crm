@@ -145,7 +145,7 @@ export default async function AlbumPage({ params, searchParams }: { params: Prom
             const u = urls.get(p.id);
             return (
               <li key={p.id} className="cc-card overflow-hidden">
-                <div className="flex aspect-[4/3] items-center justify-center bg-[#F6F2EA]">
+                <div className="flex aspect-[4/3] items-center justify-center bg-canvas">
                   {u?.url ? (
                     // Signed Storage URLs are short-lived and vary per request, so next/image caching does not apply.
                     // eslint-disable-next-line @next/next/no-img-element

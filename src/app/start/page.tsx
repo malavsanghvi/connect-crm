@@ -64,8 +64,8 @@ export default async function StartPage() {
       }
       aside={
         <>
-          No code yet? <Link href="/request-access" className="font-semibold text-white underline">Request access</Link>. The code arrives by email after Community
-          Connect approves your request.
+          No code yet? <Link href="/request-access" className="font-semibold text-white underline">Request access</Link>. The code arrives by email after the Weaver team
+          approves your request.
         </>
       }
     >

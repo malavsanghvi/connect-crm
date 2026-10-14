@@ -65,7 +65,7 @@ export function RoutineCard({ routine }: { routine: ResolvedRoutine }) {
           ) : null}
           {routine.groups.map((g) => (
             <section key={g.when} aria-label={g.label} className="mb-3 last:mb-0">
-              <h3 className="px-2 pb-1 pt-2 text-[12px] font-extrabold uppercase tracking-[0.04em] text-navy">{g.label}</h3>
+              <h3 className="px-2 pb-1 pt-2 text-[12px] font-bold uppercase tracking-[0.04em] text-navy">{g.label}</h3>
               <ul className="m-0 list-none p-0">
                 {g.steps.map((s) => (
                   <StepRow
@@ -88,7 +88,7 @@ export function RoutineCard({ routine }: { routine: ResolvedRoutine }) {
 
       {routine.later.length > 0 ? (
         <section aria-label="Coming up" className="mt-4 border-t border-line-soft pt-3">
-          <h3 className="pb-1 text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">Coming up</h3>
+          <h3 className="pb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-muted">Coming up</h3>
           <ul className="m-0 list-none p-0 text-[13px] text-muted">
             {routine.later.slice(0, LATER_SHOWN).map((l) => (
               <li key={l.key} className="py-0.5">

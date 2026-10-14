@@ -68,7 +68,7 @@ export function MoreMenu({ model }: { model: BankModel }) {
           onClose={() => setOpen(false)}
         >
           {model.learned.state === "error" ? (
-            <p role="alert" className="m-0 rounded-[12px] border border-[#f0b9b4] bg-danger-50 px-3 py-2 text-[13px] text-[#7a1a14]">
+            <p role="alert" className="m-0 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {model.learned.error}
             </p>
           ) : model.learned.rows.length === 0 ? (
@@ -97,7 +97,7 @@ export function MoreMenu({ model }: { model: BankModel }) {
 
 const DIFF_TONE: Record<PayoutRowView["difference"]["tone"], string> = {
   ok: "bg-success-50 text-success",
-  warn: "bg-saffron-50 text-saffron",
+  warn: "bg-saffron-50 text-brown",
   muted: "bg-ground text-muted",
 };
 

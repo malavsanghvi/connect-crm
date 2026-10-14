@@ -147,7 +147,7 @@ function ViewChip({ view, onRenamed, onDeleted }: { view: SavedViewItem; onRenam
             if (e.key === "Escape") close();
           }}
         >
-          <label htmlFor={inputId} className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">
+          <label htmlFor={inputId} className="text-[12px] font-bold uppercase tracking-[0.04em] text-muted">
             New name for this view
           </label>
           <input id={inputId} ref={input} autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={120} dir="auto" className="crm-input w-full" aria-describedby={error ? `${inputId}-err` : undefined} />

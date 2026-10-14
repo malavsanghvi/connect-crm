@@ -55,7 +55,7 @@ function PlanCard() {
   return (
     <section aria-labelledby="plan-title" className="pb-20 sm:pb-28">
       <div className={container}>
-        <div className="mx-auto grid max-w-[980px] grid-cols-1 overflow-hidden rounded-[32px] border-2 border-navy bg-white shadow-[0_30px_60px_-24px_rgba(27,44,92,0.4)] lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="mx-auto grid max-w-[980px] grid-cols-1 overflow-hidden rounded-hero border-2 border-navy bg-white shadow-hero lg:grid-cols-[0.9fr_1.1fr]">
           <div className="flex flex-col items-start gap-4 bg-navy p-8 text-white sm:p-12">
             <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-gold">One plan for everyone</span>
             <h2 id="plan-title" className="font-display text-[26px] font-semibold">
@@ -108,7 +108,7 @@ function PlanCard() {
 
 function Step({ n, title, body }: { n: string; title: string; body: ReactNode }) {
   return (
-    <li className="flex flex-col gap-3 rounded-[24px] border border-line bg-white p-6">
+    <li className="flex flex-col gap-3 rounded-card border border-line bg-white p-6">
       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-saffron-50 font-display text-[20px] font-semibold text-brown">{n}</span>
       <h3 className="font-display text-[22px] font-semibold text-navy">{title}</h3>
       <p className="text-[16px] leading-relaxed text-muted">{body}</p>
@@ -172,7 +172,7 @@ function HowWeStayFree() {
         <div className="mx-auto w-full max-w-[860px]">
           <h3 className="text-center font-display text-[26px] font-semibold text-navy">What the cap looks like over a year</h3>
           <p className="mt-2 text-center text-[15px] text-muted">An example for one account. The amounts are illustrative.</p>
-          <div className="mt-6 overflow-x-auto rounded-[20px] border border-line bg-white">
+          <div className="mt-6 overflow-x-auto rounded-window border border-line bg-white">
             <table className="w-full min-w-[560px] border-collapse text-left text-[15px]">
               <caption className="sr-only">Example of one account&apos;s optional Chip Ins over a year, ending at the {CAP} cap</caption>
               <thead>
@@ -217,7 +217,7 @@ function Compare() {
     <section className="py-20 sm:py-28">
       <div className={`${container} flex flex-col gap-10`}>
         <SectionHeading title="What you will not pay for" lead="Many membership systems charge for each of these. We charge for none of them." />
-        <div className="mx-auto w-full max-w-[860px] overflow-x-auto rounded-[24px] border border-line bg-white">
+        <div className="mx-auto w-full max-w-[860px] overflow-x-auto rounded-card border border-line bg-white">
           <table className="w-full min-w-[520px] border-collapse text-left text-[16px]">
             <caption className="sr-only">What many membership systems charge for, compared with {SITE_NAME}</caption>
             <thead>

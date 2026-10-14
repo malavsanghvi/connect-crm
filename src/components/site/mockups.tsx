@@ -7,11 +7,11 @@ import { TIP_YEARLY_CAP_CENTS, usd } from "@/lib/site";
 
 function WindowFrame({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <div className={`overflow-hidden rounded-[20px] border border-line bg-white shadow-[0_30px_60px_-20px_rgba(27,44,92,0.35)] ${className}`}>
+    <div className={`overflow-hidden rounded-window border border-line bg-white shadow-window ${className}`}>
       <div className="flex items-center gap-2 border-b border-line-soft bg-ground px-4 py-3">
-        <span className="h-2.5 w-2.5 rounded-full bg-[#e5836f]" />
+        <span className="h-2.5 w-2.5 rounded-full bg-saffron" />
         <span className="h-2.5 w-2.5 rounded-full bg-gold" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#7dbb97]" />
+        <span className="h-2.5 w-2.5 rounded-full bg-success" />
         <span className="ml-3 truncate text-[12px] font-semibold text-muted">{title}</span>
       </div>
       {children}
@@ -80,7 +80,7 @@ export function PhoneMock({ className = "" }: { className?: string }) {
     ["users", "Family", false],
   ];
   return (
-    <div className={`mx-auto w-[270px] rounded-[38px] border-[7px] border-navy bg-navy shadow-[0_30px_60px_-20px_rgba(27,44,92,0.5)] ${className}`}>
+    <div className={`mx-auto w-[270px] rounded-[38px] border-[7px] border-navy bg-navy shadow-window ${className}`}>
       <div className="overflow-hidden rounded-[30px] bg-canvas">
         <div className="bg-navy px-4 pb-4 pt-5 text-white">
           <p className="text-[11px] font-semibold text-navy-200">Sample Community</p>
@@ -125,7 +125,7 @@ export function PhoneMock({ className = "" }: { className?: string }) {
 /** A household card: the ids, not just a name. */
 export function HouseholdMock({ className = "" }: { className?: string }) {
   const rows: [string, string][] = [
-    ["Connect number", "H-2041"],
+    ["Household no.", "H-2041"],
     ["Your old member ID", "0417"],
     ["Your old household ID", "0212"],
     ["Bank payer name", "DANIEL RIVERA"],
@@ -269,7 +269,7 @@ export function FloatChip({ icon, tone, title, body, className = "", delay = "0s
     <div
       aria-hidden
       style={{ animationDelay: delay }}
-      className={`absolute z-20 hidden items-center gap-3 rounded-2xl border border-line bg-white/95 py-2.5 pl-2.5 pr-4 shadow-[0_18px_40px_-12px_rgba(27,44,92,0.4)] backdrop-blur motion-safe:animate-site-float sm:flex ${className}`}
+      className={`absolute z-20 hidden items-center gap-3 rounded-2xl border border-line bg-white/95 py-2.5 pl-2.5 pr-4 shadow-window backdrop-blur motion-safe:animate-site-float sm:flex ${className}`}
     >
       <span className={`flex h-9 w-9 flex-none items-center justify-center rounded-xl ${tones[tone]}`}>
         <Icon name={icon} className="h-[18px] w-[18px]" />
@@ -286,7 +286,7 @@ export function FloatChip({ icon, tone, title, body, className = "", delay = "0s
 export function TipCheckoutMock({ className = "" }: { className?: string }) {
   const cap = usd(TIP_YEARLY_CAP_CENTS);
   return (
-    <div className={`overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_30px_60px_-20px_rgba(27,44,92,0.35)] ${className}`}>
+    <div className={`overflow-hidden rounded-card border border-line bg-white shadow-window ${className}`}>
       <div className="border-b border-line-soft bg-ground px-5 py-4">
         <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Checkout · example</p>
         <div className="mt-1.5 flex items-center justify-between gap-3">

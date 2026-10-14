@@ -125,7 +125,7 @@ function Dock({ niva }: { niva: NivaApi }) {
       className={`${open ? "flex" : "hidden"} fixed inset-0 z-40 flex-col bg-white md:inset-auto md:bottom-0 md:right-0 md:top-[60px] md:w-[400px] md:max-w-full md:border-l md:border-line md:shadow-[var(--shadow-sheet)] xl:sticky xl:bottom-auto xl:right-auto xl:top-[60px] xl:z-10 xl:h-[calc(100vh-60px)] xl:shrink-0 xl:self-start xl:shadow-none`}
     >
       <header className="flex items-start gap-2 border-b border-line-soft px-4 py-3">
-        <span className="mt-1 text-saffron">
+        <span className="mt-1 text-brown">
           <Sparkle className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">

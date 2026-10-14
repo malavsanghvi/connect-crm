@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
 
-/** Bar colours from the prototype (design tokens in docs/ARCHITECTURE.md). */
+/** Bar colours: the brand kit's tokens (src/styles/brand-tokens.css), and the portal's module hues (src/styles/portal-tokens.css). */
 export const BAR_COLOR = {
-  saffron: "#C9731C",
-  navy: "#1B2C5C",
-  purple: "#5B4B8A",
-  green: "#1F7A4D",
-  stone: "#8A8478",
-  brown: "#8A4608",
-  maroon: "#7A2E1F",
-  store: "#2F5D50",
+  saffron: "var(--color-saffron)",
+  navy: "var(--color-navy)",
+  purple: "var(--color-purple)",
+  green: "var(--color-success)",
+  stone: "var(--color-muted)",
+  brown: "var(--color-brown)",
+  maroon: "var(--color-maroon)",
+  store: "var(--color-store)",
 } as const;
 export type BarColor = keyof typeof BAR_COLOR;
 
@@ -24,7 +24,7 @@ export type BarItem = {
 
 /**
  * The prototype's "bars" block (AdminPortal L169): a 170px label, a 14px
- * rounded track (#F1E8D8) with a coloured fill, and a bold value on the right.
+ * rounded track (the kit's "track") with a coloured fill, and a bold value on the right.
  * The value is always text, so nothing is shown by colour alone.
  */
 export function BarList({ items, labelWidth = 170, empty }: { items: BarItem[]; labelWidth?: number; empty?: ReactNode }) {

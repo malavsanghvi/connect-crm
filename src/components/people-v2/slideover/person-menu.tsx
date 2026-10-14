@@ -120,7 +120,7 @@ export function PersonMenu({
           id={menuId}
           role="menu"
           aria-label={`More about ${person.name}`}
-          className={`absolute z-[46] m-0 min-w-[17rem] list-none rounded-2xl border border-line bg-white p-1.5 shadow-[0_12px_32px_rgba(18,32,58,0.18)] ${surface === "card" ? "right-0" : "left-0"} ${direction === "up" ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.25rem)]"}`}
+          className={`absolute z-[46] m-0 min-w-[17rem] list-none rounded-2xl border border-line bg-white p-1.5 shadow-menu ${surface === "card" ? "right-0" : "left-0"} ${direction === "up" ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.25rem)]"}`}
         >
           {items.map((i, n) => (
             <li key={i.key} role="none" className={i.danger && n > 0 ? "mt-1 border-t border-line pt-1" : undefined}>

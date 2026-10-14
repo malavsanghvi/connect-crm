@@ -128,7 +128,7 @@ export function DropZone({ context, links, initial = [] }: { context: RecogniseC
         }}
         className={`flex flex-col items-center gap-3 rounded-[14px] border-2 border-dashed px-5 py-7 text-center transition-colors ${over ? "border-navy bg-navy-50" : "border-navy-300 bg-ground"}`}
       >
-        <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-navy">
+        <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-navy">
           <path d="M12 16V4" />
           <path d="M7 9l5-5 5 5" />
           <path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" />

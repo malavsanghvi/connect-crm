@@ -81,7 +81,7 @@ export async function saveBrandingAction(_prev: ActionResult | null, formData: F
   for (const key of ["primary", "accent", "background"]) {
     const v = branding.value[key];
     if (v !== undefined && v !== null && v !== "" && (typeof v !== "string" || !COLOR.test(v))) {
-      return { ok: false, error: `Could not save — the ${key} colour must look like #1B2C5C.` };
+      return { ok: false, error: `Could not save — the ${key} colour must look like #2B2A8A.` };
     }
   }
   const logo = branding.value.logo_url;

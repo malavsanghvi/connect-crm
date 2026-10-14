@@ -13,7 +13,7 @@ const PILL = "inline-flex min-h-11 items-center rounded-[22px] px-[18px] text-[1
 export function NoticedLabel() {
   const niva = useNiva();
   return (
-    <span className="flex items-center gap-2 text-[13px] font-extrabold text-[var(--v2-sun-ink)]">
+    <span className="flex items-center gap-2 text-[13px] font-bold text-[var(--v2-sun-ink)]">
       <SparkOutline />
       {niva?.enabled ? "Niva noticed" : "Possible duplicate"}
     </span>
@@ -53,7 +53,7 @@ export function ListHint() {
 export function ComingNext({ label = "Coming next", badge = false }: { label?: string; /** Sits on the corner of the switched-off control it belongs to. */ badge?: boolean }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full bg-[var(--v2-indigo-tint)] font-extrabold tracking-[0.02em] text-[var(--v2-indigo-dark)] ${badge ? "pointer-events-none absolute -right-2 -top-2.5 min-h-5 px-2 text-[10px] ring-2 ring-white" : "min-h-6 px-2.5 text-[11px]"}`}
+      className={`inline-flex items-center rounded-full bg-[var(--v2-indigo-tint)] font-bold tracking-[0.02em] text-[var(--v2-indigo-dark)] ${badge ? "pointer-events-none absolute -right-2 -top-2.5 min-h-5 px-2 text-[10px] ring-2 ring-white" : "min-h-6 px-2.5 text-[11px]"}`}
     >
       {label}
     </span>

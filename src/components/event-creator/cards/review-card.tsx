@@ -17,7 +17,7 @@ export function ReviewCard({ draft, ctx, existing, goTo, readiness, dirty, savin
   return (
     <div className="flex flex-col gap-4">
       {dirty ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-[10px] bg-[#fff4d6] px-3 py-2 text-[14px] text-[#5c3d00]">
+        <div className="flex flex-wrap items-center gap-3 rounded-[10px] bg-saffron-50 px-3 py-2 text-[14px] text-brown-900">
           <span className="min-w-0 flex-1">Some changes are not saved yet.</span>
           <button type="button" className={softButton} disabled={saving} onClick={onSave}>
             {saving ? "Saving…" : "Save the draft"}

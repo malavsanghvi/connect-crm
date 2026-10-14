@@ -41,7 +41,7 @@ const PILL = "ml-2 max-w-[42%] shrink-0 truncate rounded-lg border border-line b
 
 function Heading({ children }: { children: ReactNode }) {
   return (
-    <div role="presentation" className="px-3 pb-1 pt-2.5 text-[11px] font-extrabold uppercase tracking-[0.05em] text-muted">
+    <div role="presentation" className="px-3 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-[0.05em] text-muted">
       {children}
     </div>
   );
@@ -97,7 +97,7 @@ function GivingBody({ row }: { row: GivingRow }) {
     <>
       <span
         aria-hidden="true"
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold ${isRecordRow(row) ? "bg-navy text-white" : "bg-[var(--v2-sun-tint)] text-[var(--v2-sun-ink)]"}`}
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[15px] font-bold ${isRecordRow(row) ? "bg-navy text-white" : "bg-[var(--v2-sun-tint)] text-[var(--v2-sun-ink)]"}`}
       >
         {GIVING_MARK[row.kind]}
       </span>
@@ -179,7 +179,7 @@ export function FindRows({ listId, rows, active, understood, inPlace = false, on
           const r = row.row;
           body = (
             <button type="button" {...common} onClick={() => onPick(row)} className={`${ROW} ${bg}`}>
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold ${toneFor(r.id)}`} aria-hidden="true">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${toneFor(r.id)}`} aria-hidden="true">
                 {initialsOf(r.title)}
               </span>
               <span className="min-w-0 flex-1">
@@ -197,7 +197,7 @@ export function FindRows({ listId, rows, active, understood, inPlace = false, on
           const r = row.row;
           body = (
             <Link href={r.href} {...common} onClick={() => onPick(row)} className={`${ROW} ${bg}`}>
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold ${toneFor(r.id)}`} aria-hidden="true">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${toneFor(r.id)}`} aria-hidden="true">
                 {initialsOf(r.title)}
               </span>
               <span className="min-w-0 flex-1">

@@ -127,7 +127,7 @@ function CheckLine({ item, month, canMark }: { item: CloseItem; month: string; c
     <li className="flex flex-wrap items-start gap-2 rounded-[10px] border border-line bg-white px-2.5 py-2 text-[13.5px]">
       <span
         aria-hidden
-        className={`mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-[5px] border-2 border-success text-xs font-extrabold text-white ${item.done ? "bg-success" : "bg-white"}`}
+        className={`mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-[5px] border-2 border-success text-xs font-bold text-white ${item.done ? "bg-success" : "bg-white"}`}
       >
         {item.done ? "✓" : ""}
       </span>

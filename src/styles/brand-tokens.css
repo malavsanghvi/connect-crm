@@ -1,0 +1,84 @@
+/*
+ * GENERATED FILE. Do not edit it by hand.
+ * Source: brand/tokens.json (the Weaver brand kit). Regenerate with: node scripts/sync-brand-tokens.mjs
+ * tests/brand-conformance.test.ts fails when this file and tokens.json disagree.
+ *
+ * `static` keeps every token in the built stylesheet even when no utility uses it yet, so a plain CSS rule or an inline
+ * style can read var(--color-navy) and the rest.
+ */
+@theme static {
+  /* Colour */
+  --color-navy: #2b2a8a;
+  --color-navy-hover: #1e1d5c;
+  --color-navy-50: #f1eefc;
+  --color-navy-100: #e6e2fa;
+  --color-navy-200: #d4d2f5;
+  --color-navy-300: #b9b5ec;
+  --color-saffron: #ff7640;
+  --color-saffron-50: #fff1e6;
+  --color-saffron-200: #ffd6b8;
+  --color-gold: #ffb82a;
+  --color-brown: #a8400d;
+  --color-brown-900: #7a2e09;
+  --color-canvas: #fffaf5;
+  --color-ground: #fff6ee;
+  --color-track: #f6eee6;
+  --color-line: #eee3d9;
+  --color-line-soft: #f6eee6;
+  --color-line-input: #e3d6ca;
+  --color-ink: #1e1d5c;
+  --color-ink-2: #33325f;
+  --color-muted: #555a79;
+  --color-white: #ffffff;
+  --color-success: #1f7a4d;
+  --color-success-50: #e4f2ea;
+  --color-danger: #b3261e;
+  --color-danger-50: #fbe3e1;
+  --color-mark-teal: #34c4cb;
+  --color-mark-blue: #2f8ed8;
+  --color-mark-green: #6cc68f;
+  --color-mark-deep-blue: #1c56b0;
+  --color-mark-indigo: #3d3bb8;
+  --color-mark-lavender: #7a69da;
+  --color-mark-sun-top: var(--color-gold);
+  --color-mark-sun-bottom: var(--color-saffron);
+
+  /* Type */
+  --font-display: var(--font-bricolage), "Bricolage Grotesque", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-hanken), "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  /* Shape */
+  --radius-pill: 9999px;
+  --radius-band: 40px;
+  --radius-hero: 32px;
+  --radius-card: 24px;
+  --radius-window: 20px;
+  --radius-tile: 16px;
+  --radius-logo-tile: 12px;
+  --radius-chip: 6px;
+
+  /* Elevation */
+  --shadow-hero: 0 30px 60px -30px rgba(43,42,138,0.45);
+  --shadow-panel: 0 30px 60px -30px rgba(43,42,138,0.3);
+  --shadow-window: 0 30px 60px -20px rgba(27,44,92,0.35);
+  --shadow-menu: 0 30px 60px -18px rgba(27,44,92,0.35);
+  --shadow-badge: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+}
+
+:root {
+  /* Layout */
+  --container: 1160px;
+  --gutter: 20px;
+  --gutter-wide: 32px;
+  --section-y: 48px;
+  --section-y-md: 64px;
+  --section-y-lg: 80px;
+  --stack: 32px;
+  --stack-lg: 40px;
+  --card-pad: 20px;
+  --card-pad-lg: 24px;
+  --hero-pad: 56px;
+  --gap: 12px;
+  --gap-lg: 16px;
+  --tap-target: 48px;
+}

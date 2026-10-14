@@ -1,8 +1,9 @@
 "use client";
 
+import { brandColor } from "@/lib/brand-colors";
 import { POSTER_ICONS, POSTER_ICON_LABEL, posterIconUri, type PosterIcon } from "@/lib/events/flyer-icons";
 
-const INK = "#1B2C5C";
+const INK = brandColor("navy");
 
 /** A row of icon buttons (the built-in icon library); one is chosen. Shared by the poster's highlight box and the layouts' note box. */
 export function IconPicker({ label, value, onChange, disabled }: { label: string; value: PosterIcon; onChange: (v: PosterIcon) => void; disabled: boolean }) {

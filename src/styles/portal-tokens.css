@@ -1,0 +1,45 @@
+/*
+ * The portal's own token names, on top of the brand kit's (brand-tokens.css, generated from brand/tokens.json).
+ *
+ * The portal moved onto the Weaver brand kit (docs/BRAND_CONFORMANCE.md): navy, saffron, gold, brown, canvas, ground, line, ink,
+ * muted, success and danger are the kit's values, from the generated file. This file holds only what the kit does not name:
+ *   1. aliases, for names the portal used before the move;
+ *   2. shades worked out from kit colours (a darker hover, a lighter border), so no new hue enters;
+ *   3. three module hues the kit has no colour for. They keep the value they had until the owner chooses (decision D4 in
+ *      docs/BRAND_CONFORMANCE.md); tests/brand-conformance.test.ts allows hex values in this file and nowhere else in the portal.
+ */
+@theme static {
+  /* 1. Aliases */
+  --color-card: var(--color-white);
+  --color-subtle: var(--color-canvas);
+  --color-line-strong: var(--color-line-input);
+  --color-navy-700: var(--color-navy-hover);
+  --color-maroon-50: var(--color-danger-50);
+  --color-faint: var(--color-muted); /* the kit has one supporting grey: muted (6:1 or better on every surface) */
+  --color-frame: var(--color-line); /* a switched-off button */
+  --color-highlight: var(--color-saffron-50); /* a highlighted table row */
+  --color-skeleton: var(--color-line); /* a loading block */
+
+  /* 2. Shades of kit colours */
+  --color-success-900: color-mix(in srgb, var(--color-success) 70%, black); /* text on success-50 (7.6:1), a darker ok button on hover */
+  --color-success-200: color-mix(in srgb, var(--color-success) 30%, white);
+  --color-danger-200: color-mix(in srgb, var(--color-danger) 30%, white); /* an error mark on a navy screen */
+  --color-danger-900: color-mix(in srgb, var(--color-danger) 75%, black); /* error text and a solid red button on hover (7.8:1 on danger-50) */
+  --color-gold-hover: color-mix(in srgb, var(--color-gold) 80%, white); /* the gold button on hover: the kit says "a lighter gold" */
+  --color-toggle-off: color-mix(in srgb, var(--color-muted) 50%, white);
+
+  /* 3. Module hues the kit does not have (owner decision D4) */
+  --color-maroon: #7a2e1f; /* events */
+  --color-purple: #5b4b8a; /* Pathshala, content, feedback */
+  --color-purple-50: #efebf6;
+  --color-purple-900: #3d2f63;
+  --color-store: #2f5d50; /* the store, WhatsApp, the inbox */
+  --color-store-50: #e8f1ed;
+
+  /* Elevation: composed from the kit's ink, so the shadow takes the brand's cool tone */
+  --shadow-toast: 0 8px 24px color-mix(in srgb, var(--color-ink) 25%, transparent);
+  --shadow-sheet: -8px 0 30px color-mix(in srgb, var(--color-ink) 14%, transparent);
+
+  /* The one face the kit does not have: identifiers (receipt, pledge and member numbers) stay in a monospace (owner decision D3) */
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}

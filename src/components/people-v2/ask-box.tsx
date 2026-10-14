@@ -38,14 +38,14 @@ export function PeopleAskBox({ ask }: { ask: AskModel }) {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{nivaOn ? "Niva read this as" : "Read as"}</span>
+        <span className="text-[12px] font-bold uppercase tracking-[0.04em] text-muted">{nivaOn ? "Niva read this as" : "Read as"}</span>
         {ask.chips.map((c) =>
           c.fixed ? (
-            <span key={c.key} title="A list of contact gaps is always adults: a child has no email or mobile on file, and a child's record is never part of a work list." className={`${CHIP} border-navy-300 bg-navy-50 text-[#164690]`}>
+            <span key={c.key} title="A list of contact gaps is always adults: a child has no email or mobile on file, and a child's record is never part of a work list." className={`${CHIP} border-navy-300 bg-navy-50 text-navy`}>
               {c.label}
             </span>
           ) : (
-            <Link key={c.key} href={c.removeHref} scroll={false} aria-label={`Remove the filter: ${c.label}`} title="Remove this filter" className={`${CHIP} border-navy-300 bg-navy-50 text-[#164690] no-underline hover:border-navy`}>
+            <Link key={c.key} href={c.removeHref} scroll={false} aria-label={`Remove the filter: ${c.label}`} title="Remove this filter" className={`${CHIP} border-navy-300 bg-navy-50 text-navy no-underline hover:border-navy`}>
               {c.label}
               <span aria-hidden="true">×</span>
             </Link>
@@ -84,7 +84,7 @@ function AddFilter({ ask }: { ask: AskModel }) {
   const field = "crm-input w-full";
   return (
     <details className="relative">
-      <summary className={`${CHIP} cursor-pointer list-none border-dashed border-[#9FB0C6] font-semibold text-muted [&::-webkit-details-marker]:hidden`}>+ Add a filter</summary>
+      <summary className={`${CHIP} cursor-pointer list-none border-dashed border-navy-300 font-semibold text-muted [&::-webkit-details-marker]:hidden`}>+ Add a filter</summary>
       <form method="get" action={ask.action} className="absolute left-0 z-30 mt-2 grid w-[min(88vw,360px)] gap-3 rounded-2xl border border-line bg-white p-4 text-[13px] shadow-lg">
         {Object.entries(ask.keep).map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />

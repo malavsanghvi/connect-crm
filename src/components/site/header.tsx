@@ -1,10 +1,9 @@
-import { WeaverMark } from "@/components/brand/weaver-mark";
+import { Logo } from "@/components/brand/logo";
 import { Icon, type IconName } from "@/components/site/icons";
 import { MobileMenu } from "@/components/site/mobile-menu";
 import { NavDropdown } from "@/components/site/nav-dropdown";
 import { SiteLink, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS } from "@/components/site/weavers";
-import { PRODUCT_DESCRIPTOR, PRODUCT_NAME } from "@/lib/brand";
 import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 const CAP = usd(TIP_YEARLY_CAP_CENTS);
@@ -17,7 +16,7 @@ export const PRODUCT_MENU: MenuEntry[] = [
   { to: "/#product", icon: "calendar", title: "Events and event day", body: "Tickets, lunch slots and check-in" },
   { to: "/#product", icon: "book", title: "Classes and learning", body: "Terms, attendance and homework" },
   { to: "/#product", icon: "phone", title: "The member app", body: "One sign-in for the whole family" },
-  { to: "/#ai", icon: "smile", title: "Niva, the AI assistant", body: "AI does the busywork; people decide" },
+  { to: "/#ai", icon: "smile", title: "Niva, the AI assistant", body: "AI does the busywork. People make the final decisions." },
 ];
 
 /** The three Weavers: each links to its card on the home page. */
@@ -31,28 +30,6 @@ export const RESOURCES_MENU: MenuEntry[] = [
   { to: "/brand", icon: "globe", title: "Brand and logos", body: "Our logo, colours and words to download" },
   { to: "/#faq", icon: "smile", title: "Questions and answers", body: "The things people ask first" },
 ];
-
-/**
- * The Weaver mark and name. On a dark background (`light`) the mark sits on a white tile so its blues stay readable; on the
- * orange header (`onAccent`) the small line under the name turns dark to stay legible.
- */
-export function Logo({ light = false, onAccent = false }: { light?: boolean; onAccent?: boolean }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      {light ? (
-        <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-white">
-          <WeaverMark className="h-8 w-8" />
-        </span>
-      ) : (
-        <WeaverMark className="h-11 w-11 flex-none" />
-      )}
-      <span className="flex flex-col">
-        <span className={`font-display text-[24px] font-semibold leading-none tracking-[-0.01em] ${light ? "text-white" : "text-navy"}`}>{PRODUCT_NAME}</span>
-        <span className={`mt-1 text-[11.5px] font-semibold leading-none ${light ? "text-navy-200" : onAccent ? "text-ink" : "text-muted"}`}>{PRODUCT_DESCRIPTOR}</span>
-      </span>
-    </span>
-  );
-}
 
 /** A card in a drop-down panel. */
 function PanelLink({ item }: { item: MenuEntry }) {

@@ -154,7 +154,7 @@ export default async function ConcernsPage({ searchParams }: { searchParams: Pro
                             </ActionForm>
                           </Details>
                           {canAct && !c.linked_action_id && (
-                            <Details summary="⚡ Create action">
+                            <Details summary="Create action">
                               <ActionForm buttonsClassName="mt-3" action={createActionFromConcern.bind(null, c.id)} submitLabel="Create action" variant="primary">
                                 <FormGrid>
                                   <PField label="Action" className="sm:col-span-2">

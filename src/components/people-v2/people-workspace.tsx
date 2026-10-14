@@ -81,7 +81,7 @@ function QuickChips({ chips }: { chips: QuickChip[] }) {
       {chips.map((c) =>
         c.comingNext ? (
           <span key={c.key} className="relative inline-flex">
-            <button type="button" disabled title={c.title} className={`${CHIP} cursor-not-allowed border-dashed border-[#9FB0C6] bg-transparent font-semibold text-muted`}>
+            <button type="button" disabled title={c.title} className={`${CHIP} cursor-not-allowed border-dashed border-navy-300 bg-transparent font-semibold text-muted`}>
               {c.label}
             </button>
             <ComingNext badge />
@@ -93,7 +93,7 @@ function QuickChips({ chips }: { chips: QuickChip[] }) {
             scroll={false}
             aria-current={c.current ? "true" : undefined}
             title={c.title}
-            className={`${CHIP} ${c.current ? "border-navy-300 bg-navy-50 font-bold text-[#164690]" : "border-line-input bg-white font-semibold text-ink hover:border-navy"}`}
+            className={`${CHIP} ${c.current ? "border-navy-300 bg-navy-50 font-bold text-navy" : "border-line-input bg-white font-semibold text-ink hover:border-navy"}`}
           >
             {c.label}
           </Link>
@@ -199,7 +199,7 @@ function HouseholdsList({ section }: { section: HouseholdsSection }) {
                 scroll={false}
                 aria-current={r.selected ? "true" : undefined}
                 aria-label={`${r.name}, ${r.ids}. Primary member ${r.primary}. Area ${r.area}. Open balance ${r.open ?? "not visible to your role"}. Last gift ${r.lastGift}. Last RSVP ${r.lastRsvp}.`}
-                className={`grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 rounded-[10px] px-2.5 py-1.5 text-[13px] font-medium text-ink no-underline ${COLS} ${r.selected ? (section.selectionExplicit ? "bg-[#FFF6DD]" : "hover:bg-canvas xl:bg-[#FFF6DD]") : "hover:bg-canvas"}`}
+                className={`grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 rounded-[10px] px-2.5 py-1.5 text-[13px] font-medium text-ink no-underline ${COLS} ${r.selected ? (section.selectionExplicit ? "bg-highlight" : "hover:bg-canvas xl:bg-highlight") : "hover:bg-canvas"}`}
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="font-bold leading-snug">{r.name}</span>
@@ -213,7 +213,7 @@ function HouseholdsList({ section }: { section: HouseholdsSection }) {
                   <span className="md:hidden"> · {r.area}</span>
                 </span>
                 <span className="hidden truncate md:block">{r.area}</span>
-                <span className="col-start-2 row-span-2 row-start-1 text-right font-extrabold text-[var(--v2-sun-ink)] md:col-start-auto md:row-span-1 md:row-start-auto">
+                <span className="col-start-2 row-span-2 row-start-1 text-right font-bold text-[var(--v2-sun-ink)] md:col-start-auto md:row-span-1 md:row-start-auto">
                   {r.open ?? <span className="font-normal text-faint" title="Needs a giving permission">—</span>}
                 </span>
                 <span className="hidden truncate md:block">{r.lastGift}</span>
@@ -277,7 +277,7 @@ function PeopleList({ section }: { section: PeopleSection }) {
                   scroll={false}
                   aria-current={r.selected ? "true" : undefined}
                   aria-label={`${r.name}, ${r.ids}. ${r.relationship} in ${r.household}. Age ${r.age}. Contact ${r.contact}.`}
-                  className={`flex min-h-[52px] flex-col justify-center gap-0.5 rounded-[10px] px-2.5 py-1.5 text-[13px] text-ink no-underline md:items-center ${cols} ${r.selected ? "bg-[#FFF6DD]" : "hover:bg-canvas"}`}
+                  className={`flex min-h-[52px] flex-col justify-center gap-0.5 rounded-[10px] px-2.5 py-1.5 text-[13px] text-ink no-underline md:items-center ${cols} ${r.selected ? "bg-highlight" : "hover:bg-canvas"}`}
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="truncate font-bold">{r.name}</span>
@@ -352,7 +352,7 @@ function ReviewsList({ section }: { section: NonNullable<PeopleWorkspaceModel["r
           intro="Applications and family change requests, oldest first. Each shows its household card, so two families with the same name are never confused. Decide on the review screens."
         >
           {d.note ? <p className="m-0 text-[13px] text-muted">{d.note}</p> : null}
-          <h3 className="m-0 text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">
+          <h3 className="m-0 text-[13px] font-bold uppercase tracking-[0.04em] text-muted">
             Membership applications{d.applicationsTotal !== null ? ` · ${d.applicationsTotal}` : ""}
           </h3>
           {d.applications.length ? (
@@ -364,7 +364,7 @@ function ReviewsList({ section }: { section: NonNullable<PeopleWorkspaceModel["r
           ) : (
             <p className="m-0 text-[13px] text-muted">{d.applicationsTotal === null ? "Your role cannot see membership applications." : "No applications are waiting."}</p>
           )}
-          <h3 className="m-0 text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">Family change requests · {d.requestsTotal}</h3>
+          <h3 className="m-0 text-[13px] font-bold uppercase tracking-[0.04em] text-muted">Family change requests · {d.requestsTotal}</h3>
           {d.requests.length ? (
             <ul className="m-0 grid list-none gap-2 p-0 lg:grid-cols-2">
               {d.requests.map((r) => (
@@ -518,7 +518,7 @@ function PanelAside({ panel }: { panel: PanelState }) {
 function CardSection<T>({ title, section, render }: { title: string; section: Section<T>; render: (data: T) => ReactNode }) {
   return (
     <div className="flex flex-col gap-2 border-t border-line pt-3.5">
-      <h3 className="m-0 text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{title}</h3>
+      <h3 className="m-0 text-[12px] font-bold uppercase tracking-[0.04em] text-muted">{title}</h3>
       {section.state === "hidden" ? (
         <p className="m-0 text-[13px] text-muted">{section.reason}</p>
       ) : section.state === "error" ? (
@@ -544,7 +544,7 @@ function CardBody({ card }: { card: HouseholdPanel }) {
         {card.facts.map((f) => (
           <div key={f.label} className="contents">
             <dt className="font-semibold text-muted">{f.label}</dt>
-            <dd className={`m-0 ${f.tone === "strong" ? "font-bold" : ""} ${f.tone === "money" ? "font-extrabold text-[var(--v2-sun-ink)]" : ""} ${f.tone === "mono" ? "break-words font-mono text-[12px] leading-[1.6]" : ""}`}>{f.value}</dd>
+            <dd className={`m-0 ${f.tone === "strong" ? "font-bold" : ""} ${f.tone === "money" ? "font-bold text-[var(--v2-sun-ink)]" : ""} ${f.tone === "mono" ? "break-words font-mono text-[12px] leading-[1.6]" : ""}`}>{f.value}</dd>
           </div>
         ))}
       </dl>

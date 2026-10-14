@@ -14,7 +14,7 @@ const CARD = "rounded-[18px] border border-line bg-white";
 function Group({ title, count, children }: { title: string; count: number | null; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2.5">
-      <h3 className="m-0 text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">
+      <h3 className="m-0 text-[13px] font-bold uppercase tracking-[0.04em] text-muted">
         {title}
         {count !== null ? ` · ${count}` : ""}
       </h3>

@@ -121,7 +121,7 @@ export function FamilyView({
 
                   {model.children.length > 0 || model.hiddenPeople > 0 ? (
                     <section aria-label="Children" className="order-3 overflow-hidden rounded-2xl border border-line bg-white">
-                      <h2 className="m-0 flex items-center gap-2 px-4 pb-1 pt-3.5 text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-muted">
+                      <h2 className="m-0 flex items-center gap-2 px-4 pb-1 pt-3.5 text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">
                         <svg
                           viewBox="0 0 24 24"
                           width="14"

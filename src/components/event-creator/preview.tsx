@@ -13,7 +13,7 @@ function Page({ draft, ctx, existing, phone }: { draft: EventDraft; ctx: Creator
   const cap = draft.capacity.trim();
   return (
     <div className="bg-white">
-      <div className={`bg-[#16306b] text-white ${phone ? "px-3.5 py-4" : "px-5 py-5"}`}>
+      <div className={`bg-navy text-white ${phone ? "px-3.5 py-4" : "px-5 py-5"}`}>
         <span className="inline-block rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-bold tracking-[0.06em]">{draft.id ? "DRAFT · NOT VISIBLE TO MEMBERS" : "DRAFT · NOT SAVED YET"}</span>
         <h3 className={`m-0 mt-2 font-display font-semibold leading-[1.15] ${phone ? "text-[21px]" : "text-[25px]"}`}>{draft.name.trim() || "Untitled event"}</h3>
         <p className="m-0 mt-2 text-[14px] text-white/95">{whenText(draft, ctx)}</p>
@@ -103,7 +103,7 @@ export function ReadinessList({ readiness, onGo }: { readiness: CreatorReadiness
       <ul className="m-0 flex list-none flex-col p-0">
         {items.map((i) => (
           <li key={i.key} className="flex items-baseline gap-2 py-0.5 text-[14px]">
-            <span aria-hidden="true" className={`w-4 flex-none font-bold ${i.ok ? "text-success" : "text-saffron"}`}>
+            <span aria-hidden="true" className={`w-4 flex-none font-bold ${i.ok ? "text-success" : "text-brown"}`}>
               {i.ok ? "✓" : "–"}
             </span>
             <span className="min-w-0 flex-1">
@@ -115,7 +115,7 @@ export function ReadinessList({ readiness, onGo }: { readiness: CreatorReadiness
                   {i.label}
                 </button>
               )}
-              {!i.ok && i.hint ? <small className={`ml-1 text-[12px] ${i.blocks ? "font-semibold text-saffron" : "text-muted"}`}>({i.hint})</small> : null}
+              {!i.ok && i.hint ? <small className={`ml-1 text-[12px] ${i.blocks ? "font-semibold text-brown" : "text-muted"}`}>({i.hint})</small> : null}
             </span>
           </li>
         ))}

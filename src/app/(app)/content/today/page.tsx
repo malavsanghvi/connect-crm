@@ -123,7 +123,7 @@ export default async function TodayPage() {
             </ActionForm>
           </Card>
 
-          <Card title="Member Home preview · today" span={5} className="!bg-[#FBF7F0]">
+          <Card title="Member Home preview · today" span={5} className="!bg-ground">
             {days.error || tithi.error ? <QueryError what="today's timings" error={days.error ?? tithi.error} retryHref="/content/today" /> : null}
             <p className="text-[13px] font-semibold text-ink-2">
               {weekdayLine(today)}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 
-import { WeaverMark } from "@/components/brand/weaver-mark";
+import { LogoTile } from "@/components/brand/logo";
 import { TenantMark } from "@/components/shell/tenant-mark";
 import { SetupScreen } from "@/components/setup-screen";
 import { buttonClass } from "@/components/ui";
@@ -73,13 +73,13 @@ export default async function LoginPage({
   return (
     <main className="grid min-h-screen grid-cols-1 lg:grid-cols-[560px_minmax(0,1fr)]">
       <section className="flex flex-col gap-[18px] bg-navy px-8 py-10 text-white lg:p-14">
-        <div className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-white">
-          {tenant ? (
+        {tenant ? (
+          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-logo-tile bg-white">
             <TenantMark branding={tenant.branding} name={tenant.name} size={58} />
-          ) : (
-            <WeaverMark className="h-[54px] w-[54px]" />
-          )}
-        </div>
+          </div>
+        ) : (
+          <LogoTile size={72} />
+        )}
         <div>
           <h1 className="font-display text-[38px] font-semibold leading-[1.15]">{PRODUCT_NAME}</h1>
           <p className="mt-1 text-base font-semibold text-navy-200">

@@ -6,7 +6,7 @@ import { Alert, Badge, ChipLinks, PageHeader, Stat, buttonClass, type ButtonSize
 
 // Small building blocks shared by the Pathshala pages (moved from
 // connect-admin), drawn with the portal's prototype components: pill
-// buttons, chip filters, coloured status text, #F6F2EA-header tables.
+// buttons, chip filters, coloured status text, canvas-header tables.
 
 /** The module title block. Every Pathshala page is titled "Pathshala" (prototype), unless it is one record's page. */
 export function PathshalaHeader({

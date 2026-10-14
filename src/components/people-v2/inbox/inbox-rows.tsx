@@ -83,7 +83,7 @@ export function InboxRow({ row, roles }: { row: Row; roles: InboxModel["roles"] 
         <>
           {request && formOpen !== "decline" ? (
             <div role="radiogroup" aria-label={`Their relationship to the family, for ${row.who}`} className="flex flex-wrap items-center gap-2">
-              <span className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">Relationship</span>
+              <span className="text-[12px] font-bold uppercase tracking-[0.04em] text-muted">Relationship</span>
               {roles.map((r) => (
                 <button
                   key={r.value}

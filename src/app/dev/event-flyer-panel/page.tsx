@@ -36,7 +36,7 @@ export default async function EventFlyerPanelPreview({ searchParams }: { searchP
       <KindProvider kind={f.kind ?? (f.tradition ? LEGACY_KIND : NEUTRAL_KIND)}>
         <div data-v2-tokens className="min-h-screen bg-canvas text-ink">
           <div className="flex justify-center bg-white pb-1 pt-[5px]">
-            <span className="rounded-[10px] bg-[#b3261e] px-2.5 py-0.5 text-[10px] font-extrabold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</span>
+            <span className="rounded-[10px] bg-danger px-2.5 py-0.5 text-[10px] font-bold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</span>
           </div>
           <main className="mx-auto max-w-[1180px] px-4 py-5">
             <nav aria-label="Sample events" className="mb-4 flex flex-wrap items-center gap-2 text-[13px]">

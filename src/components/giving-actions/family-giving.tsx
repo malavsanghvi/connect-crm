@@ -105,7 +105,7 @@ export function FamilyGivingPanel({
   const focusId = g?.focus?.id ?? null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-end bg-[rgba(18,32,58,0.35)] md:items-stretch" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-end bg-ink/35 md:items-stretch" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         ref={panel}
         role="dialog"
@@ -114,7 +114,7 @@ export function FamilyGivingPanel({
         tabIndex={-1}
         onKeyDown={onKeyDown}
         data-testid="family-giving"
-        className="flex max-h-[92vh] w-full flex-col gap-3 overflow-y-auto rounded-t-[22px] bg-white px-5 pb-5 pt-5 shadow-[0_24px_60px_rgba(18,32,58,0.28)] outline-none md:max-h-none md:w-[460px] md:rounded-none md:rounded-l-[22px]"
+        className="flex max-h-[92vh] w-full flex-col gap-3 overflow-y-auto rounded-t-[22px] bg-white px-5 pb-5 pt-5 shadow-window outline-none md:max-h-none md:w-[460px] md:rounded-none md:rounded-l-[22px]"
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id={titleId} className="m-0 font-display text-[22px] font-semibold leading-tight text-ink">
@@ -127,7 +127,7 @@ export function FamilyGivingPanel({
 
         {!now ? <p className="m-0 text-[14px] text-muted">Opening the family&apos;s giving…</p> : null}
         {now?.error ? (
-          <div role="alert" className="flex flex-wrap items-center gap-2 rounded-[12px] border border-[#f0b9b4] bg-danger-50 px-3 py-2 text-[13px] text-[#7a1a14]">
+          <div role="alert" className="flex flex-wrap items-center gap-2 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             <span className="flex-1">{now.error}</span>
             <button type="button" onClick={() => setAttempt((n) => n + 1)} className={`${buttonClass("ghost", "sm")} min-h-[44px]`}>
               Try again
@@ -171,7 +171,7 @@ export function FamilyGivingPanel({
             </div>
 
             <section aria-labelledby={`${titleId}-pl`}>
-              <h3 id={`${titleId}-pl`} className="m-0 mb-1.5 text-[13px] font-extrabold uppercase tracking-[0.05em] text-muted">
+              <h3 id={`${titleId}-pl`} className="m-0 mb-1.5 text-[13px] font-bold uppercase tracking-[0.05em] text-muted">
                 Open pledges
               </h3>
               {g.pledges.length === 0 ? (
@@ -192,7 +192,7 @@ export function FamilyGivingPanel({
             </section>
 
             <section aria-labelledby={`${titleId}-pay`}>
-              <h3 id={`${titleId}-pay`} className="m-0 mb-1.5 text-[13px] font-extrabold uppercase tracking-[0.05em] text-muted">
+              <h3 id={`${titleId}-pay`} className="m-0 mb-1.5 text-[13px] font-bold uppercase tracking-[0.05em] text-muted">
                 Last gifts
               </h3>
               {g.payments.length === 0 ? (

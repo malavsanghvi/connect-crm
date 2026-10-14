@@ -156,7 +156,7 @@ export function MatchCountAct({ act, row, ctx }: { act: Extract<Act, { kind: "co
               Looking for the deposit of exactly {formatCents(act.totalCents, ctx.currency, ctx.locale)}…
             </p>
           ) : loadError ? (
-            <p role="alert" className="m-0 rounded-[12px] border border-[#f0b9b4] bg-danger-50 px-3 py-2 text-[13px] text-[#7a1a14]">
+            <p role="alert" className="m-0 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {loadError}
             </p>
           ) : data && data.choices.length === 0 ? (
@@ -263,7 +263,7 @@ function CounterCards({ picked, labels }: { picked: CounterChoice[]; labels: Car
           <p className="m-0 text-[12.5px] leading-[1.4] text-muted">{p.family ? `${p.family.name} · ${familyLine(p.family, labels)}` : "No household on file (counts as their own)"}</p>
         </div>
       ))}
-      <p role="status" className={`m-0 text-[13px] font-bold ${check.differentHouseholds ? "text-success" : "text-[#7a1a14]"}`}>
+      <p role="status" className={`m-0 text-[13px] font-bold ${check.differentHouseholds ? "text-success" : "text-danger"}`}>
         {check.differentHouseholds ? "Different households: yes" : check.differentHouseholds === false ? `Different households: no. ${check.problem}` : check.problem}
       </p>
     </div>
@@ -386,7 +386,7 @@ function StartCountSheet({ data, labels, onClose, onSaved }: { data: CountSheetD
           className={BIG}
         />
         {problem ? (
-          <p role="alert" className="m-0 mt-1 text-[13px] font-semibold text-[#7a1a14]">
+          <p role="alert" className="m-0 mt-1 text-[13px] font-semibold text-danger">
             {problem}
           </p>
         ) : null}
@@ -488,7 +488,7 @@ export function StartCountButton({
         {loading ? "Opening…" : children}
       </button>
       {problem ? (
-        <span role="alert" className="max-w-xs text-[13px] font-semibold text-[#7a1a14]">
+        <span role="alert" className="max-w-xs text-[13px] font-semibold text-danger">
           {problem}
         </span>
       ) : null}

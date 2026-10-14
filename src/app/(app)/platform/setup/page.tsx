@@ -103,7 +103,7 @@ export default async function PlatformSetupPage({ searchParams }: { searchParams
                   <span className="w-5 text-right text-[12px] text-muted">{i + 1}</span>
                   <span className="min-w-0 flex-1">
                     {s.title}
-                    {s.required ? <span className="ml-1 text-saffron" title="Required">★</span> : null}
+                    {s.required ? <span className="ml-1 text-brown" title="Required">★</span> : null}
                   </span>
                   <StepStatus step={s} />
                 </Link>

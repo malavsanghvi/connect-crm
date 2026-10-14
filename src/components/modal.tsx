@@ -16,7 +16,7 @@ const confirmClass: Record<ModalTone, string> = {
 };
 
 /**
- * Confirmation / step-up modal, as in the prototype: kicker, Fraunces title,
+ * Confirmation / step-up modal, as in the prototype: kicker, display-face title,
  * body, optional 6-digit code field, "Cancel" and a coloured confirm button.
  *
  * The code field only COLLECTS a code. Whatever handles `onConfirm(code)` must

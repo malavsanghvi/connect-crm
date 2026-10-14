@@ -26,7 +26,7 @@ import { GivingTabRow } from "./giving-tabs";
 
 const TONE: Record<RowTone, string> = {
   blue: "bg-navy-50 text-navy",
-  sun: "bg-saffron-50 text-saffron",
+  sun: "bg-saffron-50 text-brown",
   green: "bg-success-50 text-success",
   indigo: "bg-purple-50 text-purple",
   plain: "border border-line bg-ground text-muted",
@@ -58,7 +58,7 @@ function Problem({ message }: { message: string }) {
   return (
     <div role="alert" className="flex flex-wrap items-center gap-3 border-t border-line py-3.5 first:border-t-0">
       <Icon name="info" tone="sun" />
-      <p className="m-0 min-w-0 flex-1 text-[14px] text-[#7a1a14]">{message}</p>
+      <p className="m-0 min-w-0 flex-1 text-[14px] text-danger">{message}</p>
       <a href="/giving" className={`${buttonClass("ghost", "sm")} min-h-[40px]`}>
         Reload to try again
       </a>
@@ -110,7 +110,7 @@ function Numbers<T>({ part, children }: { part: Part<T>; children: (d: T) => Rea
   if (part.state === "no_access" || part.state === "off") return null;
   if (part.state === "error") {
     return (
-      <div role="alert" className="rounded-[14px] border border-[#f0b9b4] bg-danger-50 px-3.5 py-3 text-[13px] text-[#7a1a14]">
+      <div role="alert" className="rounded-[14px] border border-danger/30 bg-danger-50 px-3.5 py-3 text-[13px] text-danger">
         {part.error}
       </div>
     );
@@ -190,7 +190,7 @@ export function TodayPage({ model }: { model: GivingTodayModel }) {
           </h2>
           <span className="rounded-full bg-navy-50 px-2.5 py-0.5 text-[13px] font-bold text-navy">{waiting} waiting</span>
         </div>
-        {model.roleNote ? <p className="m-0 mt-2 rounded-[10px] bg-saffron-50 px-3 py-2 text-[13px] text-saffron">{model.roleNote}</p> : null}
+        {model.roleNote ? <p className="m-0 mt-2 rounded-[10px] bg-saffron-50 px-3 py-2 text-[13px] text-brown">{model.roleNote}</p> : null}
 
         <div role="group" aria-label="Show" className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
           {tiles.map((t) => (
@@ -278,7 +278,7 @@ export function TodayPage({ model }: { model: GivingTodayModel }) {
             Recent families
           </h2>
           {model.recent.state === "error" ? (
-            <p role="alert" className="m-0 text-[13px] text-[#7a1a14]">
+            <p role="alert" className="m-0 text-[13px] text-danger">
               {model.recent.error}
             </p>
           ) : model.recent.data.length === 0 ? (

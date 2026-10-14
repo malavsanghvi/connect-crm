@@ -112,7 +112,7 @@ function doneFrom(message: string | undefined, fallback: string): string {
 
 export function InlineError({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" className="m-0 mt-2 rounded-[10px] border border-[#f0b9b4] bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-[#7a1a14]">
+    <p role="alert" className="m-0 mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
       {children}
     </p>
   );

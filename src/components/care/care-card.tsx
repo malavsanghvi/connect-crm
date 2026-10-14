@@ -54,7 +54,7 @@ import { formatCents } from "@/lib/money";
 // database never returns one.
 
 const BOX = "rounded-2xl border border-line bg-white p-[18px]";
-const H3 = "m-0 mb-1.5 text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-muted";
+const H3 = "m-0 mb-1.5 text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted";
 
 function Shell({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   const id = useId();

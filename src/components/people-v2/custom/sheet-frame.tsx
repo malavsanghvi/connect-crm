@@ -52,7 +52,7 @@ export function SheetFrame({ title, onClose, testId, children }: { title: string
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[48] flex items-end justify-center overflow-y-auto bg-[rgba(18,32,58,0.5)] sm:items-center sm:p-3"
+      className="fixed inset-0 z-[48] flex items-end justify-center overflow-y-auto bg-ink/50 sm:items-center sm:p-3"
       data-testid={testId}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -63,7 +63,7 @@ export function SheetFrame({ title, onClose, testId, children }: { title: string
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="max-h-[94dvh] w-full max-w-[31rem] overflow-y-auto rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(18,32,58,0.35)] sm:rounded-2xl sm:pb-5"
+        className="max-h-[94dvh] w-full max-w-[31rem] overflow-y-auto rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-window sm:rounded-2xl sm:pb-5"
       >
         <h2 id={titleId} className="m-0 font-display text-[21px] font-semibold leading-tight text-ink" dir="auto">
           {title}

@@ -40,7 +40,7 @@ async function TemplatesAndApproval({ session, currentYear }: { session: CrmSess
   const branding = isPlainObject(center.branding) ? center.branding : {};
   const address = typeof branding.address === "string" ? branding.address : null;
   const problem = (what: string, error: unknown) => (
-    <p role="alert" className="col-span-12 m-0 rounded-[14px] border border-[#f0b9b4] bg-danger-50 px-4 py-3 text-[14px] text-[#7a1a14]">
+    <p role="alert" className="col-span-12 m-0 rounded-[14px] border border-danger/30 bg-danger-50 px-4 py-3 text-[14px] text-danger">
       {failure(what, error).error}{" "}
       <Link href="/giving/statements" className="font-bold underline">
         Try again
@@ -97,7 +97,7 @@ async function IssuedStatements({ session, year }: { session: CrmSession; year: 
     <section className="rounded-[18px] border border-line bg-white px-3.5 py-3.5 md:px-5" data-testid="statements-issued">
       <h2 className="m-0 font-display text-[22px] font-semibold text-ink">Issued statements for {year}</h2>
       {res.error ? (
-        <p role="alert" className="m-0 mt-2 text-[14px] text-[#7a1a14]">
+        <p role="alert" className="m-0 mt-2 text-[14px] text-danger">
           {failure("Could not read the issued statements", res.error).error}{" "}
           <Link href={`/giving/statements?year=${year}`} className="font-bold underline">
             Try again

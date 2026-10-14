@@ -24,7 +24,7 @@ export function AskNiva({ prompt, label = "Ask Niva", className = "" }: { prompt
       title={prompt}
       className={`${buttonClass("ghost", "sm")} ${className}`.trim()}
     >
-      <span className="text-saffron">
+      <span className="text-brown">
         <Sparkle />
       </span>
       {label}

@@ -69,7 +69,7 @@ export default async function GivingGlancePreview({ searchParams }: { searchPara
   return (
     <div data-look={one(sp.look) === "v2" ? "v2" : undefined} className={one(sp.look) === "v2" ? "v2-shell min-h-screen" : "min-h-screen"}>
       <div className="mx-auto max-w-[1100px] px-4 py-5 sm:px-6">
-        <p className="mb-3 inline-block rounded-[10px] bg-[#b3261e] px-2.5 py-0.5 text-[10px] font-extrabold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</p>
+        <p className="mb-3 inline-block rounded-[10px] bg-danger px-2.5 py-0.5 text-[10px] font-bold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</p>
         <h1 className="font-display text-[26px] font-semibold text-ink">{view === "person-page" || view === "household-card" ? "Amara Okafor" : "Okafor-Silva household"}</h1>
         <p className="mb-4 text-[13px] text-muted">{PREVIEW_COMMUNITY} · invented sample data · the panel sits above the tabs</p>
         <GivingGlanceView view={panel} />

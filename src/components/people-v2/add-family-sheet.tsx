@@ -226,11 +226,11 @@ function OpenSheet({ onClose, onAdded, onOpenFamily, initialName, canAdd = true,
   }
 
   const noAccess = !canAdd || refused;
-  const label = "mb-1 block text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted";
+  const label = "mb-1 block text-[12px] font-bold uppercase tracking-[0.04em] text-muted";
   const contactState = parseContact(draft.contact);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(18,32,58,0.45)] sm:items-center sm:p-6" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 sm:items-center sm:p-6" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
       <div
         ref={panel}
         role="dialog"
@@ -238,7 +238,7 @@ function OpenSheet({ onClose, onAdded, onOpenFamily, initialName, canAdd = true,
         aria-labelledby={titleId}
         data-testid="add-family-sheet"
         onKeyDown={onKeyDown}
-        className="max-h-[94vh] w-full overflow-y-auto rounded-t-[22px] bg-white px-5 pb-5 pt-5 shadow-[0_24px_60px_rgba(18,32,58,0.28)] sm:max-w-[540px] sm:rounded-[22px] sm:px-6"
+        className="max-h-[94vh] w-full overflow-y-auto rounded-t-[22px] bg-white px-5 pb-5 pt-5 shadow-window sm:max-w-[540px] sm:rounded-[22px] sm:px-6"
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id={titleId} className="m-0 font-display text-[24px] font-semibold leading-tight text-ink">
@@ -345,7 +345,7 @@ export function MatchesPanel({ view, onOpen, confirming }: { view: FamilyMatches
         {matchesHeading(view.total)} You do not have access to open {view.total === 1 ? "it" : "them"}, so check with someone who does before adding.
       </p>
     ) : (
-      <p className="m-0 text-[13px] font-semibold text-[var(--v2-green-ink,#0f4f33)]">No family like this yet.</p>
+      <p className="m-0 text-[13px] font-semibold text-[var(--v2-green-ink)]">No family like this yet.</p>
     );
   }
   const strong = view.matches.filter(isStrongMatch);
@@ -380,7 +380,7 @@ function MatchCard({ m }: { m: FamilyMatchView }) {
       </p>
       <p className="m-0 mt-1 flex flex-wrap gap-1">
         {m.reasons.map((r) => (
-          <span key={r} className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${r === "last_name" ? "border-line bg-canvas text-muted" : "border-navy-300 bg-navy-50 text-[#164690]"}`}>
+          <span key={r} className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${r === "last_name" ? "border-line bg-canvas text-muted" : "border-navy-300 bg-navy-50 text-navy"}`}>
             {FAMILY_MATCH_LABELS[r]}
           </span>
         ))}

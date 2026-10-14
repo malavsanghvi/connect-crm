@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { ChipGroup, Toggle } from "@/components/controls";
 import { InfoBox } from "@/components/ui";
+import { brandColor } from "@/lib/brand-colors";
 import { validateRulesJson } from "@/lib/center-rules";
 import { SHOW_BY_OPTIONS } from "@/lib/giving-glance/levels";
 import type { RuleSettings } from "@/lib/settings-rules";
@@ -380,7 +381,7 @@ export function BrandingForm({ branding, flags, readOnly, hiddenFlags = [], flag
                   <input
                     type="color"
                     aria-label={`${f.label} picker`}
-                    value={/^#[0-9a-f]{6}$/i.test(value) ? value : "#000000"}
+                    value={/^#[0-9a-f]{6}$/i.test(value) ? value : brandColor("navy")}
                     onChange={(e) => setBrand({ ...brand, [f.key]: e.target.value.toUpperCase() })}
                     disabled={readOnly}
                     className="h-[42px] w-14 cursor-pointer rounded-[10px] border border-line-strong bg-white"

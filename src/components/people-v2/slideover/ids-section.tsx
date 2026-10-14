@@ -181,7 +181,7 @@ function IdChip({ id, detail, onGone }: { id: DetailId; detail: PersonDetailMode
               type="button"
               onClick={retire}
               disabled={phase === "working"}
-              className="inline-flex min-h-10 items-center rounded-full bg-danger px-4 text-[13.5px] font-bold text-white hover:bg-[#8f1e18] disabled:opacity-60"
+              className="inline-flex min-h-10 items-center rounded-full bg-danger px-4 text-[13.5px] font-bold text-white hover:bg-danger-900 disabled:opacity-60"
             >
               {phase === "working" ? "Retiring…" : error ? "Try again" : "Yes, retire it"}
             </button>

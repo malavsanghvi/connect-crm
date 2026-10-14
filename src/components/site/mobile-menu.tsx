@@ -36,7 +36,7 @@ export function MobileMenu({ children }: { children: ReactNode }) {
           onClick={(e) => {
             if ((e.target as HTMLElement).closest("a")) setOpen(false);
           }}
-          className="absolute inset-x-0 top-full max-h-[calc(100dvh-124px)] overflow-y-auto border-b border-line bg-white px-5 pb-6 pt-2 shadow-[0_18px_30px_rgba(20,18,14,0.12)]"
+          className="absolute inset-x-0 top-full max-h-[calc(100dvh-124px)] overflow-y-auto border-b border-line bg-white px-5 pb-6 pt-2 shadow-menu"
         >
           {children}
         </div>

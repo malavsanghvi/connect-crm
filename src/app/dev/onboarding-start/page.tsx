@@ -21,9 +21,9 @@ export default async function OnboardingStartPreview({ searchParams }: { searchP
   const ctx = sampleContext();
   const peopleWord = SAMPLE_PEOPLE_LABEL.toLowerCase();
   return (
-    <div className="min-h-screen bg-[#f3f7fb]">
+    <div className="min-h-screen bg-canvas">
       <div className="flex justify-center bg-white pb-1 pt-[5px]">
-        <span className="rounded-[10px] bg-[#b3261e] px-2.5 py-0.5 text-[10px] font-extrabold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</span>
+        <span className="rounded-[10px] bg-danger px-2.5 py-0.5 text-[10px] font-bold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</span>
       </div>
       <FrontDoor
         model={sampleModel(empty ? "empty" : "full")}

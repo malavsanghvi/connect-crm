@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { Toggle } from "@/components/controls";
 import { buttonClass } from "@/components/ui";
+import { brandColor } from "@/lib/brand-colors";
 import { FLYER_LIMITS, POSTER_AGENDA_MAX, POSTER_LIMITS, type FlyerDesign, type PosterAgendaRow, type PosterContent } from "@/lib/events/flyer";
 import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
@@ -18,7 +19,7 @@ import { InlineError, SectionBox, TextField } from "./flyer-fields";
 import { IconPicker } from "./flyer-icon-picker";
 import { LayoutBlockEditors, LayoutChooser } from "./flyer-layout-editor";
 
-const INK = "#1B2C5C";
+const INK = brandColor("navy");
 
 /**
  * Flyer maker › Poster: the words and sections of the Poster template (Flyers

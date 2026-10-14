@@ -17,7 +17,7 @@ export function TenantMark({ branding, name, size = 36 }: { branding: TenantBran
       role="img"
       aria-label={`${name} logo`}
       style={{ height: size, minWidth: size, fontSize: Math.round(size * (branding.monogram.length > 2 ? 0.3 : 0.38)) }}
-      className="inline-flex shrink-0 items-center justify-center rounded-[10px] bg-navy px-1 font-extrabold tracking-wide text-white"
+      className="inline-flex shrink-0 items-center justify-center rounded-[10px] bg-navy px-1 font-bold tracking-wide text-white"
     >
       {branding.monogram}
     </span>

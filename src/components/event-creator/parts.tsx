@@ -69,12 +69,12 @@ export function UseSuggestion({ why, source, action, onUse, used }: { why: strin
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[10px] bg-saffron-50 px-3 py-2 text-[13px] text-ink">
       <span className="min-w-0 flex-1">
-        <span className="font-bold text-saffron">{SOURCE_LABEL[source]}:</span> {why}
+        <span className="font-bold text-brown">{SOURCE_LABEL[source]}:</span> {why}
       </span>
       {used ? (
         <span className="text-[13px] font-semibold text-success-900">Used</span>
       ) : (
-        <button type="button" onClick={onUse} className="min-h-[36px] rounded-[18px] border border-saffron bg-white px-3 text-[13px] font-semibold text-saffron hover:bg-saffron-50">
+        <button type="button" onClick={onUse} className="min-h-[36px] rounded-[18px] border border-saffron bg-white px-3 text-[13px] font-semibold text-brown hover:bg-saffron-50">
           {action}
         </button>
       )}
@@ -111,7 +111,7 @@ export function SwitchRow({ label, sub, checked, onChange, onNote, offNote }: { 
 export function LessonNotes({ lessons }: { lessons: { text: string; from: string }[] }) {
   if (!lessons.length) return null;
   return (
-    <div className="rounded-[10px] bg-[#fff4d6] px-3 py-2 text-[13px] leading-snug text-[#5c3d00]">
+    <div className="rounded-[10px] bg-saffron-50 px-3 py-2 text-[13px] leading-snug text-brown-900">
       <p className="m-0 font-bold">Lessons from last time</p>
       <ul className="m-0 mt-1 list-disc pl-5">
         {lessons.map((l) => (
@@ -138,7 +138,7 @@ export function ErrorNote({ children, onRetry, retryLabel = "Try again" }: { chi
 }
 
 export function Note({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "ok" | "warn" }) {
-  const cls = tone === "ok" ? "bg-success-50 text-success-900" : tone === "warn" ? "bg-[#fff4d6] text-[#5c3d00]" : "bg-[#eaf0f7] text-ink-2";
+  const cls = tone === "ok" ? "bg-success-50 text-success-900" : tone === "warn" ? "bg-saffron-50 text-brown-900" : "bg-navy-50 text-ink-2";
   return <div className={`rounded-[10px] px-3 py-2 text-[13px] leading-snug ${cls}`}>{children}</div>;
 }
 

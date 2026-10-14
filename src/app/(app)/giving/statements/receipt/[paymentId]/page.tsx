@@ -50,7 +50,7 @@ export default async function ReceiptCopyPage({ params }: { params: Promise<{ pa
     const message = part.state === "none" ? "There is no receipt to show." : part.message;
     return (
       <div className="flex flex-col gap-3">
-        <p role="alert" className="m-0 rounded-[14px] border border-[#f0b9b4] bg-danger-50 px-4 py-3 text-[14px] text-[#7a1a14]">
+        <p role="alert" className="m-0 rounded-[14px] border border-danger/30 bg-danger-50 px-4 py-3 text-[14px] text-danger">
           {message}
         </p>
         <div>{back}</div>
