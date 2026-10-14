@@ -17,6 +17,8 @@ import type { ActionResult } from "@/lib/errors";
 import { familyLine, familyRef } from "@/lib/giving-today/queue";
 import {
   NO_CHOICES,
+  emailPlan,
+  emailPlanSentence,
   PLEDGE_UPLOAD_NO_UNDO,
   UPLOAD_REASONS,
   recordButtonLabel,
@@ -95,6 +97,8 @@ export function PledgeUpload({
 
   const review = useMemo(() => (loaded ? reviewPledges(loaded.prepared.read, loaded.prepared.lookups, choices) : null), [loaded, choices]);
   const money = (c: number) => formatCents(c, setting.currency, setting.locale);
+  // What the tick will do, said before the button is pressed: how many families get an email, and how many of them are old pledge cards.
+  const emailSentence = review && loaded ? emailPlanSentence(emailPlan(review, loaded.prepared.lookups.today)) : "";
 
   async function choose(file: File) {
     setFileError(null);
@@ -287,9 +291,14 @@ export function PledgeUpload({
             <span className="text-[14px] text-ink">
               <strong>Email each family their pledge</strong>
               <span className="block text-[13px] text-muted">
-                Each family&apos;s primary member gets the pledge email with the pledge as a PDF attached, once. Rows dated more than 30 days ago count as history and are not
-                emailed. A family with no email address on file is listed after recording. Untick to record the pledges without emailing anyone.
+                Each family&apos;s primary member gets the pledge email with the pledge as a PDF attached, once, whatever the pledge&apos;s date: an old pledge card is
+                emailed like any other. A family with no email address on file is listed after recording. Untick to record the pledges without emailing anyone.
               </span>
+              {sendEmails && emailSentence ? (
+                <span className="mt-1 block text-[13px] font-semibold text-ink" data-testid="email-plan">
+                  {emailSentence}
+                </span>
+              ) : null}
             </span>
           </label>
           <p className="m-0 text-[13px] text-muted">{PLEDGE_UPLOAD_NO_UNDO}</p>
