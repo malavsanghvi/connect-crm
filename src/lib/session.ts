@@ -131,9 +131,9 @@ export const loadSession = cache(async (): Promise<SessionState> => {
     console.error("[session] could not load the center:", centerRes.error);
     return { status: "error", message: `Could not load the center "${slug}" — ${explainError(centerRes.error)}` };
   }
-  // Signed in but not part of this community (0615 shows the table row only to linked people): its public part, so
+  // Signed in but not part of this community (0813 shows the table row only to linked people): its public part, so
   // the portal says "no access" rather than "not found". The settings are then only the public keys.
-  let center = centerRes.data;
+  let center: CenterInfo | null = centerRes.data;
   if (!center) {
     const pub = await db.rpc("community_public", { p_slug: slug });
     if (pub.error) {
@@ -148,6 +148,9 @@ export const loadSession = cache(async (): Promise<SessionState> => {
       name: row.name,
       short_name: row.short_name,
       time_zone: row.time_zone,
+      // The public part has no country (CenterInfo.country is optional); this person is not part of the community, so the
+      // portal shows "no access" and nothing that depends on it.
+      state_region: row.state_region,
       currency: row.currency,
       branding: row.branding,
       feature_flags: row.feature_flags,

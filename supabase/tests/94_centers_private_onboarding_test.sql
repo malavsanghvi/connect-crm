@@ -60,8 +60,8 @@ select pg_temp.assert((select rules -> 'onboarding' = to_jsonb('text only'::text
                        and (select rules #>> '{home,shortcuts,0}' = 'give' from app.centers where id = '94000000-0000-4000-8000-0000000000a4'),
   'D · a community with a non-object onboarding value, or none, is not changed');
 
--- E · the owner e-mail cannot be written back; and since 0615 a guest reads neither an onboarding community nor any
--- community's rules from the table (test 96).
+-- E · the owner e-mail cannot be written back; and since 0813 a guest reads neither an onboarding community nor any
+-- community's rules from the table (test 813).
 update app.centers set rules = rules || jsonb_build_object('onboarding', (rules -> 'onboarding') || jsonb_build_object('owner_email', 'again@example.org'))
  where id = '94000000-0000-4000-8000-0000000000a1';
 select pg_temp.assert((select rules #>> '{onboarding,owner_email}' is null and rules #>> '{onboarding,production_slug}' = 'priv94'
@@ -69,7 +69,7 @@ select pg_temp.assert((select rules #>> '{onboarding,owner_email}' is null and r
   'E · the owner e-mail is stripped again, the web name kept');
 set role anon;
 select pg_temp.assert((select count(*) = 0 from app.centers where id = '94000000-0000-4000-8000-0000000000a1'),
-  'E · a guest does not see the onboarding community at all (0615)');
+  'E · a guest does not see the onboarding community at all (0813)');
 select pg_temp.assert(not has_function_privilege('anon', 'app.centers_scrub_private_onboarding()', 'execute'),
   'E · a guest cannot run the clean-up');
 reset role;

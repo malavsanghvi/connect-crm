@@ -28,7 +28,7 @@ function readPublicEnvUrl(): string | undefined {
 
 /**
  * The community this portal serves: its public part (app.community_public, migration 0614; the table is closed to
- * guests by 0615). A community still being set up is not shown before sign-in.
+ * guests by 0813). A community still being set up is not shown before sign-in.
  */
 async function loadTenant({ slug, source }: CenterChoice): Promise<{ tenant: Tenant; problem: string | null }> {
   try {

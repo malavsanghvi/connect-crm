@@ -45,10 +45,11 @@ What counts as an active membership (`app.my_access`):
   module was off would have locked members out of their own area just because a module was switched off.
 - Staff and platform admins are judged like anyone else, by their own link and household, not by role. (They
   pass the staff policies of each table separately.)
-- **The public level only reaches communities that are listed to guests**: status `active` or `onboarding`,
-  the same rule as the center picker (`centers_public_read`, 0010). A suspended or exited community is open
-  only to the people linked to it and to platform admins, so a guest or a stranger gets neither its public areas
-  nor its ladder (`app.access_center_open`).
+- **The public level only reaches communities that are listed to guests**: status `active` (0813; before it,
+  `active` or `onboarding`, the rule of `centers_public_read`, 0010). A community still being set up (`onboarding`)
+  is open only to the people linked to it (a member login, a role of any scope, the owner) and to platform admins;
+  a suspended or exited one only to its members and platform admins. So a guest or a stranger gets neither the
+  public areas nor the ladder of those (`app.access_center_open`, which asks `app.community_open`).
 
 ### Areas
 

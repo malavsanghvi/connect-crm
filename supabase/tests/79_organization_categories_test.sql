@@ -598,7 +598,7 @@ select pg_temp.assert((select count(*) from app.practices where center_id = :'ch
   'C · a chamber member reads no practices and gets the same my_modules');
 reset role;
 select pg_temp.no_claims();
--- A member of the chamber (a sandbox still onboarding: since 0615 guests do not see it): its access areas and category profile.
+-- A member of the chamber (a sandbox still onboarding: since 0813 guests do not see it): its access areas and category profile.
 set role authenticated;
 select pg_temp.claims(:chmember);
 select pg_temp.assert(not ((select app.feature_access_for_me(:'chm')->'features') ? 'puja')
@@ -634,7 +634,7 @@ select pg_temp.assert_raises($$select app.category_profile('79000000-0000-4000-8
   'C · and so is a community that is not open to guests');
 reset role;
 -- The default path follows the community's default tradition (asked as a platform admin: the community is still
--- onboarding, which since 0615 is shown only to its own people).
+-- onboarding, which since 0813 is shown only to its own people).
 select pg_temp.claims(:cc);
 update app.centers set tradition = 'sthanakvasi' where id = :'jt';
 select pg_temp.assert(app.category_profile(:'jt')->>'default_path' = 'shwetambar_sthanakvasi', 'C · a Sthanakvasi community defaults to the Sthanakvasi path');
