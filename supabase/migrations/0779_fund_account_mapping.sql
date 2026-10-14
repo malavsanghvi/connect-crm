@@ -36,7 +36,8 @@
 --     Over the API a signed-in person can only put a failed posting back in the queue (Retry).
 --   * No silent defaults: a fund without an account no longer posts to general income (nor gift packing to store
 --     sales, nor a deposit with an unusable bank account to the main bank account). The posting waits in the exception
---     queue with a plain reason (needs_mapping says for what) and goes back in the queue by itself once confirmed.
+--     queue with a plain reason (needs_mapping says for what) and goes back in the queue by itself once the account can be
+--     used: confirmed by a second person, the whole mapping approved, or brought back by a pull (made active again).
 --     A campaign's own income account (campaigns.qbo_income_account_id, never settable from a screen and never
 --     approved) is no longer used. Pledge write-offs resolve their accounts and class the same way (they used to read
 --     the mapping and the fund's class directly).
@@ -55,12 +56,16 @@
 --   app.qbo_account_mappings_changed  0232  a confirmed change keeps the go-live approvals
 --   app.qbo_mapping_warnings          0231  + company, catalog types, bank registers; only required accounts are errors
 --   app._qbo_payment_lines            0233  accounts and classes from the resolvers
---   app._qbo_posting_doc_before_0412  0412 (0233's body, renamed by 0412)  accounts from the resolvers, CCMAP handler
+--   app._qbo_posting_doc_before_0412  0412 (0233's body, renamed by 0412)  accounts from the resolvers, CCMAP handler; a
+--                                           bank receipt lands in its own bank line's register or waits
 --   app.qbo_posting_doc               0412  the write-off document resolves its accounts and class, CCMAP handler
---   app.qbo_worker_claim              0235  keeps the document sent; a lost answer is re-sent as first sent; needs_mapping
---   app.qbo_worker_pull_done          0231  the alert also fires for a warning marked 'alert'
+--   app.qbo_worker_claim              0235  keeps the document sent; a lost answer is re-sent as first sent (a daily summary
+--                                           under its stored request id, with its own members); needs_mapping
+--   app.qbo_worker_pull_done          0231  the alert also fires for a warning marked 'alert'; postings whose account the
+--                                           pull brought back go back in the queue
 -- Not touched (0778 changes them): app.approve_qbo_mapping (0232), app.approve_qbo_test_post (0234), app._qbo_apply_basis (0521).
--- Not touched: app.set_qbo_mapping, app.set_qbo_fund_class (0232): the guards refuse them once the mapping is in use.
+-- Not redefined: app.set_qbo_mapping, app.set_qbo_fund_class (0232): no longer callable by a signed-in person (the portal
+-- uses app.request_account_mapping_change), and the guards would refuse them once the mapping is in use.
 set client_min_messages = warning;
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -210,12 +215,14 @@ comment on column app.ledger_postings.needs_mapping is
 comment on column app.campaigns.qbo_income_account_id is
   'Not used for posting since 0779: no screen ever set it and nobody approved it. A fund''s account is chosen in Account mapping.';
 
--- Existing choices belong to the company connected now; an approved row is in use from when it was approved.
+-- Existing APPROVED choices belong to the company connected now; an approved row is in use from when it was approved. A
+-- choice nobody approved (setup not finished, or approvals withdrawn by a company switch, 0230) may belong to an earlier
+-- company: it records none, so it counts as unmapped until it is chosen again.
 do $$ begin
   perform app.set_audit_context('Account mapping change control (0779): each choice records the QuickBooks company it was made in');
 end $$;
 update app.qbo_account_mappings m
-   set realm_id = (select c.external_account_id from app.qbo_connection(m.center_id) c),
+   set realm_id = case when m.approved_at is not null then (select c.external_account_id from app.qbo_connection(m.center_id) c) end,
        first_approved_at = coalesce(m.first_approved_at, m.approved_at);
 update app.funds f
    set qbo_class_realm = (select c.external_account_id from app.qbo_connection(f.center_id) c)
@@ -816,6 +823,50 @@ begin
   return v_n;
 end $$;
 
+-- Internal: every failed posting whose mapping can be used NOW goes back in the queue, whatever made it usable: a confirmed
+-- change (above), the whole mapping approved (trigger below), or a pull that brought the account back (made active again in
+-- QuickBooks, or the new company's lists arrived; app.qbo_worker_pull_done). p_needs limits it to one 'subject:key'.
+-- This is what the hints mean by "goes back in the queue by itself".
+create or replace function app._requeue_resolved_postings(p_center uuid, p_needs text default null) returns integer
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare r record; v_subject text; v_key text; v_state jsonb; v_n integer := 0; v_one integer;
+        v_uuid constant text := '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+begin
+  for r in
+    select distinct l.needs_mapping from app.ledger_postings l
+     where l.center_id = p_center and l.status = 'failed' and l.needs_mapping is not null
+       and (p_needs is null or l.needs_mapping = p_needs)
+  loop
+    v_subject := split_part(r.needs_mapping, ':', 1);
+    v_key := substr(r.needs_mapping, char_length(v_subject) + 2);
+    v_state := case
+      when v_subject = 'role' then app._account_for_role(p_center, v_key)
+      when v_subject = 'fund_class' and v_key ~ v_uuid then app._fund_class_state(p_center, v_key::uuid)
+      when v_subject = 'bank_account' and v_key ~ v_uuid then app._bank_account_state(p_center, v_key::uuid)
+    end;
+    if v_state is not null and coalesce((v_state->>'found')::boolean, true) and not (v_state ? 'unknown')
+       and v_state->>'problem' is null then
+      v_one := app._requeue_waiting_postings(p_center, v_subject, v_key);
+      v_n := v_n + v_one;
+    end if;
+  end loop;
+  return v_n;
+end $$;
+
+-- Approving the whole mapping (app.approve_qbo_mapping, not touched here) makes accounts usable that were chosen but not yet
+-- approved: postings that waited for one of them go back in the queue. A confirmed request re-queues its own (and counts them).
+create or replace function app.qbo_account_mappings_approved() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  if coalesce(current_setting('app.account_map_apply', true), '') in ('setup','confirmed') then return null; end if;
+  perform app._requeue_resolved_postings(new.center_id, 'role:' || new.purpose);
+  return null;
+end $$;
+drop trigger if exists qbo_account_mappings_approved on app.qbo_account_mappings;
+create trigger qbo_account_mappings_approved after update of approved_at on app.qbo_account_mappings
+  for each row when (old.approved_at is null and new.approved_at is not null)
+  execute function app.qbo_account_mappings_approved();
+
 -- Choose, or ask to change, the account of a role (p_subject 'role', p_target = the role key or an alias), the class of
 -- a fund ('fund_class', p_target = the fund's id; p_to null = no class) or the QuickBooks account of a bank account
 -- ('bank_account', p_target = its id; p_to null = use the main bank account). Before the mapping is in use the choice
@@ -1224,8 +1275,9 @@ begin
   return v;
 end $$;
 
--- 0231's pull result, with one change: the alert also fires for a warning marked 'alert' (a chosen account, class or
--- register that can no longer be used now holds only its own postings, but the treasurer is still told).
+-- 0231's pull result, with two changes: the alert also fires for a warning marked 'alert' (a chosen account, class or
+-- register that can no longer be used now holds only its own postings, but the treasurer is still told); and postings that
+-- waited for an account the pull brought back go back in the queue.
 create or replace function app.qbo_worker_pull_done(p_connection uuid, p_job bigint, p_ok boolean, p_counts jsonb, p_changed jsonb, p_error text)
 returns jsonb language plpgsql security definer set search_path = app, public, extensions as $$
 declare c app.integration_connections; v_warn jsonb; v_id uuid; v_errors int;
@@ -1244,6 +1296,9 @@ begin
   update app.integration_connections
      set settings = settings || jsonb_build_object('last_pull_at', now(), 'last_pull_ok', p_ok)
    where id = c.id;
+  -- The pull may have brought an account, class or register back (active again, or the new company's lists): postings that
+  -- waited for it go back in the queue by themselves (0779).
+  if p_ok then perform app._requeue_resolved_postings(c.center_id); end if;
   select count(*) into v_errors from jsonb_array_elements(v_warn) w where w->>'level' = 'error' or coalesce((w->>'alert')::boolean, false);
   if p_ok and v_errors > 0 and exists (select 1 from app.qbo_account_mappings where center_id = c.center_id and approved_at is not null) then
     perform app.qbo_alert(c.id, 'A mapped QuickBooks account changed',
@@ -1315,7 +1370,20 @@ begin
     select * into p from app.payments where id = lp.source_id;
     if p.id is null then return jsonb_build_object('ok', false, 'error', 'The payment behind this posting was not found.'); end if;
     if p.provider = 'bank' then
-      select bt.bank_account_id into v_bank_account from app.bank_transactions bt where bt.payment_id = p.id order by bt.posted_on desc limit 1;
+      -- The register of the bank line the money arrived on: the payment's own deposit line first, then a line matched to it.
+      -- With no line and more than one bank account, Weaver cannot tell which register: the posting waits (no main-bank default).
+      select bt.bank_account_id into v_bank_account from app.bank_transactions bt where bt.id = p.deposit_bank_transaction_id;
+      if v_bank_account is null then
+        select bt.bank_account_id into v_bank_account from app.bank_transactions bt where bt.payment_id = p.id order by bt.posted_on desc limit 1;
+      end if;
+      if v_bank_account is null then
+        select case when count(*) = 1 then (array_agg(b.id))[1] end into v_bank_account
+          from app.bank_accounts b where b.center_id = lp.center_id and b.active;
+        if v_bank_account is null and exists (select 1 from app.bank_accounts b where b.center_id = lp.center_id and b.active) then
+          raise exception 'This bank payment is not linked to the bank line it arrived on, and this organization has more than one bank account, so Weaver cannot tell which QuickBooks bank account it landed in. Match it to its bank line in Giving › Bank, then Retry.'
+            using errcode = 'CCMAP';
+        end if;
+      end if;
       v_dep := case when v_bank_account is not null then app.account_for_bank_account(lp.center_id, v_bank_account)
                     else app.account_for_role(lp.center_id, 'bank') end;
     elsif p.method = 'stock' then
@@ -1458,13 +1526,14 @@ end $$;
 
 -- 0235's poster, with three changes: (1) the document a posting is sent with is kept on it (qbo_doc, qbo_realm), so an
 -- entry already posted keeps its accounts whatever the mapping becomes; (2) an entry sent before whose answer was lost
--- (its worker vanished, or QuickBooks asked to try again) is sent again exactly as it was, under the same requestid;
+-- (its worker vanished, or QuickBooks asked to try again) is sent again exactly as it was, under the same requestid (a
+-- daily summary with the same members, never with a receipt that arrived since);
 -- (3) a posting that waits for a mapping says which (needs_mapping), so confirming it puts the posting back.
 create or replace function app.qbo_worker_claim(p_center uuid, p_limit int default 25) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_ready jsonb; v_go date; lp app.ledger_postings; v_doc jsonb; v_units jsonb := '[]'; v_skipped int := 0; v_failed int := 0;
         v_summary boolean; v_day date; p app.payments; g record; v_ids uuid[]; v_lines jsonb; v_first jsonb; v_uid text;
-        v_groups jsonb := '{}'; v_key text; v_period text; v_realm text;
+        v_groups jsonb := '{}'; v_key text; v_period text; v_realm text; v_resend boolean; v_rid text;
 begin
   perform app.assert_worker();
   perform set_config('app.client_app', 'job', true);
@@ -1513,7 +1582,9 @@ begin
       v_failed := v_failed + 1; continue;
     end if;
 
-    if lp.qbo_doc is not null and lp.qbo_realm is not distinct from v_realm then
+    -- Sent before and its answer lost (the worker vanished, or QuickBooks asked to try again): the same document again.
+    v_resend := lp.qbo_doc is not null and lp.qbo_realm is not distinct from v_realm and lp.request_id is not null;
+    if v_resend then
       v_doc := jsonb_build_object('ok', true, 'doc', lp.qbo_doc);
     else
       v_doc := app.qbo_posting_doc(lp.id);
@@ -1526,13 +1597,20 @@ begin
       v_failed := v_failed + 1; continue;
     end if;
 
-    if v_summary and lp.source_table = 'payments' and v_doc #>> '{doc,entity}' = 'SalesReceipt' and v_day < current_date then
-      -- Daily summary: one receipt per day and deposit account, no customer.
-      v_key := to_char(v_day, 'YYYY-MM-DD') || '|' || (v_doc #>> '{doc,deposit_account}');
+    if v_resend and lp.request_id <> lp.id::text then
+      -- Part of a daily summary sent before: it goes again with the members and the request id it was sent with (a receipt
+      -- that arrived since never joins it, so QuickBooks recognises the re-send and nothing posts twice).
+      v_key := to_char(v_day, 'YYYY-MM-DD') || '|' || (v_doc #>> '{doc,deposit_account}') || '|' || lp.request_id;
       v_groups := jsonb_set(v_groups, array[v_key], coalesce(v_groups->v_key, '[]'::jsonb) || jsonb_build_array(
         jsonb_build_object('id', lp.id, 'doc', v_doc->'doc')));
       continue;
-    elsif v_summary and lp.source_table = 'payments' and v_doc #>> '{doc,entity}' = 'SalesReceipt' then
+    elsif not v_resend and v_summary and lp.source_table = 'payments' and v_doc #>> '{doc,entity}' = 'SalesReceipt' and v_day < current_date then
+      -- Daily summary: one receipt per day and deposit account, no customer.
+      v_key := to_char(v_day, 'YYYY-MM-DD') || '|' || (v_doc #>> '{doc,deposit_account}') || '|';
+      v_groups := jsonb_set(v_groups, array[v_key], coalesce(v_groups->v_key, '[]'::jsonb) || jsonb_build_array(
+        jsonb_build_object('id', lp.id, 'doc', v_doc->'doc')));
+      continue;
+    elsif not v_resend and v_summary and lp.source_table = 'payments' and v_doc #>> '{doc,entity}' = 'SalesReceipt' then
       continue;   -- today's receipts wait for tomorrow's summary
     end if;
 
@@ -1554,7 +1632,8 @@ begin
               from jsonb_array_elements(g.value) x, jsonb_array_elements(x->'doc'->'lines') l
              group by 1, 2, 3) s;
     v_first := g.value->0->'doc';
-    v_uid := encode(extensions.digest(array_to_string(v_ids, ','), 'sha256'), 'hex');
+    v_rid := split_part(g.key, '|', 3);
+    v_uid := case when v_rid <> '' then v_rid else encode(extensions.digest(array_to_string(v_ids, ','), 'sha256'), 'hex') end;
     update app.ledger_postings l
        set status = 'posting', attempts = attempts + 1, claimed_at = now(), request_id = v_uid, qbo_entity = 'SalesReceipt',
            qbo_doc = x.doc, qbo_realm = v_realm, needs_mapping = null
@@ -1586,10 +1665,14 @@ revoke execute on function app.account_map_can_request(uuid), app.account_map_ca
   app._bank_account_state(uuid, uuid), app.account_for_bank_account(uuid, uuid),
   app.qbo_account_mappings_delete_guard(), app.funds_qbo_class_guard(), app.bank_accounts_qbo_guard(), app.ledger_postings_api_guard(),
   app.qbo_connection_api_guard(), app.qbo_company_switched(), app._apply_account_mapping(uuid, text, text, text, text), app._requeue_waiting_postings(uuid, text, text),
+  app._requeue_resolved_postings(uuid, text), app.qbo_account_mappings_approved(),
   app.request_account_mapping_change(uuid, text, text, text, text), app._account_mapping_status_label(text),
   app.decide_account_mapping_change(uuid, boolean, text), app.cancel_account_mapping_change(uuid, text),
   app._account_mapping_request_json(app.account_mapping_changes), app.account_mapping_overview(uuid), app.account_mapping_waiting(uuid)
   from public, anon, authenticated, service_role;
+-- 0232's one-person functions: the portal chooses through app.request_account_mapping_change (kept in the history, and
+-- a request once the mapping is in use), so nobody signed in calls these any more.
+revoke execute on function app.set_qbo_mapping(uuid, text, text, text), app.set_qbo_fund_class(uuid, uuid, text, text) from public, anon, authenticated;
 revoke execute on function app.qbo_purposes(), app.qbo_required_purposes(uuid) from public, anon;
 grant execute on function app.qbo_purposes(), app.qbo_required_purposes(uuid) to authenticated, service_role;
 grant execute on function app.account_map_can_request(uuid), app.account_map_can_approve(uuid), app.account_mapping_in_use(uuid),

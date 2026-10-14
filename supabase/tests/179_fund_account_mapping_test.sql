@@ -282,7 +282,7 @@ select pg_temp.assert(app.account_mapping_in_use(:c)
 select pg_temp.claims('83000000-0000-4000-8000-000000000002');
 set local role authenticated;
 select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000008301', 'income.general', '15', 'Alone')$$,
-  'needs a second person', 'the old mapping function cannot change an account in use');
+  'permission denied', 'the old one-person mapping function is no longer callable by a signed-in person');
 select pg_temp.assert_raises($$update app.qbo_account_mappings set qbo_account_id = '15' where center_id = '00000000-0000-4000-8000-000000008301' and purpose = 'income.general'$$,
   'needs a second person', 'nor a direct write over the API');
 select pg_temp.assert_raises($$insert into app.qbo_account_mappings (center_id, purpose, qbo_account_id) values ('00000000-0000-4000-8000-000000008301', 'income.boli', '12')$$,
@@ -290,7 +290,7 @@ select pg_temp.assert_raises($$insert into app.qbo_account_mappings (center_id, 
 select pg_temp.assert_raises($$delete from app.qbo_account_mappings where center_id = '00000000-0000-4000-8000-000000008301' and purpose = 'income.general'$$,
   'cannot be removed', 'nor removing an account ("remove, then add another" is no way round)');
 select pg_temp.assert_raises($$select app.set_qbo_fund_class('00000000-0000-4000-8000-000000008301', '83000000-0000-4000-8000-0000000000f2', '31', 'Alone')$$,
-  'needs a second person', 'nor the old fund class function');
+  'permission denied', 'nor the old fund class function');
 select pg_temp.assert_raises($$update app.funds set qbo_class_id = '31' where id = '83000000-0000-4000-8000-0000000000f2'$$,
   'needs a second person', 'nor a fund''s class over the API');
 select pg_temp.assert_raises($$update app.bank_accounts set qbo_account_id = '2' where id = '83000000-0000-4000-8000-0000000000b1'$$,
@@ -712,14 +712,17 @@ select app.qbo_worker_pull_done(:conn, null, true, '{}', '{}', null);
 reset role;
 select pg_temp.assert((select settings->>'alert_subject' = 'A mapped QuickBooks account changed' from app.integration_connections where id = :conn),
   'the treasurer is still alerted after the pull, as for an error');
+-- Made active again in QuickBooks: the next pull brings it back, and nobody has to press Retry.
 update app.qbo_accounts set active = true where connection_id = :conn and qbo_id in ('12', '22');
-select pg_temp.claims('83000000-0000-4000-8000-000000000002');
-set local role authenticated;
-update app.ledger_postings set status = 'queued' where id = :'lp8';
+select pg_temp.assert((select status = 'failed' from app.ledger_postings where id = :'lp8'), 'until the pull, the boli payment still waits');
+set local role connect_worker;
+select app.qbo_worker_pull_done(:conn, null, true, '{}', '{}', null);
 reset role;
+select pg_temp.assert((select status = 'queued' and needs_mapping is null and last_error is null and qbo_doc is null from app.ledger_postings where id = :'lp8'),
+  'the pull that brings the account back puts the waiting payment back in the queue by itself');
 select pg_temp.claim(:c) as cl10 \gset
 select pg_temp.assert((select u->'doc'->'lines'->0->>'account_id' = '12' from (select pg_temp.unit_of(:'cl10'::jsonb, :'lp8') u) x),
-  'made active again, Retry posts it to the boli account');
+  'and it posts to the boli account');
 select pg_temp.done(:'lp8', 'QB-8');
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -919,11 +922,18 @@ select app.request_account_mapping_change(:np, 'role', 'undeposited_funds', '3',
 select app.request_account_mapping_change(:np, 'role', 'payment_clearing', '4', 'Initial mapping');
 select app.request_account_mapping_change(:np, 'role', 'merchant_fees', '5', 'Initial mapping');
 reset role;
+select pg_temp.no_claims();
+insert into app.ledger_postings (center_id, idempotency_key, source_table, source_id, txn_type, amount_cents, period_month, status, last_error, needs_mapping)
+values (:np, 'test179:approve', 'payments', '83000000-0000-4000-8000-00000000b2ff', 'offline_receipt', 100, date_trunc('month', current_date)::date,
+        'failed', 'The QuickBooks account for Bank account ("Checking") is not approved yet.', 'role:bank');
 select pg_temp.claims('83000000-0000-4000-8000-000000000011', true);
 set local role authenticated;
 select app.approve_qbo_mapping(:np, 'Checked against our chart');
 reset role;
 select pg_temp.no_claims();
+select pg_temp.assert((select status = 'queued' and needs_mapping is null from app.ledger_postings where idempotency_key = 'test179:approve'),
+  'approving the whole mapping puts a posting that waited for one of its accounts back in the queue by itself');
+delete from app.ledger_postings where idempotency_key = 'test179:approve';
 update app.integration_connections set settings = settings || jsonb_build_object('test_post_approved_at', now(), 'test_post_approved_by', :nina) where id = :npconn;
 insert into app.pledges (id, center_id, household_id, source, amount_cents) values
   ('83000000-0000-4000-8000-00000000a108', :np, '83000000-0000-4000-8000-0000000000a3', 'membership_fee', 6000);
@@ -951,6 +961,32 @@ select pg_temp.claim(:np) as cln \gset
 select pg_temp.assert((select u->'doc'->'lines'->0->>'account_id' = '13' from (select pg_temp.unit_of(:'cln'::jsonb, :'lpn') u) x),
   'and posts to the dues account');
 select pg_temp.no_claims();
+
+-- Daily summary: a summary whose answer was lost goes again with its own receipts and request id; a receipt of the same day
+-- that arrived since goes in a summary of its own (otherwise QuickBooks would see a new request and post the day twice).
+update app.integration_connections set settings = settings || '{"posting":"daily_summary"}' where id = :npconn;
+insert into app.payments (id, center_id, household_id, amount_cents, method, provider, received_on, receipt_number) values
+  ('83000000-0000-4000-8000-00000000b210', :np, '83000000-0000-4000-8000-0000000000a3', 2000, 'cash', 'offline', current_date - 2, 'RC83-2'),
+  ('83000000-0000-4000-8000-00000000b211', :np, '83000000-0000-4000-8000-0000000000a3', 3000, 'cash', 'offline', current_date - 2, 'RC83-3');
+select (pg_temp.posting('83000000-0000-4000-8000-00000000b210')).id as lps1 \gset
+select (pg_temp.posting('83000000-0000-4000-8000-00000000b211')).id as lps2 \gset
+select pg_temp.claim(:np) as cls1 \gset
+select pg_temp.unit_of(:'cls1'::jsonb, :'lps1')->>'unit_id' as sum1 \gset
+select pg_temp.assert(pg_temp.unit_of(:'cls1'::jsonb, :'lps2')->>'unit_id' = :'sum1'
+                      and jsonb_array_length(pg_temp.unit_of(:'cls1'::jsonb, :'lps1')->'posting_ids') = 2
+                      and (select bool_and(request_id = :'sum1' and status = 'posting') from app.ledger_postings where id in (:'lps1', :'lps2')),
+  'daily summary: two receipts of one day go as one summary under one request id');
+update app.ledger_postings set claimed_at = now() - interval '20 minutes' where id in (:'lps1', :'lps2');
+insert into app.payments (id, center_id, household_id, amount_cents, method, provider, received_on, receipt_number) values
+  ('83000000-0000-4000-8000-00000000b212', :np, '83000000-0000-4000-8000-0000000000a3', 500, 'cash', 'offline', current_date - 2, 'RC83-4');
+select (pg_temp.posting('83000000-0000-4000-8000-00000000b212')).id as lps3 \gset
+select pg_temp.claim(:np) as cls2 \gset
+select pg_temp.assert(pg_temp.unit_of(:'cls2'::jsonb, :'lps1')->>'unit_id' = :'sum1'
+                      and jsonb_array_length(pg_temp.unit_of(:'cls2'::jsonb, :'lps1')->'posting_ids') = 2
+                      and not (pg_temp.unit_of(:'cls2'::jsonb, :'lps1')->'posting_ids' ? :'lps3')
+                      and (pg_temp.unit_of(:'cls2'::jsonb, :'lps1')->'doc'->'lines'->0->>'amount_cents')::int = 5000
+                      and pg_temp.unit_of(:'cls2'::jsonb, :'lps3')->>'unit_id' <> :'sum1',
+  'daily summary: the lost answer is re-sent with its own two receipts and request id; the late receipt goes in a summary of its own');
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- The rules of the tables and functions

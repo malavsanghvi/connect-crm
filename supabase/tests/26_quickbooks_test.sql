@@ -172,38 +172,39 @@ select pg_temp.assert((select client_app = 'job' and module = 'accounting' from 
   'the copies are audited as the background service''s work');
 
 -- ── Mapping ──────────────────────────────────────────────────────────────────
+-- Chosen through app.request_account_mapping_change since 0779 (set_qbo_mapping / set_qbo_fund_class are no longer callable).
 begin;
 set local role authenticated;
 select pg_temp.sign_in(:ada);
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'bank', '2', 'x')$$, 'accounting.manage',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'bank', '2', 'x')$$, 'accounting.manage',
   'mapping needs accounting.manage');
 commit;
 begin;
 set local role authenticated;
 select pg_temp.sign_in(:tara);
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'bank', '999', 'typed')$$, 'pulled from QuickBooks',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'bank', '999', 'typed')$$, 'pulled from QuickBooks',
   'an account id that is not in the pulled chart is refused (nobody types account ids)');
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'income.general', '6', 'x')$$, 'inactive',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'income.general', '6', 'x')$$, 'inactive',
   'an inactive account is refused');
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'bank', '1', 'x')$$, 'needs one of',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'bank', '1', 'x')$$, 'needs one of',
   'an account of the wrong type is refused');
 select pg_temp.assert_raises($$insert into app.qbo_account_mappings (center_id, purpose, qbo_account_id) values ('00000000-0000-4000-8000-000000000001', 'stock_clearing', '77')$$,
   'pulled from QuickBooks', 'a direct insert must also come from the chart');
 -- The accounting basis is the first choice after connecting (f-money, 0521).
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'income.general', '1', 'x')$$, 'accounting basis',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'income.general', '1', 'x')$$, 'accounting basis',
   'nothing is mapped before the accounting basis is chosen');
 select app.set_qbo_basis(:jsh, 'cash', 'Our books are kept on cash basis');
-select app.set_qbo_mapping(:jsh, 'income.general', '1', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'bank', '2', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'undeposited_funds', '3', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'payment_clearing', '4', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'income.general', '1', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'bank', '2', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'undeposited_funds', '3', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'payment_clearing', '4', 'Initial mapping');
 select pg_temp.assert_raises($$select app.approve_qbo_mapping('00000000-0000-4000-8000-000000000001', 'ok')$$, 'Map these first',
   'approval lists what is still unmapped');
-select app.set_qbo_mapping(:jsh, 'merchant_fees', '5', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'store.sales', '7', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'sales_tax_payable', '8', 'Initial mapping');
-select app.set_qbo_fund_class(:jsh, (select id from app.funds where center_id = :jsh and key = 'general'), '30', 'General fund class');
-select pg_temp.assert_raises($$select app.set_qbo_fund_class('00000000-0000-4000-8000-000000000001', (select id from app.funds where center_id = '00000000-0000-4000-8000-000000000001' and key = 'construction'), '32', 'x')$$,
+select app.request_account_mapping_change(:jsh, 'role', 'merchant_fees', '5', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'store.sales', '7', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'sales_tax_payable', '8', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'fund_class', (select id from app.funds where center_id = :jsh and key = 'general')::text, '30', 'General fund class');
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'fund_class', (select id from app.funds where center_id = '00000000-0000-4000-8000-000000000001' and key = 'construction')::text, '32', 'x')$$,
   'inactive', 'an inactive class is refused');
 select pg_temp.assert_raises($$update app.qbo_account_mappings set approved_by = '10000000-0000-4000-8000-000000000003', approved_at = now() where center_id = '00000000-0000-4000-8000-000000000001'$$,
   'approved as a whole', 'a mapping row cannot be marked approved directly');
