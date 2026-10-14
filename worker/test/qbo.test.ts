@@ -15,7 +15,7 @@ import { apiBase, appKeys, faultMessage, ReconnectNeededError, tokenRequest, tok
 import { createRegistry, jobContext } from "../src/runner";
 import { captureLog, fakeDb, job } from "./helpers";
 
-type Mock = { base: string; realm: string; state: { created: { entity: string; requestId: string; doc: Record<string, unknown> }[]; tokens: { grant: string }[] }; close(): Promise<void> };
+type Mock = { base: string; realm: string; state: { created: { entity: string; requestId: string; doc: Record<string, unknown> }[]; tokens: { grant: string }[]; rejectActiveFilter: Set<string> | null }; close(): Promise<void> };
 const require = createRequire(import.meta.url);
 const { startIntuitMock } = require("../../e2e/mocks/intuit.cjs") as { startIntuitMock: (o?: object) => Promise<Mock> };
 
@@ -163,6 +163,26 @@ describe("qbo.pull_lists", () => {
     expect((stored.accounts as { qbo_id: string; active: boolean; account_type: string }[]).find((a) => a.qbo_id === "9")).toMatchObject({ active: false, account_type: "Income" });
     expect((stored.classes as { name: string }[]).map((c) => c.name)).toContain("Construction");
     expect(calls.some((c) => c.fn === "query" && String(c.args[0]).includes("qbo_worker_pull_done($1, $2, true"))).toBe(true);
+  });
+  it("a list QuickBooks will not filter by Active is pulled without the filter, and the pull still succeeds", async () => {
+    // Seen on a real sandbox company: "Invalid query: value true is not valid for property 'Active'" (code 4001) failed the whole pull.
+    mock.state.rejectActiveFilter = new Set(["TaxCode", "Class"]);
+    try {
+      const { db, calls } = qboDb({ secrets: await signedIn(), settings: { access_expires_at: new Date(Date.now() + 3600e3).toISOString() } });
+      const j = job({ kind: "qbo.pull_lists", payload: { connection_id: CONN } });
+      const { ctx, lines } = ctxOf(db, j);
+      const out = await pull.run(j, ctx);
+      // Classes lose their retired one (active rows only); every other list is complete.
+      expect(out.counts).toEqual({ accounts: 9, classes: 2, locations: 1, items: 3, tax_codes: 2, payment_methods: 3 });
+      expect(calls.some((c) => c.fn === "query" && String(c.args[0]).includes("qbo_worker_pull_done($1, $2, true"))).toBe(true);
+      expect(lines.filter((l) => String(l.msg).includes("does not take the Active filter")).length).toBe(2);
+    } finally {
+      mock.state.rejectActiveFilter = null;
+    }
+  });
+  it("any other refusal still fails the pull", async () => {
+    const qbo = { queryAll: async () => { throw new PermanentError("QuickBooks refused it — Invalid Reference Id (code 2500)"); } };
+    await expect(pull.listRows(qbo, "Account")).rejects.toThrow(/Invalid Reference Id/);
   });
   it("renews an expired sign-in first, then pulls", async () => {
     const { db, calls } = qboDb({ secrets: await signedIn(), settings: { access_expires_at: new Date(Date.now() - 1000).toISOString() } });
