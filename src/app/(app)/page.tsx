@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { MyTasksCard } from "@/components/home/my-tasks-card";
+import { TourInvite } from "@/components/spotlight/tour-invite";
 import { BlockGrid, Card, KpiGrid, PageHeader, Stat, capitalize } from "@/components/ui";
 import { loadHomeKpis } from "@/lib/data/home-kpis";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
@@ -36,6 +37,8 @@ export default async function HomePage() {
   return (
     <>
       <PageHeader title={first ? `${greeting}, ${first}` : greeting} description="My tasks across every module you can act on" />
+      {/* An invitation to a guided tour, only for a person who has one they have not started (src/lib/spotlight). */}
+      <TourInvite />
       <BlockGrid>
         <MyTasksCard tasks={tasks} failures={failures} hasSources={hasSources} />
         <Card span={4} title="At a glance">

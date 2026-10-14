@@ -13,7 +13,7 @@ const MORE_ICON = "M5 12h.01 M12 12h.01 M19 12h.01";
 
 function BarLink({ w, active, badge, badgeLabel }: { w: RailWorkspace; active: boolean; badge?: string | null; badgeLabel?: string }) {
   return (
-    <Link href={w.href} aria-current={active ? "page" : undefined} className="v2-bar-item">
+    <Link href={w.href} aria-current={active ? "page" : undefined} className="v2-bar-item" data-spotlight={`nav-${w.key}`}>
       <span className="relative">
         <WorkspaceIcon path={w.icon} />
         {badge ? (

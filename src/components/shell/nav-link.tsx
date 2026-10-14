@@ -14,9 +14,12 @@ export function NavLink({
   badge,
   badgeLabel,
   onNavigate,
+  navKey,
 }: {
   href: string;
   label: string;
+  /** The module's key: the guided tours (src/lib/spotlight) find this link by `nav-<key>`. */
+  navKey?: string;
   paths: string[];
   tabs: { href: string }[];
   badge?: string | null;
@@ -26,7 +29,7 @@ export function NavLink({
   const pathname = usePathname();
   const active = activeModule([{ paths, tabs }], pathname) !== undefined;
   return (
-    <Link href={href} aria-current={active ? "page" : undefined} className="cc-nav" onClick={onNavigate}>
+    <Link href={href} aria-current={active ? "page" : undefined} className="cc-nav" onClick={onNavigate} data-spotlight={navKey ? `nav-${navKey}` : undefined}>
       <span>{label}</span>
       {badge ? (
         <span className="cc-nav-badge" aria-label={badgeLabel} title={badgeLabel}>
@@ -57,6 +60,7 @@ export function ModuleNav({
             <NavLink
               href={m.href}
               label={m.label}
+              navKey={m.key}
               paths={m.paths}
               tabs={m.tabs}
               badge={m.key === "home" ? homeBadge : null}

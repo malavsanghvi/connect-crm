@@ -55,6 +55,9 @@ from Home in the navigation. A queue row's wording is the portal's own.
 | Adult member | Nisha Patni | An open family pledge | The open family pledge; a **parking shift to confirm** | pledge `g2`, `volunteer_assignments` | **No portal screen.** The member app |
 | Child | Zara Singhvi | Events | Events to see; her **Pathshala registration** (waiting for a class for her level); the notices. Never a pledge, gift or boli | `pathshala_enrollments`, events, alerts | **No portal screen.** The member app |
 
+The Treasurer also finds an offer of a **guided tour** of the bank-line work (Home card, "Take the tour" in the demo banner, the Tour menu): the
+sample of Spotlight, [SPOTLIGHT.md](SPOTLIGHT.md). No other role has a tour yet.
+
 ## The roles that still have no portal screen
 
 Ten of the 26 roles hold nothing the portal opens a screen with (`tests/demo-role-work.test.ts` pins this, and

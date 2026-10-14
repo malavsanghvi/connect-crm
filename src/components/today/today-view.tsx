@@ -1,4 +1,5 @@
 import { MyTasksCard } from "@/components/home/my-tasks-card";
+import { TourInvite } from "@/components/spotlight/tour-invite";
 import { Alert, BlockGrid, PageHeader } from "@/components/ui";
 import type { BriefingItem } from "@/lib/routines/briefing";
 import type { ResolvedRoutine } from "@/lib/routines/resolve";
@@ -28,6 +29,8 @@ export function TodayView(props: TodayViewProps) {
     <>
       <PageHeader title={props.firstName ? `${props.greeting}, ${props.firstName}` : props.greeting} description={props.dateLabel} tabs={false} />
       <AskBox />
+      {/* An invitation to a guided tour, only for a person who has one they have not started (src/lib/spotlight). */}
+      <TourInvite />
       <BlockGrid>
         {props.problem ? (
           <div className="col-span-12">

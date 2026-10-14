@@ -229,6 +229,10 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
     );
   }
 
+  // The guided tour (src/lib/spotlight/tours) lights the first gift line that has a clear suggestion, else the first line.
+  const tourLineId =
+    view === "gifts" ? (lines.find((l) => (suggestions.get(l.id)?.rows ?? []).some((s) => !s.ambiguous)) ?? lines[0])?.id : undefined;
+
   const [matchedHouseholds, matchers, receipts, learned] = await Promise.all([
     view === "matched" ? householdsById(db, lines.map((l) => l.matched_household_id)) : Promise.resolve({ map: new Map(), error: null }),
     view === "matched" || view === "ignored" ? userNames(db, center.id, lines.map((l) => l.matched_by)) : Promise.resolve(new Map()),
@@ -281,21 +285,24 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
           </Card>
         ) : null}
 
-        <Tabs
-          active={view}
-          tabs={VIEWS.map((v) => ({
-            key: v,
-            label: (
-              <>
-                {VIEW_LABEL[v]}
-                {countOf.get(v) !== null && countOf.get(v) !== undefined ? (
-                  <span className="ml-1.5 rounded-full bg-subtle px-2 text-xs text-muted">{countOf.get(v)}</span>
-                ) : null}
-              </>
-            ),
-            href: hrefWith("/giving/payments/bank", { account: account.id }, { view: v }),
-          }))}
-        />
+        {/* data-spotlight: the guided tours light the real screen (src/lib/spotlight/tours); it changes nothing about it. */}
+        <div data-spotlight="bank-views">
+          <Tabs
+            active={view}
+            tabs={VIEWS.map((v) => ({
+              key: v,
+              label: (
+                <>
+                  {VIEW_LABEL[v]}
+                  {countOf.get(v) !== null && countOf.get(v) !== undefined ? (
+                    <span className="ml-1.5 rounded-full bg-subtle px-2 text-xs text-muted">{countOf.get(v)}</span>
+                  ) : null}
+                </>
+              ),
+              href: hrefWith("/giving/payments/bank", { account: account.id }, { view: v }),
+            }))}
+          />
+        </div>
 
         {view === "zelle" ? (
           zelle.queue ? (
@@ -333,7 +340,7 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
             {lines.map((l) => (
               <Card key={l.id} padded>
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-                  <div className="min-w-0">
+                  <div className="min-w-0" data-spotlight={l.id === tourLineId ? "bank-line" : undefined}>
                     <p className="flex flex-wrap items-baseline gap-x-3">
                       <span className={`font-display text-2xl font-semibold tabular-nums ${l.amount_cents < 0 ? "text-danger" : "text-ink"}`}>
                         {formatCents(l.amount_cents, center.currency)}
@@ -401,6 +408,7 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
                         timeZone={tz}
                         currency={center.currency}
                         canConfirm={canConfirm}
+                        tour={l.id === tourLineId}
                       />
                     ) : view === "deposits" ? (
                       <DepositMatcher

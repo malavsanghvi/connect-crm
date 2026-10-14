@@ -6,11 +6,13 @@ import type { ReactNode } from "react";
 import { DemoBanner } from "@/components/demo-banner";
 import { AppShell } from "@/components/shell/app-shell";
 import { CenteredPanel, SetupScreen } from "@/components/setup-screen";
+import { SpotlightProvider } from "@/components/spotlight/spotlight-provider";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { countHomeTasks } from "@/lib/data/home-tasks";
 import { loadDemoBanner } from "@/lib/demo-signin/server";
 import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { centerMissingHint, enforceStaff2fa, loadSession } from "@/lib/session";
+import { toursFor } from "@/lib/spotlight/registry";
 
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
   const state = await loadSession();
@@ -61,13 +63,16 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       // "Try the demo": while someone is in a demo session, every page says so and offers Switch role and Leave the demo.
       const inDemo = state.session.demo === true;
       const demo = inDemo ? await loadDemoBanner(state.session.db) : null;
+      // Guided tours (src/lib/spotlight, docs/SPOTLIGHT.md): only the tours this person has, chosen here from the role they hold and the
+      // screens they can open. Almost everyone has none, and then no entry point shows anywhere. The overlay loads only when one starts.
+      const tours = toursFor(state.session);
       return (
-        <>
+        <SpotlightProvider userId={state.session.userId} tours={tours}>
           {inDemo ? <DemoBanner info={demo} /> : null}
           <AppShell session={state.session} tasks={tasks} look={look}>
             {children}
           </AppShell>
-        </>
+        </SpotlightProvider>
       );
     }
   }

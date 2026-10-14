@@ -1334,6 +1334,88 @@ html:has([data-look="v2"]) {
   }
 }
 
+/* ------------------------------------------------------------------ Spotlight (guided tours: src/components/spotlight) */
+/* The ring around the lit element: its very large shadow dims everything else on the page. The shields are transparent and only
+   catch clicks meant for the page behind. The ring has a border and a white outline, so it never relies on colour alone. */
+.sp-ring {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 3px solid var(--color-saffron);
+  border-radius: 12px;
+  outline: 2px solid #fff;
+  box-shadow: 0 0 0 100vmax rgba(20, 18, 14, 0.6);
+  transition:
+    top 0.2s ease,
+    left 0.2s ease,
+    width 0.2s ease,
+    height 0.2s ease;
+}
+.sp-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background: rgba(20, 18, 14, 0.6);
+}
+.sp-shield {
+  position: fixed;
+  z-index: 69;
+  background: transparent;
+}
+.sp-card {
+  position: fixed;
+  z-index: 71;
+  box-sizing: border-box;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-menu);
+}
+/* On a narrow screen the card is a sheet at the bottom of the screen. */
+.sp-card-sheet {
+  top: auto;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  max-width: none;
+  max-height: 60vh;
+  border-radius: 18px 18px 0 0;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+}
+/* ...at the top when the lit element is in the phone's bottom bar. */
+.sp-card-sheet-top {
+  top: 0;
+  bottom: auto;
+  border-radius: 0 0 18px 18px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-ring {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .sp-ring {
+    border-color: Highlight;
+    box-shadow: none;
+  }
+  .sp-dim {
+    background: Canvas;
+    opacity: 0.85;
+  }
+  .sp-card {
+    border-color: CanvasText;
+  }
+}
+
 /* ------------------------------------------------------------------ Public website (src/app/site) */
 @theme {
   --animate-site-float: site-float 7s ease-in-out infinite;

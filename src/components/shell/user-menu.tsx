@@ -5,6 +5,7 @@ import { useActionState } from "react";
 
 import { signOutAction } from "@/app/auth-actions";
 import { LookSwitch } from "@/components/shell/look-switch";
+import { TourMenuItem } from "@/components/spotlight/tour-menu";
 import { buttonClass } from "@/components/ui";
 import type { Look } from "@/lib/look";
 
@@ -43,6 +44,8 @@ export function UserMenu({
         <span className="block max-w-[11rem] truncate text-[11px] text-muted">{role}</span>
       </span>
       <LookSwitch look={look} className="hidden sm:inline-flex" />
+      {/* Replay or turn off the guided tours; renders nothing for a person who has no tour. (On a phone it is in the Menu.) */}
+      <TourMenuItem variant="bar" />
       <Link href="/account/security" className={`${buttonClass("plain")} min-h-9 text-[13px] no-underline`} title="Two-step verification, phone and sessions">
         Account
       </Link>
