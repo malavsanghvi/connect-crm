@@ -16670,24 +16670,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      set_qbo_fund_class: {
-        Args: {
-          p_center: string;
-          p_fund: string;
-          p_qbo_class_id: string;
-          p_reason: string;
-        };
-        Returns: Json;
-      };
-      set_qbo_mapping: {
-        Args: {
-          p_center: string;
-          p_purpose: string;
-          p_qbo_account_id: string;
-          p_reason: string;
-        };
-        Returns: Json;
-      };
       set_qbo_match_settings: {
         Args: {
           p_center: string;
