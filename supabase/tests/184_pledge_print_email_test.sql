@@ -63,6 +63,7 @@ end $$;
 \set oc '''18400000-0000-4000-8000-0000000000c4'''
 \set bk1 '''18400000-0000-4000-8000-0000000000c5'''
 \set bk2 '''18400000-0000-4000-8000-0000000000c6'''
+\set bk3 '''18400000-0000-4000-8000-0000000000c7'''
 \set treas '''18400000-0000-4000-8000-000000000001'''
 \set exec '''18400000-0000-4000-8000-000000000002'''
 \set vol '''18400000-0000-4000-8000-000000000003'''
@@ -109,7 +110,8 @@ insert into app.centers (id, slug, name, short_name, state_region, status, time_
   (:jc, 'jc184', 'Temple 184', 'T184', 'TX', 'active', 'America/Chicago'),
   (:oc, 'oc184', 'Other Temple 184', 'O184', 'TX', 'active', 'America/Chicago'),
   (:bk1, 'bk1184', 'Backfill one 184', 'B1', 'TX', 'active', 'America/Chicago'),
-  (:bk2, 'bk2184', 'Backfill two 184', 'B2', 'TX', 'active', 'America/Chicago');
+  (:bk2, 'bk2184', 'Backfill two 184', 'B2', 'TX', 'active', 'America/Chicago'),
+  (:bk3, 'bk3184', 'Backfill three 184', 'B3', 'TX', 'active', 'America/Chicago');
 insert into app.centers (id, slug, name, environment, category_key, status) values
   (:sb, 'sb184-sandbox', 'Sandbox 184', 'sandbox', 'nonprofit_secular', 'onboarding');
 insert into app.centers (id, slug, name, status, rules) values
@@ -120,7 +122,7 @@ insert into app.role_grants (center_id, user_id, role_key, reason) values
 update app.centers set branding = jsonb_build_object('logo_path', :jc || '/brand/logo-1.png', 'colors', jsonb_build_object('primary', '#123456', 'accent', '#C9731C'))
  where id = :jc;
 insert into app.org_profiles (center_id, legal_name, ein, public_email, public_phone, languages)
-values (:jc, 'Temple 184 Inc.', '12-3456789', 'office184@temple.test', '+1 713 555 0184', array['en'])
+values (:jc, 'Temple 184 Inc.', '12-3456789', 'office184@temple.test', '+17135550184', array['en'])
 on conflict (center_id) do update set legal_name = excluded.legal_name, ein = excluded.ein, public_email = excluded.public_email,
   public_phone = excluded.public_phone, languages = excluded.languages;
 -- The community's own pledge-confirmation signer and note (in what the treasurer approves below).
@@ -153,8 +155,13 @@ insert into app.household_members (household_id, person_id, center_id, role, is_
 
 -- ══ A. On by default ═════════════════════════════════════════════════════════
 select pg_temp.assert((select count(*) = 6 and bool_and(enabled) from app.email_automations
-                          where trigger_key = 'pledge_recorded' and center_id in (:jc, :sb, :dm, :oc, :bk1, :bk2)),
+                          where trigger_key = 'pledge_recorded' and center_id in (:jc, :sb, :oc, :bk1, :bk2, :bk3)),
   'A · every community made has its pledge confirmation row, switched on (the receipt and registration emails have none until a person switches them on)');
+select pg_temp.assert(not exists (select 1 from app.email_automations where center_id = :dm),
+  'A · a community made as a demo community has no row (nothing is ever sent from it, and its reset restores the rows it was made with)');
+update app.centers set rules = rules || jsonb_build_object('demo', true) where id = :bk3;
+select pg_temp.assert(not exists (select 1 from app.email_automations where center_id = :bk3),
+  'A · and one flagged a demo community afterwards (app.create_demo_community makes a sandbox first) gives its row back');
 select pg_temp.assert(not exists (select 1 from app.email_automations where center_id = :jc and trigger_key in ('payment_receipt', 'registration_confirmed')),
   'A · and only that one: the other two emails have no row, so they are off as before');
 
@@ -181,13 +188,17 @@ select set_config('app.client_app', '', true);
 select pg_temp.assert(pg_temp.jobs(:p1) = 1 and pg_temp.jobs(:p6) = 1 and pg_temp.jobs(:p8) = 1,
   'A · a pledge recorded now, one dated five days ago, and one in a sandbox each queue exactly one compose job');
 select pg_temp.assert(pg_temp.jobs(:p2) + pg_temp.jobs(:p3) + pg_temp.jobs(:p4) + pg_temp.jobs(:p5) + pg_temp.jobs(:p7) + pg_temp.jobs(:p9) + pg_temp.jobs(:p10) = 0,
-  'A · none for a pledge already paid, a fee, an imported pledge, one dated 40 days ago (history), a demo community, an upload that chose not to email, or the import tool');
-select pg_temp.assert((select enabled from app.email_automations where center_id = :dm and trigger_key = 'pledge_recorded'),
-  'A · the demo community''s row is on like any other, and still nothing is queued for it');
+  'A · none for a pledge already paid, a fee, an imported pledge, one dated 40 days ago (history), a demo community (it has no row), an upload that chose not to email, or the import tool');
 select pg_temp.assert((select body from app.message_templates where center_id is null and key = 'pledge_recorded' and channel = 'email' and language = 'en'
                         order by version desc limit 1) like '%attached as a PDF%'
                       and (select count(*) from app.message_templates where center_id is null and key = 'pledge_recorded' and channel = 'email' and language = 'en') = 2,
   'A · the standard pledge wording (version 2) says the PDF is attached; version 1 is untouched');
+
+-- A demo community that has a row (the Email menu item makes one on demand) still queues nothing for a new pledge.
+insert into app.email_automations (center_id, kind, trigger_key, template_key, enabled) values (:dm, 'trigger', 'pledge_recorded', 'pledge_recorded', true);
+insert into app.pledges (id, center_id, household_id, amount_cents, source) values ('18400000-0000-4000-8000-000000000217', :dm, :hd, 9200, 'general');
+select pg_temp.assert(pg_temp.jobs('18400000-0000-4000-8000-000000000217') = 0, 'A · a demo community queues nothing even with the row switched on');
+delete from app.email_automations where center_id = :dm;
 
 -- The backfill keeps what a person switched off and switches on what no person ever decided (the statement of 0790, run on two rows).
 update app.email_automations set enabled = false where center_id = :bk1 and trigger_key = 'pledge_recorded';

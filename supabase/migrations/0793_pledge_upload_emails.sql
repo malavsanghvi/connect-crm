@@ -3,7 +3,7 @@
 -- Part 4 of 4 (0790 default on, 0791 the PDF, 0792 the email, 0793 this). NEEDS OWNER OK: it changes app.record_pledge_upload (0776).
 --
 -- WHAT THIS DOES, IN PLAIN WORDS
---   app.record_pledge_upload(..., p_send_emails)   0776's function with one more argument, true unless the person unticked "Email each
+--   app.record_pledge_upload(..., p_send_emails)   0776's function with one more argument (the six-argument form stays and emails), false when the person unticked "Email each
 --                                                  family their pledge". Everything else is exactly 0776: giving.manage, all or nothing,
 --                                                  once per confirmation key, each row through the rules of recording a pledge by hand.
 --                                                  The pledges go through the same trigger every pledge goes through (0790): each one
@@ -19,8 +19,6 @@
 --                                                  result screen asks again until nothing is waiting. giving.view or giving.manage.
 set client_min_messages = warning;
 
-drop function if exists app.record_pledge_upload(uuid, text, text, text, text, jsonb);
-
 create or replace function app.record_pledge_upload(
   p_center uuid,
   p_idempotency_key text,
@@ -28,7 +26,7 @@ create or replace function app.record_pledge_upload(
   p_file_sha256 text,
   p_reason text,
   p_rows jsonb,
-  p_send_emails boolean default true)
+  p_send_emails boolean)
 returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare
@@ -182,17 +180,30 @@ begin
                             'emails', coalesce(p_send_emails, true));
 end $$;
 
+-- The six-argument call of 0776 stays (a portal of an older build, the tests): it emails, as a first recording does. Two arities and no
+-- default value, so a call is never ambiguous.
+create or replace function app.record_pledge_upload(
+  p_center uuid, p_idempotency_key text, p_file_name text, p_file_sha256 text, p_reason text, p_rows jsonb)
+returns jsonb
+language sql security definer set search_path = app, public, extensions as $$
+  select app.record_pledge_upload(p_center, p_idempotency_key, p_file_name, p_file_sha256, p_reason, p_rows, true)
+$$;
+revoke execute on function app.record_pledge_upload(uuid, text, text, text, text, jsonb) from public, anon;
+grant execute on function app.record_pledge_upload(uuid, text, text, text, text, jsonb) to authenticated;
+comment on function app.record_pledge_upload(uuid, text, text, text, text, jsonb) is
+  'Records an uploaded file of pledges (0776), emailing the families as a first recording does (0793): the same as the seven-argument form with p_send_emails true.';
+
 revoke execute on function app.record_pledge_upload(uuid, text, text, text, text, jsonb, boolean) from public, anon;
 grant execute on function app.record_pledge_upload(uuid, text, text, text, text, jsonb, boolean) to authenticated;
 comment on function app.record_pledge_upload(uuid, text, text, text, text, jsonb, boolean) is
-  'Records an uploaded file of pledges, all or nothing, each row through the rules of recording a pledge by hand (0745/0775). The same key returns the same upload. A repeat of a recorded pledge is refused unless its row says repeat_ok. At most 500 rows (0776). p_send_emails (0793, default true): each pledge emails the household''s primary member with the PDF (0790, 0792); false records why it was not emailed on each pledge.';
+  'Records an uploaded file of pledges, all or nothing, each row through the rules of recording a pledge by hand (0745/0775). The same key returns the same upload. A repeat of a recorded pledge is refused unless its row says repeat_ok. At most 500 rows (0776). p_send_emails (0793): each pledge emails the household''s primary member with the PDF (0790, 0792); false records why it was not emailed on each pledge.';
 
 -- ── What became of each pledge's automatic email ──────────────────────────────────────────────────────────────────────────────────
 create or replace function app.pledge_email_status(p_center uuid, p_pledges uuid[], p_majority int default 18) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare
-  v_ids uuid[]; v_auto_id uuid; v_auto_enabled boolean; v_out jsonb := '[]'::jsonb; pl app.pledges; v_state text; v_reason text; v_contact jsonb;
-  v_demo boolean; v_mstatus text; v_mreason text; v_on boolean; v_s_outcome text; v_s_reason text; v_s_code text; v_s_msg uuid;
+  v_ids uuid[]; v_auto record; v_out jsonb := '[]'::jsonb; pl app.pledges; s record; v_state text; v_reason text; v_contact jsonb;
+  v_demo boolean; v_mstatus text; v_mreason text; v_on boolean;
 begin
   if p_center is null or not exists (select 1 from app.centers c where c.id = p_center) then
     raise exception 'That community was not found.' using errcode = 'P0002';
@@ -205,24 +216,25 @@ begin
   if coalesce(cardinality(v_ids), 0) > 500 then
     raise exception 'Ask about at most 500 pledges at a time.' using errcode = '22023';
   end if;
-  select a.id, a.enabled into v_auto_id, v_auto_enabled from app.email_automations a where a.center_id = p_center and a.kind = 'trigger' and a.trigger_key = 'pledge_recorded';
+  select a.id, a.enabled into v_auto from app.email_automations a where a.center_id = p_center and a.kind = 'trigger' and a.trigger_key = 'pledge_recorded';
   v_demo := app.is_demo_center(p_center);
-  v_on := coalesce(v_auto_enabled, false) and app.module_enabled(p_center, 'giving');
+  v_on := coalesce(v_auto.enabled, false) and app.module_enabled(p_center, 'giving');
   for pl in select p.* from app.pledges p where p.center_id = p_center and p.id = any (coalesce(v_ids, '{}'::uuid[])) order by p.pledge_number nulls last, p.created_at loop
-    select s2.outcome, s2.reason, s2.reason_code, s2.message_id into v_s_outcome, v_s_reason, v_s_code, v_s_msg
+    s := null;
+    select s2.outcome, s2.reason, s2.reason_code, s2.message_id into s
       from app.email_automation_sends s2
-     where s2.automation_id = v_auto_id and s2.ref_id = pl.id and s2.period = ''
+     where s2.automation_id = v_auto.id and s2.ref_id = pl.id and s2.period = ''
      order by (s2.outcome = 'queued') desc, s2.created_at desc
      limit 1;
     v_reason := null;
-    if v_s_outcome = 'queued' then
-      select m.status, m.failure_reason into v_mstatus, v_mreason from app.messages m where m.id = v_s_msg;
+    if s.outcome = 'queued' then
+      select m.status, m.failure_reason into v_mstatus, v_mreason from app.messages m where m.id = s.message_id;
       v_state := app._pledge_email_outcome(v_mstatus);
       v_reason := v_mreason;
-    elsif v_s_outcome = 'skipped' then
-      v_state := case v_s_code when 'no_email' then 'no_email' when 'declined' then 'declined' when 'history' then 'history'
+    elsif s.outcome = 'skipped' then
+      v_state := case s.reason_code when 'no_email' then 'no_email' when 'declined' then 'declined' when 'history' then 'history'
                                     when 'not_approved' then 'not_approved' when 'switched_off' then 'switched_off' else 'not_sent' end;
-      v_reason := v_s_reason;
+      v_reason := s.reason;
     elsif v_demo then
       v_state := 'not_sent';
       v_reason := 'Nothing is ever sent from a demo community.';

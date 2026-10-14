@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, type FunctionComponent, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -46,6 +46,9 @@ import { EmailPledgeButton, GivingSheetsProvider } from "@/components/giving-act
 import { ActButtons, type ActContext } from "@/components/giving-actions/row-actions";
 import type { GivingSheetContext } from "@/lib/giving-actions/record-sheet";
 import type { PledgeEmailSheetData } from "@/lib/pledge-email/sheet";
+
+// The provider with its children as createElement's own argument (the lint rule), which its props type does not offer.
+const SheetsProvider = GivingSheetsProvider as unknown as FunctionComponent<{ ctx: GivingSheetContext | null; children?: ReactNode }>;
 
 const ctx: GivingSheetContext = {
   currency: "USD",
@@ -182,10 +185,10 @@ describe("the buttons", () => {
 
   it("Email draws nothing where no sheet can open, and a button where it can (giving.manage)", () => {
     expect(renderToStaticMarkup(createElement(EmailPledgeButton, { pledgeId: PLEDGE }))).toBe("");
-    const on = renderToStaticMarkup(createElement(GivingSheetsProvider, { ctx }, createElement(EmailPledgeButton, { pledgeId: PLEDGE, label: "Email pledge PL-0455" })));
+    const on = renderToStaticMarkup(createElement(SheetsProvider, { ctx }, createElement(EmailPledgeButton, { pledgeId: PLEDGE, label: "Email pledge PL-0455" })));
     expect(on).toContain('aria-label="Email pledge PL-0455"');
     expect(on).toContain(">Email<");
-    const off = renderToStaticMarkup(createElement(GivingSheetsProvider, { ctx: { ...ctx, canEmailPledge: false } }, createElement(EmailPledgeButton, { pledgeId: PLEDGE })));
+    const off = renderToStaticMarkup(createElement(SheetsProvider, { ctx: { ...ctx, canEmailPledge: false } }, createElement(EmailPledgeButton, { pledgeId: PLEDGE })));
     expect(off).toBe("");
   });
 
@@ -196,7 +199,7 @@ describe("the buttons", () => {
       { kind: "print_pledge", id: PLEDGE, reference: "PL-0455", label: "Print…" },
       { kind: "email_pledge", id: PLEDGE, reference: "PL-0455", label: "Email…" },
     ] as const;
-    const withSheets = renderToStaticMarkup(createElement(GivingSheetsProvider, { ctx }, createElement(ActButtons, { acts, row, ctx: actCtx })));
+    const withSheets = renderToStaticMarkup(createElement(SheetsProvider, { ctx }, createElement(ActButtons, { acts, row, ctx: actCtx })));
     expect(withSheets).toContain('aria-label="Print pledge PL-0455"');
     expect(withSheets).toContain('aria-label="Email pledge PL-0455"');
     expect(withSheets).toContain(">Print…<");

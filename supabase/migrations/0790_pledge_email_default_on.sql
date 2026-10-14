@@ -9,7 +9,10 @@
 --
 --   app._pledge_email_automation(center)   the community's pledge_recorded row, made (switched ON) when it does not exist yet. The
 --                                          pledge trigger, the upload and the "Email" menu item all use it, so there is always one row.
---   centers_pledge_email_default           AFTER INSERT on app.centers: a community made from now on has its row, switched on.
+--   centers_pledge_email_default           AFTER INSERT on app.centers: a community made from now on has its row, switched on. Not a demo
+--                                          community (made of invented people, nothing is ever sent from it, and its reset restores exactly
+--                                          the rows it was made with): one flagged demo, at insert or later, has no row (the Email menu item
+--                                          makes it on demand).
 --   the backfill (below)                   every community without a row gets one, switched on. A row that is switched off stays off
 --                                          when someone switched it off on purpose (the audit log has the entry); a row that was only
 --                                          ever created by saving wording (never switched on or off by a person) is switched on.
@@ -54,10 +57,11 @@ grant execute on function app._pledge_email_automation(uuid) to service_role;
 comment on function app._pledge_email_automation(uuid) is
   'The community''s pledge_recorded row of app.email_automations (0770), made and switched ON when it does not exist yet (0790: the pledge confirmation is on by default).';
 
--- A community made from now on has the row, switched on. Never blocks making the community.
+-- A community made from now on has the row, switched on. Never blocks making the community. A demo community is left without one.
 create or replace function app.centers_pledge_email_default() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
+  if new.rules->'demo' = 'true'::jsonb then return null; end if;
   begin
     perform app._pledge_email_automation(new.id);
   exception when others then
@@ -70,12 +74,27 @@ drop trigger if exists centers_pledge_email_default on app.centers;
 create trigger centers_pledge_email_default after insert on app.centers
   for each row execute function app.centers_pledge_email_default();
 
+-- A community made as a sandbox and then flagged a demo community (app.create_demo_community does it in two steps) gives its row back:
+-- the demo reset restores the very rows it was made with, and nothing is ever sent from a demo community.
+create or replace function app.centers_pledge_email_demo() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  delete from app.email_automations where center_id = new.id and kind = 'trigger' and trigger_key = 'pledge_recorded';
+  return null;
+end $$;
+revoke execute on function app.centers_pledge_email_demo() from public, anon, authenticated;
+drop trigger if exists centers_pledge_email_demo on app.centers;
+create trigger centers_pledge_email_demo after update of rules on app.centers
+  for each row when (new.rules->'demo' = 'true'::jsonb and old.rules->'demo' is distinct from 'true'::jsonb)
+  execute function app.centers_pledge_email_demo();
+
 -- ── The backfill: every community has the row, switched on unless a person switched it off ────────────────────────────────────────
 select app.set_audit_context('The pledge confirmation email is on by default (0790): a row for every community, switched on unless someone switched it off on purpose');
 insert into app.email_automations (center_id, kind, trigger_key, template_key, enabled, created_by, updated_by)
 select c.id, 'trigger', 'pledge_recorded', 'pledge_recorded', true, null, null
   from app.centers c
- where not exists (select 1 from app.email_automations a where a.center_id = c.id and a.kind = 'trigger' and a.trigger_key = 'pledge_recorded');
+ where not app.is_demo_center(c.id)
+   and not exists (select 1 from app.email_automations a where a.center_id = c.id and a.kind = 'trigger' and a.trigger_key = 'pledge_recorded');
 
 update app.email_automations a
    set enabled = true
