@@ -131,7 +131,7 @@ export function DemoSigninControls({
             defaultReason: "Set up the demo sign-ins",
             run: (reason) => setupDemoSigninAction(reason, false),
           }}
-          disabled={kindsMissing.length > 0}
+          disabled={communities.length === 0}
         />
         {anyReady ? (
           <ReasonButton
