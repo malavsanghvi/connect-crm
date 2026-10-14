@@ -24,9 +24,9 @@
 --                     announcements, event invitations), or a campaign send on a topic that counts. Never a message
 --                     without a campaign or a campaign purpose (receipts, codes, account and security, reminders), never a
 --                     topic about children or learning. The campaign or topic name, never the subject or the words.
---         receipt     a completed payment's receipt sent (payments.receipt_sent_at; status captured or settled, so never
---                     a pending, failed, voided or refunded one), never one whose payer is under 18;
---                     the amount ONLY with app.care_amounts_can
+--         receipt     a completed payment's receipt sent (payments.receipt_sent_at; captured, settled or partly refunded,
+--                     never one still clearing, failed, voided or refunded in full), never one whose payer is under 18;
+--                     the amount ONLY with app.care_amounts_can, and then what remains after refunds
 --         statement   a statement prepared for the household
 --         check_in    an adult checked in at an event
 --         volunteer   a volunteer shift an adult worked (completed, or confirmed and over)
@@ -330,10 +330,12 @@ begin
     union all
     select 'receipt', pay.id::text, pay.receipt_sent_at, null, null, 'done', false, null, null, pay.payer_person_id,
            case when nullif(btrim(pay.receipt_number), '') is not null then 'Receipt ' || btrim(pay.receipt_number) else 'Receipt' end,
-           case when v_amounts then pay.amount_cents end, null
+           case when v_amounts then greatest(pay.amount_cents - pay.refunded_cents, 0) end, null
       from app.payments pay
      where v_giving and pay.household_id = p_household and pay.receipt_sent_at is not null
-       and pay.status in ('captured', 'settled')   -- completed only: never pending, failed, voided or refunded
+       -- Completed only: a partly refunded payment counts (the rest of the gift stands, owner decision 2026-10-13);
+       -- never one still clearing, failed, voided or refunded in full.
+       and pay.status in ('captured', 'settled', 'partially_refunded')
        and (pay.payer_person_id is null or not app.person_is_minor(pay.payer_person_id))
     union all
     select 'statement', s.id::text, s.generated_at, null, null, 'done', false, null, null, null,

@@ -62,6 +62,7 @@ $$;
 \set pay3 '''16500000-0000-4000-8000-0000000000f3'''
 \set pay4 '''16500000-0000-4000-8000-0000000000f4'''
 \set pay5 '''16500000-0000-4000-8000-0000000000f5'''
+\set pay6 '''16500000-0000-4000-8000-0000000000f6'''
 \set pf '''16500000-0000-4000-8000-0000000000a5'''
 \set pn '''16500000-0000-4000-8000-0000000000a6'''
 \set cc1 '''16500000-0000-4000-8000-0000000000d1'''
@@ -140,6 +141,9 @@ insert into app.payments (id, center_id, household_id, payer_person_id, amount_c
   (:pay3, :c1, :h1, :pk, 300, 'check', 'captured', 'offline', current_date - 4, 'R-167', now() - interval '4 days'),
   (:pay4, :c1, :h1, :pa, 900, 'check', 'refunded', 'offline', current_date - 4, 'R-168', now() - interval '4 days'),
   (:pay5, :c1, :h1, :pa, 800, 'check', 'pending_clearing', 'offline', current_date - 4, 'R-169', now() - interval '4 days');
+-- A partly refunded gift counts: the rest of it stands (owner decision 2026-10-13).
+insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, refunded_cents, method, status, provider, received_on, receipt_number, receipt_sent_at) values
+  (:pay6, :c1, :h1, :pb, 2000, 500, 'check', 'partially_refunded', 'offline', current_date - 7, 'R-170', now() - interval '7 days');
 insert into app.statements (center_id, household_id, kind, tax_year, generated_at) values (:c1, :h1, 'tax_year', 2025, now() - interval '6 days');
 insert into app.events (id, center_id, name, starts_at, ends_at, status) values
   (:ev, :c1, 'Harvest supper 165', now() - interval '5 days', now() - interval '5 days' + interval '3 hours', 'published');
@@ -231,12 +235,12 @@ create or replace function pg_temp.n(j jsonb, src text) returns int language sql
   select count(*)::int from jsonb_array_elements(j->'rows') e where e->>'source' = src
 $$;
 select app.care_household_touches(:h1) as log1 \gset
-select pg_temp.assert(jsonb_array_length((:'log1'::jsonb)->'rows') = 9 and (pg_temp.sources(:'log1'::jsonb))[1] = 'manual'
+select pg_temp.assert(jsonb_array_length((:'log1'::jsonb)->'rows') = 10 and (pg_temp.sources(:'log1'::jsonb))[1] = 'manual'
                       and pg_temp.n(:'log1'::jsonb, 'manual') = 2 and pg_temp.n(:'log1'::jsonb, 'message') = 3
-                      and pg_temp.n(:'log1'::jsonb, 'receipt') = 1 and pg_temp.n(:'log1'::jsonb, 'statement') = 1
+                      and pg_temp.n(:'log1'::jsonb, 'receipt') = 2 and pg_temp.n(:'log1'::jsonb, 'statement') = 1
                       and pg_temp.n(:'log1'::jsonb, 'check_in') = 1 and pg_temp.n(:'log1'::jsonb, 'volunteer') = 1
                       and not ((:'log1'::jsonb)->>'more')::boolean,
-  'B · two recorded touches, three community messages, a receipt, a statement, a check-in and a shift; the removed touch is gone');
+  'B · two recorded touches, three community messages, two receipts (one partly refunded), a statement, a check-in and a shift; the removed touch is gone');
 select pg_temp.assert(position('Esi' in (:'log1'::jsonb)::text) = 0 and position('Nana' in (:'log1'::jsonb)::text) = 0
                       and position('pledge of' in (:'log1'::jsonb)::text) = 0 and position('$500' in (:'log1'::jsonb)::text) = 0
                       and position('Class news' in (:'log1'::jsonb)::text) = 0 and position('R-166' in (:'log1'::jsonb)::text) = 0
@@ -262,23 +266,27 @@ select pg_temp.assert(pg_temp.n(:'logh2'::jsonb, 'message') = 1
                       and (select e->>'person_name' = 'Fia Mensah165' and (e->>'at')::timestamptz > now() - interval '3 days'
                              from jsonb_array_elements((:'logh2'::jsonb)->'rows') e where e->>'source' = 'message'),
   'B · after she moved, Fia''s messages belong to her new household, and her old ones stay with the old one');
-select pg_temp.assert((select e->'amount_cents' = 'null'::jsonb and e->>'label' = 'Receipt R-165'
+select pg_temp.assert((select bool_and(e->'amount_cents' = 'null'::jsonb) and array_agg(e->>'label' order by e->>'label') = array['Receipt R-165', 'Receipt R-170']
                          from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'receipt')
+                      and (select e->>'person_name' = 'Kofi Mensah165'
+                             from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'label' = 'Receipt R-170')
                       and not ((:'log1'::jsonb)->>'amounts')::boolean,
-  'B · a care lead without a giving role sees the receipt, never its amount');
+  'B · a care lead without a giving role sees the receipts, the partly refunded one too, never an amount');
 select pg_temp.assert((select bool_and((e->>'can_remove')::boolean = (e->>'source' = 'manual'))
                          from jsonb_array_elements((:'log1'::jsonb)->'rows') e),
   'B · only recorded touches can be removed, and a manager may remove them');
 select pg_temp.assert(pg_temp.all_keys(:h1, 2) = (select array_agg(x.e->>'key' order by x.i) from jsonb_array_elements((:'log1'::jsonb)->'rows') with ordinality as x(e, i))
-                      and cardinality(pg_temp.all_keys(:h1, 1)) = 9
-                      and (select count(distinct k) from unnest(pg_temp.all_keys(:h1, 2)) k) = 9,
+                      and cardinality(pg_temp.all_keys(:h1, 1)) = 10
+                      and (select count(distinct k) from unnest(pg_temp.all_keys(:h1, 2)) k) = 10,
   'B · page by page, the log returns every row once, in order (two rows share a time)');
 select pg_temp.claims(:fin);
 select app.care_household_touches(:h1) as log2 \gset
 select pg_temp.assert((select (e->>'amount_cents')::bigint = 5000
-                         from jsonb_array_elements((:'log2'::jsonb)->'rows') e where e->>'source' = 'receipt')
+                         from jsonb_array_elements((:'log2'::jsonb)->'rows') e where e->>'label' = 'Receipt R-165')
+                      and (select (e->>'amount_cents')::bigint = 1500
+                             from jsonb_array_elements((:'log2'::jsonb)->'rows') e where e->>'label' = 'Receipt R-170')
                       and ((:'log2'::jsonb)->>'amounts')::boolean,
-  'B · with a giving role as well, the amount shows (care_amounts_can)');
+  'B · with a giving role as well, the amount shows (care_amounts_can), and for a partly refunded gift what remains');
 select app.care_household_touches(:h1, null, null, 3) as page1 \gset
 select app.care_household_touches(:h1, ((:'page1'::jsonb)->'rows'->2->>'at')::timestamptz, (:'page1'::jsonb)->'rows'->2->>'key', 3) as page2 \gset
 select pg_temp.assert(jsonb_array_length((:'page1'::jsonb)->'rows') = 3 and ((:'page1'::jsonb)->>'more')::boolean
@@ -287,7 +295,7 @@ select pg_temp.assert(jsonb_array_length((:'page1'::jsonb)->'rows') = 3 and ((:'
   'B · the log pages back in time');
 select pg_temp.claims(:rel);
 select app.care_household_touches(:h1) as log3 \gset
-select pg_temp.assert(jsonb_array_length((:'log3'::jsonb)->'rows') = 9
+select pg_temp.assert(jsonb_array_length((:'log3'::jsonb)->'rows') = 10
                       and (select bool_and((e->>'can_remove')::boolean = (e->>'source' = 'manual' and e->>'id' in (:'t2', :'t3')))
                              from jsonb_array_elements((:'log3'::jsonb)->'rows') e),
   'B · the owner sees the same log and may remove the touches they recorded');
@@ -298,7 +306,7 @@ insert into app.center_modules (center_id, module_key, enabled, reason) values (
 set role authenticated;
 select pg_temp.claims(:lead);
 select app.care_household_touches(:h1) as log4 \gset
-select pg_temp.assert(not ('message' = any (pg_temp.sources(:'log4'::jsonb))) and jsonb_array_length((:'log4'::jsonb)->'rows') = 6,
+select pg_temp.assert(not ('message' = any (pg_temp.sources(:'log4'::jsonb))) and jsonb_array_length((:'log4'::jsonb)->'rows') = 7,
   'B · with Communications switched off, its messages leave the log');
 reset role;
 select pg_temp.no_claims();
