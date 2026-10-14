@@ -207,6 +207,8 @@ export function pledgeRow(p: PledgeIn, family: Family | null, ctx: ListContext, 
   const primary: Act[] = [];
   const menu: Act[] = [];
   let note: string | null = null;
+  // Edit or delete (0782): giving.manage; a deleted (cancelled) pledge stays as it is. The sheet shows what the database locks and why.
+  if (ctx.can.manage && p.status !== "cancelled") menu.push({ kind: "edit_pledge", id: p.id, reference: ref, label: "Edit pledge…" });
   if (open && ctx.can.record) menu.push({ kind: "record_payment", householdId: p.householdId, href: recordPaymentHref(p.householdId), label: "Record payment" });
   // Not while a write-off waits for approval (app.set_pledge_due_on refuses it too).
   if (open && ctx.can.manage && !p.writeOffBy) {

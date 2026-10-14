@@ -1,5 +1,5 @@
 import { CustomDetailsCell } from "@/components/custom-details-cell";
-import { RecordPledgeButton } from "@/components/giving-actions/provider";
+import { EditPledgeButton, RecordPledgeButton } from "@/components/giving-actions/provider";
 import { PeriodNote } from "@/components/giving-glance/period-note";
 import { Badge, Card, EmptyState, NoAccess, QueryError, TableWrap, buttonClass } from "@/components/ui";
 import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
@@ -32,7 +32,9 @@ export async function PledgesTab({ session, householdId, period, recordPledge = 
     db.from("campaigns").select("id, name").eq("center_id", center.id),
     loadCustomFieldDefs(db, center.id, "pledges", true),
   ]);
+  // Edit (and Delete, inside the sheet) is giving.manage; the database decides again and says what is locked on each pledge (0782).
   const editCustom = canAccess(session, "givingManage");
+  const canEdit = editCustom;
   if (pRes.error) return <QueryError what="pledges" error={pRes.error} retryHref={retry} />;
   const campaign = new Map((cRes.data ?? []).map((c) => [c.id, c.name]));
   const withCustom = defs.defs.length ? await withCustomValues(db, "pledges", pRes.data ?? []) : { rows: pRes.data ?? [], error: null };
@@ -76,6 +78,11 @@ export async function PledgesTab({ session, householdId, period, recordPledge = 
                 <th>Pledged</th>
                 <th>Due</th>
                 {defs.defs.length ? <th>More details</th> : null}
+                {canEdit ? (
+                  <th>
+                    <span className="sr-only">Edit</span>
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -105,6 +112,15 @@ export async function PledgesTab({ session, householdId, period, recordPledge = 
                   {defs.defs.length ? (
                     <td>
                       <CustomDetailsCell defs={defs.defs} entity="pledges" recordId={p.id} custom={p.custom} editable={editCustom} currency={center.currency} />
+                    </td>
+                  ) : null}
+                  {canEdit ? (
+                    <td className="whitespace-nowrap">
+                      {p.status !== "cancelled" ? (
+                        <EditPledgeButton pledgeId={p.id} label={`Edit pledge ${p.pledge_number ?? ""}`.trim()} className={`${buttonClass("ghost", "xs")} min-h-[36px]`}>
+                          Edit
+                        </EditPledgeButton>
+                      ) : null}
                     </td>
                   ) : null}
                 </tr>

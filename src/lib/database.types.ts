@@ -13629,6 +13629,14 @@ export type Database = {
         };
         Returns: string;
       };
+      delete_pledge: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       demo_can_manage: {
         Args: {
           p_center: string;
@@ -13724,6 +13732,15 @@ export type Database = {
           p_body: string;
         };
         Returns: undefined;
+      };
+      edit_pledge: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_changes: Json;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       email_automation_log: {
         Args: {
@@ -15702,6 +15719,13 @@ export type Database = {
       platform_waiting: {
         Args: {
           p_limit?: number;
+        };
+        Returns: Json;
+      };
+      pledge_edit_state: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
         };
         Returns: Json;
       };
