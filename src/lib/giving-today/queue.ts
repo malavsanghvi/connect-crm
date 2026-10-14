@@ -213,6 +213,10 @@ export type Act =
   /** Every pledge has a due date (0775): a treasurer moves an open pledge's, with a reason. `pledgedOn` is the earliest it may be. */
   /** Edit or delete one pledge (0782, giving.manage): the Edit pledge sheet in place, with the database's own locks. */
   | { kind: "edit_pledge"; id: string; reference: string; label: string }
+  /** Print the pledge as an invoice-style PDF (0791): giving.view or giving.manage. */
+  | { kind: "print_pledge"; id: string; reference: string; label: string }
+  /** Email the pledge, with its PDF attached, to the primary member or any address typed (0792): giving.manage. */
+  | { kind: "email_pledge"; id: string; reference: string; label: string }
   | { kind: "change_due"; id: string; reference: string; dueOn: string | null; pledgedOn: string; label: string }
   | { kind: "request_refund"; id: string; refundableCents: number; reference: string; label: string }
   | { kind: "provider_refund"; id: string; amountCents: number; provider: "stripe" | "paypal"; reference: string; label: string; what: string }
@@ -431,7 +435,7 @@ function approvalRow(t: HomeTask, d: GivingTaskDetail, ctx: TodayContext, input:
       title: `Ready to record: refund of ${amt}`,
       lines: [
         `Receipt ${ref} · approved by two people (${asked} asked)`,
-        ...(online ? ["Card and online payments are refunded through the payment provider; it asks for a fresh code."] : []),
+        ...(online ? ["Card and online payments are refunded through the payment provider."] : []),
       ],
       acts: act
         ? [act, ...openFamily(family)]

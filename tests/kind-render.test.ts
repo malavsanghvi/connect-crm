@@ -168,7 +168,7 @@ describe("Platform › the organization › Kind of organization", () => {
     expect(html).toContain("Chamber of commerce");
     expect(html).toContain("Preview only");
     expect(html).toContain("Change…");
-    expect(html).toContain("fresh 2FA check");
+    expect(html).toContain("Weaver-only step that needs a reason");
     expect(html).toContain("Nothing is deleted");
   });
 });

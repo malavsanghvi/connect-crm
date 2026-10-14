@@ -81,7 +81,7 @@ function createMockProviders(opts = {}) {
         if (p === '/emails' && req.method === 'POST') {
           const b = json(); const to = Array.isArray(b.to) ? b.to[0] : b.to;
           if (/^reject@/.test(to)) return send(res, 422, { statusCode: 422, name: 'validation_error', message: 'The recipient was rejected (mock).' });
-          const m = { provider: 'resend', channel: 'email', id: id('re_'), from: b.from, to, subject: b.subject, html: b.html, text: b.text, reply_to: b.reply_to || null, headers: b.headers || {}, at: new Date().toISOString() };
+          const m = { provider: 'resend', channel: 'email', id: id('re_'), from: b.from, to, subject: b.subject, html: b.html, text: b.text, reply_to: b.reply_to || null, headers: b.headers || {}, attachments: b.attachments || [], at: new Date().toISOString() };
           state.inbox.push(m); await relay(m);
           return send(res, 200, { id: m.id });
         }
@@ -101,7 +101,7 @@ function createMockProviders(opts = {}) {
         if (p === '/email' && req.method === 'POST') {
           const b = json();
           if (/^reject@/.test(b.To)) return send(res, 422, { ErrorCode: 406, Message: 'You tried to send to a recipient that has been marked as inactive (mock).' });
-          const mm = { provider: 'postmark', channel: 'email', id: id('pm-'), from: b.From, to: b.To, subject: b.Subject, html: b.HtmlBody, text: b.TextBody, reply_to: b.ReplyTo || null, headers: b.Headers || [], at: new Date().toISOString() };
+          const mm = { provider: 'postmark', channel: 'email', id: id('pm-'), from: b.From, to: b.To, subject: b.Subject, html: b.HtmlBody, text: b.TextBody, reply_to: b.ReplyTo || null, headers: b.Headers || [], attachments: b.Attachments || [], at: new Date().toISOString() };
           state.inbox.push(mm); await relay(mm);
           return send(res, 200, { To: b.To, SubmittedAt: mm.at, MessageID: mm.id, ErrorCode: 0, Message: 'OK' });
         }

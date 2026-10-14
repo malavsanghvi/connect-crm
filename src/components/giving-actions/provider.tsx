@@ -12,6 +12,8 @@
 //   <RecordPledgeButton householdId={id} />                       (nothing where no sheet can open: there is no other screen)
 //   sheets?.openEditPledge({ pledgeId, onDone });                  (giving.manage only; 0782: edit or delete one pledge)
 //   <EditPledgeButton pledgeId={id} />                             (nothing where no sheet can open)
+//   sheets?.openEmailPledge({ pledgeId, onSent });                 (giving.manage only; 0792: email a pledge with its PDF)
+//   <EmailPledgeButton pledgeId={id} />                            (nothing where no sheet can open)
 //
 // The sheets only open; the Record payment sheet's own button records (through the existing recordOfflinePaymentAction). Where no
 // sheet can open (the classic look, or a person without Giving) useGivingSheets() is null and RecordPaymentButton is its plain link.
@@ -24,12 +26,14 @@ import type { FamilyFocus } from "@/lib/giving-actions/family-giving";
 import type { RecordedPledge, RecordPledgeRequest } from "@/lib/giving-actions/record-pledge";
 import type { GivingSheetContext, RecordPaymentRequest } from "@/lib/giving-actions/record-sheet";
 import type { EditPledgeRequest } from "./edit-pledge-sheet";
+import type { EmailPledgeRequest } from "./email-pledge-sheet";
 
 // The sheets (and the Server Actions behind them) load when one is first opened, not with every page of the shell.
 const RecordPaymentSheet = lazy(() => import("./record-payment-sheet").then((m) => ({ default: m.RecordPaymentSheet })));
 const FamilyGivingPanel = lazy(() => import("./family-giving").then((m) => ({ default: m.FamilyGivingPanel })));
 const RecordPledgeSheet = lazy(() => import("./record-pledge-sheet").then((m) => ({ default: m.RecordPledgeSheet })));
 const EditPledgeSheet = lazy(() => import("./edit-pledge-sheet").then((m) => ({ default: m.EditPledgeSheet })));
+const EmailPledgeSheet = lazy(() => import("./email-pledge-sheet").then((m) => ({ default: m.EmailPledgeSheet })));
 
 export type OpenRecordPayment = RecordPaymentRequest & {
   /** Called once the server confirmed the payment (a list can show the new row as done). */
@@ -52,12 +56,16 @@ export type GivingSheetsApi = {
   /** The person may edit or delete a pledge (giving.manage; 0782). */
   canEditPledge: boolean;
   openEditPledge: (request: EditPledgeRequest) => void;
+  /** The person may email a pledge with its PDF (giving.manage; 0792). */
+  canEmailPledge: boolean;
+  openEmailPledge: (request: EmailPledgeRequest) => void;
 };
 
 type Open =
   | { kind: "record"; request: OpenRecordPayment; n: number }
   | { kind: "pledge"; request: OpenRecordPledge; n: number }
   | { kind: "editPledge"; request: EditPledgeRequest; n: number }
+  | { kind: "emailPledge"; request: EmailPledgeRequest; n: number }
   | { kind: "family"; householdId: string; focus: FamilyFocus | null; n: number }
   | null;
 
@@ -105,6 +113,12 @@ export function GivingSheetsProvider({ ctx, children }: { ctx: GivingSheetContex
         remember();
         setOpen({ kind: "editPledge", request, n: ++count.current });
       },
+      canEmailPledge: ctx.canEmailPledge === true,
+      openEmailPledge: (request) => {
+        if (ctx.canEmailPledge !== true) return;
+        remember();
+        setOpen({ kind: "emailPledge", request, n: ++count.current });
+      },
     };
   }, [ctx, remember]);
 
@@ -135,6 +149,7 @@ export function GivingSheetsProvider({ ctx, children }: { ctx: GivingSheetContex
           <RecordPledgeSheet key={open.n} ctx={ctx} request={open.request} onRecorded={open.request.onRecorded} onClose={close} />
         ) : null}
         {ctx && open?.kind === "editPledge" ? <EditPledgeSheet key={open.n} ctx={ctx} request={open.request} onClose={close} /> : null}
+        {ctx && open?.kind === "emailPledge" ? <EmailPledgeSheet key={open.n} ctx={ctx} request={open.request} onClose={close} /> : null}
         {ctx && open?.kind === "family" ? (
           <FamilyGivingPanel
             key={open.n}
@@ -194,6 +209,20 @@ export function EditPledgeButton({ pledgeId, className, children = "Edit", label
   if (!sheets?.canEditPledge) return null;
   return (
     <button type="button" className={className} aria-label={label} onClick={() => sheets.openEditPledge({ pledgeId })}>
+      {children}
+    </button>
+  );
+}
+
+/**
+ * "Email": opens the Email pledge sheet in place for someone with giving.manage where the sheets are mounted (the New look). There is no
+ * other way to email a pledge, so elsewhere (the classic look, or without the permission) it renders nothing.
+ */
+export function EmailPledgeButton({ pledgeId, className, children = "Email", label }: { pledgeId: string; className?: string; children?: ReactNode; label?: string }) {
+  const sheets = useGivingSheets();
+  if (!sheets?.canEmailPledge) return null;
+  return (
+    <button type="button" className={className} aria-label={label} onClick={() => sheets.openEmailPledge({ pledgeId })}>
       {children}
     </button>
   );

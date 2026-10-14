@@ -58,12 +58,15 @@ export async function preparePledgeUploadAction(input: FileForReview): Promise<A
   }
 }
 
-export type RecordPledgeUploadInput = { key: string; fileName: string; sha256: string | null; reason: string; rows: PledgeUploadRow[] };
+/** `sendEmails`: the box "Email each family their pledge" (0793); on unless it is false. */
+export type RecordPledgeUploadInput = { key: string; fileName: string; sha256: string | null; reason: string; rows: PledgeUploadRow[]; sendEmails?: boolean };
 export type RecordedPledgeUpload = {
   uploadId: string;
   replayed: boolean;
   count: number;
   totalCents: number;
+  /** The families were to be emailed their pledge (the box was ticked, and it is not a replay). */
+  emails: boolean;
   pledges: { row: number; pledgeId: string; pledgeNumber: string | null; householdId: string; amountCents: number; dueOn: string | null }[];
 };
 
@@ -98,6 +101,7 @@ async function recordUpload(input: RecordPledgeUploadInput): Promise<ActionResul
         p_file_sha256: isSha256(input.sha256) ? input.sha256 : null,
         p_reason: reason,
         p_rows: rows.value,
+        p_send_emails: input.sendEmails !== false,
       },
       "record the pledges",
     )) as Record<string, unknown> | null;
@@ -114,6 +118,8 @@ async function recordUpload(input: RecordPledgeUploadInput): Promise<ActionResul
     replayed: j.replayed === true,
     count: Number(j.count ?? list.length),
     totalCents: Number(j.total_cents ?? 0),
+    // A replay queues nothing again; a first recording emails unless the box was unticked.
+    emails: j.replayed === true ? false : j.emails !== false,
     pledges: list.map((p) => ({
       row: Number(p.row),
       pledgeId: str(p.pledge_id) ?? "",

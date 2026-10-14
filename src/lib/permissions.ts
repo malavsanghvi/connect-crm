@@ -241,6 +241,8 @@ export const ACCESS = {
   allocatePayment: ["giving.manage"],
   /** Record a pledge by hand (slice 7, 0745): giving.manage only (owner decision 2026-10-12; no second approver, it moves no money). */
   recordPledge: ["giving.manage"],
+  /** Print a pledge as a PDF (0791): whoever the Pledges list shows the pledge to, giving.view or giving.manage (the database asks the same). Emailing it is givingManage. */
+  pledgeCopy: ["giving.view", "giving.manage"],
   bank: ["giving.view", "giving.record_offline"],
   bankImport: ["giving.manage", "giving.record_offline"],
   bankConfirm: ["giving.record_offline", "giving.manage"],
@@ -593,6 +595,8 @@ export const NAV: NavModule[] = [
     label: "Communications",
     tabs: [
       { href: "/comms/newsletters", label: "Newsletters", access: "comms" },
+      // Saved templates (0800): read and written with comms.send, the permission that writes a communication.
+      { href: "/comms/templates", label: "Templates", access: "commsSend" },
       { href: "/comms/inbox", label: "Inbox", access: "commsInbox" },
       { href: "/comms/whatsapp", label: "WhatsApp queue", access: "comms" },
       { href: "/comms/surveys", label: "Surveys", access: "comms", module: "surveys" },

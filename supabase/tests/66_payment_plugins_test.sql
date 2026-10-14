@@ -424,8 +424,8 @@ select pg_temp.assert((select e->>'mode' = 'live' and e#>>'{instructions,recipie
   'production Zelle: the real address and name, report window 10 days, confirmation asked for');
 reset role;
 
--- Live (owner or integrations.manage, fresh 2FA).
-select pg_temp.claims('66000000-0000-4000-8000-000000000001', true);
+-- Live (owner or integrations.manage; no fresh 2FA code is asked for, 0787).
+select pg_temp.claims('66000000-0000-4000-8000-000000000001', false);
 set local role authenticated;
 select app.set_payment_mode(:plg, 'stripe', 'live', 'Go live after the pilot');
 reset role;

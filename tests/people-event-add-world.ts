@@ -91,7 +91,8 @@ export function world(): FakeDbOptions & { tables: Record<string, Row[]> } {
         ev({ id: W.draft, name: "Not announced", status: "draft" }),
         ev({ id: W.past, name: "Last week", starts_at: "2026-10-05T17:00:00Z", ends_at: "2026-10-05T20:00:00Z" }),
         ev({ id: W.cancelled, name: "Called off", status: "cancelled" }),
-        ev({ id: W.camp, name: "Weekend camp", status: "rsvp_closed", starts_at: "2026-10-10T17:00:00Z", ends_at: "2026-10-14T17:00:00Z" }),
+        // Still going (it started, and it ends far in the future): a fixed end date of 2026-10-14 made this fixture, and the tests that list it, fail once that day passed.
+        ev({ id: W.camp, name: "Weekend camp", status: "rsvp_closed", starts_at: "2026-10-10T17:00:00Z", ends_at: "2036-10-14T17:00:00Z" }),
       ],
       rsvps: [],
       attendees: [],

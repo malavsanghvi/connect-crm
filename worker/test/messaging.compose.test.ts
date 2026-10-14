@@ -80,3 +80,56 @@ describe("messaging.compose", () => {
     await expect(compose.run(job({ kind: "messaging.compose", payload: {} }), ctx)).rejects.toThrow(/automation_id/);
   });
 });
+
+describe("messaging.compose for a pledge emailed by hand (0792)", () => {
+  const REQ = "17000000-0000-4000-8000-0000000000ee";
+  const pledgeFacts = {
+    trigger: "pledge_recorded",
+    skip: null,
+    automation: { id: AUTO, key: "pledge_recorded", template_key: "pledge_recorded" },
+    center: { name: "Riverside", short_name: "Riverside", currency: "USD", time_zone: "America/Chicago", country: "US", languages: ["en"] },
+    household: { id: HH, name: "Rao, Asha & Zoya", number: "H-7", minor_first_names: ["Zoya"] },
+    pledge: { amount_cents: 120000, paid_cents: 20000, number: "PL-9", pledged_at: "2026-10-03", due_on: "2026-11-02", for: "Building fund" },
+    wording: null,
+    recipients: [{ person_id: null, address: "typed@example.org", first_name: null, name: null, language: null }],
+  };
+
+  it("reads the address from the request (not from the job), writes the email for that one address and queues it once, keyed to the request", async () => {
+    const { ctx, calls } = ctxWith((text) => {
+      if (text.includes("worker_email_context")) return [{ c: { country: "US" } }];
+      if (text.includes("worker_pledge_email_request")) return [{ f: pledgeFacts }];
+      return [{ r: { outcome: "queued" } }];
+    });
+    const out = await compose.run(job({ kind: "messaging.compose", payload: { automation_id: AUTO, ref_id: REF, request_id: REQ } }), ctx);
+    expect(out).toEqual({ automation_id: AUTO, ref_id: REF, queued: 1, skipped: 0, duplicate: 0 });
+    const q = calls.filter((c) => c.fn === "query");
+    expect(String(q[1]?.args[0])).toContain("worker_pledge_email_request");
+    expect(q[1]?.args[1]).toEqual([REQ, 18]);
+    expect(q.some((c) => String(c.args[0]).includes("worker_email_facts"))).toBe(false);
+    const enqueue = q[2]?.args[1] as unknown[];
+    expect(enqueue.slice(0, 6)).toEqual([AUTO, REF, `manual:${REQ}`, HH, null, "typed@example.org"]);
+    const vars = JSON.parse(String(enqueue[6])) as Record<string, string>;
+    expect(vars.pledge_amount).toBe("$1,200.00");
+    expect(vars.pledge_balance).toBe("$1,000.00");
+    expect(vars.recipient_first_name).toBe("friend");
+    expect(vars.household_name).toBe("Rao, Asha");
+    expect(JSON.stringify(vars)).not.toContain("Zoya");
+    // The address is never in the job itself.
+    expect(JSON.stringify({ automation_id: AUTO, ref_id: REF, request_id: REQ })).not.toContain("@");
+  });
+
+  it("stops with the database's reason when the request cannot be sent, and queues nothing", async () => {
+    const { ctx, calls } = ctxWith((text) => {
+      if (text.includes("worker_email_context")) return [{ c: {} }];
+      return [{ f: { ...pledgeFacts, skip: "Not sent: the pledge was cancelled." } }];
+    });
+    const out = await compose.run(job({ kind: "messaging.compose", payload: { automation_id: AUTO, ref_id: REF, request_id: REQ } }), ctx);
+    expect(out.reason).toBe("Not sent: the pledge was cancelled.");
+    expect(calls.filter((c) => c.fn === "query")).toHaveLength(2);
+  });
+
+  it("refuses a request id that is not an id", async () => {
+    const { ctx } = ctxWith(() => []);
+    await expect(compose.run(job({ kind: "messaging.compose", payload: { automation_id: AUTO, ref_id: REF, request_id: "x@y.z" } }), ctx)).rejects.toThrow(/needs an automation_id/);
+  });
+});

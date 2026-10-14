@@ -274,6 +274,16 @@ describe("messages.audience_preview", () => {
 });
 
 // ---------------------------------------------------------------------------
+const WORKING = "ca000000-0000-4000-8000-0000000000a1";
+/** A copy of a communication, or a start from a template: a draft nobody has been asked to approve. */
+function withWorkingDraft(world: ReturnType<typeof setup>) {
+  world.tables.comms_campaigns.push({
+    id: WORKING, center_id: "center-1", kind: "newsletter", name: "Copy of September news", title: "News", status: "working_draft", audience: {}, channels: ["email"], translations: {},
+    scheduled_at: null, sent_at: null, recipients_count: null, requires_second_approver: false, approved_by: null, second_approver: null, created_at: "2026-10-10T14:00:00.000Z",
+  });
+  return world;
+}
+
 describe("messages.campaigns", () => {
   it("lists what waits for approval in the page's words, and says who can approve now", async () => {
     const { ctx } = setup();
@@ -293,6 +303,19 @@ describe("messages.campaigns", () => {
     expect(d.campaigns.find((c) => c.campaign_id === M.cpSent)).toMatchObject({ status_label: "Sent", went_out: true });
     expect(d.campaigns.filter((c) => c.went_out)).toHaveLength(1);
     expect(d.notes.join(" ")).toMatch(/none has gone out/);
+  });
+
+  it("lists a draft that has not been sent for approval as such: not waiting for approval, nobody can approve it yet", async () => {
+    const world = withWorkingDraft(setup());
+    const waiting = dataOf<{ campaigns: Dict[] }>(await run(world.ctx, "messages.campaigns", {}));
+    expect(waiting.campaigns.some((c) => c.campaign_id === WORKING)).toBe(false);
+    const all = dataOf<{ campaigns: Dict[] }>(await run(world.ctx, "messages.campaigns", { which: "all", limit: 30 }));
+    expect(all.campaigns.find((c) => c.campaign_id === WORKING)).toMatchObject({
+      status_label: "Draft · not sent for approval",
+      went_out: false,
+      you_can_approve_now: false,
+      approvals: "A draft that has not been sent for approval yet. Its writer sends it for approval when it is ready.",
+    });
   });
 
   it("does not offer the first approver a second approval, or a person without the permission any approval", async () => {
@@ -488,6 +511,13 @@ describe("messages.approve_campaign", () => {
     expect(failed(await run(world.ctx, "messages.approve_campaign", { campaign_id: M.cpSent }))).toBe('Could not approve "September news" — it is no longer awaiting approval.');
     expect(failed(await run(world.ctx, "messages.approve_campaign", { campaign_id: M.cpMissing }))).toBe("Could not approve the newsletter — it no longer exists.");
   });
+
+  it("does not approve a draft that has not been sent for approval: its writer does that from the draft's page", async () => {
+    const world = withWorkingDraft(setup({ via: "screen" }));
+    const said = "Could not approve \"Copy of September news\" — it is a draft that has not been sent for approval yet. Its writer sends it for approval from the draft's page.";
+    expect(failed(await run(world.ctx, "messages.approve_campaign", { campaign_id: WORKING }))).toBe(said);
+    expect(world.tables.comms_campaigns.find((c) => c.id === WORKING)?.status).toBe("working_draft");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -512,6 +542,18 @@ describe("messages.set_campaign_status", () => {
     const { ctx } = setup({ via: "assistant" });
     expect(failed(await run(ctx, "messages.set_campaign_status", { campaign_id: M.cpSent, decision: "cancelled" }))).toBe("Could not cancel the newsletter — it has already gone out or was cancelled.");
     expect(failed(await run(ctx, "messages.set_campaign_status", { campaign_id: M.cpCancelled, decision: "draft" }))).toBe("Could not move the newsletter back to approval — it has already gone out or was cancelled.");
+  });
+
+  it("discards a draft that was never sent for approval (cancelled), but never sends it to approval from here", async () => {
+    const world = withWorkingDraft(setup({ via: "assistant" }));
+    const { result } = await confirmed(world.ctx, "messages.set_campaign_status", { campaign_id: WORKING, decision: "cancelled" });
+    expect(result).toMatchObject({ ok: true, message: "Cancelled." });
+    expect(world.tables.comms_campaigns.find((c) => c.id === WORKING)?.status).toBe("cancelled");
+    const again = withWorkingDraft(setup({ via: "assistant" }));
+    expect(failed(await run(again.ctx, "messages.set_campaign_status", { campaign_id: WORKING, decision: "draft" }))).toBe(
+      "Could not move the newsletter back to approval — it is a draft that has not been sent for approval yet, so there is nothing to take back.",
+    );
+    expect(again.tables.comms_campaigns.find((c) => c.id === WORKING)?.status).toBe("working_draft");
   });
 });
 

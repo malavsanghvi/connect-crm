@@ -2,6 +2,10 @@
 // { automation_id, ref_id, period? }. Queued by the database when a payment goes through, a pledge is recorded or someone
 // registers for an event, while that email's switch is on (and by app.email_receipts_for_uploaded for uploaded donations).
 //
+// A pledge emailed by hand (0792, the Email item of the pledge menu) is the same job with a request_id: { automation_id, ref_id,
+// request_id }. The address is not in the job: app.worker_pledge_email_request reads it from the request row the person
+// made, and the email goes to that one address (period "manual:<request id>", so it never counts as the automatic one).
+//
 //   1. app.worker_email_context: the community's place, so its age of majority is worked out here (src/lib/age-of-majority.ts).
 //   2. app.worker_email_facts: the record's facts and its adult recipients, or why it gets no email (the database writes that
 //      reason to the log once, so the treasurer sees it).
@@ -29,10 +33,11 @@ function str(v: unknown): string | null {
 export async function run(job: Job, ctx: JobContext): Promise<ComposeResult> {
   const automationId = String(job.payload.automation_id ?? "");
   const refId = String(job.payload.ref_id ?? "");
-  const period = typeof job.payload.period === "string" ? job.payload.period : "";
-  if (!UUID.test(automationId) || !UUID.test(refId)) {
+  const requestId = typeof job.payload.request_id === "string" ? job.payload.request_id : null;
+  if (!UUID.test(automationId) || !UUID.test(refId) || (requestId !== null && !UUID.test(requestId))) {
     throw new PermanentError("messaging.compose needs an automation_id and a ref_id.");
   }
+  const period = requestId ? `manual:${requestId}` : typeof job.payload.period === "string" ? job.payload.period : "";
   const out: ComposeResult = { automation_id: automationId, ref_id: refId, queued: 0, skipped: 0, duplicate: 0 };
 
   const place = (await ctx.db.query<{ c: Record<string, unknown> | null }>("select app.worker_email_context($1::uuid) as c", [automationId]))[0]?.c;
@@ -46,10 +51,11 @@ export async function run(job: Job, ctx: JobContext): Promise<ComposeResult> {
     rules: { age_of_majority: place.age_of_majority },
   });
 
-  const facts = (await ctx.db.query<{ f: EmailFacts | null }>(
-    "select app.worker_email_facts($1::uuid, $2::uuid, $3::int) as f",
-    [automationId, refId, majority],
-  ))[0]?.f;
+  const facts = (
+    requestId
+      ? await ctx.db.query<{ f: EmailFacts | null }>("select app.worker_pledge_email_request($1::uuid, $2::int) as f", [requestId, majority])
+      : await ctx.db.query<{ f: EmailFacts | null }>("select app.worker_email_facts($1::uuid, $2::uuid, $3::int) as f", [automationId, refId, majority])
+  )[0]?.f;
   if (!facts) throw new Error("The database returned no facts for the automatic email.");
   if (facts.skip) {
     out.reason = facts.skip;

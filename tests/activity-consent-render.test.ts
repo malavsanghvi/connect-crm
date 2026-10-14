@@ -43,7 +43,7 @@ describe("Settings › Automation ideas · Help us learn how your community uses
     expect(box).toContain('name="share"');
     expect(box).not.toContain("checked");
     expect(html).toContain(`name="notice_version" value="${ACTIVITY_NOTICE_VERSION}"`);
-    expect(html).toContain("fresh 2FA code");
+    expect(html).toContain("Nothing is noted until you agree");
     expect(html).not.toContain("Withdraw agreement");
   });
 

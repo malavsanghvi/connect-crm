@@ -143,11 +143,13 @@ export function describeAudience(audience: unknown, names: AudienceNames = {}): 
 // ---------------------------------------------------------------------------
 // Campaign status and list columns
 // ---------------------------------------------------------------------------
-export type CampaignStatus = "draft" | "pending_approval" | "scheduled" | "sending" | "sent" | "cancelled";
+export type CampaignStatus = "working_draft" | "draft" | "pending_approval" | "scheduled" | "sending" | "sent" | "cancelled";
 
-/** Prototype copy: "Awaiting approval" / "Scheduled" / "Sent". */
+/** Prototype copy: "Awaiting approval" / "Scheduled" / "Sent". A copy or a draft from a template is a working draft until someone sends it for approval. */
 export function campaignStatusLabel(status: string): string {
   switch (status) {
+    case "working_draft":
+      return "Draft · not sent for approval";
     case "draft":
       return "Awaiting approval";
     case "pending_approval":
@@ -167,7 +169,7 @@ export function campaignStatusLabel(status: string): string {
 }
 
 export function campaignStatusTone(status: string): "ok" | "warn" | "bad" {
-  if (status === "draft" || status === "pending_approval") return "warn";
+  if (status === "working_draft" || status === "draft" || status === "pending_approval") return "warn";
   if (status === "cancelled") return "bad";
   return "ok";
 }

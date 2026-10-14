@@ -9,6 +9,7 @@ import {
   EMPTY_SELECTION,
   buildAudience,
   composeAction,
+  hasUnknownAudienceKeys,
   parseAudience,
   requiresSecondApprover,
   type AudienceSelection,
@@ -30,6 +31,8 @@ export type CampaignDraft = {
   audience: unknown;
   translations: unknown;
   scheduled_local: string;
+  /** Its status. A working draft (a copy, or a start from a template) is saved as a draft and sent for approval with its own button. */
+  status?: string;
 };
 
 const CHANNELS: { value: string; label: string }[] = [
@@ -124,6 +127,10 @@ export function NewsletterCompose({
     setLangs((l) => (l.includes(code) ? l.filter((x) => x !== code) : [...l, code]));
   };
 
+  // A working draft is saved as a draft; its own button sends it for approval (or schedules it, for an approver).
+  const isDraft = campaign?.status === "working_draft";
+  const reach = count.n !== null ? `${count.n.toLocaleString()} households by email` : "the chosen audience";
+
   const previewBg = !built.ok ? "bg-[#FBF7F0]" : needsSecond || mode === "submit" ? "bg-[#FBEBD7]" : "bg-[#E4F2EA]";
   const approvalLine = !built.ok
     ? "Choose who receives it"
@@ -135,18 +142,28 @@ export function NewsletterCompose({
 
   return (
     <>
-      <Card title={campaign ? "Edit newsletter" : "New newsletter"} span={7}>
+      <Card title={isDraft ? "Edit draft" : campaign ? "Edit newsletter" : "New newsletter"} span={7}>
         <ActionForm
           action={campaign ? saveCampaignAction : submitNewsletterAction}
-          submitLabel={campaign ? "Save changes" : mode === "schedule" ? "Schedule send" : "Send for approval"}
+          submitLabel={isDraft ? "Save draft" : campaign ? "Save changes" : mode === "schedule" ? "Schedule send" : "Send for approval"}
+          variant={isDraft ? "ghost" : "primary"}
           resetOnSuccess={!campaign}
-          confirmMessage={
-            !campaign && mode === "schedule"
-              ? `Schedule this newsletter? ${count.n !== null ? `It goes to ${count.n.toLocaleString()} households by email` : "It goes to the chosen audience"} once it is scheduled.`
-              : undefined
-          }
+          confirmMessage={!campaign && mode === "schedule" ? `Schedule this newsletter? It goes to ${reach} once it is scheduled.` : undefined}
           extraButtons={
-            campaign ? null : (
+            isDraft ? (
+              <button
+                type="submit"
+                name="intent"
+                value="submit"
+                disabled={!built.ok}
+                title={built.ok ? undefined : "Choose who receives it first"}
+                data-variant="primary"
+                data-confirm={mode === "schedule" ? `Schedule this newsletter? It goes to ${reach} once it is scheduled.` : undefined}
+                className={buttonClass(built.ok ? "primary" : "off")}
+              >
+                {mode === "schedule" ? "Schedule send" : "Send for approval"}
+              </button>
+            ) : campaign ? null : (
               <button
                 type="button"
                 disabled
@@ -159,6 +176,12 @@ export function NewsletterCompose({
           }
         >
           {campaign ? <input type="hidden" name="id" value={campaign.id} /> : null}
+          {isDraft && hasUnknownAudienceKeys(campaign?.audience) ? (
+            <p className="mb-3 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900" role="status">
+              This draft&apos;s audience was set up somewhere other than this form (for example from a boli), so the chips below cannot show it. Choose the audience again here: saving
+              the draft replaces the old one.
+            </p>
+          ) : null}
           <input type="hidden" name="audience" value={audienceJson} />
           {channels.map((c) => (
             <input key={c} type="hidden" name="channels" value={c} />
@@ -294,6 +317,11 @@ export function NewsletterCompose({
               <p className="crm-hint">Blank = as soon as it is approved.</p>
             </div>
           </div>
+          {isDraft ? (
+            <p className="mb-2 text-xs text-muted">
+              Saving keeps this as a draft: nothing is sent and nobody is asked to approve it until you send it for approval. The audience can wait until you do.
+            </p>
+          ) : null}
           {!campaign ? (
             <p className="mb-2 text-xs text-muted">
               Send test to me is unavailable: email delivery is not connected to this app yet{myEmail ? `, so nothing can reach ${myEmail}` : ""}.

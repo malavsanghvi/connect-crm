@@ -263,8 +263,8 @@ select pg_temp.assert((select from_ref is null and to_ref = '1' and to_name = 'D
                          from app.account_mapping_changes where center_id = :c and target_key = 'income.general'),
   'setup: the history says what was chosen, by name, in which company');
 
--- The treasurer approves the whole mapping (app.approve_qbo_mapping, not touched here; until 0778 lands it asks for a fresh
--- code, which these claims carry). From then on it is in use.
+-- The treasurer approves the whole mapping (app.approve_qbo_mapping, not touched here; it asks for no fresh code since 0787,
+-- though these claims carry one). From then on it is in use.
 select pg_temp.claims('83000000-0000-4000-8000-000000000002', true);
 set local role authenticated;
 select pg_temp.assert(((app.approve_qbo_mapping(:c, 'Checked against our chart of accounts'))->>'approved')::int = 7, 'the treasurer approves the mapping');

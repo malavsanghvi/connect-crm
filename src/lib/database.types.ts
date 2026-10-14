@@ -2402,6 +2402,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      comms_templates: {
+        Row: {
+          id: string;
+          center_id: string;
+          name: string;
+          channels: Database["app"]["Enums"]["channel"][];
+          title: string;
+          body_md: string;
+          translations: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          name: string;
+          channels: Database["app"]["Enums"]["channel"][];
+          title?: string;
+          body_md?: string;
+          translations?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          name?: string;
+          channels?: Database["app"]["Enums"]["channel"][];
+          title?: string;
+          body_md?: string;
+          translations?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       concerns: {
         Row: {
           id: string;
@@ -3058,6 +3100,7 @@ export type Database = {
           reason: string | null;
           message_id: string | null;
           created_at: string;
+          reason_code: string | null;
         };
         Insert: {
           id?: string;
@@ -3072,6 +3115,7 @@ export type Database = {
           reason?: string | null;
           message_id?: string | null;
           created_at?: string;
+          reason_code?: string | null;
         };
         Update: {
           id?: string;
@@ -3086,6 +3130,7 @@ export type Database = {
           reason?: string | null;
           message_id?: string | null;
           created_at?: string;
+          reason_code?: string | null;
         };
         Relationships: [];
       };
@@ -9323,6 +9368,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      pledge_emails: {
+        Row: {
+          id: string;
+          center_id: string;
+          pledge_id: string;
+          household_id: string | null;
+          to_address: string;
+          idempotency_key: string;
+          requested_by: string | null;
+          requested_at: string;
+          status: string;
+          reason: string | null;
+          reason_code: string | null;
+          message_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          pledge_id: string;
+          household_id?: string | null;
+          to_address: string;
+          idempotency_key: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          status?: string;
+          reason?: string | null;
+          reason_code?: string | null;
+          message_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          pledge_id?: string;
+          household_id?: string | null;
+          to_address?: string;
+          idempotency_key?: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          status?: string;
+          reason?: string | null;
+          reason_code?: string | null;
+          message_id?: string | null;
+        };
+        Relationships: [];
+      };
       pledges: {
         Row: {
           id: string;
@@ -13478,6 +13568,22 @@ export type Database = {
         };
         Returns: Json;
       };
+      copy_campaign_as_draft: {
+        Args: {
+          p_center: string;
+          p_campaign: string;
+          p_name?: string;
+        };
+        Returns: string;
+      };
+      create_campaign_from_template: {
+        Args: {
+          p_center: string;
+          p_template: string;
+          p_name?: string;
+        };
+        Returns: string;
+      };
       create_checkout: {
         Args: {
           p_center: string;
@@ -13655,6 +13761,13 @@ export type Database = {
           p_import_run?: string;
         };
         Returns: string;
+      };
+      delete_comms_template: {
+        Args: {
+          p_center: string;
+          p_template: string;
+        };
+        Returns: undefined;
       };
       delete_pledge: {
         Args: {
@@ -15749,10 +15862,41 @@ export type Database = {
         };
         Returns: Json;
       };
+      pledge_document: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
       pledge_edit_state: {
         Args: {
           p_center: string;
           p_pledge: string;
+        };
+        Returns: Json;
+      };
+      pledge_email_recipient: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      pledge_email_request_status: {
+        Args: {
+          p_center: string;
+          p_request: string;
+        };
+        Returns: Json;
+      };
+      pledge_email_status: {
+        Args: {
+          p_center: string;
+          p_pledges: string[];
+          p_majority?: number;
         };
         Returns: Json;
       };
@@ -16134,6 +16278,7 @@ export type Database = {
           p_file_sha256: string;
           p_reason: string;
           p_rows: Json;
+          p_send_emails: boolean;
         };
         Returns: Json;
       };
@@ -16237,6 +16382,14 @@ export type Database = {
           p_center: string;
         };
         Returns: boolean;
+      };
+      rename_comms_template: {
+        Args: {
+          p_center: string;
+          p_template: string;
+          p_name: string;
+        };
+        Returns: undefined;
       };
       reopen_platform_setup_step: {
         Args: {
@@ -16730,6 +16883,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      save_campaign_as_template: {
+        Args: {
+          p_center: string;
+          p_campaign: string;
+          p_name?: string;
+        };
+        Returns: string;
+      };
       save_care_profile: {
         Args: {
           p_household: string;
@@ -16882,6 +17043,15 @@ export type Database = {
           p_vars: Json;
         };
         Returns: string;
+      };
+      send_pledge_email: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_to: string;
+          p_key: string;
+        };
+        Returns: Json;
       };
       send_recipient_verification: {
         Args: {

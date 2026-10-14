@@ -21,6 +21,9 @@ export const doingFor = (decision: string): string => (decision === "cancelled" 
 
 const OPEN = ["draft", "pending_approval", "scheduled"] as const;
 
+/** A working draft (a copy, or a start from a template) has no approvals to take back, but it can be discarded: cancelled. */
+const openFor = (decision: string): readonly string[] => (decision === "cancelled" ? [...OPEN, "working_draft"] : OPEN);
+
 /**
  * Cancel a message that has not gone out, or send it back to "awaiting approval" (which takes back every approval). Only a message that
  * is still a draft, waiting for a second approver or scheduled can be changed. A cancelled message stays cancelled.
@@ -42,7 +45,10 @@ export const setCampaignStatus = defineCommand<CampaignStatusInput, CampaignStat
     const doing = doingFor(decision);
     const c = must(await ctx.session.db.from("comms_campaigns").select("name, title, status").eq("id", campaign_id).maybeSingle(), `read the message`) as { name: string | null; title: string; status: string } | null;
     if (!c) throw new CommandError(`Could not ${doing} — it has already gone out or was cancelled.`);
-    if (!(OPEN as readonly string[]).includes(c.status)) throw new CommandError(`Could not ${doing} — it has already gone out or was cancelled.`);
+    if (c.status === "working_draft" && decision === "draft") {
+      throw new CommandError(`Could not ${doing} — it is a draft that has not been sent for approval yet, so there is nothing to take back.`);
+    }
+    if (!openFor(decision).includes(c.status)) throw new CommandError(`Could not ${doing} — it has already gone out or was cancelled.`);
     const label = c.name || c.title;
     const warnings = [NOTHING_SENT_BY_NIVA];
     if (decision === "cancelled") warnings.unshift("A cancelled message cannot be brought back. You would write a new one.");
@@ -57,7 +63,7 @@ export const setCampaignStatus = defineCommand<CampaignStatusInput, CampaignStat
   async execute(ctx, { campaign_id: id, decision: to }) {
     const doing = doingFor(to);
     const patch: TablesUpdate<"comms_campaigns"> = to === "draft" ? { status: "draft", approved_by: null, second_approver: null } : { status: "cancelled" };
-    const { data, error } = await ctx.session.db.from("comms_campaigns").update(patch).eq("id", id).in("status", [...OPEN]).select("id");
+    const { data, error } = await ctx.session.db.from("comms_campaigns").update(patch).eq("id", id).in("status", [...openFor(to)]).select("id");
     if (error) return dbFail(`Could not ${doing}`, error);
     if (!data?.length) return { ok: false, error: `Could not ${doing} — it has already gone out or was cancelled.` };
     revalidateAfterCommand(["/comms", "/"]);

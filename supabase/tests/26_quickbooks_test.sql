@@ -1,6 +1,6 @@
 -- Onboarding · o-quickbooks (0230–0236): connecting QuickBooks (signed single-use
 -- state, the code to the vault, sandbox vs read-only real company), the pulled
--- read-only lists, the account mapping and its approval (step-up), the test post,
+-- read-only lists, the account mapping and its approval (no step-up since 0787), the test post,
 -- the poster's rules (history, go-live date, closed months, idempotent claim),
 -- readiness check 7 and the Setup steps.
 \set ON_ERROR_STOP 1
@@ -29,7 +29,7 @@ exception when others then
   if sqlstate <> state then raise exception 'FAIL: % (got % "%")', label, sqlstate, sqlerrm; end if;
   raise notice 'PASS: %', label;
 end $$;
--- Sign in as a user; p_fresh: with a TOTP check in the last minute (step-up).
+-- Sign in as a user; p_fresh: with a TOTP check in the last minute. No QuickBooks action asks for one since 0787.
 create or replace function pg_temp.sign_in(p_user uuid, p_fresh boolean default true) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated', 'aal', 'aal2',
@@ -71,13 +71,7 @@ select pg_temp.assert((select count(*) from app.qbo_accounts) = 0, 'a member rea
 commit;
 begin;
 set local role authenticated;
-select pg_temp.sign_in(:tara, false);
-select pg_temp.assert_state($$select app.start_qbo_connect('00000000-0000-4000-8000-000000000001', 'real', 'https://portal.test/api/oauth/intuit/callback', 'Connecting our books')$$,
-  'CCSTP', 'the treasurer needs a fresh 2FA check to connect');
-commit;
-begin;
-set local role authenticated;
-select pg_temp.sign_in(:tara);
+select pg_temp.sign_in(:tara, false);   -- connecting asks for no fresh 2FA check (0787)
 select pg_temp.assert_state($$select app.start_qbo_connect('00000000-0000-4000-8000-000000000001', 'sandbox', 'https://portal.test/api/oauth/intuit/callback', 'Try')$$,
   'CCENT', 'a live community cannot connect an Intuit sandbox company');
 select pg_temp.assert_raises($$select app.start_qbo_connect('00000000-0000-4000-8000-000000000001', 'real', 'https://evil.test/steal', 'Try')$$,
@@ -213,14 +207,8 @@ select pg_temp.assert((select qbo_account_name = 'Chase Operating' from app.qbo_
   'the account name comes from the chart');
 begin;
 set local role authenticated;
-select pg_temp.sign_in(:tara, false);
-select pg_temp.assert_state($$select app.approve_qbo_mapping('00000000-0000-4000-8000-000000000001', 'Checked against the books')$$, 'CCSTP',
-  'approving the mapping needs a fresh 2FA check');
-commit;
-begin;
-set local role authenticated;
-select pg_temp.sign_in(:tara);
-select pg_temp.assert(((app.approve_qbo_mapping(:jsh, 'Checked against the books'))->>'approved')::int = 7, 'the treasurer approves the mapping');
+select pg_temp.sign_in(:tara, false);   -- approving asks for no fresh 2FA check (0787)
+select pg_temp.assert(((app.approve_qbo_mapping(:jsh, 'Checked against the books'))->>'approved')::int = 7, 'the treasurer approves the mapping, with no fresh 2FA check');
 commit;
 select pg_temp.assert((select settings->>'mapping_approved_by' = :tara from app.integration_connections where id = (select v::uuid from ctx where k = 'conn'))
                       and (select bool_and(approved_by = :tara::uuid) from app.qbo_account_mappings where center_id = :jsh),
@@ -283,13 +271,7 @@ select pg_temp.assert(not (app.check_quickbooks_ready(:jsh)->>'ok')::boolean
                       and app.check_quickbooks_ready(:jsh)->>'detail' like '%approve a test post%', 'readiness 7 waits for the test post approval');
 begin;
 set local role authenticated;
-select pg_temp.sign_in(:tara, false);
-select pg_temp.assert_state($$select app.approve_qbo_test_post((select v::uuid from ctx where k = 'test'), 'Looks right')$$, 'CCSTP',
-  'approving the test post needs a fresh 2FA check');
-commit;
-begin;
-set local role authenticated;
-select pg_temp.sign_in(:tara);
+select pg_temp.sign_in(:tara, false);   -- approving the test post asks for no fresh 2FA check (0787)
 select app.approve_qbo_test_post((select v::uuid from ctx where k = 'test'), 'Four entries checked in QuickBooks');
 commit;
 select pg_temp.assert((app.check_quickbooks_ready(:jsh)->>'ok')::boolean, 'readiness 7 passes: connected, mapping and test post approved, go-live set');
@@ -392,12 +374,7 @@ commit;
 -- ── Disconnect ───────────────────────────────────────────────────────────────
 begin;
 set local role authenticated;
-select pg_temp.sign_in(:tara, false);
-select pg_temp.assert_state($$select app.disconnect_qbo('00000000-0000-4000-8000-000000000001', 'Test done')$$, 'CCSTP', 'disconnecting needs a fresh 2FA check');
-commit;
-begin;
-set local role authenticated;
-select pg_temp.sign_in(:tara);
+select pg_temp.sign_in(:tara, false);   -- disconnecting asks for no fresh 2FA check (0787)
 select app.disconnect_qbo(:jsh, 'Test done');
 commit;
 select pg_temp.assert((select status = 'disconnected' from app.integration_connections where id = (select v::uuid from ctx where k = 'conn'))

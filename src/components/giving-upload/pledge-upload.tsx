@@ -30,13 +30,17 @@ import {
 import { readUploadFile } from "@/lib/giving-upload/read";
 import { MAX_UPLOAD_ROWS, newUploadKey, rowsWord } from "@/lib/giving-upload/sheet";
 import { formatCents } from "@/lib/money";
+import type { PledgeEmailStatus } from "@/lib/pledge-email/bulk";
 
+import { PledgeEmailResult } from "./pledge-email-result";
 import { CHIP, EarlierUploads, FileChooser, PhoneNote, ReasonInput, chipTone, type EarlierUpload } from "./parts";
 
 export type PledgeUploadBackend = {
   prepare: (input: FileForReview) => Promise<ActionResult<PreparedPledges>>;
   record: (input: RecordPledgeUploadInput) => Promise<ActionResult<RecordedPledgeUpload>>;
   cancel: (input: { uploadId: string; reason: string }) => Promise<ActionResult<{ cancelled: number }>>;
+  /** What became of each pledge's email (0793): the result asks until nothing is waiting. */
+  emailStatus: (pledgeIds: string[]) => Promise<ActionResult<PledgeEmailStatus[]>>;
 };
 
 export type PledgeUploadSetting = {
@@ -82,6 +86,8 @@ export function PledgeUpload({
   );
   const [choices, setChoices] = useState<ReviewChoices>(NO_CHOICES);
   const [reason, setReason] = useState("");
+  // "Email each family their pledge" (0793): on unless the person unticks it.
+  const [sendEmails, setSendEmails] = useState(true);
   const [show, setShow] = useState<Show>("all");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ result: RecordedPledgeUpload; message: string } | null>(null);
@@ -127,7 +133,7 @@ export function PledgeUpload({
     if (reason.trim().length < 3) return setError('Say why these pledges are recorded (for example "Pledge cards from the annual dinner").');
     start(async () => {
       try {
-        const res = await backend.record({ key: loaded.key, fileName: loaded.fileName, sha256: loaded.sha256, reason: reason.trim(), rows });
+        const res = await backend.record({ key: loaded.key, fileName: loaded.fileName, sha256: loaded.sha256, reason: reason.trim(), rows, sendEmails });
         if (!res.ok || !res.data) {
           setError(res.ok ? "The pledges may not have been recorded: the server did not say. Open Pledges to check before trying again." : res.error);
           return;
@@ -146,6 +152,16 @@ export function PledgeUpload({
         <Alert tone="success" title={done.message}>
           {loaded.fileName}. Each family&apos;s History shows the reason. {done.result.replayed ? "" : "Every pledge is open until it is paid."}
         </Alert>
+        {done.result.replayed ? null : (
+          <PledgeEmailResult
+            requested={done.result.emails}
+            pledges={done.result.pledges.map((p) => {
+              const row = review?.rows.find((r) => r.line === p.row);
+              return { pledgeId: p.pledgeId, number: p.pledgeNumber, label: row?.family ? familyRef(row.family) : "" };
+            })}
+            status={backend.emailStatus}
+          />
+        )}
         <section className="cc-card px-4 py-4">
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[14px]">
             {done.result.pledges.map((p) => {
@@ -260,6 +276,22 @@ export function PledgeUpload({
             hint={`Each ${setting.household}'s History shows it, with the row's note.`}
             quick={UPLOAD_REASONS}
           />
+          <label className="flex cursor-pointer items-start gap-3 rounded-[12px] border border-line bg-white px-3 py-2.5" htmlFor="pledge-upload-email">
+            <input
+              id="pledge-upload-email"
+              type="checkbox"
+              checked={sendEmails}
+              onChange={(e) => setSendEmails(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0"
+            />
+            <span className="text-[14px] text-ink">
+              <strong>Email each family their pledge</strong>
+              <span className="block text-[13px] text-muted">
+                Each family&apos;s primary member gets the pledge email with the pledge as a PDF attached, once. Rows dated more than 30 days ago count as history and are not
+                emailed. A family with no email address on file is listed after recording. Untick to record the pledges without emailing anyone.
+              </span>
+            </span>
+          </label>
           <p className="m-0 text-[13px] text-muted">{PLEDGE_UPLOAD_NO_UNDO}</p>
           <div className="flex flex-col gap-2">
             <button

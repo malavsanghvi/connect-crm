@@ -24,7 +24,7 @@ exception when others then
   end if;
   raise notice 'PASS: %', label;
 end $$;
--- The signed-in person's token claims (a platform admin passes the fresh 2FA check with p_step_up).
+-- The signed-in person's token claims (p_step_up adds an aal2 session with an authenticator check from a minute ago; since 0787 nothing here needs one).
 create or replace function pg_temp.claims(p_user text, p_step_up boolean default false, p_session text default null) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', jsonb_build_object(
@@ -113,9 +113,8 @@ select pg_temp.assert_raises($q$select app.demo_signin_setup('Because')$q$, 'pla
 select pg_temp.assert_raises($q$select app.set_demo_signin(true, 'Because')$q$, 'platform admins', 'A · or switch it');
 select pg_temp.assert_raises($q$select app.demo_signin_status()$q$, 'platform admins', 'A · or look at it');
 select pg_temp.as_none();
+-- Since 0787 setting up, switching and turning off ask for no fresh 2FA check: this administrator's session has none (aal1) from here on.
 select pg_temp.claims(:admin, false);
-select pg_temp.assert_raises($q$select app.demo_signin_setup('Because')$q$, 'fresh 2FA', 'A · setting up needs a fresh 2FA check');
-select pg_temp.claims(:admin, true);
 select pg_temp.assert_raises($q$select app.demo_signin_setup('   ')$q$, 'say why', 'A · and a reason');
 select pg_temp.assert_raises($q$select app.set_demo_signin(true, 'Because')$q$, 'set up demo sign-in first', 'A · it cannot be switched on before any demo person has a sign-in');
 
@@ -181,8 +180,6 @@ select pg_temp.assert(not exists (select 1 from app.demo_auth_users where user_i
 
 -- ══ E. The switch and the public list ═══════════════════════════════════════
 select pg_temp.claims(:admin, false);
-select pg_temp.assert_raises($q$select app.set_demo_signin(true, 'Open it')$q$, 'fresh 2FA', 'E · switching needs a fresh 2FA check');
-select pg_temp.claims(:admin, true);
 select pg_temp.assert_raises($q$select app.set_demo_signin(true, '')$q$, 'say why', 'E · and a reason');
 select pg_temp.assert_raises($q$select app.set_demo_signin(null, 'Open it')$q$, 'choose on or off', 'E · and a choice');
 select pg_temp.assert(not app.demo_signin_enabled(), 'E · still off');
@@ -388,8 +385,6 @@ insert into auth.sessions (id, user_id) values (:'sid3', :'u_treasurer');
 select pg_temp.attach_as_worker(:'ds3', :'sid3')::text as at3 \gset
 select pg_temp.assert((:'at3'::jsonb ->> 'ok')::boolean, 'I · a fresh session for the switch test');
 select pg_temp.claims(:admin, false);
-select pg_temp.assert_raises($q$select app.set_demo_signin(false, 'Stop it')$q$, 'fresh 2FA', 'I · turning it off needs the fresh check too');
-select pg_temp.claims(:admin, true);
 -- P. Even if a community had lost its flag, the switch takes the demo people's membership, role and ownership away everywhere.
 update app.centers set rules = rules - 'demo' where id = :'fc';
 select app.set_demo_signin(false, 'Stop the demo for the test')::text as sw2 \gset

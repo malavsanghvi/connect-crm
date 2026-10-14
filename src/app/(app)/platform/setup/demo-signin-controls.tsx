@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { Modal } from "@/components/modal";
 import { useStepUp } from "@/components/step-up";
@@ -16,8 +16,7 @@ import {
   type DemoSigninResult,
 } from "./demo-signin-actions";
 
-// The buttons of Platform › Setup › Demo sign-in. Each one asks for a reason (kept in the audit log) and, through the database, a
-// fresh 2FA check; a failure is shown in the box that was open, so nothing is lost and nothing is claimed done that was not.
+// The buttons of Platform › Setup › Demo sign-in. Each one writes its own description to the audit log as its reason; a failure is shown in the box that was open, so nothing is lost and nothing is claimed done that was not.
 
 type Action = { label: string; title: string; explain: string; confirm: string; tone?: "primary" | "warn" | "bad"; run: (reason: string) => Promise<DemoSigninResult>; what: string; defaultReason: string };
 
@@ -43,22 +42,24 @@ function useRun() {
   };
 }
 
+/**
+ * One button of the card. No "Why?" box: the action's own description goes to the audit log as its reason. A plain confirmation (no typing)
+ * is asked only for the actions that end something (switching off, new passwords, starting a community over).
+ */
 function ReasonButton({ action, kind = "ghost", disabled = false }: { action: Action; kind?: "ghost" | "primary" | "bad"; disabled?: boolean }) {
   const run = useRun();
   const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
-  const id = useId();
+  const asksFirst = action.tone === "warn" || action.tone === "bad";
 
-  async function confirm() {
-    if (!reason.trim()) return setError("Say why — the reason is kept in the audit log.");
+  async function go() {
     setWorking(true);
     setError(null);
-    setOpen(false); // the 2FA check may open on top
-    const res = await run(() => action.run(reason.trim()), action.what);
+    setOpen(false);
+    const res = await run(() => action.run(action.defaultReason), action.what);
     setWorking(false);
-    if (!res.ok) {
+    if (!res.ok && asksFirst) {
       setError(res.error);
       setOpen(true);
     }
@@ -71,20 +72,18 @@ function ReasonButton({ action, kind = "ghost", disabled = false }: { action: Ac
         className={buttonClass(kind, "xs")}
         disabled={working || disabled}
         onClick={() => {
-          setReason(action.defaultReason);
           setError(null);
-          setOpen(true);
+          if (asksFirst) setOpen(true);
+          else void go();
         }}
       >
         {working ? "Working…" : action.label}
       </button>
-      <Modal open={open} kicker="Demo sign-in" title={action.title} confirmLabel={action.confirm} tone={action.tone} pending={working} error={error} onConfirm={() => void confirm()} onCancel={() => setOpen(false)}>
-        <p className="text-[13px] text-muted">{action.explain}</p>
-        <label htmlFor={id} className="crm-label mt-3 block">
-          Why?
-        </label>
-        <input id={id} className="crm-input w-full" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} />
-      </Modal>
+      {asksFirst ? (
+        <Modal open={open} kicker="Demo sign-in" title={action.title} confirmLabel={action.confirm} tone={action.tone} pending={working} error={error} onConfirm={() => void go()} onCancel={() => setOpen(false)}>
+          <p className="text-[13px] text-muted">{action.explain}</p>
+        </Modal>
+      ) : null}
     </>
   );
 }

@@ -108,7 +108,7 @@ export function waitingNote(r: PayeeRequest, canApprove: boolean): string {
   if (r.expired) return `This request lapsed on ${r.expires_at.slice(0, 10)}. Ask for the change again.`;
   if (r.mine) return "You asked for this change, so a different person with giving.approve has to confirm it.";
   return canApprove
-    ? `${r.requested_by_name} asked for this change. You can confirm it (a fresh 2FA check and a reason) or turn it down.`
+    ? `${r.requested_by_name} asked for this change. You can confirm it (with a reason) or turn it down.`
     : `${r.requested_by_name} asked for this change. A person with giving.approve confirms it.`;
 }
 

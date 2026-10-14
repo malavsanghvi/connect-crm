@@ -39,7 +39,7 @@ begin
   perform set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated', 'aal', 'aal1')::text, true);
   perform set_config('request.headers', '', true);
 end $$;
--- A fresh 2FA check, for the steps that ask for one (merging households, undoing an import).
+-- A session with an authenticator check passed a minute ago. Merging households and undoing an import no longer ask for one (0787); harmless.
 create or replace function pg_temp.claims_up(p_user uuid) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated', 'aal', 'aal2',

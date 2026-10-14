@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache";
 
 import { withActivity } from "@/lib/activity/with-activity";
-import { buildAudience, buildTranslations, parseAudience, requiresSecondApprover, translationsFromFields } from "@/lib/comms";
+import { buildAudience, buildTranslations, composeAction, parseAudience, requiresSecondApprover, translationsFromFields } from "@/lib/comms";
 import { runScreenCommand } from "@/lib/commands/screen";
-import { inboxAllowed, inboxRefusal } from "@/lib/commands/catalog/messages/shared";
+import { inboxAllowed, inboxRefusal, NOT_SENDING } from "@/lib/commands/catalog/messages/shared";
 import { plain, runCommandAs } from "@/lib/commands/catalog/messages/screen";
 import type { Database, Json } from "@/lib/database.types";
 import { localDateTimeToIso } from "@/lib/dates";
 import { failure, type ActionResult } from "@/lib/errors";
+import { can } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, loadSession, type CrmSession } from "@/lib/session";
 
@@ -105,20 +106,72 @@ async function submitNewsletter(fd: FormData): Promise<ActionResult> {
   return plain(await runScreenCommand("messages.schedule_campaign", raw, doing));
 }
 
-/** Edit from the detail page; any edit sends it back to "awaiting approval". */
+/**
+ * A working draft's audience from the chips: none chosen yet is fine while it is only being saved (the draft keeps an empty audience
+ * and cannot go for approval until one is chosen).
+ */
+function draftAudienceFrom(fd: FormData): { ok: true; audience: Record<string, unknown> } | { ok: false; error: string } {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text(fd, "audience") || "{}");
+  } catch {
+    return { ok: false, error: "the audience could not be read — reload the page and choose it again" };
+  }
+  const built = buildAudience(parseAudience(raw));
+  return { ok: true, audience: built.ok ? built.audience : {} };
+}
+
+/**
+ * Save a working draft (a copy of a communication, or a start from a template), or send it for approval. Saving keeps it a working
+ * draft: nobody is asked to approve it and nothing is sent. Sending it for approval runs the rules the compose form always had: an
+ * approver (comms.approve) schedules it in one step unless it is for all members, and everyone else sends it to the approvers.
+ */
+async function saveWorkingDraft(session: CrmSession, id: string, fd: FormData): Promise<ActionResult> {
+  const { db, center, userId } = session;
+  const submit = text(fd, "intent") === "submit";
+  const doing = submit ? "send the draft for approval" : "save the draft";
+  const v = campaignValues(fd, center.time_zone);
+  if (!v.ok) return { ok: false, error: `Could not ${doing} — ${v.error}.` };
+  const aud = submit ? audienceFrom(fd) : draftAudienceFrom(fd);
+  if (!aud.ok) return { ok: false, error: `Could not ${doing} — ${aud.error}.` };
+  const base = {
+    ...v.values,
+    audience: aud.audience as Json,
+    requires_second_approver: requiresSecondApprover(aud.audience),
+    approved_by: null,
+    second_approver: null,
+  };
+  const mode = submit ? composeAction(aud.audience, can(session, "comms.approve")) : null;
+  const patch =
+    mode === "schedule"
+      ? { ...base, approved_by: userId, status: "scheduled", scheduled_at: v.values.scheduled_at ?? new Date().toISOString() }
+      : { ...base, status: submit ? "draft" : "working_draft" };
+  const { data, error } = await db.from("comms_campaigns").update(patch).eq("id", id).eq("status", "working_draft").select("id");
+  if (error) return failure(`Could not ${doing}`, error);
+  if (!data?.length) return { ok: false, error: `Could not ${doing} — it is no longer a draft (it may have been sent for approval or discarded). Reload the page to see where it is.` };
+  revalidateComms();
+  if (!submit) return { ok: true, message: "Draft saved. Nothing has been sent and nobody has been asked to approve it." };
+  return {
+    ok: true,
+    message: mode === "schedule" ? `"${v.values.name}" approved and scheduled.${NOT_SENDING}` : `"${v.values.name}" sent for approval · it appears in approvers' tasks.`,
+  };
+}
+
+/** Edit from the detail page; any edit sends it back to "awaiting approval". A working draft stays a working draft until its writer sends it. */
 export async function saveCampaignAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("commsSend", "save the newsletter");
   if (!auth.ok) return auth;
   const { db, center } = auth.session;
   const id = text(fd, "id");
   if (!isUuid(id)) return { ok: false, error: "Could not save the newsletter — the request was incomplete." };
+  const cur = await db.from("comms_campaigns").select("status").eq("id", id).maybeSingle();
+  if (cur.error) return failure("Could not save the newsletter", cur.error);
+  if (!cur.data) return { ok: false, error: "Could not save the newsletter — it no longer exists." };
+  if (cur.data.status === "working_draft") return saveWorkingDraft(auth.session, id, fd);
   const aud = audienceFrom(fd);
   if (!aud.ok) return { ok: false, error: `Could not save the newsletter — ${aud.error}.` };
   const v = campaignValues(fd, center.time_zone);
   if (!v.ok) return { ok: false, error: `Could not save the newsletter — ${v.error}.` };
-  const cur = await db.from("comms_campaigns").select("status").eq("id", id).maybeSingle();
-  if (cur.error) return failure("Could not save the newsletter", cur.error);
-  if (!cur.data) return { ok: false, error: "Could not save the newsletter — it no longer exists." };
   if (!["draft", "pending_approval", "scheduled"].includes(cur.data.status)) return { ok: false, error: "Could not save the newsletter — it has already gone out." };
   const { error } = await db
     .from("comms_campaigns")

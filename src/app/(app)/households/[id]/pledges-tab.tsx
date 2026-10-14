@@ -1,5 +1,6 @@
 import { CustomDetailsCell } from "@/components/custom-details-cell";
-import { EditPledgeButton, RecordPledgeButton } from "@/components/giving-actions/provider";
+import { EditPledgeButton, EmailPledgeButton, RecordPledgeButton } from "@/components/giving-actions/provider";
+import { PrintPledgeButton } from "@/components/giving-actions/pledge-print";
 import { PeriodNote } from "@/components/giving-glance/period-note";
 import { Badge, Card, EmptyState, NoAccess, QueryError, TableWrap, buttonClass } from "@/components/ui";
 import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
@@ -35,6 +36,9 @@ export async function PledgesTab({ session, householdId, period, recordPledge = 
   // Edit (and Delete, inside the sheet) is giving.manage; the database decides again and says what is locked on each pledge (0782).
   const editCustom = canAccess(session, "givingManage");
   const canEdit = editCustom;
+  // Print (giving.view or giving.manage) and Email (giving.manage) beside Edit: a PDF of the pledge as an invoice (0791, 0792).
+  const canPrint = canAccess(session, "pledgeCopy");
+  const hasActions = canEdit || canPrint;
   if (pRes.error) return <QueryError what="pledges" error={pRes.error} retryHref={retry} />;
   const campaign = new Map((cRes.data ?? []).map((c) => [c.id, c.name]));
   const withCustom = defs.defs.length ? await withCustomValues(db, "pledges", pRes.data ?? []) : { rows: pRes.data ?? [], error: null };
@@ -78,9 +82,9 @@ export async function PledgesTab({ session, householdId, period, recordPledge = 
                 <th>Pledged</th>
                 <th>Due</th>
                 {defs.defs.length ? <th>More details</th> : null}
-                {canEdit ? (
+                {hasActions ? (
                   <th>
-                    <span className="sr-only">Edit</span>
+                    <span className="sr-only">Edit, print and email</span>
                   </th>
                 ) : null}
               </tr>
@@ -114,12 +118,20 @@ export async function PledgesTab({ session, householdId, period, recordPledge = 
                       <CustomDetailsCell defs={defs.defs} entity="pledges" recordId={p.id} custom={p.custom} editable={editCustom} currency={center.currency} />
                     </td>
                   ) : null}
-                  {canEdit ? (
+                  {hasActions ? (
                     <td className="whitespace-nowrap">
                       {p.status !== "cancelled" ? (
-                        <EditPledgeButton pledgeId={p.id} label={`Edit pledge ${p.pledge_number ?? ""}`.trim()} className={`${buttonClass("ghost", "xs")} min-h-[36px]`}>
-                          Edit
-                        </EditPledgeButton>
+                        <span className="inline-flex flex-wrap items-center gap-1.5">
+                          {canEdit ? (
+                            <EditPledgeButton pledgeId={p.id} label={`Edit pledge ${p.pledge_number ?? ""}`.trim()} className={`${buttonClass("ghost", "xs")} min-h-[36px]`}>
+                              Edit
+                            </EditPledgeButton>
+                          ) : null}
+                          {canPrint ? <PrintPledgeButton pledgeId={p.id} reference={p.pledge_number ?? "the pledge"} variant="button" label="Print" /> : null}
+                          <EmailPledgeButton pledgeId={p.id} label={`Email pledge ${p.pledge_number ?? ""}`.trim()} className={`${buttonClass("ghost", "xs")} min-h-[36px]`}>
+                            Email
+                          </EmailPledgeButton>
+                        </span>
                       ) : null}
                     </td>
                   ) : null}
