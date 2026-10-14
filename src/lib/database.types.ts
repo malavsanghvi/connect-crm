@@ -2900,6 +2900,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      demo_qbo_links: {
+        Row: {
+          id: string;
+          center_id: string;
+          subject: string;
+          row_id: string;
+          qbo_id: string;
+          saved_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          subject: string;
+          row_id: string;
+          qbo_id: string;
+          saved_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          subject?: string;
+          row_id?: string;
+          qbo_id?: string;
+          saved_at?: string;
+        };
+        Relationships: [];
+      };
       demo_sessions: {
         Row: {
           id: string;
