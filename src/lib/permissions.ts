@@ -595,6 +595,8 @@ export const NAV: NavModule[] = [
     label: "Communications",
     tabs: [
       { href: "/comms/newsletters", label: "Newsletters", access: "comms" },
+      // Saved templates (0800): read and written with comms.send, the permission that writes a communication.
+      { href: "/comms/templates", label: "Templates", access: "commsSend" },
       { href: "/comms/inbox", label: "Inbox", access: "commsInbox" },
       { href: "/comms/whatsapp", label: "WhatsApp queue", access: "comms" },
       { href: "/comms/surveys", label: "Surveys", access: "comms", module: "surveys" },
