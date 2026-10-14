@@ -227,8 +227,11 @@ describe("the platform panel's status (app.demo_signin_status)", () => {
   });
 
   it("names the next step in order: communities, sign-ins, switching on, running", () => {
-    expect(nextStep(parseStatus(base)!)).toMatch(/Create the two demo communities/);
-    expect(nextStep(parseStatus({ ...base, communities: [{ id: ID1, name: "S", kind: "faith" }] })!)).toMatch(/not faith-based demo community/);
+    expect(nextStep(parseStatus(base)!)).toMatch(/Create a demo community first/);
+    // One demo community is enough: with only the faith-based one (or only the other) the next step is the sign-ins.
+    expect(nextStep(parseStatus({ ...base, communities: [{ id: ID1, name: "S", kind: "faith" }] })!)).toMatch(/Set up the sign-ins/);
+    expect(nextStep(parseStatus({ ...base, communities: [{ id: ID2, name: "L", kind: "neutral" }] })!)).toMatch(/Set up the sign-ins/);
+    expect(nextStep(parseStatus({ ...base, communities: [{ id: ID1, name: "S", kind: "faith" }], people_ready: 47 })!)).toMatch(/Turn the demo on/);
     const two = [{ id: ID1, name: "S", kind: "faith" }, { id: ID2, name: "L", kind: "neutral" }];
     expect(nextStep(parseStatus({ ...base, communities: two, people_ready: 10 })!)).toMatch(/Set up the sign-ins/);
     expect(nextStep(parseStatus({ ...base, communities: two, people_ready: 47 })!)).toMatch(/Turn the demo on/);
