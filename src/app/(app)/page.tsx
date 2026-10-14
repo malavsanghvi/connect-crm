@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AssignmentsCard } from "@/components/home/assignments-card";
 import { MemberAppCard } from "@/components/home/member-app-card";
 import { MyTasksCard } from "@/components/home/my-tasks-card";
+import { StartHereCard } from "@/components/home/start-here-card";
 import { BlockGrid, Card, KpiGrid, PageHeader, Stat, capitalize } from "@/components/ui";
 import { loadHomeCards } from "@/lib/data/home-cards";
 import { loadHomeKpis } from "@/lib/data/home-kpis";
@@ -47,6 +48,7 @@ export default async function HomePage() {
       <BlockGrid>
         {cards.assignments ? <AssignmentsCard card={cards.assignments} /> : null}
         {cards.memberWork ? <MemberAppCard work={cards.memberWork} /> : null}
+        {cards.startHere ? <StartHereCard start={cards.startHere} /> : null}
         {showTasks ? <MyTasksCard tasks={tasks} failures={failures} hasSources={hasSources} /> : null}
         {showGlance ? (
           <Card span={4} title="At a glance">
