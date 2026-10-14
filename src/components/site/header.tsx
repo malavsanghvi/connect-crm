@@ -28,6 +28,7 @@ export const RESOURCES_MENU: MenuEntry[] = [
   { to: "/pricing#how-we-stay-free", icon: "heart", title: "How we stay free", body: `Optional Chip Ins, capped at ${CAP} a year` },
   { to: "/#security", icon: "shield", title: "Security and privacy", body: "How your community's data is protected" },
   { to: "/#own", icon: "lock", title: "No vendor lock-in", body: "Your data is yours, and leaving is easy" },
+  { to: "/brand", icon: "globe", title: "Brand and logos", body: "Our logo, colours and words to download" },
   { to: "/#faq", icon: "smile", title: "Questions and answers", body: "The things people ask first" },
 ];
 
