@@ -3,7 +3,8 @@
 -- them the way app.demo_link_personas does), and each role is then asked the same questions the portal's Home "My tasks" and the screens one
 -- click away ask, as that person (their token claims, the `authenticated` database role, row level security on):
 --   A. who is who: the owner, the scopes     B. each role's work, found through its own door (the permission, or the role, that opens the screen)
---   C. the roles that have no portal screen at all (their work is in the member app or the event-day app) are listed and checked, not skipped
+--   C. the nine roles that have no portal screen (Home gives them a card: the member app, or their assignments) are listed and checked, not skipped
+--   C2. what those Home cards read, asked as each of those people; the kitchen lead's prep list, which kitchen.view opens in the portal
 --   D. what a child never sees     E. a reset keeps all of it      F. the work is still there after a reset, for every role
 -- Every failure is collected and reported together, so one run names everything that is missing.
 -- Everything runs in one transaction that is rolled back.
@@ -75,7 +76,7 @@ select pg_temp.as_none();
 
 -- ══ B. Each role's work ═════════════════════════════════════════════════════
 -- door: how the person reaches it in the portal. perm:<key> = they hold that permission center-wide; role:<key> = they hold that role in any scope;
--- none = they hold no permission the portal opens a screen with (none+kitchen.view: only the kitchen's, which opens no tab).
+-- none = they hold no permission center-wide, so the portal opens no screen for them: Home carries a card for their work instead (C and C2).
 create temp table work (role_key text not null, what text not null, door text not null, q text not null, min_n bigint not null default 1);
 insert into pg_temp.work (role_key, what, door, q, min_n)
 select v.role_key, v.what, v.door, format(v.q, :'fc', :'ev_tap', :'cls_j2', :'zone_n', :'boli_d'), v.min_n
@@ -149,9 +150,9 @@ select v.role_key, v.what, v.door, format(v.q, :'fc', :'ev_tap', :'cls_j2', :'zo
    $q$select count(*) from app.attendees where event_id = %2$L and checked_in_at is null and status in ('rsvpd', 'confirmed')$q$, 5),
   ('checkin_volunteer', 'their own shift at the door', 'none',
    $q$select count(*) from app.volunteer_assignments where status in ('assigned', 'confirmed')$q$, 1),
-  ('kitchen_lead', 'the store orders to prepare (prep list)', 'none+kitchen.view',
+  ('kitchen_lead', 'the store orders to prepare (My Store > Orders by pickup, opened by kitchen.view)', 'perm:kitchen.view',
    $q$select count(*) from app.store_order_lines l join app.store_orders o on o.id = l.order_id where o.center_id = %1$L and o.status in ('placed', 'preparing', 'ready')$q$, 2),
-  ('kitchen_lead', 'the headcount for the Tapasvi event', 'none+kitchen.view',
+  ('kitchen_lead', 'the headcount for the Tapasvi event', 'perm:kitchen.view',
    $q$select coalesce(max(confirmed), 0) from app.event_live_stats(%2$L)$q$, 1),
   ('boli_recorder', 'an in-person boli to record at the Tapasvi event', 'none',
    $q$select count(*) from app.bolis where event_id = %2$L and kind = 'in_person' and status = 'open'$q$, 1),
@@ -229,10 +230,10 @@ begin
         execute format('select exists (select 1 from app.role_grants g where g.user_id = auth.uid() and g.center_id = %L and g.role_key = %L and g.status = ''active'')',
                        c, substr(r.x ->> 'door', 6)) into v_ok;
       else
-        -- no permission that opens a portal screen: the person holds nothing center-wide (or only the kitchen's, which opens no tab)
+        -- no permission that opens a portal screen: the person holds nothing center-wide
         execute format('select not exists (select 1 from app.role_grants g join app.roles ro on ro.key = g.role_key, jsonb_array_elements_text(ro.permissions) p
                           where g.user_id = auth.uid() and g.center_id = %L and g.status = ''active'' and g.scope_kind in (''center'', ''platform'')
-                            and p <> all (%L::text[]))', c, case r.x ->> 'door' when 'none' then '{}' else '{kitchen.view}' end) into v_ok;
+                            and p <> all (%L::text[]))', c, '{}') into v_ok;
       end if;
       reset role;
       if n < (r.x ->> 'min_n')::bigint then
@@ -259,14 +260,59 @@ select pg_temp.run_work('B');
 select pg_temp.as_none();
 
 -- ══ C. The roles with no portal screen: said plainly, and checked ═══════════
--- These hold nothing the portal opens a screen with, so Home says "Nothing here for your role" and the navigation shows only Home. Their work above is
--- real and sits in the database, but they do it in the member app (family and members) or the event-day app (event lead, check-in, boli recorder,
--- kitchen lead, zone lead). docs/DEMO_ROLE_WORK.md says what the smallest addition would be.
-select pg_temp.assert((select count(distinct role_key) = 10 from pg_temp.work where door like 'none%')
+-- These hold nothing the portal opens a screen with, so the navigation shows only Home. Their work above is real and sits in the database; Home gives
+-- each of them a card instead of "Nothing here for your role": "Your work is in the member app" (they hold no permission at all) and, for the roles held
+-- for one event or one zone, "My assignments". The kitchen lead is not one of them any more: kitchen.view opens My Store > Orders by pickup.
+select pg_temp.assert((select count(distinct role_key) = 9 from pg_temp.work where door like 'none%')
                       and not exists (select 1 from pg_temp.work where door like 'none%'
-                                       and role_key not in ('event_lead', 'checkin_volunteer', 'kitchen_lead', 'boli_recorder', 'zone_lead',
-                                                            'community_member', 'membership_reference', 'primary_adult', 'adult_member', 'child')),
-  'C · exactly these 10 roles have no portal screen: event lead, check-in volunteer, kitchen lead, boli recorder, zone lead, and the five family roles');
+                                       and role_key not in ('event_lead', 'checkin_volunteer', 'boli_recorder', 'zone_lead',
+                                                            'community_member', 'membership_reference', 'primary_adult', 'adult_member', 'child'))
+                      and exists (select 1 from pg_temp.work where role_key = 'kitchen_lead' and door = 'perm:kitchen.view'),
+  'C · exactly these 9 roles have no portal screen: event lead, check-in volunteer, boli recorder, zone lead, and the five family roles (the kitchen lead has Orders by pickup)');
+
+-- ══ C2. What the Home cards read, asked as each of those people ═════════════
+-- Each read is the one the portal makes for the card (src/lib/data/home-cards.ts), with the person's own token and row level security on; the counts
+-- themselves are B's. The adult rule comes first (app.i_am_adult, the one RLS uses for money and RSVPs): a child's card asks for no money.
+select pg_temp.as_role('community_member');
+select pg_temp.assert(app.i_am_adult(:'fc') and (select count(*) >= 1 from app.household_members where person_id = app.my_person_id(:'fc') and center_id = :'fc' and left_at is null),
+  'C2 · Priya is an adult in a household, so her card counts the family''s pledges, RSVPs and application');
+select pg_temp.as_role('membership_reference');
+select pg_temp.assert(app.i_am_adult(:'fc'), 'C2 · Kusum is an adult, so her card counts the requests to vouch');
+select pg_temp.as_role('primary_adult');
+select pg_temp.assert(app.i_am_adult(:'fc') and (select count(*) >= 1 from app.rsvps where household_id in (select app.my_household_ids(:'fc')) and status in ('rsvpd', 'confirmed')),
+  'C2 · Tarun is an adult and his card finds the family''s RSVP');
+select pg_temp.as_role('adult_member');
+select pg_temp.assert(app.i_am_adult(:'fc') and (select count(*) >= 1 from app.pledges where household_id in (select app.my_household_ids(:'fc')) and status in ('open', 'partially_paid')),
+  'C2 · Nisha is an adult and her card finds the family''s open pledge');
+select pg_temp.as_role('child');
+select pg_temp.assert(not app.i_am_adult(:'fc')
+                      and (select count(*) >= 2 from app.events where center_id = :'fc' and status in ('published', 'rsvp_closed', 'live') and starts_at > now())
+                      and (select count(*) >= 1 from app.alerts where center_id = :'fc' and starts_at <= now() and (ends_at is null or ends_at > now())),
+  'C2 · Zara is a child: her card asks for no money and counts the events and the notices');
+select pg_temp.as_role('event_lead');
+select pg_temp.assert((select count(*) = 1 from app.events where id = :'ev_tap') and (select rsvp_people >= 5 from app.event_live_stats(:'ev_tap')),
+  'C2 · the event lead''s My assignments finds the Tapasvi event and its live numbers');
+select pg_temp.as_role('checkin_volunteer');
+select pg_temp.assert((select count(*) = 1 from app.events where id = :'ev_tap') and (select rsvp_people >= 5 from app.event_live_stats(:'ev_tap')),
+  'C2 · the check-in volunteer''s My assignments finds the Tapasvi event and its live numbers');
+select pg_temp.as_role('boli_recorder');
+select pg_temp.assert((select count(*) = 1 from app.events where id = :'ev_tap'),
+  'C2 · the boli recorder''s My assignments finds the Tapasvi event (and asks for no numbers: the database lets only the lead, check-in and kitchen roles count)');
+select pg_temp.as_role('teacher');
+select pg_temp.assert((select count(*) = 1 from app.pathshala_classes where id = :'cls_j2'), 'C2 · the teacher''s My assignments finds class 2');
+select pg_temp.as_role('zone_lead');
+select pg_temp.assert((select count(*) = 1 from app.zones where id = :'zone_n')
+                      and (select count(*) >= 1 from app.inboxes where zone_id = :'zone_n')
+                      and (select count(*) >= 2 from app.threads t join app.inboxes i on i.id = t.inbox_id where i.zone_id = :'zone_n' and t.status <> 'closed'),
+  'C2 · the zone lead''s My assignments finds the north zone and the open questions in its inbox');
+-- The kitchen lead's prep list in the portal (My Store > Orders by pickup) reads the pickup slots, the orders with their lines and the item names.
+select pg_temp.as_role('kitchen_lead');
+select pg_temp.assert(app.has_permission(:'fc', 'kitchen.view')
+                      and (select count(*) >= 1 from app.pickup_windows where center_id = :'fc')
+                      and (select count(*) >= 2 from app.store_order_lines l join app.store_orders o on o.id = l.order_id where o.center_id = :'fc' and o.status in ('placed', 'preparing', 'ready'))
+                      and (select count(*) >= 1 from app.store_items where center_id = :'fc' and status = 'active'),
+  'C2 · the kitchen lead holds kitchen.view, which opens Orders by pickup: the database lets him read the pickup slots, the orders with their lines and the item names');
+select pg_temp.as_none();
 
 -- ══ D. What a child never sees ══════════════════════════════════════════════
 select pg_temp.as_role('child');
@@ -349,7 +395,7 @@ select v.role_key, v.what, v.door, format(v.q, :'nc', :'ev_cu', :'ev_cu', :'zone
    $q$select count(*) from app.actions where event_id = %2$L and state not in ('completed', 'removed')$q$, 3),
   ('checkin_volunteer', 'people to check in at the clean-up day', 'none',
    $q$select count(*) from app.attendees where event_id = %2$L and checked_in_at is null and status in ('rsvpd', 'confirmed')$q$, 5),
-  ('kitchen_lead', 'the store orders to prepare (prep list)', 'none+kitchen.view',
+  ('kitchen_lead', 'the store orders to prepare (My Store > Orders by pickup, opened by kitchen.view)', 'perm:kitchen.view',
    $q$select count(*) from app.store_order_lines l join app.store_orders o on o.id = l.order_id where o.center_id = %1$L and o.status in ('placed', 'preparing', 'ready')$q$, 2),
   ('store_lead', 'items at or under their reorder level (Home task "Inventory")', 'perm:store.manage',
    $q$select count(*) from app.store_items where center_id = %1$L and status = 'active' and track_inventory and low_stock_threshold is not null and stock_on_hand <= low_stock_threshold$q$, 2),
@@ -373,11 +419,11 @@ select v.role_key, v.what, v.door, format(v.q, :'nc', :'ev_cu', :'ev_cu', :'zone
 select pg_temp.assert((select count(distinct role_key) = 21 from pg_temp.work)
                       and not exists (select 1 from app.demo_personas d where d.center_id = :'nc' and d.role_key not in (select role_key from pg_temp.work)),
   'G · every one of the 21 roles of the club has at least one question');
-select pg_temp.assert((select count(distinct role_key) = 9 from pg_temp.work where door like 'none%')
+select pg_temp.assert((select count(distinct role_key) = 8 from pg_temp.work where door like 'none%')
                       and not exists (select 1 from pg_temp.work where door like 'none%'
-                                       and role_key not in ('event_lead', 'checkin_volunteer', 'kitchen_lead', 'zone_lead',
+                                       and role_key not in ('event_lead', 'checkin_volunteer', 'zone_lead',
                                                             'community_member', 'membership_reference', 'primary_adult', 'adult_member', 'child')),
-  'G · its roles with no portal screen are the same, minus the boli recorder it does not have (9)');
+  'G · its roles with no portal screen are the same, minus the boli recorder it does not have (8)');
 select pg_temp.run_work('G');
 select pg_temp.as_none();
 select pg_temp.claims(:admin, true);

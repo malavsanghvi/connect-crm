@@ -254,3 +254,29 @@ describe("identifier kind permissions (external_ids policies)", () => {
     expect(canViewIdentifierKind(people, "org_household")).toBe(true);
   });
 });
+
+describe("the kitchen lead's prep list (My Store › Orders by pickup)", () => {
+  const kitchen = { permissions: ["kitchen.view"], isPlatformAdmin: false };
+
+  it("kitchen.view opens Orders by pickup, and nothing else in the store or anywhere", () => {
+    expect(canAccess(kitchen, "storeOrders")).toBe(true);
+    const nav = visibleNav(kitchen);
+    expect(nav.map((m) => m.key)).toEqual(["home", "store"]);
+    const store = nav.find((m) => m.key === "store")!;
+    expect(store.tabs.map((t) => t.href)).toEqual(["/store/orders"]);
+    expect(store.href).toBe("/store/orders");
+  });
+
+  it("it moves nothing: changing an order's status still needs store.manage or store.pickup", () => {
+    expect(canAccess(kitchen, "storePickup")).toBe(false);
+    expect(canAccess(kitchen, "store")).toBe(false);
+    expect(canAccess(kitchen, "storeManage")).toBe(false);
+  });
+
+  it("no other permission was widened: the store rules are the same as before apart from storeOrders", () => {
+    expect(ACCESS.storeOrders).toEqual(["store.view", "store.manage", "store.pickup", "kitchen.view"]);
+    expect(ACCESS.store).toEqual(["store.view", "store.manage"]);
+    expect(ACCESS.storePickup).toEqual(["store.manage", "store.pickup"]);
+    expect(ACCESS.events).toEqual(["events.view", "events.manage"]);
+  });
+});
