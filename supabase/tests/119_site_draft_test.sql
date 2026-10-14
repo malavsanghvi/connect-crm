@@ -341,7 +341,7 @@ select pg_temp.assert((:'d119'::jsonb -> 'school' ->> 'on')::boolean and (:'d119
 select pg_temp.assert((:'d119'::jsonb -> 'today' ->> 'open') = '06:00' and (:'d119'::jsonb -> 'today' ->> 'close') = '20:00',
   'G · today''s opening and closing time');
 
--- Switch the store off for the second community the way other tests do, as the database owner (the switch function itself asks for a fresh 2FA check).
+-- Switch the store off for the second community the way other tests do, as the database owner (writing the table directly).
 select set_config('request.jwt.claims', '', true);
 insert into app.center_modules (center_id, module_key, enabled, reason) values (:c2, 'store', false, 'test 119');
 select pg_temp.sign_in(:admin2);

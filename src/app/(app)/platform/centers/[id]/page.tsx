@@ -114,7 +114,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
         <Card
           span={12}
           title="Kind of organization"
-          description="Which modules, words and Setup checklist this organization has · changing it needs a reason and a fresh 2FA check"
+          description="Which modules, words and Setup checklist this organization has · changing it needs a reason"
         >
           {kinds.status !== "ok" ? (
             <QueryError what="the kinds of organization" error={kinds.error} retryHref={`/platform/centers/${id}`} />

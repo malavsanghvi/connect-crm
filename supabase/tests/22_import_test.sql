@@ -35,13 +35,13 @@ select pg_temp.assert(exists (select 1 from app.readiness_checks where key = 're
 -- ── Permissions ──────────────────────────────────────────────────────────────
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (Ada enrolled an authenticator in test 18)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (Ada enrolled an authenticator in test 18); no fresh code is needed any more (0787)
 select pg_temp.assert_raises($$select app.import_create_run('00000000-0000-4000-8000-000000000001', 'pledges', 'Neon export', 'pledges.csv')$$,
   'giving.manage', 'a center admin without giving.manage cannot import pledges');
 commit;
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000001','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (test 18 enrolls authenticators)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000001','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (test 18 enrolls authenticators); no fresh code is needed any more (0787)
 select pg_temp.assert_raises($$select app.import_create_run('00000000-0000-4000-8000-000000000001', 'people', 'Neon export', 'people.csv')$$,
   'people.manage', 'a member cannot import people');
 select pg_temp.assert_raises($$select app.data_quality('00000000-0000-4000-8000-000000000001')$$, 'people.view', 'a member cannot see the data-quality view');
@@ -50,7 +50,7 @@ commit;
 -- A switched-off module's data cannot be imported.
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (Ada enrolled an authenticator in test 18)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (Ada enrolled an authenticator in test 18); no fresh code is needed any more (0787)
 select app.set_module_enabled(:jsh, 'calendar', false, 'import test');
 select pg_temp.assert_raises($$select app.import_create_run('00000000-0000-4000-8000-000000000001', 'calendar_layers', 'csv', 'layers.csv')$$,
   'switched off', 'a switched-off module refuses its import');
@@ -60,7 +60,7 @@ commit;
 -- ── Households, then people (Tara) ──────────────────────────────────────────
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (test 18 enrolls authenticators)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (test 18 enrolls authenticators); no fresh code is needed any more (0787)
 insert into ctx select 'hh_run', (app.import_create_run(:jsh, 'households', 'Neon export', 'households.csv', 'fp-h', 100, '{"crm_system":"neon"}'))->>'id';
 select pg_temp.assert(app.import_stage_rows((select v::uuid from ctx where k = 'hh_run'), $$[
   {"row_no":2,"source_key":"0901","raw":{"Household ID":"0901"},"data":{"display_name":"Kapadia family","city":"Katy"},"extra":{"legacy_id":"0901","crm_id":"N-901"}},
@@ -93,7 +93,7 @@ select pg_temp.assert((select count(*) > 0 and bool_and(reason = format('Import 
 -- A custom field kept from an extra column; people with a duplicate by email and a name-only look-alike.
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (test 18 enrolls authenticators)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (test 18 enrolls authenticators); no fresh code is needed any more (0787)
 insert into ctx select 'p_run', (app.import_create_run(:jsh, 'people', 'Neon export', 'people.csv', 'fp-p', 100, '{"crm_system":"neon"}'))->>'id';
 select pg_temp.assert((select (f->0->>'key') = 'senior_status'
                          from app.import_define_fields((select v::uuid from ctx where k = 'p_run'), '[{"label":"Senior status","type":"boolean"}]') f),
@@ -149,7 +149,7 @@ select pg_temp.assert_raises($$update app.people set custom = '{"no_such_field":
   'no custom field', 'an undefined custom field is refused');
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (Ada enrolled an authenticator in test 18)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (Ada enrolled an authenticator in test 18); no fresh code is needed any more (0787)
 select app.update_custom_field((select id from app.custom_field_definitions where center_id = :jsh and entity = 'people' and key = 'senior_status'),
                                p_sensitivity => 'member_self');
 select pg_temp.assert((app.set_custom_value('people', '30000000-0000-4000-8000-000000000001', 'senior_status', 'true'))->>'senior_status' = 'true',
@@ -157,7 +157,7 @@ select pg_temp.assert((app.set_custom_value('people', '30000000-0000-4000-8000-0
 commit;
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000001','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (test 18 enrolls authenticators)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000001','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (test 18 enrolls authenticators); no fresh code is needed any more (0787)
 select pg_temp.assert((select count(*) = 1 and bool_and(label = 'Senior status' and value = 'true'::jsonb)
                          from app.person_custom_fields('00000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001')),
   'the member sees their own member_self custom field');
@@ -168,7 +168,7 @@ commit;
 -- A searchable custom field is a segment filter; one nobody marked searchable is not.
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (Ada enrolled an authenticator in test 18)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (Ada enrolled an authenticator in test 18); no fresh code is needed any more (0787)
 select pg_temp.assert(app.segment_recipient_count(:jsh, '{"custom_fields":[{"entity":"people","key":"senior_status","value":true}]}') = 0,
   'a custom field that is not searchable is not a segment');
 select app.update_custom_field((select id from app.custom_field_definitions where center_id = :jsh and entity = 'people' and key = 'senior_status'),
@@ -180,7 +180,7 @@ commit;
 -- ── Membership types (Ada) and memberships (Tara) ─────────────────────────────
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (Ada enrolled an authenticator in test 18)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (Ada enrolled an authenticator in test 18); no fresh code is needed any more (0787)
 insert into ctx select 'mt_run', (app.import_create_run(:jsh, 'membership_types', 'csv', 'types.csv'))->>'id';
 select app.import_stage_rows((select v::uuid from ctx where k = 'mt_run'),
   '[{"row_no":2,"source_key":"senior_life","data":{"key":"senior_life","name":"Senior life","tier":"life","fee_cents":150000}}]');
@@ -189,7 +189,7 @@ select app.import_commit_batch((select v::uuid from ctx where k = 'mt_run'));
 commit;
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (test 18 enrolls authenticators)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (test 18 enrolls authenticators); no fresh code is needed any more (0787)
 insert into ctx select 'm_run', (app.import_create_run(:jsh, 'memberships', 'csv', 'memberships.csv'))->>'id';
 select app.import_stage_rows((select v::uuid from ctx where k = 'm_run'),
   $$[{"row_no":2,"source_key":"M-1","data":{"crm_external_id":"M-1","household_id":{"$ref":"household","value":"0901"},
@@ -206,7 +206,7 @@ values (:jsh, 'quickbooks_online', 'connected', '{"go_live_date":"2026-01-01"}')
 on conflict (center_id, provider) do update set settings = app.integration_connections.settings || '{"go_live_date":"2026-01-01"}';
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (test 18 enrolls authenticators)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (test 18 enrolls authenticators); no fresh code is needed any more (0787)
 insert into ctx select 'pl_run', (app.import_create_run(:jsh, 'pledges', 'csv', 'pledges.csv'))->>'id';
 select app.import_stage_rows((select v::uuid from ctx where k = 'pl_run'), $$[
   {"row_no":2,"source_key":"PL-1","data":{"crm_external_id":"PL-1","household_id":{"$ref":"household","value":"0901"},"amount_cents":500000,
@@ -249,7 +249,7 @@ select pg_temp.assert_raises($$update app.payments set is_historical = false whe
 -- ── Reconcile, sign off ─────────────────────────────────────────────────────
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (test 18 enrolls authenticators)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (test 18 enrolls authenticators); no fresh code is needed any more (0787)
 select pg_temp.assert((select (rec->>'ok')::boolean and rec->'money' @> '[{"column":"amount_cents","file_cents":225000,"db_cents":225000,"ok":true}]'
                               and rec->'money' @> '[{"column":"allocations","file_cents":200000,"db_cents":200000}]'
                               and jsonb_array_length(rec->'by_year') = 3
@@ -269,7 +269,7 @@ commit;
 -- ── Re-running the same file is safe ────────────────────────────────────────
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (test 18 enrolls authenticators)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (test 18 enrolls authenticators); no fresh code is needed any more (0787)
 insert into ctx select 'pay_run2', (app.import_create_run(:jsh, 'payments', 'csv', 'payments.csv'))->>'id';
 select app.import_stage_rows((select v::uuid from ctx where k = 'pay_run2'), (select jsonb_agg(jsonb_build_object('row_no', row_no, 'source_key', source_key,
   'data', data, 'extra', extra)) from app.import_rows where run_id = (select v::uuid from ctx where k = 'pay_run')));
@@ -287,7 +287,7 @@ insert into app.household_members (household_id, person_id, center_id, role)
 values ('20000000-0000-4000-8000-000000000002', '32200000-0000-4000-8000-000000000001', :jsh, 'child');
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (Ada enrolled an authenticator in test 18)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000011','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (Ada enrolled an authenticator in test 18); no fresh code is needed any more (0787)
 select pg_temp.assert((select dq ? 'coverage' and dq ? 'duplicates' and dq ? 'minors_without_birth_date' and dq ? 'without_consent'
                               and dq ? 'invalid_emails' and dq ? 'invalid_phones' and (dq->'minors_without_birth_date'->>'count')::int >= 1
                          from app.data_quality(:jsh) dq),
@@ -299,7 +299,7 @@ commit;
 -- ── Undo ────────────────────────────────────────────────────────────────────
 begin;
 set local role authenticated;
-select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- fresh 2FA (test 18 enrolls authenticators)
+select set_config('request.jwt.claims', json_build_object('sub','10000000-0000-4000-8000-000000000003','role','authenticated','aal','aal2','amr',json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);  -- signed in with an authenticator code (test 18 enrolls authenticators); no fresh code is needed any more (0787)
 select pg_temp.assert_raises($$select app.import_undo((select v::uuid from ctx where k = 'pl_run'), 'test')$$, 'undo the later imports first',
   'a run whose records are used by a later run cannot be undone before it');
 select pg_temp.assert_raises($$select app.import_undo((select v::uuid from ctx where k = 'p_run'), '')$$, 'say why', 'undo needs a reason');

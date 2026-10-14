@@ -23,7 +23,7 @@ exception when others then
   if position(lower(expect) in lower(sqlerrm)) = 0 then raise exception 'FAIL: % (got "%")', label, sqlerrm; end if;
   raise notice 'PASS: %', label;
 end $$;
--- Sign in as a user; a fresh 2FA check (aal2 and a totp step a minute ago) when asked.
+-- Sign in as a user; with p_step_up, signed in with a 2FA code from a minute ago (aal2 and a totp step). No call in this file needs one since 0787.
 create or replace function pg_temp.claims(p_user uuid, p_step_up boolean default false) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', jsonb_build_object(

@@ -124,7 +124,7 @@ export async function saveZelleReportingAction(
       ok: true,
       message:
         `The report window is saved: reports are flagged after ${savedDays} days. The bank account is NOT changed yet: changing it needs a second person. ` +
-        `A different person with giving.approve has to confirm it (Settings › Payments, Changes to where gifts go; it needs a fresh 2FA check and a reason). ` +
+        `A different person with giving.approve has to confirm it (Settings › Payments, Changes to where gifts go; it needs a reason). ` +
         `Until then Zelle lines are matched against ${savedAccount ? "the account that was chosen before" : "any account"}.`,
       data: { windowDays: savedDays, bankAccountId: savedAccount, pendingChange: true },
     };

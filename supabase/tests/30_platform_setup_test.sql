@@ -63,7 +63,7 @@ select pg_temp.assert(not has_function_privilege('authenticated', 'app.worker_re
 select pg_temp.assert(not ('WORKER_DATABASE_URL' = any (app.platform_secret_names())) and not ('WORKER_DATABASE_URL' = any (app.platform_setting_keys())),
   'WORKER_DATABASE_URL cannot be stored in the app (bootstrap)');
 
--- ── Secrets: platform admin + fresh 2FA + reason ─────────────────────────────
+-- ── Secrets: platform admin + reason (no fresh 2FA check since 0787) ───────────
 begin;
 select pg_temp.claims(:staff, true);
 set local role authenticated;
@@ -72,12 +72,6 @@ select pg_temp.assert_state($s$select app.set_platform_secret('STRIPE_TEST_SECRE
 rollback;
 begin;
 select pg_temp.claims(:pa, false);
-set local role authenticated;
-select pg_temp.assert_state($s$select app.set_platform_secret('STRIPE_TEST_SECRET_KEY', 'sk_test_e2e_platform_1234', 'first key')$s$, 'CCSTP',
-  'without a fresh 2FA check the platform admin gets CCSTP');
-rollback;
-begin;
-select pg_temp.claims(:pa, true);
 set local role authenticated;
 select pg_temp.assert_raises($s$select app.set_platform_secret('WORKER_DATABASE_URL', 'postgres://x:y@z/db', 'try')$s$, 'is not a platform key',
   'an unknown name (the bootstrap connection string) is refused');
@@ -115,7 +109,7 @@ rollback;
 
 -- ── Settings ─────────────────────────────────────────────────────────────────
 begin;
-select pg_temp.claims(:pa, true);
+select pg_temp.claims(:pa, false);
 set local role authenticated;
 select pg_temp.assert(app.set_platform_setting('portal_domain', 'https://CRM.CommunityConnect.test/', 'Our portal') ->> 'value' = 'crm.communityconnect.test',
   'the portal domain is normalized to a bare lower-case host');
@@ -134,7 +128,8 @@ commit;
 begin;
 select pg_temp.claims(:pa, false);
 set local role authenticated;
-select pg_temp.assert_state($s$select app.set_platform_setting('STRIPE_CLIENT_ID', 'ca_e2e_fake_client', 'x')$s$, 'CCSTP', 'settings also need a fresh 2FA check');
+select pg_temp.assert(app.set_platform_setting('STRIPE_CLIENT_ID', 'ca_e2e_fake_client', 'x') ->> 'value' = 'ca_e2e_fake_client',
+  'settings need no fresh 2FA check either');
 rollback;
 
 -- The on-demand TLS ask (anon): only yes/no for the platform's own names.

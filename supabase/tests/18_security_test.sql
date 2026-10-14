@@ -84,34 +84,44 @@ rollback;
 select pg_temp.assert(app.require_2fa_for_staff(:jsh) = false, 'JSH records require_2fa_for_staff = false (its staff have not enrolled yet)');
 insert into app.centers (id, slug, name) values ('00000000-0000-4000-8000-000000000018', 'newcenter18', 'New Center 18');
 select pg_temp.assert(app.require_2fa_for_staff('00000000-0000-4000-8000-000000000018'), 'a new community requires 2FA for staff by default');
-select app.assert_step_up('anything');
+-- The mechanics are tested on a key that is on the list: since 0787 only platform.create_sandbox, golive.approve, platform.promote
+-- and platform.module_grant ask for a fresh code (app.step_up_required); assert_step_up returns at once for every other action.
+select app.assert_step_up('platform.create_sandbox');
 select pg_temp.assert(true, 'no signed-in user (service role, workers): assert_step_up passes');
 begin;
 select pg_temp.sign_in(:ada);
-select pg_temp.assert_step_up_needed($$select app.assert_step_up('roles.grant')$$, 'a user with an authenticator app must pass a fresh check');
+select pg_temp.assert_step_up_needed($$select app.assert_step_up('platform.create_sandbox')$$, 'a user with an authenticator app must pass a fresh check');
 rollback;
 begin;
 select pg_temp.sign_in(:ada, 30);
-select app.assert_step_up('roles.grant');
+select app.assert_step_up('platform.create_sandbox');
 select pg_temp.assert(true, 'a totp check 30 seconds ago satisfies assert_step_up');
 rollback;
 begin;
 select pg_temp.sign_in(:ada, 400);
-select pg_temp.assert_step_up_needed($$select app.assert_step_up('roles.grant')$$, 'a totp check older than 5 minutes does not');
+select pg_temp.assert_step_up_needed($$select app.assert_step_up('platform.create_sandbox')$$, 'a totp check older than 5 minutes does not');
+rollback;
+-- Each of the four gatekeeping actions still asks.
+begin;
+select pg_temp.sign_in(:ada);
+select pg_temp.assert_step_up_needed($$select app.assert_step_up('platform.create_sandbox')$$, 'creating a sandbox still needs a fresh check');
+select pg_temp.assert_step_up_needed($$select app.assert_step_up('golive.approve')$$, 'approving go-live still needs a fresh check');
+select pg_temp.assert_step_up_needed($$select app.assert_step_up('platform.promote')$$, 'promoting a sandbox to production still needs a fresh check');
+select pg_temp.assert_step_up_needed($$select app.assert_step_up('platform.module_grant')$$, 'granting a module to an organization still needs a fresh check');
 rollback;
 -- Staff without an app: passes where the community has not switched the rule on, asked where it has.
 insert into auth.users (id, email) values ('18000000-0000-4000-8000-000000000001', 'staff18@example.com');
 insert into app.role_grants (center_id, user_id, role_key) values (:jsh, '18000000-0000-4000-8000-000000000001', 'content_editor');
 begin;
 select pg_temp.sign_in('18000000-0000-4000-8000-000000000001');
-select app.assert_step_up('export.people');
+select app.assert_step_up('platform.create_sandbox');
 select pg_temp.assert(true, 'staff without 2FA in a community that has not required it yet are not blocked');
 rollback;
 insert into app.role_grants (center_id, user_id, role_key) values ('00000000-0000-4000-8000-000000000018', '18000000-0000-4000-8000-000000000001', 'content_editor');
 begin;
 select pg_temp.sign_in('18000000-0000-4000-8000-000000000001');
 do $$ declare v_hint text; begin
-  perform app.assert_step_up('export.people');
+  perform app.assert_step_up('platform.create_sandbox');
   raise exception 'FAIL: staff of a 2FA-required community passed without 2FA';
 exception when sqlstate 'CCSTP' then
   get stacked diagnostics v_hint = pg_exception_hint;
@@ -121,7 +131,7 @@ end $$;
 rollback;
 begin;
 select pg_temp.sign_in(:priya);
-select app.assert_step_up('anything');
+select app.assert_step_up('platform.create_sandbox');
 select pg_temp.assert(true, 'a member with no staff role and no app is not asked');
 select pg_temp.assert((app.my_security_status(:jsh)->>'is_staff')::boolean = false and (app.my_security_status(:jsh)->>'has_totp')::boolean = false,
   'my_security_status: Priya is not staff and has no authenticator app');
@@ -134,54 +144,37 @@ select pg_temp.assert((select (s->>'has_totp')::boolean and (s->>'totp_factors')
   'my_security_status: Tara has one verified app (the unverified one does not count), a fresh aal2 session, staff, not required in JSH');
 rollback;
 
--- ── Step-up wired into the sensitive actions ─────────────────────────────────
+-- ── No fresh code on the former step-up actions (0787) ──────────────────────
+-- Since 0787 only the four gatekeeping actions ask for a fresh 2FA code. Everything that used to ask for one runs with no
+-- authenticator check in the session (aal1), even for a person who has an authenticator app.
 begin;
 select pg_temp.sign_in(:ada);
-select pg_temp.assert_step_up_needed($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'store', false, 'test')$$,
-  'switching a module needs a fresh check (set_module_enabled)');
-select pg_temp.assert_step_up_needed($$insert into app.role_grants (center_id, user_id, role_key) values ('00000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'content_editor')$$,
-  'granting a role needs a fresh check');
-select pg_temp.assert_step_up_needed($$update app.people set merged_into_id = '30000000-0000-4000-8000-000000000001' where id = '30000000-0000-4000-8000-000000000002'$$,
-  'merging a person needs a fresh check');
-select pg_temp.assert_step_up_needed($$update app.households set merged_into_id = '20000000-0000-4000-8000-000000000001' where id = '20000000-0000-4000-8000-000000000003'$$,
-  'merging a household needs a fresh check');
-select pg_temp.assert_step_up_needed($$select app.record_export('00000000-0000-4000-8000-000000000001', 'people', '{"rows": 3}')$$,
-  'an export needs a fresh check');
+do $$ declare k text; begin
+  foreach k in array array['roles.grant', 'modules.switch', 'people.merge', 'export.people', 'giving.write_off', 'giving.refund',
+                           'accounting.month_lock', 'security.policy', 'ownership.transfer', 'security.reset_2fa'] loop
+    perform app.assert_step_up(k);
+  end loop;
+  raise notice 'PASS: a user with an authenticator app and no fresh check is not asked for one on any of the former step-up actions';
+end $$;
 rollback;
 begin;
-select pg_temp.sign_in(:admin2);
-select pg_temp.assert_step_up_needed($$select app.approve_role_grant((select id from app.role_grants where status = 'pending' and center_id = '00000000-0000-4000-8000-000000000001'
-                                         and granted_by is distinct from 'a9000000-0000-4000-8000-000000000001' limit 1))$$,
-  'approving a pending role grant needs a fresh check');
-rollback;
-begin;
-select pg_temp.sign_in(:ada, 20, '{"x-client-app":"portal","x-client-screen":"/settings/modules"}');
+select pg_temp.sign_in(:ada, null, '{"x-client-app":"portal","x-client-screen":"/settings/modules"}');
 select app.set_module_enabled(:jsh, 'store', false, 'o-security test');
-select pg_temp.assert(not app.module_enabled(:jsh, 'store'), 'with a fresh check the module switch goes through');
+select pg_temp.assert(not app.module_enabled(:jsh, 'store'), 'the module switch goes through without a fresh check');
 select app.set_module_enabled(:jsh, 'store', true, 'o-security test: back on');
 select app.record_export(:jsh, 'people', '{"rows": 3}');
 select pg_temp.assert(exists (select 1 from app.audit_log where action = 'export.people' and actor_user_id = '10000000-0000-4000-8000-000000000011'
                                 and after->>'rows' = '3' and client_screen = '/settings/modules'),
-  'a checked export is written to the audit log as export.people with its detail');
+  'an export without a fresh check is written to the audit log as export.people with its detail');
 commit;
 begin;
 select pg_temp.sign_in(:tara);
-select pg_temp.assert_step_up_needed($$update app.pledges set written_off_by = '10000000-0000-4000-8000-000000000003' where id = '60000000-0000-4000-8000-000000000042'$$,
-  'requesting a write-off needs a fresh check');
-select pg_temp.assert_step_up_needed($$update app.payments set refund_approved_by = '10000000-0000-4000-8000-000000000003'
-                                        where id = (select id from app.payments where center_id = '00000000-0000-4000-8000-000000000001' and refund_approved_by is null order by created_at limit 1)$$,
-  'requesting a refund needs a fresh check');
-select pg_temp.assert_step_up_needed($$insert into app.accounting_periods (center_id, period_month, status) values ('00000000-0000-4000-8000-000000000001', '2019-01-01', 'closed')$$,
-  'locking a month needs a fresh check');
-rollback;
-begin;
-select pg_temp.sign_in(:tara, 5);
 insert into app.accounting_periods (center_id, period_month, status) values (:jsh, '2019-01-01', 'closed');
 select pg_temp.assert((select status = 'closed' from app.accounting_periods where center_id = :jsh and period_month = '2019-01-01'),
-  'with a fresh check the month lock goes through');
+  'the month lock goes through without a fresh check');
 update app.pledges set written_off_by = :tara where id = '60000000-0000-4000-8000-000000000042';
 select pg_temp.assert((select written_off_by = :tara from app.pledges where id = '60000000-0000-4000-8000-000000000042'),
-  'with a fresh check the write-off request goes through (the two-person rule still applies to completing it)');
+  'the write-off request goes through without a fresh check (the two-person rule still applies to completing it)');
 rollback;
 begin;
 -- A withdrawal loosens nothing: no check.
@@ -193,8 +186,8 @@ begin;
 select pg_temp.sign_in(:ada);
 update app.centers set rules = jsonb_set(rules, '{security,require_2fa_for_staff}', 'true') where id = :jsh;
 select pg_temp.assert(app.require_2fa_for_staff(:jsh), 'switching the staff 2FA rule ON needs no check');
-select pg_temp.assert_step_up_needed($$update app.centers set rules = jsonb_set(rules, '{security,require_2fa_for_staff}', 'false') where id = '00000000-0000-4000-8000-000000000001'$$,
-  'switching the staff 2FA rule OFF needs a fresh check');
+update app.centers set rules = jsonb_set(rules, '{security,require_2fa_for_staff}', 'false') where id = :jsh;
+select pg_temp.assert(not app.require_2fa_for_staff(:jsh), 'switching the staff 2FA rule OFF needs no fresh check either');
 rollback;
 
 -- ── Owner ───────────────────────────────────────────────────────────────────
@@ -211,8 +204,6 @@ select pg_temp.assert((select user_id from app.center_owners where center_id = '
 begin;
 select pg_temp.sign_in(:ada);
 select pg_temp.assert(app.is_center_owner(:jsh), 'is_center_owner: Ada owns JSH');
-select pg_temp.assert_step_up_needed($$select app.transfer_ownership('00000000-0000-4000-8000-000000000001', 'a9000000-0000-4000-8000-000000000001', 'handing over')$$,
-  'transferring ownership needs a fresh check');
 rollback;
 begin;
 select pg_temp.sign_in(:admin2, 5);
@@ -220,7 +211,7 @@ select pg_temp.assert_raises($$select app.transfer_ownership('00000000-0000-4000
   'Only the owner', 'someone who is not the owner cannot transfer ownership');
 rollback;
 begin;
-select pg_temp.sign_in(:ada, 5);
+select pg_temp.sign_in(:ada);
 select pg_temp.assert_raises($$select app.transfer_ownership('00000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000003', 'to the treasurer')$$,
   'must be an active administrator', 'ownership only goes to an active center_admin');
 select pg_temp.assert_raises($$select app.transfer_ownership('00000000-0000-4000-8000-000000000001', 'a9000000-0000-4000-8000-000000000001', '  ')$$,
@@ -257,13 +248,8 @@ select pg_temp.assert_raises($$select app.reset_staff_2fa('00000000-0000-4000-80
   'cannot reset your own', 'nobody resets their own 2FA');
 rollback;
 begin;
-select pg_temp.sign_in(:admin2);
-select pg_temp.assert_step_up_needed($$select app.reset_staff_2fa('00000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000003', 'lost phone')$$,
-  'the resetting admin needs a fresh check');
-rollback;
-begin;
 insert into auth.sessions (id, user_id, aal) values ('51800000-0000-4000-8000-000000000003', :tara, 'aal2');
-select pg_temp.sign_in(:admin2, 5);
+select pg_temp.sign_in(:admin2);
 select pg_temp.assert(app.reset_staff_2fa(:jsh, :tara, 'Lost phone; identity checked in person') = 2,
   'the second admin resets Tara''s 2FA (both of her factors are removed)');
 reset role;
@@ -282,11 +268,6 @@ select pg_temp.assert_raises($$select * from app.invite_staff('00000000-0000-400
 rollback;
 begin;
 select pg_temp.sign_in(:ada);
-select pg_temp.assert_step_up_needed($$select * from app.invite_staff('00000000-0000-4000-8000-000000000001', 'new.staff@example.com', null, null, array['content_editor'])$$,
-  'inviting staff needs a fresh check');
-rollback;
-begin;
-select pg_temp.sign_in(:ada, 5);
 select pg_temp.assert_raises($$select * from app.invite_staff('00000000-0000-4000-8000-000000000001', 'x@example.com', null, null, array['platform_owner'])$$,
   'cannot be given by invitation', 'platform roles cannot be given by invitation');
 select pg_temp.assert_raises($$select * from app.invite_staff('00000000-0000-4000-8000-000000000001', null, '713-555', null, array['content_editor'])$$,
@@ -341,7 +322,7 @@ select pg_temp.assert_raises($$select app.approve_role_grant((select id from app
   'second, different person', 'the inviter cannot be the second approver');
 rollback;
 begin;
-select pg_temp.sign_in(:admin2, 5);
+select pg_temp.sign_in(:admin2);
 select app.approve_role_grant((select id from app.role_grants where user_id = '18000000-0000-4000-8000-000000000003' and status = 'pending'));
 select pg_temp.assert((select status = 'active' and second_approver = :admin2::uuid from app.role_grants
                         where user_id = '18000000-0000-4000-8000-000000000003' and role_key = 'treasurer'),

@@ -184,7 +184,7 @@ insert into auth.users (id, email, email_confirmed_at) values
 update auth.users set email_change = 'vic.new163@c1.test' where id = :vic;
 insert into app.accounts (user_id, is_platform_admin) values (:plat, true), (:weaver, true), (:weaverinv, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
--- The platform admin has an authenticator app, so a fresh 2FA check is required of them (section I).
+-- The platform admin has an authenticator app (an ownership transfer no longer asks for a fresh 2FA check since 0787; section I).
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values
   ('16300000-0000-4000-8000-0000000000f9', :plat, 'Phone', 'totp', 'verified');
 -- c3 and c4 have no owner yet (section I).
@@ -637,10 +637,8 @@ select pg_temp.assert_raises(format($$select app.transfer_ownership(%L, %L, 'Tak
   'cannot make an account of Weaver''s team the owner', 'I · nor to another Weaver account (a second account included)');
 select pg_temp.assert_raises(format($$select app.transfer_ownership(%L, %L, '  ')$$, :c1, :cadmin),
   'Give a reason for the transfer', 'I · a transfer by Weaver needs a reason');
+-- No fresh 2FA check is asked for since 0787: this transfer runs with claims that carry no authenticator check.
 select pg_temp.claims(:plat, false);
-select pg_temp.assert_raises(format($$select app.transfer_ownership(%L, %L, 'The owner asked')$$, :c1, :cadmin),
-  'fresh 2FA check', 'I · and a fresh 2FA check');
-select pg_temp.claims(:plat);
 select app.transfer_ownership(:c1, :cadmin, 'Test 163: the owner asked Weaver to hand it over');
 reset role;
 select pg_temp.assert((select user_id from app.center_owners where center_id = :c1) = :cadmin

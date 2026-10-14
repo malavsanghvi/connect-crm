@@ -150,7 +150,7 @@ export const ENTITLEMENT_GROUPS: EntitlementGroup[] = [
       { key: "integrations.manage", label: "Connect and manage integrations" },
       { key: "privacy.manage", label: "Privacy and data requests" },
       { key: "audit.view", label: "Audit log" },
-      { key: "data.export", label: "Export data (Giving lists, with a fresh 2FA code for every file)" },
+      { key: "data.export", label: "Export data (Giving lists)" },
     ],
   },
   {

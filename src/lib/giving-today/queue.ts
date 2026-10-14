@@ -435,7 +435,7 @@ function approvalRow(t: HomeTask, d: GivingTaskDetail, ctx: TodayContext, input:
       title: `Ready to record: refund of ${amt}`,
       lines: [
         `Receipt ${ref} · approved by two people (${asked} asked)`,
-        ...(online ? ["Card and online payments are refunded through the payment provider; it asks for a fresh code."] : []),
+        ...(online ? ["Card and online payments are refunded through the payment provider."] : []),
       ],
       acts: act
         ? [act, ...openFamily(family)]

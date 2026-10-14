@@ -65,8 +65,7 @@ export function LockMonthButton({ month, monthLabel, shortLabel, ready, locked }
           })
         }
       >
-        No one can change {shortLabel} transactions after locking; later corrections post as adjustments. If you use an authenticator app, you will
-        be asked for a fresh code; the lock is recorded under your name in the audit log.
+        No one can change {shortLabel} transactions after locking; later corrections post as adjustments. The lock is recorded under your name in the audit log.
       </Modal>
     </>
   );

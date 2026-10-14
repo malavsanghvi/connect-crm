@@ -182,8 +182,8 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
         : !canExport
           ? "Exporting a list needs permission to manage people. Ask your organization's admin."
           : view === "people"
-          ? "Export holds adults only: a child's record is not part of a list export. It asks for a fresh 2FA code and is recorded in the audit log."
-          : "Export holds each family's number, IDs, adults and area, without any child's name. It asks for a fresh 2FA code and is recorded in the audit log.",
+          ? "Export holds adults only: a child's record is not part of a list export. It is recorded in the audit log."
+          : "Export holds each family's number, IDs, adults and area, without any child's name. It is recorded in the audit log.",
     } satisfies ListActions;
   }
 

@@ -173,7 +173,7 @@ export function ProcessorPanel({ p, s, tz, run, busy, askReason }: { p: Processo
       body: (
         <p>
           You will sign in to the organization&apos;s {label} account and allow Weaver to take payments for it. {label} may take a few days to verify the
-          organization. This needs a fresh 2FA check.
+          organization.
         </p>
       ),
       run: async (reason) => {
@@ -240,7 +240,7 @@ export function ProcessorPanel({ p, s, tz, run, busy, askReason }: { p: Processo
                       confirmLabel: p.status === "live" ? "Switch to test" : "Go live",
                       body: p.status === "live"
                         ? <p>Members will no longer be able to pay online with {label}.</p>
-                        : <p>Members will be charged real money through {label}. This needs a fresh 2FA check.</p>,
+                        : <p>Members will be charged real money through {label}.</p>,
                       run: async (reason) => void (await run(`mode-${p.processor}`, `switch ${label} mode`, () => setModeAction(p.processor, p.status === "live" ? "test" : "live", reason))),
                     })
                   }
@@ -257,7 +257,7 @@ export function ProcessorPanel({ p, s, tz, run, busy, askReason }: { p: Processo
                     title: `Disconnect ${label}`,
                     tone: "bad",
                     confirmLabel: "Disconnect",
-                    body: <p>{label} stops taking payments here. Nothing is deleted: past payments and their history stay. This needs a fresh 2FA check.</p>,
+                    body: <p>{label} stops taking payments here. Nothing is deleted: past payments and their history stay.</p>,
                     run: async (reason) => void (await run(`disconnect-${p.processor}`, `disconnect ${label}`, () => disconnectAction(p.processor, reason))),
                   })
                 }

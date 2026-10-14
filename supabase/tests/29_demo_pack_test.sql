@@ -165,9 +165,6 @@ select pg_temp.claims(:owner, true);
 select pg_temp.assert_raises($$select app.activate_demo_pack('29000000-0000-4000-8000-0000000000c1', 'community', ' ')$$, 'Give a reason', 'a reason is required');
 select pg_temp.assert_raises($$select app.activate_demo_pack('29000000-0000-4000-8000-0000000000c1', 'nope', 'try')$$, 'no demo pack', 'an unknown pack is refused');
 select pg_temp.assert_raises($$select app.clear_sandbox('29000000-0000-4000-8000-0000000000c1', 'wrong', 'try')$$, 'Type DMO to confirm', 'clear needs the short name typed');
-select pg_temp.claims(:owner, false);
-select pg_temp.assert_raises($$select app.clear_sandbox('29000000-0000-4000-8000-0000000000c1', 'dmo', 'try')$$, 'fresh 2FA check', 'clear needs a fresh 2FA check');
-select pg_temp.assert_raises($$select app.reset_sandbox('29000000-0000-4000-8000-0000000000c1', 'community', 'DMO', 'try')$$, 'fresh 2FA check', 'reset needs a fresh 2FA check');
 rollback;
 
 -- ── Activate ─────────────────────────────────────────────────────────────────
@@ -244,12 +241,12 @@ select count(*) as audit_before from app.audit_log \gset
 insert into app.households (center_id, display_name) values (:sbx, 'Typed-in family');
 insert into app.funds (center_id, key, name) values (:sbx, 'typed', 'Typed-in fund');
 begin;
-select pg_temp.claims(:owner, true);
+select pg_temp.claims(:owner, false);
 select app.reset_sandbox(:sbx, 'community', ' dmo ', 'Start the training again') as job2 \gset
 commit;
 select pg_temp.assert((select status = 'clearing' and operation = 'reset' and job_id = :job2 from app.center_demo_state where center_id = :sbx)
                       and (select kind = 'demo.clear' and payload->>'then_load' = 'community' from app.jobs where id = :job2),
-  'reset (short name typed in any case, fresh 2FA) queues demo.clear, which will load the pack again');
+  'reset (short name typed in any case, no fresh 2FA check) queues demo.clear, which will load the pack again');
 begin;
 set local role connect_worker;
 select app.worker_demo_clear(:sbx) as cleared \gset
@@ -288,7 +285,7 @@ select pg_temp.assert((select count(*) from app.people where center_id = :sbx) =
 
 -- ── Clear only ───────────────────────────────────────────────────────────────
 begin;
-select pg_temp.claims(:admin, true);
+select pg_temp.claims(:admin, false);
 select app.clear_sandbox(:sbx, 'DMO', 'Our real data comes next') as job3 \gset
 set local role connect_worker;
 select app.worker_demo_clear(:sbx) as cleared3 \gset

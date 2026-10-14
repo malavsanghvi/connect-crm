@@ -73,7 +73,7 @@ export function ConnectQboForm({ sandbox, reconnect }: { sandbox: boolean; recon
         <label htmlFor="qbo-connect-reason" className="crm-label">
           Reason (kept in the audit log)
         </label>
-        <input id="qbo-connect-reason" name="reason" required maxLength={500} className="crm-input" placeholder="e.g. Treasurer connecting our books" />
+        <input id="qbo-connect-reason" name="reason" maxLength={500} className="crm-input" placeholder="Optional, e.g. Treasurer connecting our books" />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button type="submit" disabled={pending} className={buttonClass("primary")}>
