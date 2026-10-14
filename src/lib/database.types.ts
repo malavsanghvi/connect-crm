@@ -3058,6 +3058,7 @@ export type Database = {
           reason: string | null;
           message_id: string | null;
           created_at: string;
+          reason_code: string | null;
         };
         Insert: {
           id?: string;
@@ -3072,6 +3073,7 @@ export type Database = {
           reason?: string | null;
           message_id?: string | null;
           created_at?: string;
+          reason_code?: string | null;
         };
         Update: {
           id?: string;
@@ -3086,6 +3088,7 @@ export type Database = {
           reason?: string | null;
           message_id?: string | null;
           created_at?: string;
+          reason_code?: string | null;
         };
         Relationships: [];
       };
@@ -9320,6 +9323,51 @@ export type Database = {
           completed_by?: string | null;
           completed_at?: string | null;
           note?: string | null;
+        };
+        Relationships: [];
+      };
+      pledge_emails: {
+        Row: {
+          id: string;
+          center_id: string;
+          pledge_id: string;
+          household_id: string | null;
+          to_address: string;
+          idempotency_key: string;
+          requested_by: string | null;
+          requested_at: string;
+          status: string;
+          reason: string | null;
+          reason_code: string | null;
+          message_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          pledge_id: string;
+          household_id?: string | null;
+          to_address: string;
+          idempotency_key: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          status?: string;
+          reason?: string | null;
+          reason_code?: string | null;
+          message_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          pledge_id?: string;
+          household_id?: string | null;
+          to_address?: string;
+          idempotency_key?: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          status?: string;
+          reason?: string | null;
+          reason_code?: string | null;
+          message_id?: string | null;
         };
         Relationships: [];
       };
@@ -15749,10 +15797,41 @@ export type Database = {
         };
         Returns: Json;
       };
+      pledge_document: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
       pledge_edit_state: {
         Args: {
           p_center: string;
           p_pledge: string;
+        };
+        Returns: Json;
+      };
+      pledge_email_recipient: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      pledge_email_request_status: {
+        Args: {
+          p_center: string;
+          p_request: string;
+        };
+        Returns: Json;
+      };
+      pledge_email_status: {
+        Args: {
+          p_center: string;
+          p_pledges: string[];
+          p_majority?: number;
         };
         Returns: Json;
       };
@@ -16134,6 +16213,7 @@ export type Database = {
           p_file_sha256: string;
           p_reason: string;
           p_rows: Json;
+          p_send_emails: boolean;
         };
         Returns: Json;
       };
@@ -16882,6 +16962,15 @@ export type Database = {
           p_vars: Json;
         };
         Returns: string;
+      };
+      send_pledge_email: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_to: string;
+          p_key: string;
+        };
+        Returns: Json;
       };
       send_recipient_verification: {
         Args: {
