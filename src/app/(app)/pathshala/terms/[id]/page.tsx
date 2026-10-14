@@ -56,9 +56,11 @@ export default async function TermPage({ params }: { params: Promise<{ id: strin
         description={`Pathshala term · ${termStatusLabel(term.status)}`}
         back={{ href: "/pathshala/terms", label: "Terms" }}
         actions={
-          <Link href={`/pathshala/terms/${term.id}/fees`} className={buttonClass("primary", "sm")}>
-            Fees and rules
-          </Link>
+          <>
+            <Link href={`/pathshala/terms/${term.id}/fees`} className={buttonClass("primary", "sm")}>
+              Fees and rules
+            </Link>
+          </>
         }
       />
       {rulesNote ? (

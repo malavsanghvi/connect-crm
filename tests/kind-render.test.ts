@@ -113,6 +113,27 @@ describe("the module gate", () => {
     const html = render(await ModuleGate({ module: "bolis", children: createElement("p", null, "the page") }));
     expect(html).toContain("the page");
   });
+  it("says Niva is part of iWeaver when iWeaver is off, with Settings › Marketplace for an administrator (0755)", async () => {
+    loadSession.mockResolvedValue({ status: "ok", session: { ...session(LEGACY_KIND, ["ai", "niva"]).session, permissions: ["settings.manage"] } });
+    const html = render(await ModuleGate({ module: "niva", children: createElement("p", null, "the page") }));
+    expect(html).toContain("Niva assistant is part of iWeaver");
+    expect(html).toContain("AI features are part of iWeaver, which is not on for your community.");
+    expect(html).toContain('href="/settings/marketplace"');
+    expect(html).not.toContain("the page");
+    expect(html).not.toContain("Settings › Modules");
+  });
+  it("tells someone who cannot ask for it who can, with no button", async () => {
+    loadSession.mockResolvedValue(session(LEGACY_KIND, ["ai", "niva"]));
+    const html = render(await ModuleGate({ module: "niva", children: createElement("p", null, "the page") }));
+    expect(html).toContain("An administrator can ask for it in Settings › Marketplace.");
+    expect(html).not.toContain('href="/settings/marketplace"');
+  });
+  it("says Niva itself is switched off when only Niva is paused", async () => {
+    loadSession.mockResolvedValue(session(LEGACY_KIND, ["niva"]));
+    const html = render(await ModuleGate({ module: "niva", children: createElement("p", null, "the page") }));
+    expect(html).toContain("Niva assistant is switched off");
+    expect(html).not.toContain("iWeaver");
+  });
 });
 
 describe("the gate for a part only some kinds have (Labh)", () => {
@@ -147,7 +168,7 @@ describe("Platform › the organization › Kind of organization", () => {
     expect(html).toContain("Chamber of commerce");
     expect(html).toContain("Preview only");
     expect(html).toContain("Change…");
-    expect(html).toContain("fresh 2FA check");
+    expect(html).toContain("Weaver-only step that needs a reason");
     expect(html).toContain("Nothing is deleted");
   });
 });

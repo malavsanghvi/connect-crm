@@ -13,7 +13,40 @@ export type GrantLike = {
   ends_at: string | null;
 };
 
-export type RoleLike = { key: string; permissions: Json };
+export type RoleLike = { key: string; permissions: Json; tier?: string };
+
+// ---------------------------------------------------------------------------
+// The organization's own data (migration 0757, docs/WECARE.md section 3 and docs/CATCH_THE_MATCH.md section 6): WeCare
+// (module `care`) and CatchTheMatch (module `matching`). Only the owner and the roles the organization grants see it; a
+// platform admin as such never does (app.org_private_can has no platform-admin branch), so `can` below does not let a
+// platform admin through on these keys either. Amounts in WeCare also need giving.view (app.care_amounts_can).
+// ---------------------------------------------------------------------------
+export const ORG_PRIVATE_KEYS = ["care.view", "care.own", "care.manage", "matching.view", "matching.manage"] as const;
+export type OrgPrivateKey = (typeof ORG_PRIVATE_KEYS)[number];
+export type OrgPrivateProduct = "care" | "matching";
+
+/** The product a key belongs to when it is the organization's own (care.*, matching.*), else null (app.org_private_product). */
+export function orgPrivateProduct(key: string): OrgPrivateProduct | null {
+  const head = key.split(".")[0];
+  return head === "care" || head === "matching" ? head : null;
+}
+
+/** The private products a role opens (app.role_private_products): none for a platform-tier role; "*" opens both. */
+export function rolePrivateProducts(role: { permissions: Json | unknown; tier?: string }): OrgPrivateProduct[] {
+  if (role.tier === "platform") return [];
+  const list = Array.isArray(role.permissions) ? role.permissions.filter((x): x is string => typeof x === "string") : [];
+  const out = new Set<OrgPrivateProduct>();
+  for (const p of list) {
+    if (p === "*") {
+      out.add("care");
+      out.add("matching");
+    } else {
+      const product = orgPrivateProduct(p);
+      if (product) out.add(product);
+    }
+  }
+  return [...out].sort();
+}
 
 export type PermissionContext = {
   permissions: readonly string[];
@@ -64,12 +97,17 @@ function permissionList(p: Json): string[] {
  * so neither does this.
  */
 export function computePermissions(grants: GrantLike[], roles: RoleLike[], now: Date = new Date()): string[] {
-  const byKey = new Map(roles.map((r) => [r.key, permissionList(r.permissions)]));
+  const byKey = new Map(roles.map((r) => [r.key, { perms: permissionList(r.permissions), platformTier: r.tier === "platform" }]));
   const out = new Set<string>();
   for (const g of grants) {
     if (g.scope_kind !== "center" && g.scope_kind !== "platform") continue;
     if (!isGrantActive(g, now)) continue;
-    for (const p of byKey.get(g.role_key) ?? []) out.add(p);
+    const role = byKey.get(g.role_key);
+    for (const p of role?.perms ?? []) {
+      // The organization's own keys come only from a center-wide grant of a role that is not a platform-tier role (0757).
+      if (orgPrivateProduct(p) && (role?.platformTier || g.scope_kind !== "center")) continue;
+      out.add(p);
+    }
   }
   return [...out].sort();
 }
@@ -80,7 +118,7 @@ export function computePermissions(grants: GrantLike[], roles: RoleLike[], now: 
  * 2026-09-25: the owner can do every task in their organization).
  */
 export function allPermissionKeys(roles: RoleLike[]): string[] {
-  const out = new Set<string>();
+  const out = new Set<string>(ORG_PRIVATE_KEYS);
   for (const r of roles) for (const p of permissionList(r.permissions)) if (p !== "*") out.add(p);
   return [...out].sort();
 }
@@ -90,11 +128,55 @@ export function sessionPermissions(grants: GrantLike[], roles: RoleLike[], isOwn
   return isOwner ? allPermissionKeys(roles) : computePermissions(grants, roles, now);
 }
 
-/** True when the user holds ANY of the listed permissions (platform admins hold all). */
+/**
+ * True when the user holds ANY of the listed permissions. Platform admins hold all of them except the organization's own
+ * keys (care.*, matching.*): those only through a role the organization granted, as in the database (0757).
+ */
 export function can(ctx: PermissionContext, anyOf: string | readonly string[]): boolean {
-  if (ctx.isPlatformAdmin) return true;
   const list = typeof anyOf === "string" ? [anyOf] : anyOf;
-  return list.some((p) => ctx.permissions.includes(p));
+  return list.some((p) => {
+    if (!orgPrivateProduct(p)) return ctx.isPlatformAdmin || ctx.permissions.includes(p);
+    // A platform-admin account holds a private key only as the community's owner (0757).
+    return (!ctx.isPlatformAdmin || ctx.isOwner === true) && ctx.permissions.includes(p);
+  });
+}
+
+/**
+ * One of the organization's own keys, as app.org_private_can decides it: the product's module is on and the key is held (the
+ * owner holds every key). Never because the user is a platform admin, and a platform-admin account counts only as the owner:
+ * its role grants open none of these keys (0757). Convenience only: the database decides.
+ */
+export function canPrivate(ctx: ScopedContext, key: OrgPrivateKey): boolean {
+  const product = orgPrivateProduct(key);
+  if (product === null || !moduleOn(ctx, product)) return false;
+  if (ctx.isPlatformAdmin && !ctx.isOwner) return false;
+  return ctx.permissions.includes(key);
+}
+
+/** WeCare levels (app.care_can): view = every care record, own = only my households (view and manage include it), manage. */
+export function careCan(ctx: ScopedContext, level: "view" | "own" | "manage"): boolean {
+  if (level === "manage") return canPrivate(ctx, "care.manage");
+  if (level === "view") return canPrivate(ctx, "care.view") || canPrivate(ctx, "care.manage");
+  return canPrivate(ctx, "care.own") || canPrivate(ctx, "care.view") || canPrivate(ctx, "care.manage");
+}
+
+/** CatchTheMatch levels (app.matching_can), the organization's side: view (view or manage) and manage. The Weaver filing grant is the database's. */
+export function matchingCan(ctx: ScopedContext, level: "view" | "manage"): boolean {
+  if (level === "manage") return canPrivate(ctx, "matching.manage");
+  return canPrivate(ctx, "matching.view") || canPrivate(ctx, "matching.manage");
+}
+
+/**
+ * May this user give the role? For a role that opens WeCare or CatchTheMatch: only the owner, or a holder of each product's
+ * .manage key (app.role_grants_private_rule): roles.manage alone is not enough, and being a platform admin counts for nothing.
+ * Any other role: true here (roles.manage and the database's own rules decide).
+ */
+export function canGrantRole(ctx: PermissionContext, role: { permissions: Json | unknown; tier?: string }): boolean {
+  const products = rolePrivateProducts(role);
+  if (products.length === 0) return true;
+  if (ctx.isOwner) return true;
+  if (ctx.isPlatformAdmin) return false;
+  return products.every((p) => ctx.permissions.includes(`${p}.manage`));
 }
 
 // ---------------------------------------------------------------------------
@@ -142,6 +224,8 @@ export const ACCESS = {
   dashboard: [] as string[],
   households: ["people.view", "people.manage"],
   householdsEdit: ["people.manage"],
+  /** Add or retire an identifier (0720's commands): people.manage for a person's or household's own ids, giving.manage for the finance kinds. canManageIdentifierKind checks the kind itself. */
+  identifiersManage: ["people.manage", "giving.manage"],
   /** People module: voting eligibility list (read) and the directory listings. */
   voting: ["people.view", "people.approve"],
   memberships: ["people.view", "people.manage"],
@@ -155,12 +239,20 @@ export const ACCESS = {
   paymentsAll: ["giving.view", "giving.manage"],
   recordPayment: ["giving.record_offline", "giving.manage"],
   allocatePayment: ["giving.manage"],
+  /** Record a pledge by hand (slice 7, 0745): giving.manage only (owner decision 2026-10-12; no second approver, it moves no money). */
+  recordPledge: ["giving.manage"],
+  /** Print a pledge as a PDF (0791): whoever the Pledges list shows the pledge to, giving.view or giving.manage (the database asks the same). Emailing it is givingManage. */
+  pledgeCopy: ["giving.view", "giving.manage"],
   bank: ["giving.view", "giving.record_offline"],
   bankImport: ["giving.manage", "giving.record_offline"],
   bankConfirm: ["giving.record_offline", "giving.manage"],
   bankIgnore: ["giving.manage"],
   /** Request / complete a write-off or refund (first person). */
   givingManage: ["giving.manage"],
+  /** Export a Giving list (0747): the one data-export permission (owner decision 2026-10-13: treasurers hold it). The database also asks for the list's own read permission and a fresh 2FA code for every file. */
+  givingExport: ["data.export"],
+  /** Pair a card payout with its bank line, or undo it (app.explain_payout, app.unpair_payout, 0747). */
+  payoutPair: ["giving.manage"],
   /** Second approver for refunds and write-offs (app.approve_as_second). */
   givingApprove: ["giving.approve"],
   /** Second approver for voting-eligibility overrides. */
@@ -185,6 +277,8 @@ export const ACCESS = {
   qboLedger: ["giving.view", "accounting.manage"],
   qboManage: ["accounting.manage"],
   qbo: ["integrations.view", "integrations.manage", "giving.view", "accounting.manage"],
+  /** Books › Account mapping (0779): the QuickBooks setup readers, and giving.approve (the second person who confirms a change). */
+  qboMapping: ["accounting.manage", "giving.approve", "giving.view", "integrations.view", "integrations.manage"],
   /** QuickBooks donor matching (o-qbo-match, 0240): read accounting.manage or giving.manage; decide accounting.manage. */
   qboMatch: ["accounting.manage", "giving.manage"],
   qboMatchManage: ["accounting.manage"],
@@ -195,6 +289,13 @@ export const ACCESS = {
   publicKpisManage: ["settings.manage"],
   roles: ["roles.manage"],
   centerSettings: ["settings.manage"],
+  /**
+   * Settings › Automatic emails (0770): read by whoever reads one of the emails (Giving: giving.view or giving.manage; the
+   * registration email: events.manage; settings.manage reads them all). Each email is switched and worded with its own
+   * permission, which the database checks (giving.manage, events.manage). 0771: scheduled emails are written with comms.send and
+   * switched on with comms.approve, each with giving.view or giving.manage.
+   */
+  automaticEmails: ["settings.manage", "giving.view", "giving.manage", "events.manage", "comms.send", "comms.approve"],
   /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
   setup: ["settings.manage"],
   /** Setup › Lists (o-golive): each card checks its own writer — settings.manage, giving.manage (funds) or pathshala.manage (tracks). */
@@ -247,7 +348,12 @@ export const ACCESS = {
   commsDraft: ["comms.send"],
   store: ["store.view", "store.manage"],
   storeManage: ["store.manage"],
-  storeOrders: ["store.view", "store.manage", "store.pickup"],
+  /**
+   * My Store › Orders by pickup (the prep list by pickup slot). The kitchen lead (kitchen.view) reads it too: the database already
+   * lets them read the orders, their lines and the pickup slots (store_orders_pickup, store_lines_kitchen, pickup_windows_kitchen),
+   * and they move nothing (storePickup is store.manage or store.pickup only).
+   */
+  storeOrders: ["store.view", "store.manage", "store.pickup", "kitchen.view"],
   /** Move orders along (store_orders_pickup_update / staff write). */
   storePickup: ["store.manage", "store.pickup"],
   /** Calendar layers are content (0010 calendar_layers_manage needs content.manage). */
@@ -282,6 +388,14 @@ export const ACCESS = {
   ],
   /** Settings › Data quality (app.data_quality). */
   dataQuality: ["people.view", "people.manage"],
+  /**
+   * The organization's own data (0757): WeCare and CatchTheMatch. `can` never lets a platform admin through on these keys;
+   * screens also check the module (careCan / matchingCan above, which do).
+   */
+  care: ["care.view", "care.own", "care.manage"],
+  careManage: ["care.manage"],
+  matching: ["matching.view", "matching.manage"],
+  matchingManage: ["matching.manage"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AccessKey = keyof typeof ACCESS;
@@ -399,10 +513,14 @@ export const NAV: NavModule[] = [
     tabs: [
       { href: "/giving/pledges", label: "Pledges", access: "pledges" },
       { href: "/giving/payments", label: "Payments & deposits", access: "payments" },
+      // Core: the Campaigns list lives under it; the opportunities page itself follows giving_opportunities (src/lib/modules.ts).
       { href: "/giving/opportunities", label: "Opportunities", access: "campaigns" },
-      { href: "/giving/recurring", label: "Recurring", access: "recurring" },
-      { href: "/giving/labh", label: "Labh fulfillment", access: "labh", kindFeature: "labh" },
+      { href: "/giving/recurring", label: "Recurring", access: "recurring", module: "giving_recurring" },
+      { href: "/giving/labh", label: "Labh fulfillment", access: "labh", kindFeature: "labh", module: "labh" },
       { href: "/giving/statements", label: "Receipts & statements", access: "statements" },
+      // CatchTheMatch (0765-0767): the shared employer-program directory, submissions, employers on file. Its own keys only
+      // (matching.view / matching.manage): never a platform admin as such (0757); Weaver's team uses Platform › Gift matching directory.
+      { href: "/giving/matching", label: "Gift matching", access: "matching", module: "matching" },
     ],
     paths: ["/giving"],
   },
@@ -419,7 +537,7 @@ export const NAV: NavModule[] = [
   {
     key: "store",
     module: "store",
-    label: "Satvik Store",
+    label: "My Store",
     tabs: [
       { href: "/store", label: "Inventory", access: "store" },
       { href: "/store/menu", label: "Menu & pickup", access: "store" },
@@ -482,6 +600,8 @@ export const NAV: NavModule[] = [
     label: "Communications",
     tabs: [
       { href: "/comms/newsletters", label: "Newsletters", access: "comms" },
+      // Saved templates (0800): read and written with comms.send, the permission that writes a communication.
+      { href: "/comms/templates", label: "Templates", access: "commsSend" },
       { href: "/comms/inbox", label: "Inbox", access: "commsInbox" },
       { href: "/comms/whatsapp", label: "WhatsApp queue", access: "comms" },
       { href: "/comms/surveys", label: "Surveys", access: "comms", module: "surveys" },
@@ -496,6 +616,8 @@ export const NAV: NavModule[] = [
     tabs: [
       { href: "/accounting/qbo", label: "QuickBooks sync", access: "qbo" },
       { href: "/accounting/qbo/setup", label: "QuickBooks setup", access: "qbo" },
+      // The page lets in qboMapping (giving.approve too: the second person opens it from the Home or Today task).
+      { href: "/accounting/qbo/mapping", label: "Account mapping", access: "qbo" },
       { href: "/accounting/qbo/matching", label: "Donor matching", access: "qboMatch" },
       { href: "/accounting/close", label: "Month-end close", access: "close" },
     ],
@@ -512,6 +634,16 @@ export const NAV: NavModule[] = [
     paths: ["/reports"],
   },
   {
+    // WeCare (module `care`, 0760-0763): the organization's own care records. Shown only to roles the organization gives a
+    // care key (`can` never lets a platform admin through on care.*), and only while Weaver has turned the product on. Named by
+    // the kind (Donor care / Member care). Not recorded in the activity stream (W2): see tests/activity-catalog.test.ts.
+    key: "care",
+    module: "care",
+    label: "WeCare",
+    tabs: [{ href: "/care", label: "Households", access: "care" }],
+    paths: ["/care"],
+  },
+  {
     // Onboarding (ONBOARDING_PLAN §4): the organization's own Setup checklist.
     key: "setup",
     label: "Setup",
@@ -519,6 +651,8 @@ export const NAV: NavModule[] = [
       { href: "/setup", label: "Checklist", access: "setup" },
       { href: "/setup/organization", label: "Legal identity", access: "setup" },
       { href: "/setup/profile", label: "Profile & brand", access: "setup" },
+      // B92 W2: the organization's current website and sites it likes, and what Weaver finds on them.
+      { href: "/setup/website", label: "Your website", access: "setup" },
       { href: "/setup/leaders", label: "Leaders", access: "setup" },
       // Onboarding (o-golive): membership types, funds, inboxes, zones and Pathshala tracks.
       { href: "/setup/lists", label: "Lists", access: "setupLists" },
@@ -546,6 +680,8 @@ export const NAV: NavModule[] = [
       { href: "/settings/audit", label: "Audit log", access: "audit" },
       // Not in the prototype: org-level module switches (WAVE2), after the prototype's eight.
       { href: "/settings/modules", label: "Modules", access: "centerSettings" },
+      // The Marketplace (0753): request a product, pause or resume one, "tell me when it is ready".
+      { href: "/settings/marketplace", label: "Marketplace", access: "centerSettings" },
       // Access levels (0586): who can use each member-app area (darshan, puja, listen …), per organization.
       { href: "/settings/access", label: "Access levels", access: "centerSettings" },
       // Not in the prototype (onboarding, o-security): staff invitations, 2FA and the owner; the organization's agreements.
@@ -561,12 +697,17 @@ export const NAV: NavModule[] = [
       { href: "/settings/import", label: "Data import", access: "dataImport" },
       { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
       { href: "/settings/data-quality", label: "Data quality", access: "dataQuality" },
+      // B91 (record every action, then automate it): the repeated work Weaver found, to accept or set aside. While recording is off the page says so.
+      { href: "/settings/automation", label: "Automation ideas", access: "centerSettings" },
       // Onboarding (o-platform): the owner's time-boxed support grants to Weaver.
       { href: "/settings/support-access", label: "Support access", access: "centerSettings" },
       // Onboarding (o-messaging): email domain and senders, texting registration, WhatsApp Business.
       { href: "/settings/email", label: "Email", access: "messaging" },
+      // 0770: receipts, pledge confirmations and registration confirmations, with the community's own wording.
+      { href: "/settings/automatic-emails", label: "Automatic emails", access: "automaticEmails" },
       { href: "/settings/texting", label: "Texting", access: "messaging" },
-      { href: "/settings/whatsapp", label: "WhatsApp", access: "messaging", module: "comms" },
+      // The WhatsApp Business account is CommunityConnect (0751); WhatsApp group links (/comms/whatsapp) stay in Communications.
+      { href: "/settings/whatsapp", label: "WhatsApp", access: "messaging", module: "channels" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },
@@ -577,7 +718,7 @@ export const NAV: NavModule[] = [
       { href: "/platform", label: "Centers", access: "dashboard", platformOnly: true },
       // Onboarding Wave D (o-platform-setup): the super admin's platform setup wizard.
       { href: "/platform/setup", label: "Platform setup", access: "dashboard", platformOnly: true },
-      { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
+      { href: "/platform/new-sandbox", label: "New sandbox", access: "dashboard", platformOnly: true },
       { href: "/platform/verification", label: "Verification", access: "dashboard", platformOnly: true },
       // Onboarding (o-platform): the Weaver console.
       { href: "/platform/requests", label: "Requests", access: "dashboard", platformOnly: true },
@@ -591,6 +732,10 @@ export const NAV: NavModule[] = [
       { href: "/platform/https", label: "HTTPS", access: "dashboard", platformOnly: true },
       // Payments plan PR 5: Community Connect pauses a way to pay (the only power the platform team has over payments).
       { href: "/platform/payments", label: "Payments", access: "dashboard", platformOnly: true },
+      // B91: keys and counts of the repeated work found across the communities that agreed to recording (no community, no person).
+      { href: "/platform/automation", label: "Automation backlog", access: "dashboard", platformOnly: true },
+      // CatchTheMatch (0765-0766): the employer-program directory every community shares, and what communities sent.
+      { href: "/platform/matching", label: "Gift matching directory", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },

@@ -783,9 +783,9 @@ select pg_temp.assert(not has_function_privilege('authenticated', 'app.zelle_pai
                       and has_function_privilege('authenticated', 'app.report_payment(uuid,uuid,text,bigint,date,text,text,uuid[],text)', 'execute')
                       and has_function_privilege('authenticated', 'app.confirm_bank_match(uuid,uuid,uuid[],boolean,uuid,uuid,text)', 'execute'),
   'internal helpers are not callable by users; the RPCs are');
-select pg_temp.assert((select module_key from app.module_tables where table_name = 'payment_reports') = 'giving'
+select pg_temp.assert((select module_key from app.module_tables where table_name = 'payment_reports') = 'giving_bank'
                       and 'payment_reports' = any (app.demo_clear_tables()) and not ('payment_reports' = any (app.demo_keep_tables())),
-  'payment_reports belongs to Giving and a demo clear removes it');
+  'payment_reports belongs to Bank reconciliation (an add-on of Giving, 0741) and a demo clear removes it');
 
 -- A demo clear of the (now sandbox) organization removes the reports with the other transactions.
 update app.centers set environment = 'sandbox', status = 'onboarding' where id = :c;

@@ -5,16 +5,21 @@
 // ("pending") exactly as before, and nothing invents a result.
 
 import type { HandlerModule } from "../types";
+import * as activityMine from "./activity.mine";
 import * as calendarImportFeed from "./calendar.import_feed";
 import * as calendarRefreshFeeds from "./calendar.refresh_feeds";
 import * as demoClear from "./demo.clear";
 import * as demoLoad from "./demo.load";
 import * as demoPing from "./demo.ping";
+import * as demoReset from "./demo.reset";
 import * as eventsGenerateFlyer from "./events.generate_flyer";
+import * as eventsPublishDue from "./events.publish_due";
 import * as homeworkPublishNotify from "./homework.publish_notify";
 import * as homeworkRemindersSweep from "./homework.reminders_sweep";
 import * as importSuggestMapping from "./import.suggest_mapping";
+import * as messagingCompose from "./messaging.compose";
 import * as messagingDomainVerify from "./messaging.domain_verify";
+import * as messagingEmailSchedulesSweep from "./messaging.email_schedules_sweep";
 import * as messagingSend from "./messaging.send";
 import * as messagingTestSend from "./messaging.test_send";
 import * as messagingWebhookEmail from "./messaging.webhook.email";
@@ -41,8 +46,10 @@ import * as paymentsSyncPayouts from "./payments.sync_payouts";
 import * as paymentsTestCharge from "./payments.test_charge";
 import * as paymentsWebhookPaypal from "./payments.webhook.paypal";
 import * as paymentsWebhookStripe from "./payments.webhook.stripe";
+import * as pathshalaAnnouncementNotify from "./pathshala.announcement_notify";
 import * as pathshalaHoldsSweep from "./pathshala.holds_sweep";
 import * as photosImportAlbum from "./photos.import_album";
+import * as siteCrawl from "./site.crawl";
 import * as storageRetention from "./storage.retention";
 import * as surveysLaunchNotify from "./surveys.launch_notify";
 import * as storageScan from "./storage.scan";
@@ -50,6 +57,7 @@ import * as storageScanSweep from "./storage.scan_sweep";
 
 export const HANDLERS: HandlerModule[] = [
   demoPing,
+  demoReset,
   importSuggestMapping,
   eventsGenerateFlyer,
   oauthExchange,
@@ -74,6 +82,10 @@ export const HANDLERS: HandlerModule[] = [
   messagingDomainVerify,
   messagingWebhookEmail,
   messagingWebhookTwilio,
+  // Automatic emails (0770): write one receipt, pledge or registration email from its record and queue it for each adult
+  messagingCompose,
+  // Scheduled emails (0771): every 5 minutes, the runs that are due, each household's adults once per run, 500 emails per run per sweep
+  messagingEmailSchedulesSweep,
   // o-payments
   paymentsWebhookStripe,
   paymentsWebhookPaypal,
@@ -106,8 +118,16 @@ export const HANDLERS: HandlerModule[] = [
   // in the queue while scanning is off (Platform › Setup), which is the default
   storageScan,
   storageScanSweep,
+  // B92 W1: read a website (the organization's own, or one it likes) and report what was found
+  siteCrawl,
   // Pathshala registration (0591): every 15 minutes, reminders and releases of the seats held for payment, and the waitlist
   pathshalaHoldsSweep,
+  // Class announcements (0781): queued by the database when one is published; pushes the families it is for, in batches
+  pathshalaAnnouncementNotify,
   // Member notices (0598): every 5 minutes, the RSVP confirmation, the boli notice before it closes and a special day's labh prompt
   noticesSweep,
+  // Activity stream (0622, 0623): once a day, find repeated sequences of actions (automation ideas) and delete activity older than 400 days
+  activityMine,
+  // Event creator (0700): every 5 minutes, publish the draft events whose scheduled time has come, each checked again first
+  eventsPublishDue,
 ];

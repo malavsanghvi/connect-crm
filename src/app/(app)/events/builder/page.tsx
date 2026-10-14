@@ -6,8 +6,9 @@ import { Alert, Card, NoAccess, PageHeader, buttonClass } from "@/components/ui"
 import { load, loadEventAccess, resolvePeopleNames, row, rows } from "@/lib/data/events";
 import { eventAreas } from "@/lib/events/access";
 import { buildFlyerArtPrompt, defaultFlyerDesign, defaultPoster, flyerOutOfDate, memberAppEventLink, parseFlyerDesign, readFlyerSource } from "@/lib/events/flyer";
-import { flyerArtReadiness, listFlyerArt } from "@/lib/events/flyer-art-library";
+import { festivalTitlesNear, flyerArtReadiness, listFlyerArt } from "@/lib/events/flyer-art-library";
 import { readFlyerBrand } from "@/lib/events/flyer-brand";
+import { suggestOccasion } from "@/lib/events/flyer-occasions";
 import { centsToDollarsInput, formatEventDate, toDateTimeLocal } from "@/lib/events/format";
 import { commitmentEnabled, readCommitment } from "@/lib/events/report";
 import { defaultConfirmationHours, defaultSlotMinutes, lunchRulesFromCenter } from "@/lib/events/rules";
@@ -164,6 +165,8 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
         const e = found.e;
         const brand = readFlyerBrand(session.center.branding, process.env.NEXT_PUBLIC_SUPABASE_URL);
         const memberAppLink = memberAppEventLink(process.env.NEXT_PUBLIC_MEMBER_APP_URL, e.id);
+        // The occasion comes from the community's own occasions (its kind and tradition): flyer-occasions.ts.
+        const community = { kind: session.kind };
         const defaults = defaultFlyerDesign({
           name: e.name,
           description: e.description,
@@ -172,10 +175,12 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
           endsAt: e.ends_at,
           tz,
           qrAvailable: memberAppLink !== null,
+          community,
         });
         const savedDesign = parseFlyerDesign(e.flyer_design);
         const design = savedDesign.ok ? savedDesign.design : defaults;
-        const posterDefaults = defaultPoster({ name: e.name, description: e.description, startsAt: e.starts_at, endsAt: e.ends_at, tz });
+        const posterDefaults = defaultPoster({ name: e.name, description: e.description, startsAt: e.starts_at, endsAt: e.ends_at, tz, community });
+        const suggestions = suggestOccasion({ title: e.name, description: e.description, startsAt: e.starts_at, tz, kind: session.kind, calendar: await festivalTitlesNear(session.db, e.starts_at) });
         // AI art (Flyers v2): is it available at all, and the pictures the community already has for this poster's occasion.
         const occasion = (design.poster ?? posterDefaults).occasion;
         const [artReadiness, artLibrary] = await Promise.all([flyerArtReadiness(session.db, session.center.id), listFlyerArt(session.db, session.center.id, occasion)]);
@@ -200,7 +205,20 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
           // The saved flyer's date and venue lines are frozen text: say so when the event changed after it was made.
           outOfDate:
             savedDesign.ok && readFlyerSource(e.flyer_source) === "designed" && e.flyer_path ? flyerOutOfDate(e.flyer_design, e) : { date: false, venue: false },
-          artPromptSeed: buildFlyerArtPrompt({ eventName: e.name, primary: brand.primary, accent: brand.accent }),
+          artPromptSeed: buildFlyerArtPrompt({
+            eventName: e.name,
+            primary: brand.primary,
+            accent: brand.accent,
+            background: brand.background,
+            occasion,
+            occasionNote: (design.poster ?? posterDefaults).occasion_note,
+            community,
+            startsAt: e.starts_at,
+            country: session.center.country,
+            tz,
+          }),
+          artPrompt: { startsAt: e.starts_at, country: session.center.country ?? null, tz },
+          suggestions,
           artPreview,
           art: { readiness: artReadiness, entries: artLibrary.entries, problem: artLibrary.problem },
           posterDefaults,

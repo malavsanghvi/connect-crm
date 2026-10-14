@@ -4,10 +4,14 @@
 // except for a kind whose jobs wait while it is not configured
 // (waitWhenNotConfigured: they are not claimed at all, and one claimed just as
 // its configuration went away goes back to the queue).
+//
+// An AI job (ai-kinds.ts) runs only while its community has the modules its kind needs (iWeaver, 0755): checked here, just
+// before it runs, so a job queued before iWeaver or Niva went off ends with a plain message and is not tried again.
 
+import { modulesNeeded } from "./ai-kinds";
 import type { Env, Readiness } from "./config";
 import type { Job, WorkerDb } from "./db";
-import { isRetryable, messageOf, NotConfiguredError } from "./errors";
+import { isRetryable, messageOf, ModuleOffError, NotConfiguredError } from "./errors";
 import type { Http } from "./http";
 import { scrubText, type Logger } from "./log";
 import type { HandlerModule, JobContext } from "./types";
@@ -48,6 +52,23 @@ export function jobContext(deps: RunnerDeps, job: Job, log: Logger): JobContext 
 
 export type Outcome = { id: string; kind: string; status: "done" | "retrying" | "failed"; error?: string };
 
+/**
+ * Why the job's community may not have it run (app.worker_job_blocked: iWeaver, or a module the kind needs, is off), or null.
+ * A check that cannot be read throws a plain error the queue retries: an AI job never runs unchecked.
+ */
+export async function moduleBlock(db: Pick<WorkerDb, "query">, job: Job): Promise<string | null> {
+  const needs = modulesNeeded(job.kind);
+  if (needs.length === 0 || !job.center_id) return null;
+  let rows: { r?: unknown }[];
+  try {
+    rows = await db.query<{ r?: unknown }>("select app.worker_job_blocked($1, $2::text[]) as r", [job.center_id, [...needs]]);
+  } catch (err) {
+    throw new Error(`Could not check whether the community has ${needs.join(" and ")} on (${messageOf(err)}); the job is tried again later.`, { cause: err });
+  }
+  const r = rows[0]?.r;
+  return typeof r === "string" && r.trim() ? r.trim() : null;
+}
+
 /** Run one claimed job to its outcome. Never throws: a failure is recorded on the job. */
 export async function processJob(deps: RunnerDeps, job: Job): Promise<Outcome> {
   const log = deps.log.child({ job: job.id, kind: job.kind, attempt: job.attempts });
@@ -55,6 +76,17 @@ export async function processJob(deps: RunnerDeps, job: Job): Promise<Outcome> {
   let error: unknown;
   try {
     if (!handler) throw new NotConfiguredError(`This background service has no handler for "${job.kind}" jobs.`);
+    const blocked = await moduleBlock(deps.db, job);
+    if (blocked) {
+      if (handler.refused) {
+        try {
+          await handler.refused(job, jobContext(deps, job, log), blocked);
+        } catch (refusedErr) {
+          log.warn("could not record on the handler's own record why the job did not run", { error: refusedErr });
+        }
+      }
+      throw new ModuleOffError(blocked);
+    }
     const ready = handler.configured ? handler.configured(deps.env) : ({ configured: true } as Readiness);
     if (!ready.configured) {
       // A kind that waits: back to the queue (retried later), never failed for good.
@@ -73,7 +105,8 @@ export async function processJob(deps: RunnerDeps, job: Job): Promise<Outcome> {
   const message = scrubText(messageOf(error)).slice(0, 2000);
   try {
     const status = await deps.db.fail(job.id, message, retry);
-    (status === "failed" ? log.error : log.warn)(status === "failed" ? "job failed" : "job failed, will retry", { error: message, retry });
+    if (error instanceof ModuleOffError) log.info("job not run: a module it needs is off for the community", { error: message });
+    else (status === "failed" ? log.error : log.warn)(status === "failed" ? "job failed" : "job failed, will retry", { error: message, retry });
     return { id: job.id, kind: job.kind, status, error: message };
   } catch (recordErr) {
     // The job stays "running"; claim_jobs releases it after 15 minutes.

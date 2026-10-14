@@ -94,12 +94,12 @@ describe("visibleNav (flat module list)", () => {
   });
   it("keeps the prototype's module order", () => {
     const labels = visibleNav({ permissions: [], isPlatformAdmin: true }).map((m) => m.label);
-    expect(labels).toEqual(["Home", "People", "Events", "Giving", "Bolis", "Satvik Store", "Pathshala", "Content", "Calendar", "Communications", "Accounting", "Reports", "Setup", "Settings", "Platform"]);
+    expect(labels).toEqual(["Home", "People", "Events", "Giving", "Bolis", "My Store", "Pathshala", "Content", "Calendar", "Communications", "Accounting", "Reports", "Setup", "Settings", "Platform"]);
   });
   it("shows settings to a center admin and opens on the first tab they can use", () => {
     const nav = visibleNav({ permissions: ["roles.manage", "settings.manage"], isPlatformAdmin: false });
     const settings = nav.find((m) => m.key === "settings")!;
-    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Access levels", "Team", "Agreements", "Member app", "Limits", "Numbering", "Storage", "Data import", "Custom fields", "Support access", "Email", "Texting", "WhatsApp"]);
+    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Marketplace", "Access levels", "Team", "Agreements", "Member app", "Limits", "Numbering", "Storage", "Data import", "Custom fields", "Automation ideas", "Support access", "Email", "Automatic emails", "Texting", "WhatsApp"]);
     expect(nav.some((m) => m.key === "platform")).toBe(false);
     expect(nav.some((m) => m.key === "people")).toBe(false);
     const rolesOnly = visibleNav({ permissions: ["roles.manage"], isPlatformAdmin: false }).find((m) => m.key === "settings")!;
@@ -118,6 +118,7 @@ describe("visibleNav (flat module list)", () => {
       "Security",
       "Audit log",
       "Modules",
+      "Marketplace",
       "Access levels",
       "Team",
       "Agreements",
@@ -128,18 +129,29 @@ describe("visibleNav (flat module list)", () => {
       "Data import",
       "Custom fields",
       "Data quality",
+      "Automation ideas",
       "Support access",
       "Email",
+      "Automatic emails",
       "Texting",
       "WhatsApp",
     ]);
-    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "Platform setup", "New center wizard", "Verification", "Requests", "Sandbox codes", "Onboarding", "Go-live approvals", "Support access", "Agreements", "HTTPS", "Payments"]);
+    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "Platform setup", "New sandbox", "Verification", "Requests", "Sandbox codes", "Onboarding", "Go-live approvals", "Support access", "Agreements", "HTTPS", "Payments", "Automation backlog", "Gift matching directory"]);
+  });
+  it("shows Settings › Automation ideas to settings.manage holders only, and Platform › Automation backlog to platform admins only", () => {
+    const tabs = (ctx: Parameters<typeof visibleNav>[0], module: string) => visibleNav(ctx).find((m) => m.key === module)?.tabs.map((t) => t.href) ?? [];
+    expect(tabs({ permissions: ["settings.manage"], isPlatformAdmin: false }, "settings")).toContain("/settings/automation");
+    expect(tabs({ permissions: ["roles.manage"], isPlatformAdmin: false }, "settings")).not.toContain("/settings/automation");
+    expect(tabs({ permissions: ["audit.view", "giving.view", "people.view"], isPlatformAdmin: false }, "settings")).not.toContain("/settings/automation");
+    expect(tabs({ permissions: [], isPlatformAdmin: true }, "settings")).toContain("/settings/automation");
+    expect(tabs({ permissions: [], isPlatformAdmin: true }, "platform")).toContain("/platform/automation");
+    expect(tabs({ permissions: ["settings.manage", "roles.manage"], isPlatformAdmin: false }, "platform")).toEqual([]);
   });
   it("shows Setup above Settings to settings.manage holders only", () => {
     const admin = visibleNav({ permissions: ["settings.manage"], isPlatformAdmin: false });
     const keys = admin.map((m) => m.key);
     expect(keys.indexOf("setup")).toBe(keys.indexOf("settings") - 1);
-    expect(admin.find((m) => m.key === "setup")!.tabs.map((t) => t.href)).toEqual(["/setup", "/setup/organization", "/setup/profile", "/setup/leaders", "/setup/lists", "/setup/readiness", "/setup/go-live"]);
+    expect(admin.find((m) => m.key === "setup")!.tabs.map((t) => t.href)).toEqual(["/setup", "/setup/organization", "/setup/profile", "/setup/website", "/setup/leaders", "/setup/lists", "/setup/readiness", "/setup/go-live"]);
     expect(visibleNav({ permissions: ["roles.manage", "people.view"], isPlatformAdmin: false }).some((m) => m.key === "setup")).toBe(false);
   });
   it("never shows Platform to a center admin, whatever they hold", () => {
@@ -177,7 +189,7 @@ describe("visibleNav (flat module list)", () => {
       "/settings/security",
       "/settings/audit",
       "/platform",
-      "/platform/new",
+      "/platform/new-sandbox",
     ]) {
       expect(all.filter((h) => h === href)).toHaveLength(1);
     }
@@ -240,5 +252,31 @@ describe("identifier kind permissions (external_ids policies)", () => {
     expect(canViewIdentifierKind(finance, "org_member")).toBe(true);
     expect(canViewIdentifierKind(people, "accounting")).toBe(false);
     expect(canViewIdentifierKind(people, "org_household")).toBe(true);
+  });
+});
+
+describe("the kitchen lead's prep list (My Store › Orders by pickup)", () => {
+  const kitchen = { permissions: ["kitchen.view"], isPlatformAdmin: false };
+
+  it("kitchen.view opens Orders by pickup, and nothing else in the store or anywhere", () => {
+    expect(canAccess(kitchen, "storeOrders")).toBe(true);
+    const nav = visibleNav(kitchen);
+    expect(nav.map((m) => m.key)).toEqual(["home", "store"]);
+    const store = nav.find((m) => m.key === "store")!;
+    expect(store.tabs.map((t) => t.href)).toEqual(["/store/orders"]);
+    expect(store.href).toBe("/store/orders");
+  });
+
+  it("it moves nothing: changing an order's status still needs store.manage or store.pickup", () => {
+    expect(canAccess(kitchen, "storePickup")).toBe(false);
+    expect(canAccess(kitchen, "store")).toBe(false);
+    expect(canAccess(kitchen, "storeManage")).toBe(false);
+  });
+
+  it("no other permission was widened: the store rules are the same as before apart from storeOrders", () => {
+    expect(ACCESS.storeOrders).toEqual(["store.view", "store.manage", "store.pickup", "kitchen.view"]);
+    expect(ACCESS.store).toEqual(["store.view", "store.manage"]);
+    expect(ACCESS.storePickup).toEqual(["store.manage", "store.pickup"]);
+    expect(ACCESS.events).toEqual(["events.view", "events.manage"]);
   });
 });

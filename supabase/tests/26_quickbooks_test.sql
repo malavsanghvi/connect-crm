@@ -1,6 +1,6 @@
 -- Onboarding · o-quickbooks (0230–0236): connecting QuickBooks (signed single-use
 -- state, the code to the vault, sandbox vs read-only real company), the pulled
--- read-only lists, the account mapping and its approval (step-up), the test post,
+-- read-only lists, the account mapping and its approval (no step-up since 0787), the test post,
 -- the poster's rules (history, go-live date, closed months, idempotent claim),
 -- readiness check 7 and the Setup steps.
 \set ON_ERROR_STOP 1
@@ -29,7 +29,7 @@ exception when others then
   if sqlstate <> state then raise exception 'FAIL: % (got % "%")', label, sqlstate, sqlerrm; end if;
   raise notice 'PASS: %', label;
 end $$;
--- Sign in as a user; p_fresh: with a TOTP check in the last minute (step-up).
+-- Sign in as a user; p_fresh: with a TOTP check in the last minute. No QuickBooks action asks for one since 0787.
 create or replace function pg_temp.sign_in(p_user uuid, p_fresh boolean default true) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated', 'aal', 'aal2',
@@ -71,13 +71,7 @@ select pg_temp.assert((select count(*) from app.qbo_accounts) = 0, 'a member rea
 commit;
 begin;
 set local role authenticated;
-select pg_temp.sign_in(:tara, false);
-select pg_temp.assert_state($$select app.start_qbo_connect('00000000-0000-4000-8000-000000000001', 'real', 'https://portal.test/api/oauth/intuit/callback', 'Connecting our books')$$,
-  'CCSTP', 'the treasurer needs a fresh 2FA check to connect');
-commit;
-begin;
-set local role authenticated;
-select pg_temp.sign_in(:tara);
+select pg_temp.sign_in(:tara, false);   -- connecting asks for no fresh 2FA check (0787)
 select pg_temp.assert_state($$select app.start_qbo_connect('00000000-0000-4000-8000-000000000001', 'sandbox', 'https://portal.test/api/oauth/intuit/callback', 'Try')$$,
   'CCENT', 'a live community cannot connect an Intuit sandbox company');
 select pg_temp.assert_raises($$select app.start_qbo_connect('00000000-0000-4000-8000-000000000001', 'real', 'https://evil.test/steal', 'Try')$$,
@@ -172,38 +166,39 @@ select pg_temp.assert((select client_app = 'job' and module = 'accounting' from 
   'the copies are audited as the background service''s work');
 
 -- ── Mapping ──────────────────────────────────────────────────────────────────
+-- Chosen through app.request_account_mapping_change since 0779 (set_qbo_mapping / set_qbo_fund_class are no longer callable).
 begin;
 set local role authenticated;
 select pg_temp.sign_in(:ada);
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'bank', '2', 'x')$$, 'accounting.manage',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'bank', '2', 'x')$$, 'accounting.manage',
   'mapping needs accounting.manage');
 commit;
 begin;
 set local role authenticated;
 select pg_temp.sign_in(:tara);
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'bank', '999', 'typed')$$, 'pulled from QuickBooks',
+-- The accounting basis is the first choice after connecting (f-money, 0521).
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'income.general', '1', 'x')$$, 'accounting basis',
+  'nothing is mapped before the accounting basis is chosen');
+select app.set_qbo_basis(:jsh, 'cash', 'Our books are kept on cash basis');
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'bank', '999', 'typed')$$, 'pulled from QuickBooks',
   'an account id that is not in the pulled chart is refused (nobody types account ids)');
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'income.general', '6', 'x')$$, 'inactive',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'income.general', '6', 'x')$$, 'inactive',
   'an inactive account is refused');
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'bank', '1', 'x')$$, 'needs one of',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'role', 'bank', '1', 'x')$$, 'needs one of',
   'an account of the wrong type is refused');
 select pg_temp.assert_raises($$insert into app.qbo_account_mappings (center_id, purpose, qbo_account_id) values ('00000000-0000-4000-8000-000000000001', 'stock_clearing', '77')$$,
   'pulled from QuickBooks', 'a direct insert must also come from the chart');
--- The accounting basis is the first choice after connecting (f-money, 0521).
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'income.general', '1', 'x')$$, 'accounting basis',
-  'nothing is mapped before the accounting basis is chosen');
-select app.set_qbo_basis(:jsh, 'cash', 'Our books are kept on cash basis');
-select app.set_qbo_mapping(:jsh, 'income.general', '1', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'bank', '2', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'undeposited_funds', '3', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'payment_clearing', '4', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'income.general', '1', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'bank', '2', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'undeposited_funds', '3', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'payment_clearing', '4', 'Initial mapping');
 select pg_temp.assert_raises($$select app.approve_qbo_mapping('00000000-0000-4000-8000-000000000001', 'ok')$$, 'Map these first',
   'approval lists what is still unmapped');
-select app.set_qbo_mapping(:jsh, 'merchant_fees', '5', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'store.sales', '7', 'Initial mapping');
-select app.set_qbo_mapping(:jsh, 'sales_tax_payable', '8', 'Initial mapping');
-select app.set_qbo_fund_class(:jsh, (select id from app.funds where center_id = :jsh and key = 'general'), '30', 'General fund class');
-select pg_temp.assert_raises($$select app.set_qbo_fund_class('00000000-0000-4000-8000-000000000001', (select id from app.funds where center_id = '00000000-0000-4000-8000-000000000001' and key = 'construction'), '32', 'x')$$,
+select app.request_account_mapping_change(:jsh, 'role', 'merchant_fees', '5', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'store.sales', '7', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'role', 'sales_tax_payable', '8', 'Initial mapping');
+select app.request_account_mapping_change(:jsh, 'fund_class', (select id from app.funds where center_id = :jsh and key = 'general')::text, '30', 'General fund class');
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-000000000001', 'fund_class', (select id from app.funds where center_id = '00000000-0000-4000-8000-000000000001' and key = 'construction')::text, '32', 'x')$$,
   'inactive', 'an inactive class is refused');
 select pg_temp.assert_raises($$update app.qbo_account_mappings set approved_by = '10000000-0000-4000-8000-000000000003', approved_at = now() where center_id = '00000000-0000-4000-8000-000000000001'$$,
   'approved as a whole', 'a mapping row cannot be marked approved directly');
@@ -212,14 +207,8 @@ select pg_temp.assert((select qbo_account_name = 'Chase Operating' from app.qbo_
   'the account name comes from the chart');
 begin;
 set local role authenticated;
-select pg_temp.sign_in(:tara, false);
-select pg_temp.assert_state($$select app.approve_qbo_mapping('00000000-0000-4000-8000-000000000001', 'Checked against the books')$$, 'CCSTP',
-  'approving the mapping needs a fresh 2FA check');
-commit;
-begin;
-set local role authenticated;
-select pg_temp.sign_in(:tara);
-select pg_temp.assert(((app.approve_qbo_mapping(:jsh, 'Checked against the books'))->>'approved')::int = 7, 'the treasurer approves the mapping');
+select pg_temp.sign_in(:tara, false);   -- approving asks for no fresh 2FA check (0787)
+select pg_temp.assert(((app.approve_qbo_mapping(:jsh, 'Checked against the books'))->>'approved')::int = 7, 'the treasurer approves the mapping, with no fresh 2FA check');
 commit;
 select pg_temp.assert((select settings->>'mapping_approved_by' = :tara from app.integration_connections where id = (select v::uuid from ctx where k = 'conn'))
                       and (select bool_and(approved_by = :tara::uuid) from app.qbo_account_mappings where center_id = :jsh),
@@ -268,6 +257,10 @@ insert into ctx select 'plan', app.qbo_worker_test_post_plan((select v::uuid fro
 select pg_temp.assert((select jsonb_agg(d->>'entity' order by d->>'entity') = '["Deposit","JournalEntry","RefundReceipt","SalesReceipt"]'::jsonb
                          from jsonb_array_elements((select v::jsonb from ctx where k = 'plan')->'docs') d),
   'the test post is one SalesReceipt, RefundReceipt, Deposit and JournalEntry');
+select pg_temp.assert(((select v::jsonb from ctx where k = 'plan') #>> '{docs,0,entity}') = 'SalesReceipt'
+                      and ((select v::jsonb from ctx where k = 'plan') #>> '{docs,2,entity}') = 'Deposit'
+                      and ((select v::jsonb from ctx where k = 'plan') #>> '{docs,2,lines,0,link_to}') = 'SalesReceipt',
+  'the test Deposit names the Sales receipt it deposits (QuickBooks takes money out of Undeposited Funds only by a link, 0783)');
 select pg_temp.assert(((select v::jsonb from ctx where k = 'plan') #>> '{docs,0,lines,0,item_id}') = '20'
                       and ((select v::jsonb from ctx where k = 'plan') #>> '{docs,0,lines,0,class_id}') = '30',
   'the sales line goes through the item that posts to the income account, with the fund''s class');
@@ -278,13 +271,7 @@ select pg_temp.assert(not (app.check_quickbooks_ready(:jsh)->>'ok')::boolean
                       and app.check_quickbooks_ready(:jsh)->>'detail' like '%approve a test post%', 'readiness 7 waits for the test post approval');
 begin;
 set local role authenticated;
-select pg_temp.sign_in(:tara, false);
-select pg_temp.assert_state($$select app.approve_qbo_test_post((select v::uuid from ctx where k = 'test'), 'Looks right')$$, 'CCSTP',
-  'approving the test post needs a fresh 2FA check');
-commit;
-begin;
-set local role authenticated;
-select pg_temp.sign_in(:tara);
+select pg_temp.sign_in(:tara, false);   -- approving the test post asks for no fresh 2FA check (0787)
 select app.approve_qbo_test_post((select v::uuid from ctx where k = 'test'), 'Four entries checked in QuickBooks');
 commit;
 select pg_temp.assert((app.check_quickbooks_ready(:jsh)->>'ok')::boolean, 'readiness 7 passes: connected, mapping and test post approved, go-live set');
@@ -387,12 +374,7 @@ commit;
 -- ── Disconnect ───────────────────────────────────────────────────────────────
 begin;
 set local role authenticated;
-select pg_temp.sign_in(:tara, false);
-select pg_temp.assert_state($$select app.disconnect_qbo('00000000-0000-4000-8000-000000000001', 'Test done')$$, 'CCSTP', 'disconnecting needs a fresh 2FA check');
-commit;
-begin;
-set local role authenticated;
-select pg_temp.sign_in(:tara);
+select pg_temp.sign_in(:tara, false);   -- disconnecting asks for no fresh 2FA check (0787)
 select app.disconnect_qbo(:jsh, 'Test done');
 commit;
 select pg_temp.assert((select status = 'disconnected' from app.integration_connections where id = (select v::uuid from ctx where k = 'conn'))

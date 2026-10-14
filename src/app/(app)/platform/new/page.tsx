@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Alert, Card, PageHeader, QueryError } from "@/components/ui";
 import { isPlainObject } from "@/lib/center-rules";
@@ -34,6 +35,8 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
     );
   }
   const sp = await searchParams;
+  // Every organization starts as a sandbox (Platform > New sandbox). This older wizard only continues a center it created earlier.
+  if (!isUuid(param(sp, "center") ?? "")) redirect("/platform/new-sandbox");
   const { db } = session;
   const kinds = await loadExperiences(db);
   if (kinds.status !== "ok") {

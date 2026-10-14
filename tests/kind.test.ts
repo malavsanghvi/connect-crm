@@ -4,18 +4,22 @@ import { describe, expect, it } from "vitest";
 
 import {
   LEGACY_KIND,
+  NEUTRAL_KIND,
   kindFallbackProblem,
   kindFromProfileResult,
   kindLacks,
   kindModuleLabel,
   kindOrganization,
   kindOrganizations,
+  kindHas,
+  kindSchool,
   kindTerm,
   moduleAvailabilityIn,
   moduleNotOffered,
   notOfferedExplanation,
   notPartOfKindSentence,
   parseKindProfile,
+  shouldReportKindFallback,
   withArticle,
 } from "@/lib/kind";
 import { buildModuleRowsFromStates, moduleOffMessage } from "@/lib/modules";
@@ -80,19 +84,61 @@ describe("the organization's kind", () => {
   });
 });
 
-describe("what the portal showed before kinds existed", () => {
-  it("is the Jain Center row of migration 0594, word for word", () => {
+describe("the Jain Center kind (one kind among many, not a fallback)", () => {
+  it("is the Jain Center row of migration 0594, word for word, plus the one word 0690 renamed (Satvik Store to My Store)", () => {
     const sql = readFileSync(new URL("../supabase/migrations/0594_organization_categories.sql", import.meta.url), "utf8");
     const m = sql.match(/\('jain_center', 'Jain Center', '[^']*', true, true, '[^']*',\s*'(\{[^']*\})'::jsonb/);
     expect(m).not.toBeNull();
-    expect(LEGACY_KIND.terms).toEqual(JSON.parse(m![1]));
+    const seed = JSON.parse(m![1]);
+    const rename = readFileSync(new URL("../supabase/migrations/0690_rename_my_store.sql", import.meta.url), "utf8");
+    expect(seed.store).toBe("Satvik Store");
+    expect(rename).toContain("terms->>'store' = 'Satvik Store'");
+    expect(LEGACY_KIND.terms).toEqual({ ...seed, store: "My Store" });
     expect(LEGACY_KIND.label).toBe("Jain Center");
   });
-  it("is used when the database cannot answer, and says why", () => {
-    expect(kindFromProfileResult({ data: null, error: { code: "PGRST202", message: "Could not find the function" } })).toEqual({ kind: LEGACY_KIND, status: "missing" });
+  it("is never what the portal falls back to when the database cannot answer", () => {
+    for (const res of [
+      { data: null, error: { code: "PGRST202", message: "Could not find the function" } },
+      { data: null, error: { code: "XX000", message: "boom" } },
+      { data: { nothing: true }, error: null },
+    ]) expect(kindFromProfileResult(res).kind).not.toBe(LEGACY_KIND);
+  });
+});
+
+describe("what the portal shows when the database cannot say which kind an organization is", () => {
+  it("is the neutral kind, and says why", () => {
+    expect(kindFromProfileResult({ data: null, error: { code: "PGRST202", message: "Could not find the function" } })).toEqual({ kind: NEUTRAL_KIND, status: "missing" });
     expect(kindFromProfileResult({ data: null, error: { code: "42883", message: "function app.category_profile does not exist" } }).status).toBe("missing");
-    expect(kindFromProfileResult({ data: null, error: { code: "XX000", message: "boom" } })).toEqual({ kind: LEGACY_KIND, status: "error" });
-    expect(kindFromProfileResult({ data: { nothing: true }, error: null })).toEqual({ kind: LEGACY_KIND, status: "error" });
+    expect(kindFromProfileResult({ data: null, error: { code: "XX000", message: "boom" } })).toEqual({ kind: NEUTRAL_KIND, status: "error" });
+    expect(kindFromProfileResult({ data: { nothing: true }, error: null })).toEqual({ kind: NEUTRAL_KIND, status: "error" });
+  });
+  it("is the Community organization row of migrations 0594 and 0600, word for word", () => {
+    const m0594 = readFileSync(new URL("../supabase/migrations/0594_organization_categories.sql", import.meta.url), "utf8");
+    const m0600 = readFileSync(new URL("../supabase/migrations/0600_experiences.sql", import.meta.url), "utf8");
+    const row = m0594.match(/\('nonprofit_secular', '[^']*', '[^']*', false, false, null,\s*'(\{[^']*\})'::jsonb/);
+    expect(row).not.toBeNull();
+    // 0600 renames the row and gives it its own assistant_context.
+    expect(m0600).toContain("label = 'Community organization'");
+    expect(m0600).toContain("'assistant_context', 'a community organization'");
+    expect(NEUTRAL_KIND.terms).toEqual({ ...JSON.parse(row![1]), assistant_context: "a community organization" });
+    expect(NEUTRAL_KIND.label).toBe("Community organization");
+    expect(NEUTRAL_KIND.key).toBe("nonprofit_secular");
+  });
+  it("has no tradition's words, no religious school and none of the faith-only features", () => {
+    const words = Object.values(NEUTRAL_KIND.terms).filter((v): v is string => typeof v === "string").join(" ") + " " + NEUTRAL_KIND.label;
+    expect(words).not.toMatch(/jain|jinendra|derasar|darshan|pathshala|gyan|satvik|boli|temple|church|mosque|gurdwara/i);
+    expect(NEUTRAL_KIND.faithBased).toBe(false);
+    expect(kindSchool(NEUTRAL_KIND)).toBeNull();
+    for (const feature of ["tradition", "live_stream", "labh"] as const) expect(kindHas(NEUTRAL_KIND, feature), feature).toBe(false);
+    for (const key of ["bolis", "jain_way", "pathshala", "gyan_path"]) expect(moduleNotOffered(NEUTRAL_KIND, key), key).toBe(true);
+  });
+  it("is reported once, not once for every page, and again after ten quiet minutes", () => {
+    const t0 = 1_000_000;
+    expect(shouldReportKindFallback("some-club:error", t0)).toBe(true);
+    expect(shouldReportKindFallback("some-club:error", t0 + 1_000)).toBe(false);
+    expect(shouldReportKindFallback("other-club:error", t0 + 1_000)).toBe(true);
+    expect(shouldReportKindFallback("some-club:missing", t0 + 1_000)).toBe(true);
+    expect(shouldReportKindFallback("some-club:error", t0 + 11 * 60_000)).toBe(true);
   });
   it("reports every fallback so none is silent: missing, failing, and an answer it cannot read", () => {
     const missing = { data: null, error: { code: "PGRST202", message: "Could not find the function" } };

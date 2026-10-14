@@ -6,10 +6,12 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { ActionForm } from "@/components/action-form";
 import { ChipGroup, Toggle } from "@/components/controls";
+import { useKind } from "@/components/kind-context";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Alert, Card, buttonClass } from "@/components/ui";
 import {
+  buildFlyerArtPrompt,
   FLYER_LIMITS,
   FLYER_SIZES,
   FLYER_SIZE_KEYS,
@@ -26,6 +28,7 @@ import {
 } from "@/lib/events/flyer";
 import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import { flyerBrandSummary, type FlyerBrand } from "@/lib/events/flyer-brand";
+import type { OccasionSuggestion } from "@/lib/events/flyer-occasions";
 
 import { saveDesignedFlyerAction, removeEventFlyerAction, uploadEventFlyerAction } from "./flyer-actions";
 import { FlyerBackgroundPicker } from "./flyer-background-picker";
@@ -35,10 +38,10 @@ import { FlyerPosterEditor } from "./flyer-poster-editor";
 const SESSION_EXPIRED = "Your session has expired. Sign in again, then retry.";
 const NO_MEMBER_APP = "The member web app's address (repository variable MEMBER_APP_URL) is not set, so there is no link to put in a QR code.";
 
-type FlyerAnswer = { ok: true; blob: Blob; notes: string[] } | { ok: false; error: string };
+export type FlyerAnswer = { ok: true; blob: Blob; notes: string[] } | { ok: false; error: string };
 
 /** Read the render route's answer: an image or PDF with notes, a JSON { error }, or (a sign-in page) an expired session. */
-async function readFlyerAnswer(res: Response): Promise<FlyerAnswer> {
+export async function readFlyerAnswer(res: Response): Promise<FlyerAnswer> {
   const type = (res.headers.get("content-type") ?? "").toLowerCase();
   if (res.ok && (type.startsWith("image/png") || type.startsWith("application/pdf"))) {
     let notes: string[] = [];
@@ -66,7 +69,7 @@ async function readFlyerAnswer(res: Response): Promise<FlyerAnswer> {
   return { ok: false, error: SESSION_EXPIRED };
 }
 
-function postFlyer(eventId: string, design: FlyerDesign, format: "png" | "pdf", scale: "preview" | "full", signal?: AbortSignal) {
+export function postFlyer(eventId: string, design: FlyerDesign, format: "png" | "pdf", scale: "preview" | "full", signal?: AbortSignal) {
   return fetch(`/api/events/${eventId}/flyer`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -80,7 +83,7 @@ function postFlyer(eventId: string, design: FlyerDesign, format: "png" | "pdf", 
  * Event builder › Flyer maker (owner decisions 2026-10-01): design a flyer
  * from the brand kit — background, template, size, words, RSVP QR code — with
  * a live preview rendered by the server (POST /api/events/<id>/flyer), then
- * "Use this flyer" (Post, Tall or Story) or download a PNG, or a PDF at Print size.
+ * "Use this flyer" (Post, Square, Tall or Story) or download a PNG, or a PDF at Print size.
  * Uploading your own flyer stays. The admin console links here as
  * /events/builder?event=<id>#flyer.
  */
@@ -100,6 +103,8 @@ export function FlyerPanel({
   eventLines,
   outOfDate,
   artPromptSeed,
+  artPrompt,
+  suggestions,
   artPreview,
   art,
   posterDefaults,
@@ -121,6 +126,10 @@ export function FlyerPanel({
   /** The event's date or venue changed after the saved flyer was made (flyerOutOfDate). */
   outOfDate: { date: boolean; venue: boolean };
   artPromptSeed: string;
+  /** What the AI background description reads besides the occasion; absent: the seed stays as the page made it. */
+  artPrompt?: { startsAt: string | null; country: string | null; tz: string };
+  /** The occasions that suit this event, best first, with their reasons (shown in the poster's art picker). */
+  suggestions?: readonly OccasionSuggestion[];
   artPreview: { url: string | null; error: string | null };
   /** AI art as it stands: is it available (and at what price), and the pictures kept for the poster's occasion. */
   art: FlyerArtSetup;
@@ -131,6 +140,17 @@ export function FlyerPanel({
   const toast = useToast();
   const [design, setDesign] = useState<FlyerDesign>(() => ({ ...initialDesign, show_qr: initialDesign.show_qr && Boolean(memberAppLink) }));
   const patch = (p: Partial<FlyerDesign>) => setDesign((d) => ({ ...d, ...p }));
+  // The AI background's starting description follows the poster's occasion (and its "Other occasion" description).
+  const kind = useKind();
+  const occasion = design.poster?.occasion ?? posterDefaults.occasion;
+  const occasionNote = design.poster?.occasion_note ?? "";
+  const backgroundSeed = useMemo(
+    () =>
+      artPrompt
+        ? buildFlyerArtPrompt({ eventName, primary: brand.primary, accent: brand.accent, background: brand.background, occasion, occasionNote, community: { kind }, ...artPrompt })
+        : artPromptSeed,
+    [artPrompt, artPromptSeed, eventName, brand.primary, brand.accent, brand.background, occasion, occasionNote, kind],
+  );
   /** The Poster's content is kept while another template is chosen, so switching back loses nothing. */
   const chooseTemplate = (t: FlyerDesign["template"]) => setDesign((d) => ({ ...d, template: t, ...(t === "poster" && !d.poster ? { poster: posterDefaults } : {}) }));
 
@@ -337,7 +357,9 @@ export function FlyerPanel({
                   hasLogo={Boolean(brand.logoUrl)}
                   brand={brand}
                   art={art}
+                  suggestions={suggestions}
                   defaults={{ poster: posterDefaults, venue_line: eventLines.venue_line }}
+                  isGuestVisible={isGuestVisible}
                 />
               </section>
             ) : (
@@ -352,7 +374,7 @@ export function FlyerPanel({
                     onChange={onBackground}
                     brand={brand}
                     isGuestVisible={isGuestVisible}
-                    artPromptSeed={artPromptSeed}
+                    artPromptSeed={backgroundSeed}
                     initialArtUrl={artPreview.url}
                     initialArtError={artPreview.error}
                     artReadiness={art.readiness}
@@ -503,7 +525,7 @@ export function FlyerPanel({
                   </button>
                 ) : null}
               </div>
-              {!canUse ? <p className="crm-hint mt-1">Print is for downloading. Switch to Post, Tall or Story to use the design as the event&apos;s flyer.</p> : null}
+              {!canUse ? <p className="crm-hint mt-1">Print is for downloading. Switch to Post, Square, Tall or Story to use the design as the event&apos;s flyer.</p> : null}
               {saveError ? <InlineError onRetry={save}>{saveError}</InlineError> : null}
               {downloadError ? <InlineError onRetry={() => void download(downloadError.format)}>{downloadError.message}</InlineError> : null}
               <p className="crm-hint mt-2">

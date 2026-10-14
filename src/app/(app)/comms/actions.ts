@@ -2,11 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 
-import { buildAudience, buildTranslations, composeAction, parseAudience, requiresSecondApprover } from "@/lib/comms";
-import type { Database, Json, TablesUpdate } from "@/lib/database.types";
+import { withActivity } from "@/lib/activity/with-activity";
+import { buildAudience, buildTranslations, composeAction, parseAudience, requiresSecondApprover, translationsFromFields } from "@/lib/comms";
+import { runScreenCommand } from "@/lib/commands/screen";
+import { inboxAllowed, inboxRefusal, NOT_SENDING } from "@/lib/commands/catalog/messages/shared";
+import { plain, runCommandAs } from "@/lib/commands/catalog/messages/screen";
+import type { Database, Json } from "@/lib/database.types";
 import { localDateTimeToIso } from "@/lib/dates";
 import { failure, type ActionResult } from "@/lib/errors";
-import { can, passesRoleChecks } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, loadSession, type CrmSession } from "@/lib/session";
 
@@ -62,10 +66,7 @@ function campaignValues(fd: FormData, tz: string) {
   const channels = fd.getAll("channels").map(String).filter((c): c is Channel => (CHANNELS as string[]).includes(c));
   const sendAt = text(fd, "scheduled_at");
   const scheduledAt = sendAt ? localDateTimeToIso(sendAt, tz) : null;
-  const translations = buildTranslations({
-    gu: { title: text(fd, "title_gu"), body_md: text(fd, "body_gu") },
-    hi: { title: text(fd, "title_hi"), body_md: text(fd, "body_hi") },
-  });
+  const translations = buildTranslations(translationsFromFields(fd.keys(), (key) => text(fd, key)));
   if (!name) return { ok: false as const, error: "give the newsletter a name" };
   if (!title) return { ok: false as const, error: "add a subject" };
   if (!body) return { ok: false as const, error: "write the message" };
@@ -74,66 +75,103 @@ function campaignValues(fd: FormData, tz: string) {
   return { ok: true as const, values: { name, title, body_md: body, channels, translations: translations as Json, scheduled_at: scheduledAt } };
 }
 
-const NOT_SENDING = " It stays queued: email, SMS, WhatsApp and push sending are not connected to this app yet.";
-
 /**
  * One click from the compose form. Under the CURRENT rules (unchanged):
  * an approver (comms.approve) must approve every send — the drafter may be
  * that approver — and all-member sends need a second, different approver.
  * So a comms.approve holder with a smaller audience schedules in one step;
- * everyone else sends it for approval.
+ * everyone else sends it for approval. The work is the command
+ * messages.schedule_campaign (src/lib/commands/catalog/messages): this reads the
+ * form and calls it, the same code the ⌘K palette and Niva use.
  */
 export async function submitNewsletterAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  const auth = await authorizeAction("commsSend", "send the newsletter");
-  if (!auth.ok) return auth;
-  const { db, center, userId } = auth.session;
-  const aud = audienceFrom(fd);
-  if (!aud.ok) return { ok: false, error: `Could not send the newsletter — ${aud.error}.` };
-  const v = campaignValues(fd, center.time_zone);
-  if (!v.ok) return { ok: false, error: `Could not send the newsletter — ${v.error}.` };
-  const mode = composeAction(aud.audience, can(auth.session, "comms.approve"));
-  const needsSecond = requiresSecondApprover(aud.audience);
-
-  const created = await db
-    .from("comms_campaigns")
-    .insert({
-      ...v.values,
-      center_id: center.id,
-      kind: "newsletter",
-      audience: aud.audience as Json,
-      requires_second_approver: needsSecond,
-      status: "draft",
-      created_by: userId,
-    })
-    .select("id")
-    .single();
-  if (created.error) return failure("Could not send the newsletter", created.error);
-  revalidateComms();
-  if (mode === "submit") {
-    return { ok: true, message: `"${v.values.name}" sent for approval · it appears in approvers' tasks.` };
-  }
-  const { error } = await db
-    .from("comms_campaigns")
-    .update({ approved_by: userId, status: "scheduled", scheduled_at: v.values.scheduled_at ?? new Date().toISOString() })
-    .eq("id", created.data.id);
-  if (error) return failure(`"${v.values.name}" was saved and is awaiting approval, but could not be scheduled`, error);
-  return { ok: true, message: `"${v.values.name}" approved and scheduled.${NOT_SENDING}` };
+  return withActivity("comms.send", () => submitNewsletter(fd));
 }
 
-/** Edit from the detail page; any edit sends it back to "awaiting approval". */
+async function submitNewsletter(fd: FormData): Promise<ActionResult> {
+  const doing = "send the newsletter";
+  const auth = await authorizeAction("commsSend", doing);
+  if (!auth.ok) return auth;
+  const raw: Record<string, string> = {
+    name: text(fd, "name"),
+    title: text(fd, "title"),
+    body: text(fd, "body_md"),
+    channels: fd.getAll("channels").map(String).join(","),
+    audience_json: text(fd, "audience") || "{}",
+  };
+  if (text(fd, "scheduled_at")) raw.send_at = text(fd, "scheduled_at");
+  // Translations into any language the form offered (title_es, body_es, title_gu ...), as the command takes them.
+  const translations = buildTranslations(translationsFromFields(fd.keys(), (key) => text(fd, key)));
+  if (Object.keys(translations).length > 0) raw.translations_json = JSON.stringify(translations);
+  return plain(await runScreenCommand("messages.schedule_campaign", raw, doing));
+}
+
+/**
+ * A working draft's audience from the chips: none chosen yet is fine while it is only being saved (the draft keeps an empty audience
+ * and cannot go for approval until one is chosen).
+ */
+function draftAudienceFrom(fd: FormData): { ok: true; audience: Record<string, unknown> } | { ok: false; error: string } {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text(fd, "audience") || "{}");
+  } catch {
+    return { ok: false, error: "the audience could not be read — reload the page and choose it again" };
+  }
+  const built = buildAudience(parseAudience(raw));
+  return { ok: true, audience: built.ok ? built.audience : {} };
+}
+
+/**
+ * Save a working draft (a copy of a communication, or a start from a template), or send it for approval. Saving keeps it a working
+ * draft: nobody is asked to approve it and nothing is sent. Sending it for approval runs the rules the compose form always had: an
+ * approver (comms.approve) schedules it in one step unless it is for all members, and everyone else sends it to the approvers.
+ */
+async function saveWorkingDraft(session: CrmSession, id: string, fd: FormData): Promise<ActionResult> {
+  const { db, center, userId } = session;
+  const submit = text(fd, "intent") === "submit";
+  const doing = submit ? "send the draft for approval" : "save the draft";
+  const v = campaignValues(fd, center.time_zone);
+  if (!v.ok) return { ok: false, error: `Could not ${doing} — ${v.error}.` };
+  const aud = submit ? audienceFrom(fd) : draftAudienceFrom(fd);
+  if (!aud.ok) return { ok: false, error: `Could not ${doing} — ${aud.error}.` };
+  const base = {
+    ...v.values,
+    audience: aud.audience as Json,
+    requires_second_approver: requiresSecondApprover(aud.audience),
+    approved_by: null,
+    second_approver: null,
+  };
+  const mode = submit ? composeAction(aud.audience, can(session, "comms.approve")) : null;
+  const patch =
+    mode === "schedule"
+      ? { ...base, approved_by: userId, status: "scheduled", scheduled_at: v.values.scheduled_at ?? new Date().toISOString() }
+      : { ...base, status: submit ? "draft" : "working_draft" };
+  const { data, error } = await db.from("comms_campaigns").update(patch).eq("id", id).eq("status", "working_draft").select("id");
+  if (error) return failure(`Could not ${doing}`, error);
+  if (!data?.length) return { ok: false, error: `Could not ${doing} — it is no longer a draft (it may have been sent for approval or discarded). Reload the page to see where it is.` };
+  revalidateComms();
+  if (!submit) return { ok: true, message: "Draft saved. Nothing has been sent and nobody has been asked to approve it." };
+  return {
+    ok: true,
+    message: mode === "schedule" ? `"${v.values.name}" approved and scheduled.${NOT_SENDING}` : `"${v.values.name}" sent for approval · it appears in approvers' tasks.`,
+  };
+}
+
+/** Edit from the detail page; any edit sends it back to "awaiting approval". A working draft stays a working draft until its writer sends it. */
 export async function saveCampaignAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("commsSend", "save the newsletter");
   if (!auth.ok) return auth;
   const { db, center } = auth.session;
   const id = text(fd, "id");
   if (!isUuid(id)) return { ok: false, error: "Could not save the newsletter — the request was incomplete." };
+  const cur = await db.from("comms_campaigns").select("status").eq("id", id).maybeSingle();
+  if (cur.error) return failure("Could not save the newsletter", cur.error);
+  if (!cur.data) return { ok: false, error: "Could not save the newsletter — it no longer exists." };
+  if (cur.data.status === "working_draft") return saveWorkingDraft(auth.session, id, fd);
   const aud = audienceFrom(fd);
   if (!aud.ok) return { ok: false, error: `Could not save the newsletter — ${aud.error}.` };
   const v = campaignValues(fd, center.time_zone);
   if (!v.ok) return { ok: false, error: `Could not save the newsletter — ${v.error}.` };
-  const cur = await db.from("comms_campaigns").select("status").eq("id", id).maybeSingle();
-  if (cur.error) return failure("Could not save the newsletter", cur.error);
-  if (!cur.data) return { ok: false, error: "Could not save the newsletter — it no longer exists." };
   if (!["draft", "pending_approval", "scheduled"].includes(cur.data.status)) return { ok: false, error: "Could not save the newsletter — it has already gone out." };
   const { error } = await db
     .from("comms_campaigns")
@@ -157,39 +195,16 @@ export async function saveCampaignAction(_prev: ActionResult | null, fd: FormDat
  * approver, whose approval (app.approve_as_second) then schedules it.
  */
 export async function approveCampaignAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  const auth = await authorizeAction("commsApprove", "approve the newsletter");
+  return withActivity("comms.approve_campaign", () => approveCampaign(fd), { entityFrom: { kind: "message", id: text(fd, "id") } });
+}
+
+async function approveCampaign(fd: FormData): Promise<ActionResult> {
+  const doing = "approve the newsletter";
+  const auth = await authorizeAction("commsApprove", doing);
   if (!auth.ok) return auth;
-  const { db, userId } = auth.session;
   const id = text(fd, "id");
   if (!isUuid(id)) return { ok: false, error: "Could not approve the newsletter — the request was incomplete." };
-  const c = await db.from("comms_campaigns").select("name, title, status, audience, requires_second_approver, approved_by, scheduled_at").eq("id", id).maybeSingle();
-  if (c.error) return failure("Could not approve the newsletter", c.error);
-  if (!c.data) return { ok: false, error: "Could not approve the newsletter — it no longer exists." };
-  const label = c.data.name || c.data.title;
-  const needsSecond = c.data.requires_second_approver || requiresSecondApprover(c.data.audience);
-  const sendAt = c.data.scheduled_at ?? new Date().toISOString();
-
-  if (c.data.status === "draft") {
-    const patch: TablesUpdate<"comms_campaigns"> = needsSecond
-      ? { approved_by: userId, requires_second_approver: true, status: "pending_approval" }
-      : { approved_by: userId, status: "scheduled", scheduled_at: sendAt };
-    const { error } = await db.from("comms_campaigns").update(patch).eq("id", id).eq("status", "draft");
-    if (error) return failure("Could not approve the newsletter", error);
-    revalidateComms();
-    return { ok: true, message: needsSecond ? `"${label}" approved · waiting for a second approver (all-member send).` : `"${label}" approved and scheduled.${NOT_SENDING}` };
-  }
-  if (c.data.status === "pending_approval") {
-    if (c.data.approved_by === userId) {
-      return { ok: false, error: `Could not approve "${label}" — you gave the first approval; the two-person rule needs a different approver.` };
-    }
-    const second = await db.rpc("approve_as_second", { p_table: "comms_campaigns", p_id: id });
-    if (second.error) return failure(`Could not approve "${label}"`, second.error);
-    const { error } = await db.from("comms_campaigns").update({ status: "scheduled", scheduled_at: sendAt }).eq("id", id);
-    if (error) return failure(`Your approval of "${label}" was recorded, but it could not be scheduled`, error);
-    revalidateComms();
-    return { ok: true, message: `"${label}" approved by two people and scheduled.${NOT_SENDING}` };
-  }
-  return { ok: false, error: `Could not approve "${label}" — it is no longer awaiting approval.` };
+  return plain(await runScreenCommand("messages.approve_campaign", { campaign_id: id }, doing));
 }
 
 export async function setCampaignStatusAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
@@ -199,12 +214,7 @@ export async function setCampaignStatusAction(_prev: ActionResult | null, fd: Fo
   if (!auth.ok) return auth;
   const id = text(fd, "id");
   if (!isUuid(id) || (to !== "draft" && to !== "cancelled")) return { ok: false, error: `Could not ${doing} — the request was incomplete.` };
-  const patch: TablesUpdate<"comms_campaigns"> = to === "draft" ? { status: "draft", approved_by: null, second_approver: null } : { status: "cancelled" };
-  const { data, error } = await auth.session.db.from("comms_campaigns").update(patch).eq("id", id).in("status", ["draft", "pending_approval", "scheduled"]).select("id");
-  if (error) return failure(`Could not ${doing}`, error);
-  if (!data?.length) return { ok: false, error: `Could not ${doing} — it has already gone out or was cancelled.` };
-  revalidateComms();
-  return { ok: true, message: to === "draft" ? "Back to awaiting approval." : "Cancelled." };
+  return plain(await runScreenCommand("messages.set_campaign_status", { campaign_id: id, decision: to }, doing));
 }
 
 // ---------------------------------------------------------------------------
@@ -215,9 +225,7 @@ async function inboxSession(doing: string): Promise<{ ok: true; session: CrmSess
   if (state.status !== "ok") return { ok: false, error: `Could not ${doing} — your session has expired or the app is not configured. Sign in again.` };
   const s = state.session;
   // comms.inbox holders see every inbox; zone leads their zone's (RLS checks the zone).
-  if (!can(s, "comms.inbox") && !(passesRoleChecks(s) || s.roles.some((r) => r.key === "zone_lead"))) {
-    return { ok: false, error: `Could not ${doing} — you don't handle any inbox (needs comms.inbox or a zone lead role).` };
-  }
+  if (!inboxAllowed(s)) return { ok: false, error: inboxRefusal(doing) };
   return { ok: true, session: s };
 }
 
@@ -226,46 +234,25 @@ export async function setThreadAction(_prev: ActionResult | null, fd: FormData):
   const doing = { assign_me: "take the conversation", unassign: "unassign the conversation", close: "close the conversation", reopen: "reopen the conversation" }[action] ?? "update the conversation";
   const auth = await inboxSession(doing);
   if (!auth.ok) return auth;
-  const { db, userId } = auth.session;
   const id = text(fd, "id");
   if (!isUuid(id) || !["assign_me", "unassign", "close", "reopen"].includes(action)) return { ok: false, error: `Could not ${doing} — the request was incomplete.` };
-  const patch: TablesUpdate<"threads"> =
-    action === "assign_me"
-      ? { assignee_user: userId, status: "assigned" }
-      : action === "unassign"
-        ? { assignee_user: null, status: "open" }
-        : action === "close"
-          ? { status: "closed", closed_at: new Date().toISOString() }
-          : { status: "open", closed_at: null };
-  const { data, error } = await db.from("threads").update(patch).eq("id", id).select("id");
-  if (error) return failure(`Could not ${doing}`, error);
-  if (!data?.length) return { ok: false, error: `Could not ${doing} — it no longer exists, or it is not in an inbox you handle.` };
-  revalidateComms();
-  return { ok: true, message: { assign_me: "It's yours now.", unassign: "Unassigned.", close: "Closed.", reopen: "Reopened." }[action] };
+  return plain(await runCommandAs(auth.session, "messages.set_thread", { thread_id: id, action }, doing));
 }
 
 export async function replyToThreadAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  const auth = await inboxSession("send the reply");
+  return withActivity("comms.reply_thread", () => replyToThread(fd), { entityFrom: { kind: "thread", id: text(fd, "id") } });
+}
+
+async function replyToThread(fd: FormData): Promise<ActionResult> {
+  const doing = "send the reply";
+  const auth = await inboxSession(doing);
   if (!auth.ok) return auth;
-  const { db, userId, center } = auth.session;
   const id = text(fd, "id");
   const body = text(fd, "body");
   const close = fd.get("close") === "on";
   if (!isUuid(id)) return { ok: false, error: "Could not send the reply — the request was incomplete." };
   if (!body) return { ok: false, error: "Could not send the reply — write something first." };
-  const t = await db.from("threads").select("first_response_at").eq("id", id).maybeSingle();
-  if (t.error) return failure("Could not send the reply", t.error);
-  if (!t.data) return { ok: false, error: "Could not send the reply — the conversation no longer exists, or it is not in an inbox you handle." };
-  const ins = await db.from("thread_messages").insert({ center_id: center.id, thread_id: id, author_user: userId, from_role: true, body });
-  if (ins.error) return failure("Could not send the reply", ins.error);
-  const now = new Date().toISOString();
-  const patch: TablesUpdate<"threads"> = { status: close ? "closed" : "waiting" };
-  if (!t.data.first_response_at) patch.first_response_at = now;
-  if (close) patch.closed_at = now;
-  const { error } = await db.from("threads").update(patch).eq("id", id);
-  if (error) return failure("The reply was saved, but the conversation's status could not be updated", error);
-  revalidateComms();
-  return { ok: true, message: close ? "Replied and closed." : "Reply sent from the inbox, not your personal number." };
+  return plain(await runCommandAs(auth.session, "messages.reply_to_thread", { thread_id: id, body, close }, doing));
 }
 
 // ---------------------------------------------------------------------------
@@ -278,15 +265,7 @@ export async function handleJoinRequestAction(_prev: ActionResult | null, fd: Fo
   if (!auth.ok) return auth;
   const id = text(fd, "id");
   if (!isUuid(id) || !["approved", "added", "declined"].includes(status)) return { ok: false, error: `Could not ${doing} — the request was incomplete.` };
-  const { data, error } = await auth.session.db
-    .from("whatsapp_join_requests")
-    .update({ status, handled_by: auth.session.userId, handled_at: new Date().toISOString() })
-    .eq("id", id)
-    .select("id");
-  if (error) return failure(`Could not ${doing}`, error);
-  if (!data?.length) return { ok: false, error: `Could not ${doing} — the request no longer exists.` };
-  revalidateComms();
-  return { ok: true, message: status === "added" ? "Marked as added to the group." : status === "approved" ? "Approved — add them in WhatsApp, then mark added." : "Declined." };
+  return plain(await runScreenCommand("messages.handle_whatsapp_request", { request_id: id, decision: status }, doing));
 }
 
 // ---------------------------------------------------------------------------

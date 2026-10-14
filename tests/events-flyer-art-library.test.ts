@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { FLYER_LAYER_GUARDRAIL, findBlockedArtTerm } from "@/lib/events/flyer";
+import { FLYER_LAYER_GUARDRAIL, findBlockedArtTerm, withLayerGuardrail } from "@/lib/events/flyer";
 import { NO_GEMINI_KEY, flyerArtPath } from "@/lib/events/flyer-art";
+import { artFactsFor, buildLayerPrompt, readArtFacts } from "@/lib/events/flyer-art-prompt";
 import { PARTNER_LOGO_MAX_BYTES, collectFlyerArt, discardFlyerArt, flyerArtReadiness, listFlyerArt, requestFlyerArt, storePartnerLogo } from "@/lib/events/flyer-art-library";
 import { MAX_PICTURE_PIXELS, MAX_PICTURE_SIDE, oversizePicture, sniffImage } from "@/lib/events/flyer-image";
 import { DbFailure, FormError } from "@/lib/events/forms";
+import { LEGACY_KIND } from "@/lib/kind";
 import type { AppSupabase } from "@/lib/supabase/server";
 
 const C = "11111111-1111-4111-8111-111111111111";
@@ -297,14 +299,35 @@ describe("requestFlyerArt (asking Gemini for a frame or a scene)", () => {
     expect(called(calls, "rpc:events_flyer_result")).toHaveLength(0);
   });
 
-  it("asks with the occasion, layer, a fresh seed and a code-set prompt that ends with the guard", async () => {
+  it("asks with the occasion, layer, a fresh seed and the facts the background service builds the description from (B96)", async () => {
     const { db, calls } = fake({ rpc: { flyer_art_status: ready, events_flyer_result: { data: { status: "none" } }, events_request_flyer_art: { data: { status: "queued", job_id: "9" } } } });
-    expect(await requestFlyerArt(db, { ...ask, seed: 4242 })).toEqual({ status: "queued" });
+    const facts = artFactsFor({ occasion: "garba", layer: "frame", kind: LEGACY_KIND, brand: { primary: "#1B2C5C", accent: "#C9731C", background: "#FBF7F0" } });
+    expect(await requestFlyerArt(db, { ...ask, seed: 4242, facts })).toEqual({ status: "queued" });
     const sent = called(calls, "rpc:events_request_flyer_art")[0]!.args[0] as Record<string, unknown>;
     expect(sent).toMatchObject({ p_event: E, p_occasion: "garba", p_layer: "frame", p_seed: 4242 });
-    expect(String(sent.p_prompt).endsWith(FLYER_LAYER_GUARDRAIL)).toBe(true);
-    expect(findBlockedArtTerm(String(sent.p_prompt))).toBeNull();
-    expect(String(sent.p_prompt)).toMatch(/border frame/);
+    const read = readArtFacts(String(sent.p_prompt));
+    expect(read).toEqual(facts);
+    const prompt = withLayerGuardrail(buildLayerPrompt({ ...read!, layer: "frame" }));
+    expect(prompt.endsWith(FLYER_LAYER_GUARDRAIL)).toBe(true);
+    expect(findBlockedArtTerm(prompt)).toBeNull();
+    expect(prompt).toMatch(/border frame/);
+    expect(prompt).toMatch(/a Jain community/);
+  });
+
+  it("asks for a new occasion's frame or scene too (0703), with that occasion's facts", async () => {
+    const { db, calls } = fake({ rpc: { flyer_art_status: ready, events_flyer_result: { data: { status: "none" } }, events_request_flyer_art: { data: { status: "queued" } } } });
+    expect(await requestFlyerArt(db, { ...ask, occasion: "christmas_eve", layer: "scene" })).toEqual({ status: "queued" });
+    const sent = called(calls, "rpc:events_request_flyer_art")[0]!.args[0] as Record<string, unknown>;
+    expect(sent).toMatchObject({ p_occasion: "christmas_eve", p_layer: "scene" });
+    expect(readArtFacts(String(sent.p_prompt))).toMatchObject({ occasion: "christmas_eve", layer: "scene" });
+  });
+
+  it("refuses an Other occasion description in another script or with a blocked word, in plain words", async () => {
+    const { db, calls } = fake({ rpc: { flyer_art_status: ready, events_flyer_result: { data: { status: "none" } }, events_request_flyer_art: { data: { status: "queued" } } } });
+    const other = { ...ask, occasion: "general" as const };
+    await expect(requestFlyerArt(db, { ...other, facts: { occasion: "general", layer: "frame", note: "A walk with the children" } })).rejects.toThrow(/mentions "children"/);
+    await expect(requestFlyerArt(db, { ...other, facts: { occasion: "general", layer: "frame", note: "ફાનસ" } })).rejects.toThrow(/describe the occasion in English/);
+    expect(called(calls, "rpc:events_request_flyer_art")).toHaveLength(0);
   });
 
   it("picks the seed itself when none is given (the picture's name in the library)", async () => {
@@ -319,7 +342,9 @@ describe("requestFlyerArt (asking Gemini for a frame or a scene)", () => {
   it("asks a scene for the scene's own description", async () => {
     const { db, calls } = fake({ rpc: { flyer_art_status: ready, events_flyer_result: { data: { status: "none" } }, events_request_flyer_art: { data: { status: "queued" } } } });
     await requestFlyerArt(db, { ...ask, layer: "scene", occasion: "paryushan" });
-    expect(String((called(calls, "rpc:events_request_flyer_art")[0]!.args[0] as { p_prompt: string }).p_prompt)).toMatch(/lotus pond/);
+    const sent = readArtFacts(String((called(calls, "rpc:events_request_flyer_art")[0]!.args[0] as { p_prompt: string }).p_prompt))!;
+    expect(sent).toMatchObject({ occasion: "paryushan", layer: "scene" });
+    expect(buildLayerPrompt({ ...sent, layer: "scene" })).toMatch(/lotus pond/);
   });
 
   it("makes one picture at a time: a picture still being made is waited for, not asked for again", async () => {

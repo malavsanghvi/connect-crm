@@ -3,7 +3,9 @@
 // exist in this build, form parsing for the Step 0 screens, the brand-kit
 // contrast check and public file URLs. No server imports; tested directly.
 
+import { countryCodeOf } from "@/lib/countries";
 import { kindName, moduleNotOffered } from "@/lib/kind";
+import { isKnownLanguage, languageChoices, normalizeLanguageCode } from "@/lib/languages";
 import { NAV } from "@/lib/permissions";
 import { word, type KindLike } from "@/lib/wording";
 
@@ -510,14 +512,8 @@ export const VERIFICATION_LABEL: Record<string, string> = {
 };
 
 // ── Step 0.3 · profile ────────────────────────────────────────────────────────
-export const LANGUAGES = [
-  { value: "en", label: "English" },
-  { value: "gu", label: "ગુજરાતી (Gujarati)" },
-  { value: "hi", label: "हिन्दी (Hindi)" },
-  { value: "mr", label: "मराठी (Marathi)" },
-  { value: "ta", label: "தமிழ் (Tamil)" },
-  { value: "kn", label: "ಕನ್ನಡ (Kannada)" },
-] as const;
+/** The languages offered as choices (name and its own name); any other language is added by its code under "Other languages". */
+export const LANGUAGES: { value: string; label: string }[] = languageChoices();
 
 export const SOCIAL_KEYS = [
   { key: "facebook", label: "Facebook" },
@@ -534,6 +530,10 @@ export type ProfileInput = {
   short_name: string | null;
   time_zone: string;
   currency: string;
+  /** The community's country (ISO alpha-2), which decides the age of majority the assistant uses; null leaves it as it is. */
+  country: string | null;
+  /** The state or province; undefined leaves it as it is, null clears it. */
+  state_region: string | null | undefined;
   mission: string | null;
   about: string | null;
   website: string | null;
@@ -569,6 +569,11 @@ export function parseProfile(read: Read, readAll: (name: string) => string[], ti
   if (!timeZones.includes(tz)) errors.push("Choose the time zone.");
   const currency = t("currency").toUpperCase() || "USD";
   if (!/^[A-Z]{3}$/.test(currency)) errors.push("The currency is a three-letter code, e.g. USD.");
+  const countryRaw = t("country");
+  const country = countryRaw ? countryCodeOf(countryRaw) : null;
+  if (countryRaw && !country) errors.push("Choose the country from the list.");
+  const stateRaw = read("state_region");
+  const state = stateRaw === null ? undefined : stateRaw.trim().slice(0, 60) || null;
   const mission = t("mission");
   if (mission.length > 1000) errors.push("Keep the mission under 1,000 characters.");
   const about = t("about");
@@ -607,7 +612,12 @@ export function parseProfile(read: Read, readAll: (name: string) => string[], ti
       longitude = Math.round(longitude * 1e6) / 1e6;
     }
   }
-  const languages = [...new Set(readAll("languages").filter((l) => LANGUAGES.some((x) => x.value === l)))];
+  // The main language comes first (it sets the order of everything the community writes), then the ticked ones, then any typed by code.
+  const known = (c: string): string | null => (isKnownLanguage(c) ? normalizeLanguageCode(c) : null);
+  const typed = t("other_languages").split(/[\s,;]+/).filter(Boolean);
+  for (const x of typed) if (!known(x)) errors.push(`"${x}" is not a language code Weaver knows. Use a code like es, pt-BR or ar.`);
+  const picked = [t("main_language"), ...readAll("languages"), ...typed].map(known).filter((c): c is string => c !== null);
+  const languages = [...new Set(picked)];
   if (languages.length === 0) errors.push("Choose at least one language.");
   if (errors.length) return { ok: false, error: errors.join(" ") };
   return {
@@ -617,6 +627,8 @@ export function parseProfile(read: Read, readAll: (name: string) => string[], ti
       short_name: short || null,
       time_zone: tz,
       currency,
+      country,
+      state_region: state,
       mission: mission || null,
       about: about || null,
       website: website || null,

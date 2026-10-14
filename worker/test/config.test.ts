@@ -10,6 +10,15 @@ describe("platform secrets from env", () => {
     expect(providerStatus({ POSTMARK_SERVER_TOKEN: "t" }, "email").configured).toBe(true);
     expect(providerStatus({ RESEND_API_KEY: "  " }, "email").configured).toBe(false);
   });
+  it("QuickBooks is configured by the development pair alone, so a sandbox company can connect before the production keys exist", () => {
+    expect(providerStatus({ INTUIT_SANDBOX_CLIENT_ID: "id", INTUIT_SANDBOX_CLIENT_SECRET: "secret" }, "intuit")).toEqual({ configured: true });
+    expect(providerStatus({ INTUIT_CLIENT_ID: "id", INTUIT_CLIENT_SECRET: "secret" }, "intuit")).toEqual({ configured: true });
+    // half a pair is not enough, and the reason names both pairs
+    expect(providerStatus({ INTUIT_SANDBOX_CLIENT_ID: "id" }, "intuit")).toEqual({
+      configured: false,
+      reason: "QuickBooks (Intuit) is not configured on the background service (needs INTUIT_CLIENT_ID + INTUIT_CLIENT_SECRET, or INTUIT_SANDBOX_CLIENT_ID + INTUIT_SANDBOX_CLIENT_SECRET)",
+    });
+  });
   it("the reason names missing variables, never a value", () => {
     const r = requireEnv({ SUPABASE_URL: "http://x", SUPABASE_SECRET_KEY: "" }, ["SUPABASE_URL", "SUPABASE_SECRET_KEY"], "Storage retention");
     expect(r).toEqual({ configured: false, reason: "Storage retention is not configured on the background service (SUPABASE_SECRET_KEY not set)" });

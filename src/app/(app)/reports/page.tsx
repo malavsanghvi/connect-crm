@@ -4,13 +4,15 @@ import Link from "next/link";
 
 import { BarList } from "@/components/bar-list";
 import { BlockGrid, Card, EmptyState, KpiGrid, NoAccess, PageHeader, QueryError, Stat, TableWrap, buttonClass } from "@/components/ui";
-import { fetchAll } from "@/lib/data/fetch-all";
-import { campaignsForCenter } from "@/lib/data/lookups";
-import { addDays, startOfDayInTz, todayInTz } from "@/lib/dates";
+import { compactMoney, communityFormat, moneyIn, numberIn } from "@/lib/community-format";
+import { todayInTz } from "@/lib/dates";
 import { barPercent } from "@/lib/giving";
 import { APPLICATION_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/labels";
-import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
+import { loadFiscalStart } from "@/lib/reports/fiscal";
+import { reportReads, type Section } from "@/lib/reports/load";
+import { pageFigures } from "@/lib/reports/figures";
+import { chosenYear, currentFiscalYear, fiscalYearLabel, pctText, yearWindow } from "@/lib/reports/periods";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
@@ -19,9 +21,19 @@ export const metadata: Metadata = { title: "Reports" };
 const TIERS = ["life", "yearly", "community"] as const;
 const MSTATUSES = ["active", "pending", "lapsed", "suspended", "ended"] as const;
 
+/** Log a failed read on the server; the card it feeds says "could not load" with a retry. */
+function logged<T>(what: string, section: Section<T> | null): void {
+  if (section && !section.ok) console.error(`[reports] ${what} failed; its card shows "could not load":`, section.error);
+}
+
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
-  const header = <PageHeader title="Reports" description="Built on the warehouse and filtered by your permissions" />;
+  const header = (
+    <PageHeader
+      title="Reports"
+      description="Sums are done by the database and filtered by your permissions"
+    />
+  );
   if (!canAccess(session, "reports")) {
     return (
       <>
@@ -32,173 +44,72 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   }
   const sp = await searchParams;
   const { db, center } = session;
-  const tz = center.time_zone;
-  const currentYear = Number(todayInTz(tz).slice(0, 4));
-  const yearParam = Number(param(sp, "year"));
-  const year = Number.isInteger(yearParam) && yearParam > 1990 && yearParam <= currentYear + 1 ? yearParam : currentYear;
-  const yearFrom = startOfDayInTz(`${year}-01-01`, tz);
-  const yearTo = startOfDayInTz(`${year + 1}-01-01`, tz);
+  const today = todayInTz(center.time_zone);
+  // "This year" and "last year" are the community's financial years (Setup > Organization profile), named by the year they start in.
+  const fiscal = await loadFiscalStart(db, center.id);
+  const currentYear = currentFiscalYear(today, fiscal.month);
+  const year = chosenYear(Number(param(sp, "year")), currentYear);
+  const w = yearWindow(year, currentYear, today, fiscal.month);
+  const fmt = communityFormat(center);
+  const n = (v: number) => numberIn(v, fmt.locale);
   const seesMembership = canAccess(session, "memberships");
   const seesGiving = canAccess(session, "paymentsAll");
+  const seesEvents = canAccess(session, "events");
 
-  const [memberships, applications, pledges, payments, campaigns] = await Promise.all([
-    seesMembership
-      ? fetchAll((f, t) => db.from("memberships").select("id, tier, status, household_id").eq("center_id", center.id).order("id").range(f, t))
-      : null,
-    seesMembership
-      ? fetchAll((f, t) => db.from("membership_applications").select("id, status, tier").eq("center_id", center.id).order("id").range(f, t))
-      : null,
-    seesGiving
-      ? fetchAll((f, t) =>
-          db
-            .from("pledges")
-            .select("id, campaign_id, amount_cents, paid_cents, status")
-            .eq("center_id", center.id)
-            .gte("pledged_at", yearFrom)
-            .lt("pledged_at", yearTo)
-            .not("status", "in", "(cancelled)")
-            .order("id")
-            .range(f, t),
-        )
-      : null,
-    seesGiving
-      ? fetchAll((f, t) =>
-          db
-            .from("payments")
-            .select("id, method, amount_cents, refunded_cents, status")
-            .eq("center_id", center.id)
-            .gte("received_on", `${year}-01-01`)
-            .lte("received_on", `${year}-12-31`)
-            .not("status", "in", "(failed,voided,authorized)")
-            .order("id")
-            .range(f, t),
-        )
-      : null,
-    seesGiving ? campaignsForCenter(db, center.id) : null,
+  // Seven reads, all at once. Each one is a single sum done in the database (migration 0672): the page no longer downloads the rows.
+  const [people, matrix, payments, prevPayments, pledges, visits, prevVisits] = await Promise.all([
+    seesMembership ? reportReads.peopleOverview(db, center.id, year, today) : null,
+    seesMembership ? reportReads.membershipMatrix(db, center.id) : null,
+    seesGiving ? reportReads.payments(db, center.id, w.from, w.yearEnd, "method") : null,
+    seesGiving ? reportReads.payments(db, center.id, w.prevFrom, w.prevEnd, "none") : null,
+    seesGiving ? reportReads.pledges(db, center.id, w.from, w.yearEnd) : null,
+    seesEvents ? reportReads.attendance(db, center.id, w.from, w.periodEnd, 1) : null,
+    seesEvents ? reportReads.attendance(db, center.id, w.prevFrom, w.prevEnd, 1) : null,
   ]);
+  logged("household figures", people);
+  logged("membership figures", matrix);
+  logged("money received", payments);
+  logged("money received last year", prevPayments);
+  logged("pledges", pledges);
+  logged("event check-ins", visits);
+  logged("event check-ins last year", prevVisits);
 
-  // Membership matrix: tier × status (count of memberships) and distinct active households per tier.
-  const matrix = new Map<string, number>();
-  const activeHouseholds = new Map<string, Set<string>>();
-  for (const m of memberships?.data ?? []) {
-    matrix.set(`${m.tier}|${m.status}`, (matrix.get(`${m.tier}|${m.status}`) ?? 0) + 1);
-    if (m.status === "active") {
-      const set = activeHouseholds.get(m.tier) ?? new Set<string>();
-      set.add(m.household_id);
-      activeHouseholds.set(m.tier, set);
-    }
-  }
-  const appCounts = new Map<string, number>();
-  for (const a of applications?.data ?? []) appCounts.set(a.status, (appCounts.get(a.status) ?? 0) + 1);
+  const peopleOk = people?.ok ? people.value : null;
+  const matrixOk = matrix?.ok ? matrix.value : null;
+  const paymentsOk = payments?.ok ? payments.value : null;
+  const prevOk = prevPayments?.ok ? prevPayments.value : null;
+  const pledgesOk = pledges?.ok ? pledges.value : null;
+  const visitsOk = visits?.ok ? visits.value : null;
+  const prevVisitsOk = prevVisits?.ok ? prevVisits.value : null;
 
-  const campaignName = new Map((campaigns?.data ?? []).map((c) => [c.id, c.name]));
-  const byCampaign = new Map<string, { pledged: number; paid: number; writtenOff: number; count: number }>();
-  for (const p of pledges?.data ?? []) {
-    const key = p.campaign_id ?? "none";
-    const t = byCampaign.get(key) ?? { pledged: 0, paid: 0, writtenOff: 0, count: 0 };
-    t.pledged += p.amount_cents;
-    t.paid += p.paid_cents;
-    if (p.status === "written_off") t.writtenOff += p.amount_cents - p.paid_cents;
-    t.count += 1;
-    byCampaign.set(key, t);
-  }
-  const campaignRows = [...byCampaign.entries()].sort((a, b) => b[1].pledged - a[1].pledged);
-  const byMethod = new Map<string, { amount: number; count: number }>();
-  for (const p of payments?.data ?? []) {
-    const t = byMethod.get(p.method) ?? { amount: 0, count: 0 };
-    t.amount += p.amount_cents - p.refunded_cents;
-    t.count += 1;
-    byMethod.set(p.method, t);
-  }
-
-  // Center health (prototype L664): six KPIs, giving by campaign, households by zone.
-  const today = todayInTz(tz);
-  const isCurrentYear = year === currentYear;
-  const periodEnd = isCurrentYear ? today : `${year}-12-31`;
-  const prevEnd = `${year - 1}${periodEnd.slice(4)}`;
-  const [hh, zones, links, members, prevPayments, openPledges, visits, prevVisits, renewals] = await Promise.all([
-    seesMembership
-      ? fetchAll((f, t) => db.from("households").select("id, zone_id, created_at").eq("center_id", center.id).is("merged_into_id", null).order("id").range(f, t))
-      : null,
-    seesMembership ? db.from("zones").select("id, name").eq("center_id", center.id) : null,
-    seesMembership
-      ? fetchAll((f, t) => db.from("center_users").select("person_id").eq("center_id", center.id).not("person_id", "is", null).order("user_id").range(f, t))
-      : null,
-    seesMembership
-      ? fetchAll((f, t) => db.from("household_members").select("person_id, household_id").eq("center_id", center.id).is("left_at", null).order("household_id").order("person_id").range(f, t))
-      : null,
-    seesGiving
-      ? fetchAll((f, t) =>
-          db
-            .from("payments")
-            .select("id, amount_cents, refunded_cents")
-            .eq("center_id", center.id)
-            .gte("received_on", `${year - 1}-01-01`)
-            .lte("received_on", prevEnd)
-            .not("status", "in", "(failed,voided,authorized)")
-            .order("id")
-            .range(f, t),
-        )
-      : null,
-    seesGiving
-      ? fetchAll((f, t) =>
-          db.from("pledges").select("id, amount_cents, paid_cents").eq("center_id", center.id).in("status", ["open", "partially_paid"]).order("id").range(f, t),
-        )
-      : null,
-    db
-      .from("attendees")
-      .select("id", { count: "exact", head: true })
-      .eq("center_id", center.id)
-      .gte("checked_in_at", yearFrom)
-      .lt("checked_in_at", startOfDayInTz(addDays(periodEnd, 1), tz)),
-    db
-      .from("attendees")
-      .select("id", { count: "exact", head: true })
-      .eq("center_id", center.id)
-      .gte("checked_in_at", startOfDayInTz(`${year - 1}-01-01`, tz))
-      .lt("checked_in_at", startOfDayInTz(addDays(prevEnd, 1), tz)),
-    seesMembership
-      ? db
-          .from("memberships")
-          .select("id", { count: "exact", head: true })
-          .eq("center_id", center.id)
-          .eq("status", "active")
-          .gte("ends_on", today)
-          .lte("ends_on", addDays(today, 60))
-      : null,
-  ]);
-  if (visits.error) console.error("[reports] event visits count failed:", visits.error);
-  for (const [what, r] of [["households", hh], ["zones", zones], ["app links", links], ["household members", members], ["prior-year payments", prevPayments], ["open pledges", openPledges], ["prior-year visits", prevVisits], ["renewals", renewals]] as const) {
-    if (r?.error) console.error(`[reports] ${what} failed; the tile shows "could not load" or —:`, r.error);
-  }
-  const hhRows = hh?.data ?? [];
-  const newThisYear = hhRows.filter((h) => h.created_at >= yearFrom && h.created_at < yearTo).length;
-  const linked = new Set((links?.data ?? []).map((l) => l.person_id));
-  const onApp = new Set((members?.data ?? []).filter((m) => linked.has(m.person_id)).map((m) => m.household_id));
-  const hhIds = new Set(hhRows.map((h) => h.id));
-  const onAppPct = !links?.error && !members?.error && hhRows.length ? Math.round((100 * [...onApp].filter((id) => hhIds.has(id)).length) / hhRows.length) : null;
-  const givenYtd = (payments?.data ?? []).reduce((sum, p) => sum + p.amount_cents - p.refunded_cents, 0);
-  const givenPrev = (prevPayments?.data ?? []).reduce((sum, p) => sum + p.amount_cents - p.refunded_cents, 0);
-  const pct = (a: number, b: number) => (b > 0 ? `${a >= b ? "+" : ""}${Math.round(((a - b) * 100) / b)}%` : null);
-  const openCents = (openPledges?.data ?? []).reduce((sum, p) => sum + p.amount_cents - p.paid_cents, 0);
-  const zoneName = new Map((zones?.data ?? []).map((z) => [z.id, z.name]));
-  const byZone = new Map<string, number>();
-  for (const h of hhRows) {
-    const k = h.zone_id ? (zoneName.get(h.zone_id) ?? "Other") : "No zone";
-    byZone.set(k, (byZone.get(k) ?? 0) + 1);
-  }
-  const zoneRows = [...byZone.entries()].sort((a, b) => b[1] - a[1]);
-  const zoneMax = zoneRows[0]?.[1] ?? 0;
+  const fig = pageFigures({ people: peopleOk, matrix: matrixOk, payments: paymentsOk, prevPayments: prevOk, pledges: pledgesOk });
+  const { onAppPct, givenYtd, givenPrev } = fig;
+  const zoneRows = fig.zones;
+  const zoneMax = zoneRows[0]?.households ?? 0;
+  const campaignRows = fig.campaigns;
   const campaignBars = campaignRows.slice(0, 6);
-  const campaignMax = campaignBars[0]?.[1].pledged ?? 0;
-  const compact = (cents: number) => {
-    const d = cents / 100;
-    return d >= 1e6 ? `$${(d / 1e6).toFixed(2)}M` : d >= 1e4 ? `$${Math.round(d / 1e3)}K` : formatCents(cents, center.currency).replace(/\.00$/, "");
-  };
+  const campaignMax = campaignBars[0]?.pledgedCents ?? 0;
+  const campaignLabel = (c: { campaign: string | null }) => c.campaign ?? "Campaign";
+  const compact = (cents: number) => compactMoney(cents, fmt);
+  const appCounts = fig.applicationCounts;
+  const givenHint = !seesGiving
+    ? "needs giving.view"
+    : !paymentsOk
+      ? "could not load"
+      : !prevOk
+        ? "last year could not load"
+        : pctText(givenYtd, givenPrev)
+          ? `${pctText(givenYtd, givenPrev)} vs ${fiscalYearLabel(year - 1, fiscal.month)}`
+          : "no prior-year figure";
 
   return (
     <>
       {header}
+      {fiscal.problem ? (
+        <p role="status" className="mb-3 text-sm text-danger">
+          {fiscal.problem}
+        </p>
+      ) : null}
       <form method="get" action="/reports" className="mb-5 flex items-end gap-3">
         <div>
           <label htmlFor="year" className="crm-label">
@@ -207,7 +118,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <select id="year" name="year" defaultValue={String(year)} className="crm-input min-w-32">
             {Array.from({ length: 8 }, (_, i) => currentYear - i).map((y) => (
               <option key={y} value={y}>
-                {y}
+                {fiscalYearLabel(y, fiscal.month)}
               </option>
             ))}
           </select>
@@ -221,55 +132,50 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <KpiGrid cols={3}>
           <Stat
             label="Households"
-            value={seesMembership && !hh?.error ? hhRows.length.toLocaleString() : "—"}
-            hint={seesMembership ? (hh?.error ? "could not load" : `+${newThisYear.toLocaleString()} in ${year}`) : "needs people.view"}
+            value={seesMembership && fig.households !== null ? n(fig.households) : "—"}
+            hint={seesMembership ? (peopleOk ? `+${n(peopleOk.newInYear)} in ${w.label}` : "could not load") : "needs people.view"}
             tone="navy"
           />
           <Stat
             label="On the app"
             value={onAppPct === null ? "—" : `${onAppPct}%`}
-            hint={seesMembership ? (links?.error || members?.error ? "could not load" : "households with a signed-in member") : "needs people.view"}
+            hint={seesMembership ? (peopleOk ? "households with a signed-in member" : "could not load") : "needs people.view"}
             tone="success"
           />
-          <Stat
-            label={isCurrentYear ? "Given YTD" : `Given in ${year}`}
-            value={seesGiving && !payments?.error ? compact(givenYtd) : "—"}
-            hint={seesGiving ? (pct(givenYtd, givenPrev) ? `${pct(givenYtd, givenPrev)} vs ${year - 1}` : "no prior-year figure") : "needs giving.view"}
-            tone="brown"
-          />
+          <Stat label={w.isCurrentYear ? "Given YTD" : `Given in ${w.label}`} value={seesGiving && paymentsOk ? compact(givenYtd) : "—"} hint={givenHint} tone="brown" />
           <Stat
             label="Open pledges"
-            value={seesGiving && !openPledges?.error ? compact(openCents) : "—"}
+            value={seesGiving && fig.openPledgesCents !== null ? compact(fig.openPledgesCents) : "—"}
             hint={seesGiving ? <Link href="/giving/pledges?status=open" className="crm-link">aging report</Link> : "needs giving.view"}
             tone="brown"
           />
           <Stat
             label="Event visits"
-            value={visits.error ? "—" : (visits.count ?? 0).toLocaleString()}
-            hint={visits.error ? "needs events.view" : (pct(visits.count ?? 0, prevVisits.count ?? 0) ?? `check-ins in ${year}`)}
+            value={visitsOk ? n(visitsOk.checkIns) : "—"}
+            hint={!seesEvents ? "needs events.view" : visitsOk ? (pctText(visitsOk.checkIns, prevVisitsOk?.checkIns ?? 0) ?? `check-ins in ${w.label}`) : "could not load"}
             tone="maroon"
           />
           <Stat
             label="Renewals due"
-            value={seesMembership && !renewals?.error ? (renewals?.count ?? 0).toLocaleString() : "—"}
+            value={seesMembership && peopleOk ? n(peopleOk.renewalsDue) : "—"}
             hint={seesMembership ? "next 60 days" : "needs people.view"}
             tone="purple"
           />
         </KpiGrid>
       </div>
       <BlockGrid className="mb-5">
-        <Card span={6} title={`Giving by campaign, ${year}`}>
+        <Card span={6} title={`Giving by campaign, ${w.label}`}>
           {!seesGiving ? (
             <p className="text-sm text-muted">Needs giving.view.</p>
-          ) : pledges?.error ? (
+          ) : pledges && !pledges.ok ? (
             <QueryError what="pledges" error={pledges.error} retryHref="/reports" />
           ) : (
             <BarList
-              empty={`No pledges in ${year}`}
-              items={campaignBars.map(([key, t]) => ({
-                label: key === "none" ? "No campaign" : (campaignName.get(key) ?? "Campaign"),
-                percent: barPercent(t.pledged, campaignMax),
-                value: compact(t.pledged),
+              empty={`No pledges in ${w.label}`}
+              items={campaignBars.map((c) => ({
+                label: c.campaignId === null ? "No campaign" : campaignLabel(c),
+                percent: barPercent(c.pledgedCents, campaignMax),
+                value: compact(c.pledgedCents),
                 color: "saffron",
               }))}
             />
@@ -278,12 +184,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <Card span={6} title="Households by zone">
           {!seesMembership ? (
             <p className="text-sm text-muted">Needs people.view.</p>
-          ) : hh?.error || zones?.error ? (
-            <QueryError what="households by zone" error={hh?.error ?? zones?.error} retryHref="/reports" />
+          ) : people && !people.ok ? (
+            <QueryError what="households by zone" error={people.error} retryHref="/reports" />
           ) : (
             <BarList
               empty="No households yet"
-              items={zoneRows.map(([name, n]) => ({ label: name, percent: barPercent(n, zoneMax), value: n.toLocaleString(), color: "navy" }))}
+              items={zoneRows.map((z) => ({ label: z.zone, percent: barPercent(z.households, zoneMax), value: n(z.households), color: "navy" }))}
             />
           )}
         </Card>
@@ -292,11 +198,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <Card title="Membership" description="Memberships by tier and status; households counted once per tier." padded={false}>
           {!seesMembership ? (
             <p className="p-5 text-sm text-muted">Needs people.view.</p>
-          ) : memberships?.error ? (
+          ) : matrix && !matrix.ok ? (
             <div className="p-4">
-              <QueryError what="memberships" error={memberships.error} retryHref="/reports" />
+              <QueryError what="memberships" error={matrix.error} retryHref="/reports" />
             </div>
-          ) : (
+          ) : matrixOk ? (
             <TableWrap>
               <table className="crm-table">
                 <thead>
@@ -316,37 +222,37 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                       <td className="font-semibold capitalize">{t}</td>
                       {MSTATUSES.map((s) => (
                         <td key={s} className="num">
-                          {(matrix.get(`${t}|${s}`) ?? 0).toLocaleString()}
+                          {n(fig.membershipCell(t, s))}
                         </td>
                       ))}
-                      <td className="num font-semibold">{(activeHouseholds.get(t)?.size ?? 0).toLocaleString()}</td>
+                      <td className="num font-semibold">{n(fig.activeHouseholds(t))}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </TableWrap>
-          )}
+          ) : null}
         </Card>
 
         <Card title="Membership applications" description="All time, by status." padded={false}>
           {!seesMembership ? (
             <p className="p-5 text-sm text-muted">Needs people.view.</p>
-          ) : applications?.error ? (
+          ) : matrix && !matrix.ok ? (
             <div className="p-4">
-              <QueryError what="applications" error={applications.error} retryHref="/reports" />
+              <QueryError what="applications" error={matrix.error} retryHref="/reports" />
             </div>
-          ) : appCounts.size === 0 ? (
+          ) : Object.keys(appCounts).length === 0 ? (
             <EmptyState title="No applications yet" />
           ) : (
             <TableWrap>
               <table className="crm-table">
                 <tbody>
                   {Object.keys(APPLICATION_STATUS_LABEL)
-                    .filter((s) => appCounts.has(s))
+                    .filter((s) => appCounts[s] !== undefined)
                     .map((s) => (
                       <tr key={s}>
                         <td>{APPLICATION_STATUS_LABEL[s]}</td>
-                        <td className="num font-semibold">{appCounts.get(s)?.toLocaleString()}</td>
+                        <td className="num font-semibold">{n(appCounts[s])}</td>
                       </tr>
                     ))}
                 </tbody>
@@ -355,15 +261,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           )}
         </Card>
 
-        <Card title={`Campaign detail, ${year}`} description="Pledges made in the year (cancelled excluded)." padded={false}>
+        <Card title={`Campaign detail, ${w.label}`} description="Pledges made in the year (cancelled excluded)." padded={false}>
           {!seesGiving ? (
             <p className="p-5 text-sm text-muted">Needs giving.view.</p>
-          ) : pledges?.error ? (
+          ) : pledges && !pledges.ok ? (
             <div className="p-4">
               <QueryError what="pledges" error={pledges.error} retryHref="/reports" />
             </div>
           ) : campaignRows.length === 0 ? (
-            <EmptyState title={`No pledges in ${year}`} />
+            <EmptyState title={`No pledges in ${w.label}`} />
           ) : (
             <TableWrap>
               <table className="crm-table">
@@ -377,15 +283,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                   </tr>
                 </thead>
                 <tbody>
-                  {campaignRows.map(([key, t]) => (
-                    <tr key={key}>
-                      <td>{key === "none" ? <span className="text-muted">No campaign</span> : (campaignName.get(key) ?? "Campaign")}</td>
-                      <td className="num">{t.count.toLocaleString()}</td>
-                      <td className="num">{formatCents(t.pledged, center.currency)}</td>
-                      <td className="num">{formatCents(t.paid, center.currency)}</td>
+                  {campaignRows.map((c) => (
+                    <tr key={c.campaignId ?? "none"}>
+                      <td>{c.campaignId === null ? <span className="text-muted">No campaign</span> : campaignLabel(c)}</td>
+                      <td className="num">{n(c.pledges)}</td>
+                      <td className="num">{moneyIn(c.pledgedCents, fmt)}</td>
+                      <td className="num">{moneyIn(c.paidCents, fmt)}</td>
                       <td className="num">
-                        {formatCents(t.pledged - t.paid - t.writtenOff, center.currency)}
-                        {t.writtenOff > 0 ? <div className="text-xs text-muted">{formatCents(t.writtenOff, center.currency)} written off</div> : null}
+                        {moneyIn(c.outstandingCents, fmt)}
+                        {c.writtenOffCents > 0 ? <div className="text-xs text-muted">{moneyIn(c.writtenOffCents, fmt)} written off</div> : null}
                       </td>
                     </tr>
                   ))}
@@ -395,15 +301,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           )}
         </Card>
 
-        <Card title={`Money received by method, ${year}`} description="Net of refunds; failed and voided payments excluded." padded={false}>
+        <Card title={`Money received by method, ${w.label}`} description="Net of refunds; failed and voided payments excluded." padded={false}>
           {!seesGiving ? (
             <p className="p-5 text-sm text-muted">Needs giving.view.</p>
-          ) : payments?.error ? (
+          ) : payments && !payments.ok ? (
             <div className="p-4">
               <QueryError what="payments" error={payments.error} retryHref="/reports" />
             </div>
-          ) : byMethod.size === 0 ? (
-            <EmptyState title={`No payments in ${year}`} />
+          ) : !paymentsOk || paymentsOk.groups.length === 0 ? (
+            <EmptyState title={`No payments in ${w.label}`} />
           ) : (
             <TableWrap>
               <table className="crm-table">
@@ -415,24 +321,19 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                   </tr>
                 </thead>
                 <tbody>
-                  {[...byMethod.entries()]
-                    .sort((a, b) => b[1].amount - a[1].amount)
-                    .map(([m, t]) => (
-                      <tr key={m}>
-                        <td>{PAYMENT_METHOD_LABEL[m] ?? m}</td>
-                        <td className="num">{t.count.toLocaleString()}</td>
-                        <td className="num">{formatCents(t.amount, center.currency)}</td>
-                      </tr>
-                    ))}
+                  {fig.methods.map((m) => (
+                    <tr key={m.method}>
+                      <td>{PAYMENT_METHOD_LABEL[m.method] ?? m.method}</td>
+                      <td className="num">{n(m.payments)}</td>
+                      <td className="num">{moneyIn(m.netCents, fmt)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </TableWrap>
           )}
         </Card>
       </div>
-      {memberships?.truncated || pledges?.truncated || payments?.truncated ? (
-        <p className="mt-4 text-sm text-brown">Some totals include only the first 50,000 rows.</p>
-      ) : null}
     </>
   );
 }

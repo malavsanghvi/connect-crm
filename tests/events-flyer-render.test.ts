@@ -301,7 +301,11 @@ const stageCases: { template: FlyerTemplate; source: "photo" | "pattern" }[] = [
 async function expectFits(template: FlyerTemplate, source: "photo" | "pattern", size: FlyerSize, words: Words, scale: "preview" | "full" = "preview") {
   const dims = flyerDims(size, scale);
   const box = backgroundBox(template, dims);
-  const background = source === "photo" ? solid(GREEN, box.w, box.h) : { dataUri: svgUri(patternSvg("mandala", { w: box.w, h: box.h, ...brand })), w: box.w, h: box.h };
+  // Minimal's corner keeps its room for a pattern too (2026-10-11: a long headline used to run under the corner pattern), so its
+  // pattern is drawn here as plain green: words under the corner show up as pixels that are not green.
+  const greenCorner = template === "minimal";
+  const background =
+    source === "photo" || greenCorner ? solid(GREEN, box.w, box.h) : { dataUri: svgUri(patternSvg("mandala", { w: box.w, h: box.h, ...brand })), w: box.w, h: box.h };
   const d = design({
     template,
     size,
@@ -312,10 +316,10 @@ async function expectFits(template: FlyerTemplate, source: "photo" | "pattern", 
   const { img, mx, my } = await renderOnStage(input({ design: d, background, logo: template === "classic" ? null : logo }), dims);
   const outside = drawnOutside(img, mx, my, dims);
   expect(outside.count, `${template} ${size}: something is drawn ${outside.first}`).toBe(0);
-  if (source === "photo" && (template === "classic" || template === "minimal")) {
-    const pic = pictureBox(img, mx, my, dims, template === "minimal" ? Math.ceil((48 * dims.w) / 1080) + 2 : 0);
+  if ((source === "photo" && (template === "classic" || template === "minimal")) || greenCorner) {
+    const pic = pictureBox(img, mx, my, dims, template === "minimal" && source === "photo" ? Math.ceil((48 * dims.w) / 1080) + 2 : 0);
     expect(pic.h, `${template} ${size}: the picture keeps at least its smallest height`).toBeGreaterThanOrEqual(pictureMinHeight(template, dims) - 2);
-    expect(pic.covered, `${template} ${size}: words are drawn over the picture`).toBe(0);
+    expect(pic.covered, `${template} ${size}: words are drawn over the ${source === "photo" ? "picture" : "corner pattern"}`).toBe(0);
   }
 }
 
@@ -452,7 +456,7 @@ const sizeDims = (size: FlyerSize) => flyerDims(size, "preview");
 describe("poster layout: nothing is cut off, whatever is switched on or off", () => {
   it("has the Poster among the templates, and Tall among the sizes", () => {
     expect([...FLYER_TEMPLATES]).toContain("poster");
-    expect([...FLYER_SIZE_KEYS]).toEqual(["post", "tall", "story", "print"]);
+    expect([...FLYER_SIZE_KEYS]).toEqual(["post", "square", "tall", "story", "print"]);
     expect(flyerDims("tall", "full")).toEqual({ w: 1080, h: 1620 });
     expect(flyerDims("tall", "preview")).toEqual({ w: 540, h: 810 });
   });

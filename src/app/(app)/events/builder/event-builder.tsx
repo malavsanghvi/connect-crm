@@ -10,6 +10,7 @@ import { Card, InfoBox, buttonClass } from "@/components/ui";
 import type { FlyerDesign, FlyerSource, PosterContent } from "@/lib/events/flyer";
 import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
+import type { OccasionSuggestion } from "@/lib/events/flyer-occasions";
 import { kindSchool } from "@/lib/kind";
 import { audienceChips, commitmentSummary, lunchPriorityText, slotPreview, type CommitmentOptions, type LunchRules } from "@/lib/events/report";
 
@@ -61,6 +62,10 @@ export type FlyerSetup = {
   /** The event's date or venue changed after the saved flyer was made. */
   outOfDate: { date: boolean; venue: boolean };
   artPromptSeed: string;
+  /** What the AI background description reads besides the occasion (it follows the poster's occasion as it changes). */
+  artPrompt: { startsAt: string | null; country: string | null; tz: string };
+  /** The occasions that suit this event, best first, each with its reason (suggestOccasion). */
+  suggestions: OccasionSuggestion[];
   /** A signed URL for the design's AI art, when the saved design uses it. */
   artPreview: { url: string | null; error: string | null };
   /** Flyers v2: is AI art available (and at what price), and the pictures kept for the poster's occasion. */
@@ -511,6 +516,8 @@ export function EventBuilder({
             eventLines={flyer.eventLines}
             outOfDate={flyer.outOfDate}
             artPromptSeed={flyer.artPromptSeed}
+            artPrompt={flyer.artPrompt}
+            suggestions={flyer.suggestions}
             artPreview={flyer.artPreview}
             art={flyer.art}
             posterDefaults={flyer.posterDefaults}

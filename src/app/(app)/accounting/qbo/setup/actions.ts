@@ -5,8 +5,9 @@ import { headers } from "next/headers";
 
 import { failure, type ActionResult } from "@/lib/errors";
 import { QBO_PURPOSES } from "@/lib/labels";
+import { untypedRpc } from "@/lib/payments/rpc";
 import { authorizeUrl, intuitPortalConfig, redirectUri, signState } from "@/lib/qbo/oauth";
-import { ACCRUAL_WAITING, BASIS_LABEL, isBasis, reasonProblem, TEST_POST_HOW_TO_VOID } from "@/lib/qbo/setup";
+import { ACCRUAL_WAITING, BASIS_LABEL, isBasis, reasonOrDefault, reasonProblem, TEST_POST_HOW_TO_VOID } from "@/lib/qbo/setup";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason } from "@/lib/session";
 import { platformEnv } from "@/lib/platform-setup/server-config";
@@ -20,6 +21,7 @@ const PATH = "/accounting/qbo/setup";
 function refresh() {
   revalidatePath(PATH);
   revalidatePath("/accounting/qbo");
+  revalidatePath("/accounting/qbo/mapping");
 }
 const text = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const purposeLabel = (p: string) => QBO_PURPOSES.find((x) => x.purpose === p)?.label ?? p;
@@ -36,7 +38,7 @@ async function origin(): Promise<string> {
 export async function startQboConnectAction(_prev: ActionResult<{ url: string }> | null, fd: FormData): Promise<ActionResult<{ url: string }>> {
   const doing = "connect QuickBooks";
   const company = text(fd, "company") === "sandbox" ? "sandbox" : "real";
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Connect QuickBooks");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qbo", doing);
@@ -67,7 +69,7 @@ export async function startQboConnectAction(_prev: ActionResult<{ url: string }>
 
 export async function disconnectQboAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const doing = "disconnect QuickBooks";
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Disconnect QuickBooks");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qbo", doing);
@@ -89,7 +91,7 @@ export async function saveQboBasisAction(_prev: ActionResult | null, fd: FormDat
   const changing = text(fd, "changing") === "1";
   const doing = changing ? "change the accounting basis" : "choose the accounting basis";
   if (!isBasis(basis)) return { ok: false, error: `Could not ${doing} — choose cash or accrual.` };
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Choose the accounting basis");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qboManage", doing);
@@ -115,7 +117,7 @@ export async function saveQboSettingsAction(_prev: ActionResult | null, fd: Form
   const basis = text(fd, "basis");
   const posting = text(fd, "posting");
   const goLive = text(fd, "go_live_date");
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Set the posting and go-live date");
   if (!isBasis(basis)) return { ok: false, error: `Could not ${doing} — choose the accounting basis first (step 2).` };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(goLive)) return { ok: false, error: `Could not ${doing} — choose the go-live date.` };
   const bad = reasonProblem(reason, doing);
@@ -145,23 +147,41 @@ export async function pullQboListsAction(): Promise<ActionResult> {
   const { data, error } = await auth.session.db.rpc("request_qbo_pull", { p_center: auth.session.center.id });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
-  return { ok: true, message: `Pull queued (job #${data}). The chart of accounts and lists refresh within a minute; reload to see them.` };
+  return { ok: true, message: `Pull queued (job #${data}). The chart of accounts and lists refresh within a minute; this page updates by itself.` };
+}
+
+// Setup (before the mapping has ever been approved): one person chooses, as before, through the same function as a change
+// (app.request_account_mapping_change, 0779), so the choice is kept in the mapping history. Once the mapping is in use these
+// forms are not shown: a change is asked for in Books › Account mapping and a second person confirms it.
+const IN_USE =
+  "the mapping is in use, so a change needs a second person. Ask for it in Books › Account mapping; a different person with giving.approve confirms it.";
+
+/** null when the mapping is still in setup; the refusal when it is in use or cannot be read. */
+async function setupOnly(db: Awaited<ReturnType<typeof dbWithReason>>, center: string, doing: string): Promise<ActionResult | null> {
+  const { data, error } = await untypedRpc(db)("account_mapping_in_use", { p_center: center });
+  if (error) return failure(`Could not ${doing}`, error);
+  return data === true ? { ok: false, error: `Could not ${doing} — ${IN_USE}` } : null;
 }
 
 export async function saveQboMappingAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const purpose = text(fd, "purpose");
   const account = text(fd, "qbo_account_id");
-  const label = purposeLabel(purpose);
+  // The label the screen showed (in the organization's words, from app.account_roles); the fallback list otherwise.
+  const label = text(fd, "label") || purposeLabel(purpose);
   const doing = `map ${label}`;
   if (!account) return { ok: false, error: `Could not ${doing} — choose an account from the list.` };
   const auth = await authorizeAction("qboManage", doing);
   if (!auth.ok) return auth;
   const reason = `Chose the QuickBooks account for ${label}`;
   const db = await dbWithReason(auth.session, reason);
-  const { data, error } = await db.rpc("set_qbo_mapping", { p_center: auth.session.center.id, p_purpose: purpose, p_qbo_account_id: account, p_reason: reason });
+  const refused = await setupOnly(db, auth.session.center.id, doing);
+  if (refused) return refused;
+  const { data, error } = await untypedRpc(db)("request_account_mapping_change", {
+    p_center: auth.session.center.id, p_subject: "role", p_target: purpose, p_to: account, p_reason: reason,
+  });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
-  const name = data && typeof data === "object" && !Array.isArray(data) ? String((data as Record<string, unknown>).qbo_account_name ?? "") : "";
+  const name = data && typeof data === "object" && !Array.isArray(data) ? String((data as Record<string, unknown>).to_name ?? "") : "";
   return { ok: true, message: `${label} → ${name || "saved"}. Approve the mapping again before anything posts with it.` };
 }
 
@@ -174,7 +194,11 @@ export async function saveFundClassAction(_prev: ActionResult | null, fd: FormDa
   if (!auth.ok) return auth;
   const reason = cls ? "Chose the fund's QuickBooks class" : "Cleared the fund's QuickBooks class";
   const db = await dbWithReason(auth.session, reason);
-  const { error } = await db.rpc("set_qbo_fund_class", { p_center: auth.session.center.id, p_fund: fund, p_qbo_class_id: cls, p_reason: reason });
+  const refused = await setupOnly(db, auth.session.center.id, doing);
+  if (refused) return refused;
+  const { error } = await untypedRpc(db)("request_account_mapping_change", {
+    p_center: auth.session.center.id, p_subject: "fund_class", p_target: fund, p_to: cls || null, p_reason: reason,
+  });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
   return { ok: true, message: "Class saved. Approve the mapping again before anything posts with it." };
@@ -182,7 +206,7 @@ export async function saveFundClassAction(_prev: ActionResult | null, fd: FormDa
 
 export async function approveQboMappingAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const doing = "approve the QuickBooks mapping";
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Approve the account mapping");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qboManage", doing);
@@ -197,7 +221,7 @@ export async function approveQboMappingAction(_prev: ActionResult | null, fd: Fo
 
 export async function runQboTestPostAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const doing = "run the QuickBooks test post";
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Run the QuickBooks test post");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qboManage", doing);
@@ -214,15 +238,15 @@ export async function runQboTestPostAction(_prev: ActionResult | null, fd: FormD
   return {
     ok: true,
     message: real
-      ? `Test post queued: it creates four real $1.00 entries in QuickBooks. When they are there, void them: ${TEST_POST_HOW_TO_VOID} The result appears here within a minute; reload to see it.`
-      : "Test post queued. The result appears here within a minute; reload to see it.",
+      ? `Test post queued: it creates four real $1.00 entries in QuickBooks. When they are there, void them: ${TEST_POST_HOW_TO_VOID} The result appears here within a minute, and this page updates by itself.`
+      : "Test post queued. The result appears here within a minute, and this page updates by itself.",
   };
 }
 
 export async function approveQboTestPostAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const doing = "approve the test post";
   const id = text(fd, "test_id");
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Approve the QuickBooks test post");
   if (!isUuid(id)) return { ok: false, error: `Could not ${doing} — the test post was not found.` };
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };

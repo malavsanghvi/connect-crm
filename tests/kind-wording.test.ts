@@ -5,7 +5,7 @@ import { LAYER_KINDS, layerKindsFor, layerSource, layerVisibleFor } from "@/lib/
 import { buildDashboard, dashboardTitles, kpiOfferedFor, periods, publicKpiLabelFor } from "@/lib/community-dashboard";
 import { mediaCopyFor } from "@/lib/content";
 import { ENTITLEMENT_GROUPS, entitlementGroupsFor } from "@/lib/entitlements";
-import { flyerOccasionsFor, FLYER_OCCASIONS } from "@/lib/events/flyer-art";
+import { flyerOccasionsFor, FLYER_OCCASIONS, occasionLabel } from "@/lib/events/flyer-art";
 import { campaignKindsFor } from "@/lib/giving";
 import { HOME_SHORTCUTS, homeShortcutOpens, homeShortcutsMissingFor } from "@/lib/home-shortcuts";
 import { ENTITIES, entityOfferedTo } from "@/lib/import/registry";
@@ -193,10 +193,17 @@ describe("Giving", () => {
 });
 
 describe("Flyers", () => {
-  it("a Jain Center is offered every occasion; another kind the general and convention packs (and the poster's own)", () => {
-    expect(flyerOccasionsFor(LEGACY_KIND)).toEqual(FLYER_OCCASIONS);
-    expect(flyerOccasionsFor(chamber)).toEqual(["convention", "general"]);
-    expect(flyerOccasionsFor(chamber, "diwali")).toEqual(["diwali", "convention", "general"]);
+  it("a Jain Center keeps every Flyers v2 occasion; another kind sees its own (B96), never Garba's convention (and the poster's own stays)", () => {
+    const jain = flyerOccasionsFor(LEGACY_KIND);
+    expect(jain.slice(0, 7)).toEqual(["garba", "paryushan", "diwali", "mahavir", "convention", "pathshala", "bhakti"]);
+    expect(jain).toContain("general");
+    expect(flyerOccasionsFor(jainFromDb)).toEqual(jain);
+    expect(flyerOccasionsFor(chamber).slice(0, 2)).toEqual(["mixer", "ribbon_cutting"]);
+    expect(flyerOccasionsFor(chamber)).not.toContain("convention");
+    expect(flyerOccasionsFor(chamber, "diwali")).toContain("diwali");
+    expect(flyerOccasionsFor(church)).toContain("worship");
+    for (const k of [chamber, church]) for (const o of flyerOccasionsFor(k)) expect(occasionLabel(o, k), o).not.toMatch(JAIN);
+    expect(FLYER_OCCASIONS.length).toBeGreaterThan(jain.length);
   });
 });
 
@@ -247,7 +254,7 @@ describe("The community dashboard", () => {
     });
     expect(before.practice).toHaveLength(5); // gyan_levels is not in this sample
     expect(before.learning.map((r) => r.label)).toEqual(["Pathshala students", "Volunteer teachers", "Class attendance rate"]);
-    expect(before.seva.map((r) => r.label)).toEqual(["Satvik Store orders"]);
+    expect(before.seva.map((r) => r.label)).toEqual(["My Store orders"]);
   });
   it("a chamber's dashboard has no practice, Pathshala or Satvik words", () => {
     const v = buildDashboard(raw, period, chamber);

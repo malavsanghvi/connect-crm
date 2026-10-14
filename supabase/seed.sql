@@ -13,7 +13,7 @@ insert into app.roles (key, tier, name, default_scope, description, permissions)
 ('center_admin',          'center',     'Center admin',            'center',   'Configuration, roles, integrations', '["people.view","people.manage","events.view","events.manage","events.confidential","giving.view","bolis.view","store.view","content.view","content.manage","comms.view","comms.send","comms.approve","comms.inbox","pathshala.view","reports.view","settings.manage","roles.manage","audit.view","integrations.view","integrations.manage","volunteers.view","volunteers.manage","safety.view","governance.view"]'),
 ('executive_committee',   'center',     'Executive Committee member', 'center', 'Edits people-level data; approves life memberships; reports', '["people.view","people.manage","people.approve","events.view","giving.view","bolis.view","store.view","content.view","comms.view","reports.view","governance.view","governance.vote"]'),
 ('executive_viewer',      'center',     'Executive viewer (Board)', 'center', 'Dashboards and reports, read-only', '["reports.view","events.view","bolis.view","store.view","content.view","comms.view","governance.view"]'),
-('treasurer',             'center',     'Treasurer',               'center',   'Giving, payments, refunds, statements, store finances; edits people-level data', '["people.view","people.manage","events.view","giving.view","giving.manage","giving.approve","giving.record_offline","bolis.view","store.view","reports.view","accounting.manage","accounting.close","integrations.view","audit.view"]'),
+('treasurer',             'center',     'Treasurer',               'center',   'Giving, payments, refunds, statements, store finances; edits people-level data', '["people.view","people.manage","events.view","giving.view","giving.manage","giving.approve","giving.record_offline","bolis.view","store.view","reports.view","accounting.manage","accounting.close","integrations.view","audit.view","data.export"]'),
 ('finance_volunteer',     'center',     'Finance volunteer',       'center',   'Record offline payments, reminders; no refunds', '["giving.record_offline","bolis.view"]'),
 ('membership_coordinator','center',     'Membership coordinator',  'center',   'Households, memberships, verification, eligibility', '["people.view","people.manage","people.approve","events.view","reports.view"]'),
 ('religious_coordinator', 'center',     'Religious coordinator',   'center',   'Bolis, pujans, practice catalog, Jain calendar, religious content approval', '["events.view","bolis.view","bolis.manage","content.view","content.manage","content.approve","reports.view"]'),
@@ -21,6 +21,10 @@ insert into app.roles (key, tier, name, default_scope, description, permissions)
 ('content_editor',        'center',     'Content editor',          'center',   'Guide, pages, photos, translations (draft only)', '["content.view","content.draft"]'),
 ('privacy_officer',       'center',     'Privacy officer',         'center',   'Data export and deletion requests', '["privacy.manage","people.view","audit.view"]'),
 ('volunteer_coordinator', 'center',     'Volunteer coordinator',   'center',   'Volunteer groups, shifts, waivers and background checks', '["volunteers.view","volunteers.manage","safety.view","safety.manage","events.view"]'),
+-- The organization's own data (0757): given only by the owner or the product's manager; never seen by Weaver's team.
+('care_lead',             'center',     'Care lead',               'center',   'WeCare: every care record, relationship owners, playbooks and care settings. Amounts only with a giving role as well.', '["care.view","care.manage"]'),
+('relationship_owner',    'center',     'Relationship owner',      'center',   'WeCare: the care records of the households they own, nothing else. Amounts only with a giving role as well.', '["care.own"]'),
+('matching_lead',         'center',     'Matching lead',           'center',   'CatchTheMatch: claims, employers on file, match history and its settings.', '["matching.view","matching.manage"]'),
 ('event_lead',            'operational','Event lead',              'event',    'Event setup, attendee list, lunch settings, volunteer assignment', '["events.view","reports.view"]'),
 ('checkin_volunteer',     'operational','Check-in volunteer',      'event',    'Scan, walk-ins, stations; no giving data', '[]'),
 ('kitchen_lead',          'operational','Kitchen lead',            'center',   'Headcounts, store prep lists', '["kitchen.view"]'),
@@ -46,7 +50,7 @@ insert into app.notification_topics (key, name, default_on, marketing, has_sende
 ('timings', 'Daily temple timings', false, false, false),
 ('jain_way', 'My Jain Way reminders', true, false, false),
 ('family', 'Family celebrations and support', true, false, false),
-('store', 'Satvik Store', false, true, true),
+('store', 'My Store', false, true, true),
 ('newsletter', 'Newsletters', true, true, false),
 ('alerts', 'Important alerts', true, false, false),
 ('account', 'Account and security', true, false, false)
@@ -137,6 +141,13 @@ values ('00000000-0000-4000-8000-000000000001', 'jsh', 'Jain Society of Houston'
     "bank":{"institution":"Chase","statement_format":"chase_csv"},
     "security":{"require_2fa_for_staff":false}}')
 on conflict (id) do nothing;
+
+-- The seed community uses Niva, so it holds iWeaver (module `ai`, which Niva needs since 0750), as every community that used
+-- Niva before the Marketplace packs began does (0750's grandfathering, which ran before this seed).
+insert into app.center_module_grants (center_id, module_key, granted, reason, granted_by)
+values ('00000000-0000-4000-8000-000000000001', 'ai', true,
+        'Grandfathered (0750): Niva was on for this community, or paused by it, when the Marketplace packs began.', null)
+on conflict (center_id, module_key) do nothing;
 
 
 insert into app.zones (center_id, name, zip_codes) values

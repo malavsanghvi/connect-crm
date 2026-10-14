@@ -14,12 +14,12 @@ import { saveCategoryAction } from "../actions";
 import { ItemForm, MenuTable, StoreSettingsForm, WindowForm } from "./menu-forms";
 import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 
-export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => `Menu & pickup · ${kindTerm(k, "store", "Satvik Store")}`, "Menu & pickup · Satvik Store");
+export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => `Menu & pickup · ${kindTerm(k, "store", "My Store")}`, "Menu & pickup · My Store");
 
 export default async function StoreMenuPage() {
   const session = await getSession();
-  // The store is "Satvik Store" for a Jain Center; any other kind names its own.
-  const storeName = kindTerm(session.kind, "store", "Satvik Store");
+  // The store is "My Store" for a Jain Center; any other kind names its own.
+  const storeName = kindTerm(session.kind, "store", "My Store");
   const header = <PageHeader title={storeName} description="What members see in the store, how orders are cut off and picked up" />;
   if (!canAccess(session, "store")) {
     return (

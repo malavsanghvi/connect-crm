@@ -42,14 +42,15 @@ function effectNote(p: PluginEntry, on: boolean, name: string): ReactNode {
     : <p>Members stop seeing the {name} instructions. Nothing already recorded changes.</p>;
 }
 
-export function PluginCards({ s, ps, tz, cc }: { s: PaymentSettings; ps: PluginSettings; tz: string; cc?: ChangeControl }) {
+/** `bankOn`: Bank reconciliation (an add-on of Giving, 0741) is on; Zelle reports and their matching live there. */
+export function PluginCards({ s, ps, tz, cc, bankOn = true }: { s: PaymentSettings; ps: PluginSettings; tz: string; cc?: ChangeControl; bankOn?: boolean }) {
   const known = ps.plugins.filter((p) => pluginByKey(p.key));
   return (
     <>
       {cc ? <PayeeRequestsCard cc={cc} tz={tz} /> : null}
       <div className="grid gap-4 lg:grid-cols-2">
         {known.map((p) => (
-          <PluginCard key={p.key} p={p} ps={ps} s={s} tz={tz} cc={cc} />
+          <PluginCard key={p.key} p={p} ps={ps} s={s} tz={tz} cc={cc} bankOn={bankOn} />
         ))}
       </div>
       {cc ? <ReadinessCard cc={cc} /> : null}
@@ -57,7 +58,7 @@ export function PluginCards({ s, ps, tz, cc }: { s: PaymentSettings; ps: PluginS
   );
 }
 
-function PluginCard({ p, ps, s, tz, cc }: { p: PluginEntry; ps: PluginSettings; s: PaymentSettings; tz: string; cc?: ChangeControl }) {
+function PluginCard({ p, ps, s, tz, cc, bankOn }: { p: PluginEntry; ps: PluginSettings; s: PaymentSettings; tz: string; cc?: ChangeControl; bankOn: boolean }) {
   const { run, busy, askReason } = usePaymentsPanel();
   const plugin = pluginByKey(p.key);
   const name = pluginDisplayName(p);
@@ -132,9 +133,13 @@ function PluginCard({ p, ps, s, tz, cc }: { p: PluginEntry; ps: PluginSettings; 
             {ps.environment === "sandbox" ? (
               <InfoBox>Rehearsal: members see &quot;Sandbox: no real money moves&quot;, never this address.</InfoBox>
             ) : null}
-            <p>
-              <Link className="crm-link" href="/giving/payments/bank?view=zelle">Match Zelle payments on the bank statement</Link>
-            </p>
+            {bankOn ? (
+              <p>
+                <Link className="crm-link" href="/giving/payments/bank?view=zelle">Match Zelle payments on the bank statement</Link>
+              </p>
+            ) : (
+              <p className="text-[13px] text-muted">Zelle reports and their matching need Bank reconciliation, which is off for this community.</p>
+            )}
             {waiting > 0 ? (
               <InfoBox>A change to the Zelle details is waiting for a second person (see Changes to where gifts go). Members keep seeing the current details until it is confirmed.</InfoBox>
             ) : null}

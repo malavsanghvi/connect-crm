@@ -2,6 +2,7 @@
 // (prototype: AdminPortal.dc.html L579–666). No database access here — the
 // pages fetch, these functions shape. Money is integer cents throughout.
 
+import { needsMappingView } from "@/lib/books/mapping";
 import { dateInTz, isDateOnly } from "@/lib/dates";
 import { kindTerm, moduleNotOffered, type KindProfile } from "@/lib/kind";
 import { formatCents } from "@/lib/money";
@@ -426,6 +427,8 @@ export function isReceiptKind(v: string): v is ReceiptKind {
 }
 
 export type ReceiptPreviewLine = { text: string; tone: "navy" | "ink" | "muted"; strong?: boolean };
+/** The house-of-worship line on a receipt (the sample above and a copy of a real receipt, src/lib/giving-statements/receipt-copy.ts). */
+export const RELIGIOUS_BENEFIT_LINE = "No goods or services were provided other than intangible religious benefits.";
 
 /**
  * The live preview beside the template editor (prototype L604). Sample
@@ -468,7 +471,7 @@ export function receiptPreviewLines(input: {
         ? { text: `Sample donor · ${input.year - 1} gifts totalling ${amount}`, tone: "ink" }
         : { text: `Sample donor · ${amount} by check on a sample date`, tone: "ink" },
     { text: `Applied to: ${fund} (sample)`, tone: "ink" },
-    ...(faith ? [{ text: "No goods or services were provided other than intangible religious benefits.", tone: "muted" as const }] : []),
+    ...(faith ? [{ text: RELIGIOUS_BENEFIT_LINE, tone: "muted" as const }] : []),
   ];
   const note = input.note.trim();
   const signed = input.signedBy.trim();
@@ -496,9 +499,15 @@ export type QboException = {
 export function classifyQboException(
   lastError: string | null,
   mappings: { purpose: string; label: string; mapped: boolean; approved: boolean }[],
+  /** ledger_postings.needs_mapping (0779): the posting waits for this mapping and goes back in the queue by itself once it is confirmed. */
+  needsMapping?: string | null,
 ): QboException {
   const err = (lastError ?? "").trim();
   const lower = err.toLowerCase();
+  const waitsFor = needsMappingView(needsMapping, Object.fromEntries(mappings.map((m) => [m.purpose, m.label])));
+  if (waitsFor) {
+    return { reason: err || waitsFor, fix: `${waitsFor} Choose it in Books › Account mapping (once the mapping is in use, a second person confirms it).`, applyPurpose: null };
+  }
   const named = mappings.find((m) => lower.includes(m.purpose.toLowerCase()) || lower.includes(m.label.toLowerCase()));
   const aboutMapping = /mapp|account|not mapped|no income account/.test(lower);
   if (named && aboutMapping) {

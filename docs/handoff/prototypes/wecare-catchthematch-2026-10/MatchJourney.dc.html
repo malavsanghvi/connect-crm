@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CatchTheMatch journey map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+</style>
+</helmet>
+<div style="width: 2960px; height: 1960px; box-sizing: border-box; padding: 56px 64px; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="align-self: flex-start; background: #fff1e6; color: #a8400d; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;">CATCHTHEMATCH · JOURNEY MAP</span>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 44px; line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; color: #2b2a8a;">From "my employer matches" to a match in the bank</h1>
+<p style="margin: 0; max-width: 1200px; font-size: 18px; line-height: 1.6; color: #33325f;">Twelve stages, what each person does and feels, where it happens, and where it can go wrong. One member, one gift, one employer program. Sample wording.</p>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+<span style="background: #e4f2ea; color: #1f7a4d; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Built</span>
+<span style="background: #f1eefc; color: #2b2a8a; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Slice 2 · being built</span>
+<span style="background: #fff1e6; color: #a8400d; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Partly built</span>
+<span style="background: #f6eee6; color: #33325f; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Paused</span>
+<span style="background: #ffffff; color: #555a79; border: 1px solid #e3d6ca; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Outside Weaver</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: 190px repeat(12, minmax(0, 1fr)); gap: 8px;">
+<div></div>
+<div style="grid-column: span 3; background: #f1eefc; color: #2b2a8a; border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: 700; letter-spacing: 0.06em;">BEFORE THE GIFT</div>
+<div style="grid-column: span 1; background: #e4f2ea; color: #1f7a4d; border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: 700; letter-spacing: 0.06em;">THE GIFT</div>
+<div style="grid-column: span 4; background: #fff1e6; color: #a8400d; border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: 700; letter-spacing: 0.06em;">CLAIMING THE MATCH</div>
+<div style="grid-column: span 4; background: #f6eee6; color: #33325f; border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: 700; letter-spacing: 0.06em;">AFTER THE MATCH</div>
+</div>
+
+<div style="display: grid; grid-template-columns: 190px repeat(12, minmax(0, 1fr)); gap: 8px;">
+<div style="font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d; padding-top: 10px;">STAGE</div>
+<sc-for list="{{stages}}" as="s" hint-placeholder-count="12">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-height: 92px;">
+<span style="font-size: 13px; font-weight: 700; color: #555a79;">{{s.n}}</span>
+<strong style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 17px; line-height: 1.25; font-weight: 600;">{{s.name}}</strong>
+<span style="align-self: flex-start; background: {{s.stBg}}; color: {{s.stFg}}; border: 1px solid {{s.stBd}}; border-radius: 9999px; padding: 2px 8px; font-size: 12px; font-weight: 700;">{{s.status}}</span>
+</div>
+</sc-for>
+</div>
+
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: 190px repeat(12, minmax(0, 1fr)); gap: 8px;">
+<div style="display: flex; flex-direction: column; gap: 2px; padding-top: 8px;">
+<strong style="font-size: 15px;">{{r.label}}</strong>
+<span style="font-size: 13px; color: #555a79;">{{r.sub}}</span>
+</div>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="12">
+<div style="background: {{c.bg}}; border: 1px solid #eee3d9; border-radius: 12px; padding: 10px 12px; font-size: 13.5px; line-height: 1.45; color: {{c.fg}}; min-height: {{r.minH}}; display: flex; flex-direction: column; gap: 6px;">
+<sc-if value="{{c.isFeel}}" hint-placeholder-val="{{false}}">
+<span style="display: flex; gap: 3px; align-items: center;" aria-hidden="true">
+<span style="width: 22px; height: 8px; border-radius: 4px; background: {{c.m1}};"></span>
+<span style="width: 22px; height: 8px; border-radius: 4px; background: {{c.m2}};"></span>
+<span style="width: 22px; height: 8px; border-radius: 4px; background: {{c.m3}};"></span>
+<span style="font-size: 12px; font-weight: 700; color: #33325f; margin-left: 4px;">{{c.level}}</span>
+</span>
+</sc-if>
+<span>{{c.text}}</span>
+</div>
+</sc-for>
+</div>
+</sc-for>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 6px;">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 20px 24px; display: flex; flex-direction: column; gap: 10px;">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a;">Moments that matter</h2>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 4px;"><strong style="font-size: 15px;">1. Nobody knows</strong><span style="font-size: 14px; line-height: 1.5; color: #555a79;">Stage 1 loses the most matches. A gentle, general ask beats any later fix.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><strong style="font-size: 15px;">2. Excluded, found late</strong><span style="font-size: 14px; line-height: 1.5; color: #555a79;">Many programs exclude religious organizations. Saying so at stage 3 avoids a disappointed donor at stage 7.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><strong style="font-size: 15px;">3. The portal step</strong><span style="font-size: 14px; line-height: 1.5; color: #555a79;">Stage 7 is the biggest drop-off: deep links and the exact registered name matter most.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><strong style="font-size: 15px;">4. Deadlines</strong><span style="font-size: 14px; line-height: 1.5; color: #555a79;">A missed deadline is money lost for good. Reminders and the filing queue both work against it.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><strong style="font-size: 15px;">5. Trust in the fee</strong><span style="font-size: 14px; line-height: 1.5; color: #555a79;">Success only, capped, invoiced separately, every match listed. Never taken out of the gift.</span></div>
+</div>
+</div>
+<div style="background: #fff6ee; border: 1px solid #eee3d9; border-radius: 24px; padding: 20px 24px; display: flex; flex-direction: column; gap: 10px;">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a;">Before the paused stages can start</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 4px;"><strong style="font-size: 15px;">A lawyer's view</strong><span style="font-size: 14px; line-height: 1.5; color: #555a79;">State registration for paid fundraising, and each portal's terms for acting for a charity.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><strong style="font-size: 15px;">A pilot</strong><span style="font-size: 14px; line-height: 1.5; color: #555a79;">A secular nonprofit whose donors work for matching employers.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><strong style="font-size: 15px;">Billing</strong><span style="font-size: 14px; line-height: 1.5; color: #555a79;">Marketplace billing, so the monthly statement can become an invoice.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px;"><strong style="font-size: 15px;">A filing team</strong><span style="font-size: 14px; line-height: 1.5; color: #555a79;">People at Weaver who verify and chase claims: an ongoing service, not only software.</span></div>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2960,"height":1960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = {
+      built: ['Built', '#e4f2ea', '#1f7a4d', '#e4f2ea'],
+      s2: ['Slice 2 · being built', '#f1eefc', '#2b2a8a', '#f1eefc'],
+      partly: ['Partly built', '#fff1e6', '#a8400d', '#ffd6b8'],
+      paused: ['Paused', '#f6eee6', '#33325f', '#e3d6ca'],
+      ext: ['Outside Weaver', '#ffffff', '#555a79', '#e3d6ca']
+    };
+    const S = [
+      ['Learn that employers match', 'partly'],
+      ['Share the employer, with consent', 'built'],
+      ['Find the program', 's2'],
+      ['Give', 'built'],
+      ['Spot a gift that can be matched', 'paused'],
+      ['Ask the donor', 'paused'],
+      ['Request it in the employer portal', 'ext'],
+      ['Verify the gift', 'paused'],
+      ['The employer pays', 'ext'],
+      ['Receive and reconcile', 'paused'],
+      ['Thank', 'paused'],
+      ['Weaver’s fee', 'paused']
+    ];
+    const stages = S.map((s, i) => ({ n: 'Stage ' + (i + 1), name: s[0], status: st[s[1]][0], stBg: st[s[1]][1], stFg: st[s[1]][2], stBd: st[s[1]][3] }));
+    const paused = S.map((s) => s[1] === 'paused' || s[1] === 'ext');
+    const cell = (t, i) => ({ text: t, bg: paused[i] ? '#fffaf5' : '#ffffff', fg: t === '—' ? '#555a79' : '#1e1d5c', isFeel: false });
+    const row = (label, sub, texts, minH) => ({ label: label, sub: sub, minH: minH || '96px', cells: texts.map((t, i) => cell(t, i)) });
+    const feel = [
+      [2, 'Curious: "Does mine do that?"'],
+      [2, 'Willing, if it is clear: "Who sees this?"'],
+      [2, 'Nothing to do yet'],
+      [3, 'Good about giving'],
+      [2, 'Still unaware'],
+      [2, 'Pleased, a little wary: "Is this a sales pitch?"'],
+      [1, 'The hard part: a login, finding the right charity'],
+      [2, 'Waiting, often forgets'],
+      [2, 'Has moved on'],
+      [2, 'Not told yet'],
+      [3, 'Proud: "Together we gave twice as much"'],
+      [2, 'Not involved']
+    ];
+    const lv = ['Low', 'Middle', 'High'];
+    const feelRow = { label: 'Member feels', sub: 'how it lands', minH: '84px', cells: feel.map((f, i) => ({
+      text: f[1], bg: paused[i] ? '#fffaf5' : '#ffffff', fg: '#1e1d5c', isFeel: true, level: lv[f[0] - 1],
+      m1: '#2b2a8a', m2: f[0] >= 2 ? '#2b2a8a' : '#e3d6ca', m3: f[0] >= 3 ? '#2b2a8a' : '#e3d6ca'
+    })) };
+    const rows = [
+      row('Member does', 'an adult who gives', [
+        'Hears their employer may match: in a newsletter, from staff, later in the app.',
+        'Tells the office their employer and agrees to have it on file. Can remove it.',
+        '—',
+        'Gives as usual: card, bank, check, Zelle or a pledge payment.',
+        '—',
+        'Gets a short message: "Your gift can be matched. One tap to ask your employer."',
+        'Signs in to the employer’s portal and submits the request. Most employers require the employee.',
+        '—',
+        '—',
+        '—',
+        'Hears that the match arrived and what it did.',
+        '—'
+      ]),
+      feelRow,
+      row('CatchTheMatch lead does', 'the community’s role', [
+        'Mentions matching in appeals and the welcome pack.',
+        'Records it from the paper form, with consent.',
+        'Confirms which program the employer is, or suggests a missing one.',
+        'Records offline gifts as today.',
+        'Sees "may be matched" on the gift and on Today.',
+        'Picks the wording once; can turn reminders off.',
+        '—',
+        'Adds Weaver’s team as users in each portal. No passwords shared.',
+        'Sees a deposit from a portal, often quarterly and batched.',
+        'Matches the deposit to its claims in the Bank tab.',
+        'Thanks the employer where it suits.',
+        'Gets one monthly statement listing each match and its fee.'
+      ]),
+      row('Weaver’s team does', 'people at Weaver', [
+        '—',
+        'Never sees it.',
+        'Adds programs from employers’ own pages, with source and date; checks suggested changes.',
+        '—',
+        'Sees the claim queue of communities that took CatchTheMatch.',
+        '—',
+        'Submits for the donor where a portal or partner allows it.',
+        'Checks the gift against Weaver’s record, confirms it in the portal, chases stuck claims.',
+        '—',
+        'Helps split a batch across its claims.',
+        '—',
+        'Invoices 10% of each match received, never more than $500 a match.'
+      ]),
+      row('Weaver does by itself', 'no one types this', [
+        'Later: an app card asks "Does your employer match gifts?"',
+        'Keeps it for adults only, tied to the person’s own sign-in.',
+        'Suggests a program by name in any script, no AI. Shows whether religious organizations qualify.',
+        'Sends the receipt; a WeCare thank-you when WeCare is on.',
+        'Checks the program, smallest gift, gift type and deadline, then opens a claim.',
+        'Pre-fills the link, gift date, amount, registered name and tax ID; reminds before the deadline.',
+        'Gives a deep link and the exact registered name to search for.',
+        'Keeps the filing queue with deadlines; logs every read for the community.',
+        '—',
+        'Records each share as a matching gift with soft credit to the donor.',
+        'Logs a WeCare touch and closes the claim.',
+        'Works the fee out in whole cents, rounded down; a reversed match becomes a credit.'
+      ]),
+      row('Where it happens', 'screen or channel', [
+        'Newsletter, conversation, app later',
+        'Paper form, person slide-over',
+        'Giving › Gift matching',
+        'Give page, app, office',
+        'Today, Gift matching › Claims',
+        'Email, text or app, as the person agreed',
+        'Benevity, YourCause, CyberGrants, the employer’s own form',
+        'Weaver’s filing queue, the portals',
+        'Bank statement',
+        'Giving › Bank',
+        'Message, Care card',
+        'Monthly statement, invoice'
+      ], '72px'),
+      row('Risk or drop-off', 'where it goes wrong', [
+        'Most donors never hear about it. This is where most matches are lost.',
+        'Employer names are typed many ways.',
+        'No program on file, or it excludes religious organizations.',
+        '—',
+        'Wrong rules in the directory send a request that cannot succeed.',
+        'Too many reminders feel like nagging.',
+        'The biggest drop-off of the whole journey.',
+        'Portals verify slowly; deadlines pass.',
+        'One batch pays many claims: which gift is which?',
+        'A match booked as the donor’s own gift gives a wrong tax receipt.',
+        '—',
+        'Percentage fees are frowned upon in fundraising.'
+      ]),
+      row('Privacy', 'what is shared, with whom', [
+        'A general mention; nothing recorded.',
+        'Consent kept with the record; withdrawing erases it.',
+        'The directory is public facts only; who works where stays with the community.',
+        'As today.',
+        'Claims are the community’s; Weaver’s filing role sees claims only.',
+        'Only on channels the person agreed to.',
+        'Happens outside Weaver.',
+        'Filing access is for matching only, time-limited and audited.',
+        '—',
+        'No tax receipt to the donor for the employer’s money.',
+        'Amounts only to those allowed.',
+        'The match reaches the organization in full; the fee is invoiced separately.'
+      ])
+    ];
+    return { stages: stages, rows: rows };
+  }
+}
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import type { Database } from "@/lib/database.types";
 import { todayInTz } from "@/lib/dates";
 import { readPublicEnv } from "@/lib/env";
-import { kindFromProfileResult } from "@/lib/kind";
+import { kindFallbackProblem, kindFromProfileResult, shouldReportKindFallback } from "@/lib/kind";
 import { newRequestId, traceHeaders } from "@/lib/supabase/trace";
 import { explainError } from "@/lib/errors";
 import { tenantBranding } from "@/lib/shell";
@@ -55,9 +55,14 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   const center = res.data?.[0];
   if (!center || center.status !== "active") return <Problem title="Community not found" body={`There is no public dashboard at "/c/${slug}".`} />;
   const b = tenantBranding({ ...center, slug: String(center.slug) }, c.env.supabaseUrl);
-  // Sandboxes have no public dashboard (entitlement public_dashboard; app.public_kpis refuses them too).
+  // Sandboxes have no public dashboard unless a platform admin switched the entitlement public_dashboard on for this community
+  // (Platform > Centers > its page); app.public_kpis applies the same rule. If the check cannot be made, the sandbox stays closed.
   if (center.environment === "sandbox") {
-    return <Problem title={`${b.shortName} community dashboard`} body={`${b.shortName} is a sandbox. Sandboxes have no public community dashboard; it opens once the community goes live.`} />;
+    const ent = await c.db.rpc("entitlement", { p_center: center.id, p_key: "public_dashboard" });
+    if (ent.error) console.error("[public-dashboard] entitlement check failed; keeping the sandbox closed:", ent.error);
+    if (ent.error || ent.data !== true) {
+      return <Problem title={`${b.shortName} community dashboard`} body={`${b.shortName} is a sandbox. Sandboxes have no public community dashboard; it opens once the community goes live.`} />;
+    }
   }
   // Reports & dashboard switched off (Settings › Modules): say so plainly instead of a load error.
   const on = await c.db.rpc("module_enabled", { p_center: center.id, p_module: "reports" });
@@ -66,10 +71,11 @@ export default async function PublicDashboardPage({ params }: { params: Params }
     return <Problem title={`${b.shortName} community dashboard`} body={`${center.name} isn't publishing its community dashboard right now. Please check back later.`} />;
   }
   // The kind of organization decides which sections the dashboard has and what it calls them. If the database cannot say,
-  // the dashboard reads as it always did (a Jain Center).
+  // the dashboard shows the neutral kind's sections (no faith's words), never a guessed kind.
   const profile = await c.db.rpc("category_profile", { p_center: center.id });
   const kind = kindFromProfileResult(profile);
-  if (kind.status === "error") console.error("[public-dashboard] could not load the kind of organization; showing the default sections:", profile.error);
+  const kindProblem = kindFallbackProblem(kind, profile);
+  if (kindProblem && shouldReportKindFallback(`${String(center.slug)}:${kind.status}`)) console.error(`[public-dashboard] ${kindProblem.context}:`, kindProblem.error);
   const raw = center.branding && typeof center.branding === "object" && !Array.isArray(center.branding) ? (center.branding as Record<string, unknown>) : {};
   const joinUrl = [raw.join_url, raw.website_url, raw.website].find((v): v is string => typeof v === "string" && /^https:\/\//i.test(v)) ?? null;
 

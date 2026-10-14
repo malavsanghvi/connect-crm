@@ -1,5 +1,13 @@
 # Deploy Connect (DigitalOcean droplet + Supabase)
 
+**Open owner checks (found 2026-10-13/14, still open until ticked here):**
+- [ ] `WORKER_DATABASE_URL` is not set in connect-crm's Actions secrets, so every deploy skips the background service
+  (`connect@worker`): scheduled and automatic emails, Niva's member answers, AI flyer art, imports and other jobs may not
+  run in production. See "Background service" below.
+- [ ] Supabase Authentication: turn on **Confirm email** and **Secure email change**, and turn off password sign-ups if
+  sign-in is email code only. Weaver's protections (sign-in links, consent records) assume nobody can claim an email
+  address they do not own. The local `supabase/config.toml` has `enable_confirmations = false`.
+
 Where things run:
 
 | Piece | Runs on | Address before a domain is set up |
@@ -462,7 +470,8 @@ To give every organization its own address (`jsh.communityconnect.app`,
      Platform › Centers › *center* › Limits & addresses.
 2. **Repository variable** in connect-crm: `SITE_WILDCARD_DOMAIN = communityconnect.app`.
    Optionally `MEMBER_APP_URL = https://app.communityconnect.app` (the member web app's
-   address) so Settings › Member app prints an https join link and QR code.
+   address) so Settings › Member app prints an https join link and QR code, and Home's "Your work is in the member app" card (for a person whose
+   work is not in a staff queue) has a link to open it. Unset, that card says there is no link yet and draws none.
 3. Re-run Deploy. `release.sh` then serves any HTTPS name with **on-demand
    certificates**: Caddy asks the portal (`/api/tenancy/tls-ask`) before issuing one,
    and the portal says yes only for `<slug>.communityconnect.app` of a real community
@@ -547,6 +556,52 @@ wired into the Deploy workflow: the defaults are right for weaverams.org, so not
 
 The website needs no database and no session: its pages are plain server components, so it keeps working if Supabase is down.
 
+## Niva for admins (the assistant for staff, in the portal)
+
+Staff of a community can ask Niva to look things up, draft, and prepare changes. This is the portal server's part: the
+routes under `/api/assistant/` (`commands`, `run`, `chat`, `confirm`, `reject`). It is **not** the background
+service. Every request runs with the **signed-in person's own session** (their role, row-level security, an audit row that
+says "by Niva, for <person>"); there is no service-role key and no generic SQL. Niva can only use the named commands in
+`src/lib/commands/` that the person's role allows and the community has switched on. The model is told the rules in
+`docs/ADMIN_REDESIGN.md`, and what comes back from a command is cleaned of secrets and of everything about anyone under
+18 before the model sees it. A command that changes something never runs in the chat: the person sees a card and presses
+a button (`/api/assistant/confirm`).
+
+What it needs, in this order:
+
+1. **The database part** (migrations 0616 to 0618: confirmations, the monthly limit, the conversation log). Until it is
+   applied the chat still answers and the commands list still works, but there is no monthly limit, no conversation log or
+   memory, and no write action can be confirmed (the server log says so once).
+2. **An AI key.** `ANTHROPIC_API_KEY` is read like the other platform keys (`src/lib/platform-setup/server-config.ts`):
+   **the one saved in Platform › Setup › AI first** (from the vault, through the `connect_worker` connection that the portal
+   already uses, cached for a minute, no redeploy), then the portal server's environment. The deploy passes the repository
+   secret `ANTHROPIC_API_KEY` to the portal as well as to the background service, so a key set there works for both; a key
+   saved in Platform › Setup replaces it for both. **With no key** the commands list says `aiReady: false`, the ⌘K
+   commands keep working, and the chat answers "Niva for admins needs the AI service to be set up (Platform › Setup). You can
+   still use the search box and the commands list."
+3. **The community's switch.** Off until a platform administrator switches it on in **Platform › Centers › <community> ›
+   Niva for admins** (stored in the community's rules as `assistant.enabled`, with a reason, audited). While it is off every
+   route answers "Niva for admins is not switched on for your community." and the commands list says `enabled: false`.
+
+Settings:
+
+| Setting | Where | Default |
+|---|---|---|
+| `ASSISTANT_MODEL` | repository **variable**, reaches the portal on the next deploy | `claude-sonnet-5-5` |
+| Niva for admins on for a community | Platform › Centers › <community> › Niva for admins (`assistant.enabled`) | off |
+| Write actions Niva may prepare | the same card, one box per action (`assistant.tools["events.set_field"]`) | **off**; the owner approves each one |
+| Actions per month for a community | Platform › Centers › <community> › Limits (`assistant.monthly_actions`) | 300; one chat message counts as one |
+
+Read and draft commands are on as soon as the community is on. Every command that changes something (a "confirm" command)
+is off until the box for it is ticked, and even then a person presses a button on a card for each change; the security
+code, when the database asks for it, opens in its own window.
+
+If something is wrong, the person sees a plain sentence next to what they did, and the server log has the detail
+(`[assistant] …`): "the key was refused" (replace the key in Platform › Setup), "the AI account's spending limit or credit
+has run out" (raise it in the Anthropic console), "the AI model … is not available to this account" (set
+`ASSISTANT_MODEL`), "could not reach the AI service" (busy; try again). One chat message may use at most six actions, then
+Niva has to answer with what it has. Conversation text is kept for 30 days (the database's retention job).
+
 ## When a deploy fails
 
 The failed step in Actions says what is missing or what broke:
@@ -615,8 +670,11 @@ Community Connect server yet".
    `app.set_messaging_review_status('texting', <id>, 'approved', <note>, '{"from_number":…,"brand_id":…,"campaign_id":…}')`
    (platform admin). WhatsApp numbers and templates are submitted to Meta the same way and
    recorded with `'whatsapp_account'` / `'whatsapp_template'`.
-3. **Expo push**: nothing is required; optionally an access token (`EXPO_ACCESS_TOKEN`) if
-   "enhanced push security" is turned on for the Expo project.
+3. **Expo push**: the server needs nothing (optionally an access token, `EXPO_ACCESS_TOKEN`, if
+   "enhanced push security" is turned on for the Expo project). **Android phones also need Firebase
+   (FCM)**: a `google-services.json` in the app build and an FCM V1 key uploaded to Expo, or the app
+   cannot get a push token and no push reaches them. Not done yet; steps in
+   [ANDROID_PUSH_SETUP.md](ANDROID_PUSH_SETUP.md).
 4. **Supabase Auth hooks** (the sign-in blocker): Supabase › Authentication › Hooks →
    *Send Email hook* → HTTPS → `https://<portal>/api/auth-hooks/send-email`; *Send SMS hook* →
    `https://<portal>/api/auth-hooks/send-sms`. Supabase generates each secret

@@ -7,7 +7,7 @@
 
 import { providerStatus, type Env } from "../config";
 import { messageOf, PermanentError } from "../errors";
-import { QboClient } from "../qbo/client";
+import { QboClient, QboRejectedError } from "../qbo/client";
 import type { Job, JobContext } from "../types";
 
 export const kind = "qbo.pull_lists";
@@ -19,6 +19,21 @@ type Ref = { value?: string } | undefined;
 
 const str = (v: unknown) => (typeof v === "string" ? v : null);
 const active = (r: Row) => r.Active !== false;
+
+/**
+ * Every row of a list, inactive ones included. QuickBooks refuses the Active filter on some entities
+ * ("value true is not valid for property 'Active'", code 4001), which used to fail the whole pull and with it
+ * the mapping approval; for those the plain query (active rows only) is used and the pull goes on.
+ */
+export async function listRows(qbo: Pick<QboClient, "queryAll">, entity: string, log?: JobContext["log"]): Promise<Row[]> {
+  try {
+    return await qbo.queryAll<Row>(entity, "Active IN (true, false)");
+  } catch (err) {
+    if (!(err instanceof QboRejectedError) || !/property 'Active'/.test(err.message)) throw err;
+    log?.info("QuickBooks does not take the Active filter on this list; pulling its active rows only", { entity });
+    return qbo.queryAll<Row>(entity);
+  }
+}
 
 /** QuickBooks entity -> our list name, and how a row maps. Pure (tested). */
 export const LISTS: { list: string; entity: string; map: (r: Row) => Row }[] = [
@@ -46,7 +61,7 @@ export async function run(job: Job, ctx: JobContext) {
   try {
     const qbo = await QboClient.open(ctx, id);
     for (const l of LISTS) {
-      const rows = (await qbo.queryAll<Row>(l.entity, "Active IN (true, false)")).map(l.map).filter((r) => r.qbo_id);
+      const rows = (await listRows(qbo, l.entity, ctx.log)).map(l.map).filter((r) => r.qbo_id);
       counts[l.list] = rows.length;
       const n = await ctx.db.query<{ n: number }>("select app.qbo_worker_store_list($1, $2, $3) as n", [id, l.list, JSON.stringify(rows)]);
       changed[l.list] = Number(n[0]?.n ?? 0);

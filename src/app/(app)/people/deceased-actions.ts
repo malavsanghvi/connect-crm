@@ -2,14 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 
-import { todayInTz } from "@/lib/dates";
-import { markedMessage, parseDeceasedForm } from "@/lib/deceased";
+import { withActivity } from "@/lib/activity/with-activity";
+import { runScreenCommand } from "@/lib/commands/screen";
 import { failure, type ActionResult } from "@/lib/errors";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason } from "@/lib/session";
 
 // The deceased flag (owner decision 2026-09-25). The database functions (0420) check
-// people.manage, the reason and the date again, and write the audit rows with the reason.
+// people.manage, the reason and the date again, and write the audit rows with the reason. Marking and choosing the primary member
+// are commands now (src/lib/commands/catalog/people, migration 0720): these actions read the form and call the same `execute`.
+// Undoing "deceased" stays a direct action for now.
 
 function refresh(personId: string, householdIds: string[] = []) {
   revalidatePath("/people");
@@ -22,35 +24,25 @@ function refresh(personId: string, householdIds: string[] = []) {
 
 export async function markDeceasedAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const id = String(fd.get("id") ?? "");
-  const name = String(fd.get("name") ?? "This person");
   if (!isUuid(id)) return { ok: false, error: "Could not mark as deceased — the person was not found." };
-  const auth = await authorizeAction("householdsEdit", "mark as deceased");
-  if (!auth.ok) return auth;
-  const { center } = auth.session;
-  const parsed = parseDeceasedForm(
-    {
-      deceased_on: String(fd.get("deceased_on") ?? ""),
-      note: String(fd.get("note") ?? ""),
-      reason: String(fd.get("reason") ?? ""),
-      confirm: fd.get("confirm") === "on" ? "on" : null,
-    },
-    todayInTz(center.time_zone),
-    String(fd.get("date_of_birth") ?? "") || null,
+  // A command now (people.mark_deceased, screenOnly): it checks the date, the reason and the tick with the same sentences, reads the
+  // birth date from the record, and calls the same database function with the reason on the audit row.
+  return withActivity(
+    "people.mark_deceased",
+    () =>
+      runScreenCommand(
+        "people.mark_deceased",
+        {
+          person_id: id,
+          deceased_on: String(fd.get("deceased_on") ?? ""),
+          note: String(fd.get("note") ?? ""),
+          reason: String(fd.get("reason") ?? ""),
+          confirmed: fd.get("confirm") === "on",
+        },
+        "mark as deceased",
+      ),
+    { entityFrom: { kind: "person", id } },
   );
-  if (!parsed.ok) return { ok: false, error: `Could not mark ${name} as deceased — ${parsed.error}.` };
-  const db = await dbWithReason(auth.session, parsed.value.reason);
-  const res = await db.rpc("mark_person_deceased", {
-    p_person: id,
-    p_deceased_on: parsed.value.deceasedOn,
-    p_note: parsed.value.note ?? "",
-    p_reason: parsed.value.reason,
-  });
-  if (res.error) return failure(`Could not mark ${name} as deceased`, res.error);
-  const households = String(fd.get("household_ids") ?? "")
-    .split(",")
-    .filter(isUuid);
-  refresh(id, households);
-  return { ok: true, message: markedMessage(name, res.data) };
 }
 
 export async function undoDeceasedAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
@@ -82,13 +74,9 @@ export async function setHouseholdPrimaryAction(_prev: ActionResult | null, fd: 
   if (!isUuid(household)) return { ok: false, error: "Could not change the primary member — the household was not found." };
   if (!isUuid(person)) return { ok: false, error: "Could not change the primary member — choose who becomes the primary member." };
   if (!reason) return { ok: false, error: "Could not change the primary member — give a reason. It goes in the audit log." };
-  const auth = await authorizeAction("householdsEdit", "change the primary member");
-  if (!auth.ok) return auth;
-  const db = await dbWithReason(auth.session, reason);
-  const res = await db.rpc("set_household_primary", { p_household: household, p_person: person, p_reason: reason });
-  if (res.error) return failure("Could not change the primary member", res.error);
-  revalidatePath(`/households/${household}`);
-  revalidatePath(`/people/${person}`);
-  revalidatePath("/households");
-  return { ok: true, message: "The primary member is changed · audit logged. Pledges, payments and statements stay with the household." };
+  return withActivity(
+    "people.set_primary",
+    () => runScreenCommand("people.set_primary", { household_id: household, person_id: person, reason }, "change the primary member"),
+    { entityFrom: { kind: "household", id: household } },
+  );
 }

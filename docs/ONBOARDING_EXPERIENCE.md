@@ -4,6 +4,10 @@ Owner's request: a clean, on-screen, **one step at a time** flow that takes an o
 sandbox to households, donations and members loaded, and members enriching their own profiles at first sign-in.
 This document is the plan; backlog B25 (office side) and B26 (member side) track the build.
 
+**See also (2026-10-09):** [ONBOARDING_REDESIGN.md](ONBOARDING_REDESIGN.md) plans the front door in front of this
+wizard: recognising whatever the customer has, connecting Neon, Zeffy and Google Sheets, and Niva reading their own
+files. This wizard stays the place where donations, households and members are matched and confirmed.
+
 ## What exists today (reuse, do not rebuild)
 - **Import tool** (`/settings/import/new`, `src/lib/import/*`): templates, column mapping with AI suggestions,
   checks, matching, preview, reconcile, undo. Matching never uses a name alone (ARCHITECTURE: "names are never

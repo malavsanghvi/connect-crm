@@ -143,7 +143,7 @@ export function FieldButton({ field, mode, label, kind = "ghost" }: { field: Omi
               />
             )}
             {field.kind === "secret" ? (
-              <p className="crm-hint">Kept encrypted in the vault. It is never shown again — only its last 4 characters. Changing it needs a fresh 2FA check.</p>
+              <p className="crm-hint">Kept encrypted in the vault. It is never shown again — only its last 4 characters.</p>
             ) : null}
           </>
         )}

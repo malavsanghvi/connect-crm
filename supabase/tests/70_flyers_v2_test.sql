@@ -82,6 +82,10 @@ insert into app.accounts (user_id, is_platform_admin) values (:pa, true);
 insert into app.centers (id, slug, name, short_name, state_region, status) values
   (:c, 'orbit70', 'Orbit 70 Community', 'O70', 'TX', 'active'),
   (:c2, 'orbit70b', 'Other 70 Community', 'O70B', 'TX', 'active');
+-- AI art needs iWeaver (0755): granted here once the catalog has the `ai` module (0750-0754); test 162 covers it off.
+insert into app.center_module_grants (center_id, module_key, granted, reason)
+select x.id, 'ai', true, 'Test: iWeaver granted.' from app.centers x where x.id in (:c::uuid, :c2::uuid) and exists (select 1 from app.modules where key = 'ai')
+on conflict (center_id, module_key) do update set granted = true;
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
   (:p_manager, :c, 'Mona', 'Manager', date '1980-01-01'),
   (:p_lead, :c, 'Lalit', 'Lead', date '1981-01-01'),
@@ -180,7 +184,7 @@ select pg_temp.assert(not app.can_write_object('content', :c2 || '/flyer-art/gar
 select pg_temp.assert(not app.can_write_object('content', :c || '/flyer-art/garba/frame-0.png')
                       and not app.can_write_object('content', :c || '/flyer-art/garba/frame-1.webp')
                       and not app.can_write_object('content', :c || '/flyer-art/garba/frame-1.gif')
-                      and not app.can_write_object('content', :c || '/flyer-art/birthday/frame-1.png')
+                      and not app.can_write_object('content', :c || '/flyer-art/Birth-day/frame-1.png')  -- 0703: any occasion key shape; this is not one
                       and not app.can_write_object('content', :c || '/flyer-art/garba/background-1.png')
                       and not app.can_write_object('content', :c || '/flyer-art/garba/frame-x.png')
                       and not app.can_write_object('content', :c || '/flyer-art/frame-1.png')
@@ -270,7 +274,7 @@ select pg_temp.assert_raises(format('select app.events_request_flyer_art(%L::uui
 rollback;
 begin;
 select pg_temp.sign_in(:manager);
-select pg_temp.assert_raises(format('select app.events_request_flyer_art(%L::uuid, %L, %L, 5, %L)', :e1, 'birthday', 'frame', 'x'), 'choose one of the occasions', 'the occasion must be one of the eight');
+select pg_temp.assert_raises(format('select app.events_request_flyer_art(%L::uuid, %L, %L, 5, %L)', :e1, 'Birth-day!', 'frame', 'x'), 'choose one of the occasions', 'the occasion must be one of the eight');
 select pg_temp.assert_raises(format('select app.events_request_flyer_art(%L::uuid, %L, %L, 5, %L)', :e1, 'garba', 'background', 'x'), 'frame or a bottom scene', 'the layer must be a frame or a scene');
 select pg_temp.assert_raises(format('select app.events_request_flyer_art(%L::uuid, %L, %L, 0, %L)', :e1, 'garba', 'frame', 'x'), 'out of range', 'the seed must be at least 1');
 select pg_temp.assert_raises(format('select app.events_request_flyer_art(%L::uuid, %L, %L, 2147483648, %L)', :e1, 'garba', 'frame', 'x'), 'out of range', 'and at most 2^31 - 1');

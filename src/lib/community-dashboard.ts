@@ -207,7 +207,7 @@ export function buildDashboard(raw: Json, period: Period, kind?: KindLike): Dash
     learning.push({ label: "Class attendance rate", value: v === null ? "—" : `${Math.round(v)}%` });
   }
   const seva: Row[] = [];
-  if ("store_orders" in metrics && offered({ key: "store_orders" })) seva.push({ label: `${kind ? kindTerm(kind, "store", "Satvik Store") : "Satvik Store"} orders`, value: formatCount(num(metrics.store_orders)) });
+  if ("store_orders" in metrics && offered({ key: "store_orders" })) seva.push({ label: `${kind ? kindTerm(kind, "store", "My Store") : "My Store"} orders`, value: formatCount(num(metrics.store_orders)) });
 
   const asOf = typeof r.as_of === "string" ? r.as_of.slice(0, 10) : null;
   const empty = summary.length === 0 && practice.length === 0 && !campaign && !months && !zones && learning.length === 0 && seva.length === 0;

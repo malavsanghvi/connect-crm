@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ChipGroup, Toggle } from "@/components/controls";
 import { InfoBox } from "@/components/ui";
 import { validateRulesJson } from "@/lib/center-rules";
+import { SHOW_BY_OPTIONS } from "@/lib/giving-glance/levels";
 import type { RuleSettings } from "@/lib/settings-rules";
 
 import { countChanges, FieldGrid, SettingField, SettingsForm } from "../_components/settings-form";
@@ -89,7 +90,7 @@ export function MembershipForm({
 
 // ---------------------------------------------------------------------------
 export function GivingForm({ settings, showBolis = true, ...c }: Common & { settings: RuleSettings; showBolis?: boolean }) {
-  const initial = { fee: settings.askDonorToCoverFees, soft: settings.boliSoftCloseMinutes > 0 };
+  const initial = { fee: settings.askDonorToCoverFees, soft: settings.boliSoftCloseMinutes > 0, showBy: settings.givingShowBy as string };
   const [v, setV] = useState(initial);
   return (
     <SettingsForm action={saveRulesSectionAction} section="giving" version={c.version} dirty={countChanges(initial, v)} readOnly={c.readOnly} readOnlyNote={READ_ONLY}>
@@ -102,6 +103,23 @@ export function GivingForm({ settings, showBolis = true, ...c }: Common & { sett
             onChange={(x) => setV({ ...v, fee: x })}
             onNote="Ask at checkout"
             offNote="Do not ask"
+            disabled={c.readOnly}
+          />
+        </SettingField>
+        <SettingField
+          label="Show giving by"
+          hint={
+            v.showBy === "person"
+              ? "Giving at a glance on a household lets you pick each adult, with the gifts not tied to a person kept apart. On a person it shows that person's own giving."
+              : "Giving at a glance on a household shows the whole household together. On a person it shows their household's giving."
+          }
+        >
+          <ChipGroup
+            name="giving_show_by"
+            label="Show giving by"
+            value={v.showBy}
+            onChange={(x) => setV({ ...v, showBy: x })}
+            options={SHOW_BY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
             disabled={c.readOnly}
           />
         </SettingField>
@@ -325,7 +343,7 @@ const BRANDING_FIELDS = [
 ] as const;
 
 const KNOWN_FLAGS: Record<string, string> = {
-  store: "Satvik Store",
+  store: "My Store",
   bolis: "Bolis",
   pathshala: "Pathshala",
   gyan_path: "Gyan Path",
@@ -405,14 +423,20 @@ export function BrandingForm({ branding, flags, readOnly, hiddenFlags = [], flag
 
 // ---------------------------------------------------------------------------
 export function AdvancedRulesForm({ rules, version, readOnly }: { rules: Obj; version: number | null; readOnly: boolean }) {
-  const initial = useMemo(() => JSON.stringify(rules, null, 2), [rules]);
+  // Activity recording is agreed on Settings › Automation ideas (with a 2FA check) and kept exactly as it is: it is not edited here.
+  const initial = useMemo(() => {
+    const { activity: kept, ...editable } = rules;
+    void kept;
+    return JSON.stringify(editable, null, 2);
+  }, [rules]);
   const [text, setText] = useState(initial);
   const validation = useMemo(() => validateRulesJson(text), [text]);
   return (
     <SettingsForm action={saveRulesJsonAction} version={version} dirty={text === initial ? 0 : 1} submitLabel="Save rules JSON" readOnly={readOnly} readOnlyNote={READ_ONLY}>
       <p className="mb-2 text-[13px] text-muted">
         Every rule key, including ones without a form above (identifier labels, bank format, voting, accounting). Unknown keys are allowed;
-        known keys are type-checked. Saving here also bumps the version.
+        known keys are type-checked. Saving here also bumps the version. The setting for noting how people use Weaver (&quot;activity&quot;) is not shown: it is agreed on
+        Settings › Automation ideas and is kept as it is.
       </p>
       <label htmlFor="rules" className="sr-only">
         Rules JSON

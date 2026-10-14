@@ -32,6 +32,8 @@ export class FlyerFontsMissingError extends Error {
 
 export const BUNDLED_DISPLAY = "Fraunces";
 export const BUNDLED_BODY = "DM Sans";
+/** The brush-script accent of the flyer layouts (flyer-layout.ts): one accent word, a "Save the date" line, a greeting. */
+export const BUNDLED_SCRIPT = "Kaushan Script";
 
 export const BUNDLED_FONT_FILES = [
   { name: BUNDLED_BODY, weight: 400, file: "DMSans-400.woff" },
@@ -45,6 +47,9 @@ export const BUNDLED_FONT_FILES = [
   { name: BUNDLED_DISPLAY, weight: 900, file: "Fraunces-900.woff" },
 ] as const;
 
+/** Read only when a flyer uses a layout (`script: true`), so the older templates carry no extra font. */
+export const BUNDLED_SCRIPT_FILE = { name: BUNDLED_SCRIPT, weight: 400, file: "KaushanScript-400.woff" } as const;
+
 export function flyerFontPath(file: string): string {
   return join(process.cwd(), "assets/flyer-fonts", file);
 }
@@ -56,6 +61,11 @@ function toArrayBuffer(b: Uint8Array): ArrayBuffer {
 const bundled: Promise<FlyerFont[] | Error> = Promise.all(
   BUNDLED_FONT_FILES.map(async (f) => ({ name: f.name, weight: f.weight, style: "normal" as const, data: toArrayBuffer(await readFile(flyerFontPath(f.file))) })),
 ).catch((err: unknown) => (err instanceof Error ? err : new Error(String(err))));
+
+const bundledScript: Promise<FlyerFont | Error> = readFile(flyerFontPath(BUNDLED_SCRIPT_FILE.file)).then(
+  (b) => ({ name: BUNDLED_SCRIPT_FILE.name, weight: BUNDLED_SCRIPT_FILE.weight, style: "normal" as const, data: toArrayBuffer(b) }),
+  (err: unknown) => (err instanceof Error ? err : new Error(String(err))),
+);
 
 // ── Google Fonts ─────────────────────────────────────────────────────────────
 const LEGACY_UA = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; de-at) AppleWebKit/533.21.1 (KHTML, like Gecko) Version/5.0.5 Safari/533.21.1";
@@ -128,7 +138,8 @@ async function googleFamily(family: string, weights: readonly FlyerWeight[]): Pr
 const GUJARATI = /[઀-૿]/;
 const DEVANAGARI = /[ऀ-ॿ]/;
 
-export type FlyerFontSet = { fonts: FlyerFont[]; display: string; body: string; notes: string[] };
+/** `script` is the brush-script family for a layout's accents (the display family when the script font is not on this server or was not asked for). */
+export type FlyerFontSet = { fonts: FlyerFont[]; display: string; body: string; script: string; notes: string[] };
 
 /**
  * The fonts for one flyer: the bundled pair, the brand's own fonts when they
@@ -137,7 +148,7 @@ export type FlyerFontSet = { fonts: FlyerFont[]; display: string; body: string; 
  * bundled files are not on this server. The Poster (`poster: true`) sets its headline and big number in the
  * heaviest weights, so a brand font from Google is asked for those too.
  */
-export async function getFlyerFonts(brand: { displayFont: string; bodyFont: string }, text: string, o: { poster?: boolean } = {}): Promise<FlyerFontSet> {
+export async function getFlyerFonts(brand: { displayFont: string; bodyFont: string }, text: string, o: { poster?: boolean; script?: boolean } = {}): Promise<FlyerFontSet> {
   const base = await bundled;
   if (base instanceof Error) {
     console.error("[events/flyer] the bundled flyer fonts could not be read:", base);
@@ -184,5 +195,17 @@ export async function getFlyerFonts(brand: { displayFont: string; bodyFont: stri
   if (GUJARATI.test(text) || DEVANAGARI.test(text)) {
     notes.push("Gujarati and Hindi letters may not join exactly right in the image — check the preview.");
   }
-  return { fonts, display, body, notes: [...new Set(notes)] };
+  // The script accent (only for a layout): bundled, so it never depends on the network; the display font stands in if it is missing.
+  let script = display;
+  if (o.script) {
+    const s = await bundledScript;
+    if (s instanceof Error) {
+      console.error("[events/flyer] the bundled script font could not be read:", s);
+      notes.push("The script lettering font is missing on this server, so the accent words use the heading font.");
+    } else {
+      fonts.push(s);
+      script = s.name;
+    }
+  }
+  return { fonts, display, body, script, notes: [...new Set(notes)] };
 }

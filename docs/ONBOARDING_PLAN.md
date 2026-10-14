@@ -43,7 +43,7 @@ This matches design-doc 06's estimate of about 10–12 weeks from agreement to l
 4. **Every step is resumable and assignable to a named person.** Both the organization and Community Connect can see where it stands.
 5. **Credentials are never readable by anyone.** Changing them needs a fresh second-factor (2FA) check, even for a signed-in admin.
 6. **Every import is a traceable, reversible run.** Each row it touches is audited with the run number, the file and the person, and the run can be undone.
-7. **Setup follows the module switches.** Switch Satvik Store off and its setup steps disappear.
+7. **Setup follows the module switches.** Switch My Store off and its setup steps disappear.
 
 ## 2. Who does what
 
@@ -615,7 +615,7 @@ Priority:
 | G35 | WhatsApp Business connection and template approval | The manual join queue | P2 |
 | G36 | Venues and multiple sites per organization | Venue is free text | P2 |
 | G37 | Background-check provider | None | P2 |
-| G38 | Live connections to old CRMs for a long parallel run | None; file imports cover migration | P2 |
+| G38 | Live connections to old CRMs for a long parallel run | None; file imports cover migration | P2 (recommended P1 in [ONBOARDING_REDESIGN.md](ONBOARDING_REDESIGN.md), B84) |
 | G39 | Branded apps for organizations with their own app-store accounts | One shared app decided | P2 |
 | G40 | Prototype screens for the organization's Setup experience. None exist; the onboarding prototype is for members. | None | P0 (design before building) |
 

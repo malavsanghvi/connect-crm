@@ -27,10 +27,15 @@ end $$;
 -- ── Coverage ─────────────────────────────────────────────────────────────────
 select pg_temp.assert(not exists (
     select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
-     where n.nspname = 'app' and c.relkind in ('r','p') and c.relname <> 'audit_log'
+     where n.nspname = 'app' and c.relkind in ('r','p') and c.relname not in ('audit_log', 'activity_events', 'activity_optouts', 'activity_salts', 'import_staged_records', 'import_record_links', 'import_clusters', 'import_exceptions', 'import_exception_items', 'import_decision_rules', 'people_saved')
        and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'audit_' || c.relname
-                         and t.tgfoid = 'app.audit_row'::regproc and not t.tgisinternal)),
-  'every app base table except audit_log has an audit_<table> trigger on app.audit_row');
+                         and t.tgfoid = case when c.relname in ('person_match_employers', 'care_owners', 'care_profiles', 'care_notes', 'care_touches',
+                                                              'match_program_submissions', 'person_match_programs')
+                                                  then 'app.audit_private_row'::regproc
+                                             when c.relname in ('match_programs', 'match_program_names', 'match_program_versions') then 'app.audit_shared_row'::regproc
+                                             else 'app.audit_row'::regproc end
+                         and not t.tgisinternal)),
+  'every app base table except audit_log (and the three activity stream tables of 0620, left out on purpose: test 99, and the six matching tables of 0630 that hold uploaded rows or what was made from them: test 110, and people_saved of 0722, one person''s list names and pins that no audit reader may see: test 143) has an audit_<table> trigger on app.audit_row, or on app.audit_private_row for the care and matching tables that hold words about a person (0758: who, when and which columns, never the values; tests 163, 164 and 166), or on app.audit_shared_row for the shared gift matching directory (0765: Weaver''s team named, a community''s manager never; test 166)');
 select pg_temp.assert(not exists (
     select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'app' and c.relkind in ('r','p')
@@ -41,8 +46,8 @@ select pg_temp.assert(not exists (
       select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
        where n.nspname = 'app' and c.relname = mt.table_name and c.relkind in ('r','p'))),
   'module_tables lists no table that does not exist');
-select pg_temp.assert((select count(*) from app.modules) = 18 and (select array_agg(key order by key) from app.modules where core) = '{people}',
-  'the module catalog has the 18 contract modules and only people is core');
+select pg_temp.assert((select count(*) from app.modules) = 30 and (select array_agg(key order by key) from app.modules where core) = '{people}',
+  'the module catalog has the 18 contract modules, Giving''s 7 add-ons (0741) and the five Marketplace products (0750), and only people is core');
 select pg_temp.assert(not exists (
     select mt.table_name from app.module_tables mt join app.modules m on m.key = mt.module_key
       join pg_class c on c.relname = mt.table_name join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'app'
@@ -53,8 +58,9 @@ select pg_temp.assert(not exists (
 -- 0594: the category catalogs are core platform tables (covered by the two checks above), and a Jain Center (JSH) has
 -- every module default_on, so the switch rules below are the whole story for it.
 select pg_temp.assert((select count(*) from app.category_modules) = (select count(*) from app.organization_categories) * (select count(*) from app.modules)
-                      and (select bool_and(app.module_availability(:jsh, m.key) = 'default_on') from app.modules m),
-  'every category has a row for every module, and JSH (a Jain Center) has every module default_on');
+                      and (select bool_and(app.module_availability(:jsh, m.key) = 'default_on') from app.modules m where m.key <> all (array['ai', 'website', 'channels', 'care', 'matching']))
+                      and (select bool_and(app.module_availability(:jsh, m.key) = 'default_off') from app.modules m where m.key = any (array['ai', 'website', 'channels', 'care', 'matching'])),
+  'every category has a row for every module, and JSH (a Jain Center) has every module default_on except the five Marketplace products (0750: off for every kind)');
 
 -- ── Header context is captured ───────────────────────────────────────────────
 begin;
@@ -199,15 +205,14 @@ select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000
   'Give a reason', 'a reason is required');
 select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'people', false, 'test')$$,
   'core platform', 'a core module cannot be switched off');
-select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'giving', false, 'test')$$,
-  'Bolis', 'a module cannot be switched off while a module that depends on it is on (the error names it)');
+-- (0740: a module others depend on may be switched off; they are off while it is. Test 150 covers it.)
 select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'nope', false, 'test')$$,
   'no module called', 'an unknown module is refused');
 select app.set_module_enabled(:jsh, 'bolis', false, 'Bolis are run on paper this year');
 select app.set_module_enabled(:jsh, 'accounting', false, 'QuickBooks not connected yet');
 select app.set_module_enabled(:jsh, 'giving', false, 'Giving moves to the new system in October');
-select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'bolis', true, 'test')$$,
-  'needs Pledges & donations', 'a module cannot be switched on while its dependency is off');
+select pg_temp.assert(not app.module_enabled(:jsh, 'bolis') and not app.module_enabled(:jsh, 'accounting'),
+  'Bolis and Accounting are off while Pledges & donations is off (0740: dependencies are evaluated; test 150)');
 select app.set_module_enabled(:jsh, 'events', false, 'Testing the events switch');
 select app.set_module_enabled(:jsh, 'jain_way', false, 'Testing the Jain Way switch');
 select app.set_module_enabled(:jsh, 'gyan_path', false, 'Testing the Gyan Path switch');
@@ -227,16 +232,17 @@ set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 select pg_temp.assert((select count(*) from app.center_modules where center_id = :jsh) = 6, 'members read their center''s module switches');
 select pg_temp.assert((select array_agg(key order by key) from app.my_modules(:jsh) where not enabled)
-                        = '{accounting,bolis,events,giving,gyan_path,jain_way}'
+                        = '{accounting,bolis,care,channels,events,giving,giving_bank,giving_counts,giving_insights,giving_opportunities,giving_recurring,giving_statements,gyan_path,jain_way,labh,matching,website}'
                       and (select enabled and core from app.my_modules(:jsh) where key = 'people')
-                      and (select count(*) from app.my_modules(:jsh)) = 18,
-  'my_modules lists every module with its state, core ones always on');
+                      and (select count(*) from app.my_modules(:jsh)) = 30,
+  'my_modules lists every module with its state, core ones always on (Giving off: its seven add-ons too, 0740/0741; the Marketplace products JSH does not hold, 0750)');
 select pg_temp.assert((select count(*) from app.my_modules(:other)) = 0, 'my_modules says nothing about a center you do not belong to');
 commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000007';
-select pg_temp.assert((select bool_and(enabled) from app.my_modules(:other)), 'another center keeps every module on');
+select pg_temp.assert((select bool_and(enabled) from app.my_modules(:other) where key <> all (array['ai', 'website', 'channels', 'care', 'matching']) and key <> 'niva'),
+  'another center keeps every module on (the Marketplace products of 0750 start off for every kind, and Niva needs iWeaver, which test 01''s community never used)');
 commit;
 
 -- RLS: reads and writes are blocked for the switched-off module.
@@ -325,5 +331,5 @@ set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000011';
 select app.set_module_enabled(:jsh, 'membership', true, 'Back on after the test');
 commit;
 select pg_temp.assert(not exists (select 1 from app.center_modules where not enabled), 'the test leaves every module on');
-select pg_temp.assert(not exists (select 1 from app.modules m where not app.module_enabled(:jsh, m.key)),
-  'and every one of the 18 modules reads as on for JSH again (the category adds nothing for a Jain Center)');
+select pg_temp.assert(not exists (select 1 from app.modules m where not app.module_enabled(:jsh, m.key) and m.key <> all (array['ai', 'website', 'channels', 'care', 'matching']) or (m.key = 'ai' and not app.module_enabled(:jsh, m.key))),
+  'and every module reads as on for JSH again (the category adds nothing for a Jain Center; of the Marketplace products of 0750 JSH holds iWeaver)');

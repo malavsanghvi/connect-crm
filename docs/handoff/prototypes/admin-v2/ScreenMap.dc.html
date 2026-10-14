@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>From 138 screens to 11 workspaces</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1700px; box-sizing: border-box; padding: 48px 56px; display: flex; flex-direction: column; gap: 26px; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A; overflow: hidden">
+  <header style="display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3D3BB8">The review of every admin screen</span>
+    <h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 40px; line-height: 1.1">From 138 screens to 11 workspaces</h1>
+    <p style="margin: 0; font-size: 16px; line-height: 1.55; color: #2C3A55; max-width: 980px">Six reviewers read every page in the portal. This is what they found, and where each area goes. The pages are grouped by the job people do, not by the table the data sits in.</p>
+  </header>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Six things we found almost everywhere</span>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; padding: 14px 16px; font-size: 14px; line-height: 1.5"><b>Organised by data, not by job.</b> Recording one payment can cross four pages. Getting texting working crosses five.</div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; padding: 14px 16px; font-size: 14px; line-height: 1.5"><b>Long forms and half-finished saves.</b> The event form has about 35 fields and saves any you left out as blank. Some saves report “other changes were saved” in a sentence.</div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; padding: 14px 16px; font-size: 14px; line-height: 1.5"><b>Consequences hidden until after.</b> Marking an event completed opens a survey and queues notices with no confirmation. Cancelling an event tells nobody.</div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; padding: 14px 16px; font-size: 14px; line-height: 1.5"><b>Households shown by name alone</b> in at least eight places, against our own rule.</div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; padding: 14px 16px; font-size: 14px; line-height: 1.5"><b>Dead ends.</b> Buttons that are permanently off, and settings that are only recorded and do nothing, such as session length.</div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; padding: 14px 16px; font-size: 14px; line-height: 1.5"><b>Rules kept in screen code,</b> not in the database. Anything that skips the screen, such as an assistant, would skip the rule too.</div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0">
+    <div style="display: grid; grid-template-columns: 260px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 0 16px; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">
+      <span>New workspace</span><span>What we found today</span><span>What changes</span>
+    </div>
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="11">
+      <div style="display: grid; grid-template-columns: 260px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 12px 16px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; align-items: start">
+        <div style="display: flex; gap: 12px; align-items: flex-start">
+          <span aria-hidden="true" style="flex: none; width: 10px; align-self: stretch; min-height: 40px; border-radius: 5px; background: {{r.color}}"></span>
+          <span style="display: flex; flex-direction: column; gap: 3px">
+            <span style="font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 19px; line-height: 1.2">{{r.name}}</span>
+            <span style="font-size: 12px; line-height: 1.45; color: #4F5D75">{{r.from}}</span>
+            <span style="font-size: 12px; font-weight: 800; color: {{r.countColor}}">{{r.count}}</span>
+          </span>
+        </div>
+        <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45; color: #2C3A55">
+          <sc-for list="{{r.found}}" as="f" hint-placeholder-count="3"><li>{{f}}</li></sc-for>
+        </ul>
+        <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.45; color: #12203A; font-weight: 500">
+          <sc-for list="{{r.fresh}}" as="f" hint-placeholder-count="3"><li>{{f}}</li></sc-for>
+        </ul>
+      </div>
+    </sc-for>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const R = [
+      { name: 'Today', color: '#1C56B0', from: 'Home, Approvals, search, the task widgets', count: '1 screen + 3 surfaces',
+        found: ['Home is mostly signposts; only second approvals and credits can be settled there', 'All 19 task loaders run just to draw the badge; tasks are silently capped at 25 per source'],
+        fresh: ['Your routine, plus decisions you settle in place', 'A morning briefing from Niva', 'One search for any name or ID that returns household cards'] },
+      { name: 'People', color: '#1C56B0', from: 'People, Households, Memberships, Account, Privacy, History', count: '12 screens',
+        found: ['A record lives on three surfaces with different powers; every real action leaves People', 'Three searches return different results; the top-bar search is hidden on phones', 'Person hits in six places show a name without the household card', 'Decline always sends “Declined by staff”'],
+        fresh: ['One record view that grows from a side panel to a full page', 'Ask-your-data filters you can edit and save', 'Real decline reasons; duplicates proposed, you compare and confirm'] },
+      { name: 'Giving', color: '#FF7640', from: 'Giving, Bolis, Accounting and QuickBooks', count: '16 screens',
+        found: ['One household job crosses three to five pages', 'Money actions fire from small table popovers with no review step', 'A second approver sees a bare button with no evidence', 'Three buttons are permanently off; pledge aging sits under a 50-row table'],
+        fresh: ['Household-centred money flows with a review step every time', 'Evidence and the reason in front of the second approver', 'Bank matching by sentence; Books in the same place'] },
+      { name: 'Events', color: '#3D3BB8', from: 'Events (7 tabs), Calendar', count: '8 screens',
+        found: ['About 35 fields; anything left out is saved as blank', '“Mark completed” opens the survey and queues notices with no confirmation', 'Cancelling an event notifies nobody; the calendar is a table, not a month grid', 'Event leads have no menu entry'],
+        fresh: ['An event workspace with Niva beside it', 'Change one thing by sentence', 'A real calendar; each consequence shown first'] },
+      { name: 'Messages', color: '#0E7C86', from: 'Communications (inbox, campaigns, WhatsApp, alerts)', count: '9 screens',
+        found: ['Newsletter sending is not connected yet', 'The one-approver rule lives only in screen code', 'Audience counts are email-only; the inbox shows names without household cards'],
+        fresh: ['Drafts in three languages', 'Audience by channel, with quiet hours, before you schedule', 'The word Scheduled until it has really gone out'] },
+      { name: 'Learning', color: '#5A48B8', from: 'Pathshala (terms, classes, registration, attendance, homework, committee)', count: '24 screens',
+        found: ['The landing page reports numbers instead of listing the work', 'Term setup is six stops across three areas, with no order shown', 'Enrollments clashes with the newer database rules', 'Learners shown by name; no single learner page'],
+        fresh: ['“What needs me today” first', 'One clear class sheet for attendance', 'One learner page and a registrations queue. Niva helps with terms, fees and classes but never sees learner details'] },
+      { name: 'Store', color: '#17724A', from: 'Store, menu, orders, pickup', count: '3 screens',
+        found: ['Stock adjustments reported a false failure even when they worked (fixed in #128)', 'Lists have no search or saved views'],
+        fresh: ['Store Weaver as a product', 'Receive stock and copy last week’s slots by sentence'] },
+      { name: 'Content', color: '#5A48B8', from: 'Content, library, guide, media, photos', count: '12 screens',
+        found: ['One page mixes three permission levels', 'Guide and directory show read-only copies of things edited elsewhere'],
+        fresh: ['Niva drafts straight into the approval queue', 'Library and media stay visual'] },
+      { name: 'Reports', color: '#2F8ED8', from: 'Reports, dashboard', count: '2 screens',
+        found: ['Nine full scans of up to 50,000 rows per load, labelled as a warehouse', 'Tiles are not clickable'],
+        fresh: ['Ask questions of your data', 'Saved views; sums done in the database'] },
+      { name: 'Marketplace and Settings', color: '#34C4CB', from: 'Settings (24 tabs), Setup, guided onboarding', count: '37 screens',
+        found: ['24 tabs, every one titled “Settings”', 'The same thing is set up two or three times: modules and feature flags, brand colors, two importers', 'Reason and security code are applied three different ways', '“On” is not “ready”: texting, email and payments depend on outside parties'],
+        fresh: ['The Marketplace for products; each product’s settings live with it', 'Four groups left: Team and roles, Security, Brand, Data and privacy', 'Niva runs setup; you do the human parts'] },
+      { name: 'Platform console', color: '#12203A', from: 'Weaver team only: requests, pipeline, sandboxes, go-live, support', count: '14 screens',
+        found: ['No single page per community; the same community is plain text on seven tabs', 'Twelve flat tabs and no inbox', 'Rules show up only after the click; the old wizard can go live with no checks'],
+        fresh: ['One page per community', 'An inbox: who is waiting and what is missing', 'The pipeline board stays visual'] }
+    ];
+    return {
+      rows: R.map((r) => ({ ...r, countColor: '#164690' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

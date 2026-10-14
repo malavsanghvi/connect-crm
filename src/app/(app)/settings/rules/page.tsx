@@ -105,7 +105,7 @@ export default async function RulesPage() {
             flags={isPlainObject(center.feature_flags) ? center.feature_flags : {}}
             readOnly={readOnly}
             hiddenFlags={hiddenFlags}
-            flagNames={{ store: kindName(kind, "store", "Satvik Store"), pathshala: kindName(kind, "pathshala", "Pathshala"), gyan_path: kindName(kind, "gyan_path", "Gyan Path") }}
+            flagNames={{ store: kindName(kind, "store", "My Store"), pathshala: kindName(kind, "pathshala", "Pathshala"), gyan_path: kindName(kind, "gyan_path", "Gyan Path") }}
           />
         </Card>
         <Card span={12}>

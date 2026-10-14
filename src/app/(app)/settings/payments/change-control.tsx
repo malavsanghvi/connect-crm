@@ -56,7 +56,7 @@ function RequestRow({ r, canApprove, canRequest, tz }: { r: PayeeRequest; canApp
               </li>
             ))}
           </ul>
-          <p className="mt-2">It needs a fresh 2FA check and a reason. Members then see a dated notice for 30 days.</p>
+          <p className="mt-2">It needs a reason. Members then see a dated notice for 30 days.</p>
         </>
       ) : (
         <p>Nothing changes. {r.requested_by_name} can see why.</p>
@@ -127,7 +127,7 @@ export function PayeeRequestsCard({ cc, tz }: { cc: ChangeControl; tz: string })
   return (
     <Card
       title="Changes to where gifts go"
-      description="The Zelle address or name, the bank account Zelle payments arrive in and the PayPal email change only when a different person with giving.approve confirms it, with a fresh 2FA check and a reason."
+      description="The Zelle address or name, the bank account Zelle payments arrive in and the PayPal email change only when a different person with giving.approve confirms it, with a reason."
       actions={waiting > 0 ? <Badge tone="warning">{waiting} waiting</Badge> : null}
     >
       <ul className="flex flex-col gap-3 text-[13px]" aria-label="Requests to change where gifts go">
@@ -176,7 +176,7 @@ export function RequestZelleChange({ current, waiting }: { current: ZelleCurrent
               </li>
             ))}
           </ul>
-          <p className="mt-2">This needs a fresh 2FA check.</p>
+          
         </>
       ),
       run: async (reason) => {

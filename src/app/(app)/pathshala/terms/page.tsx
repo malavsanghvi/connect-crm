@@ -72,11 +72,13 @@ export default async function TermsPage() {
       <PathshalaHeader
         description="Terms · dates, registration window and no-class days for each Pathshala year; each term's fees and registration rules on its Fees and rules page"
         actions={
-          canEdit ? (
-            <DrawerButton label="New term" title="New term" kicker="Pathshala" size="sm">
-              <TermForm term={null} tz={tz} cols={1} />
-            </DrawerButton>
-          ) : null
+          <>
+            {canEdit ? (
+              <DrawerButton label="New term" title="New term" kicker="Pathshala" size="sm">
+                <TermForm term={null} tz={tz} cols={1} />
+              </DrawerButton>
+            ) : null}
+          </>
         }
       />
       {feesNote ? (

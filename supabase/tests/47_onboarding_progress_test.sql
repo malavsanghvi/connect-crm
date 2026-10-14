@@ -16,7 +16,7 @@ exception when others then
   if position(lower(expect) in lower(sqlerrm)) = 0 then raise exception 'FAIL: % (got "%")', label, sqlerrm; end if;
   raise notice 'PASS: %', label;
 end $$;
--- Sign in as a user; fresh 2FA, because the import engine asks for it on some steps.
+-- Sign in as a user (an aal2 session with a fresh authenticator check; since 0787 none of these steps needs one).
 create or replace function pg_temp.sign_in(p_user uuid) returns void
 language plpgsql as $$
 begin

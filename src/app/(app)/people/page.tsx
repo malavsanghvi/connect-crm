@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, buttonClass } from "@/components/ui";
@@ -7,6 +8,7 @@ import { identifierRules } from "@/lib/center-rules";
 import { formatCustomValue } from "@/lib/custom-fields";
 import { loadCustomColumn, loadCustomFieldDefs } from "@/lib/data/custom-fields";
 import { listPeople, peopleTotals } from "@/lib/data/people-list";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { canAccess } from "@/lib/permissions";
 import { AGE_BANDS, isAgeBand, relationshipLabel, type AgeBand } from "@/lib/people";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
@@ -14,6 +16,7 @@ import { getSession } from "@/lib/session";
 
 import { ClickableRow, LiveSearch } from "./_components/client";
 import { PeopleDrawers, drawerHref } from "./_components/drawers";
+import { PeopleV2 } from "./people-v2";
 
 export const metadata: Metadata = { title: "People" };
 
@@ -21,6 +24,8 @@ const PAGE_SIZE = 50;
 
 export default async function PeopleListPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
+  // The "New look" switch (a per-person cookie): the People workspace with the ask box and the household card. The classic page below is unchanged.
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") return <PeopleV2 session={session} sp={await searchParams} />;
   if (!canAccess(session, "households")) {
     return (
       <>

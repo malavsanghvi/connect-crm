@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PersonGlance } from "@/components/giving-glance/glance-panels";
 import { IdentifiersPanel } from "@/components/identifiers-panel";
 import { QboCustomerLine } from "@/components/qbo-customer-line";
 import { MoreDetails } from "@/components/more-details";
@@ -16,12 +18,17 @@ import { genderLabel, languageLabel, relationshipLabel, toUsDate } from "@/lib/p
 import type { RawSearchParams } from "@/lib/search-params";
 import { identifierRules } from "@/lib/center-rules";
 import { householdsById, orgIds, personName } from "@/lib/data/lookups";
+import { communityMajority, isAdultMember } from "@/lib/commands/child-filter";
 import { ageOn, formatDate, todayInTz } from "@/lib/dates";
+import { prepareGlance } from "@/lib/giving-glance/page";
 import { MEMBERSHIP_STATUS_TONE } from "@/lib/labels";
+import { isModuleEnabled } from "@/lib/modules";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { canAccess } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
+import { PersonPageV2 } from "./person-v2";
 import { markDeceasedAction, undoDeceasedAction } from "../deceased-actions";
 
 export const metadata: Metadata = { title: "Person" };
@@ -38,6 +45,8 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
   }
   const { id } = await params;
   if (!isUuid(id)) notFound();
+  // The New look: the person lives on the Family page with the slide-over open (or here, if they are in no family). The page below is the classic one.
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") return <PersonPageV2 session={session} id={id} sp={await searchParams} />;
   const { db, center } = session;
   const rules = identifierRules(center.rules);
   const tz = center.time_zone;
@@ -91,6 +100,9 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
   const minor = age !== null && age < 18;
   const profileDetails = await loadProfileDetails(session, { id, interests: person.interests, isMinor: minor });
   const home = currentHouseholds.find((l) => !l.is_primary) ?? currentHouseholds[0];
+  // "Giving at a glance" (Giving module): nothing is shown about anyone under the age of majority; giving is kept with the household.
+  const glance = isModuleEnabled(session, "giving") ? await prepareGlance(session, sp) : null;
+  const glanceAdult = isAdultMember({ date_of_birth: person.date_of_birth, role: home?.role }, today, communityMajority(center));
 
   return (
     <>
@@ -244,6 +256,16 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
           </p>
         </div>
       </section>
+
+      {glance ? (
+        <PersonGlance
+          session={session}
+          person={{ id, name, firstName: person.preferred_name || person.first_name, adult: glanceAdult }}
+          householdIds={currentHouseholds.map((l) => l.household_id)}
+          sp={sp}
+          prep={glance}
+        />
+      ) : null}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card title="Profile" className="xl:col-span-2">

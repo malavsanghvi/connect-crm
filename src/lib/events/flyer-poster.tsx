@@ -26,11 +26,12 @@ import { flyerTextLength, type FlyerDesign, type PosterContent } from "./flyer";
 import { artPack, frameEdgeSvg, plainPaperSvg, ribbonSvg, svgDataUri, type ArtPack, type PosterPalette } from "./flyer-art-packs";
 import type { FlyerBrand } from "./flyer-brand";
 import { posterIconUri, type PosterIcon } from "./flyer-icons";
+import { layoutText } from "./flyer-layout";
 
 export type PosterImage = { dataUri: string; w: number; h: number };
 
 /** Pictures the poster needs that are not drawn in code: AI layers and the partner's logo (null: use the drawn art / the badge). */
-export type PosterAssets = { frame: PosterImage | null; scene: PosterImage | null; partnerLogo: PosterImage | null };
+export type PosterAssets = { frame: PosterImage | null; scene: PosterImage | null; partnerLogo: PosterImage | null; /** The picture a layout shows (a photo from the community's albums), or none. */ hero?: PosterImage | null };
 
 export type PosterInput = {
   design: FlyerDesign;
@@ -56,6 +57,12 @@ const K_MIN = 0.58;
 const K_FLOOR = 0.4;
 /** Short content may grow a little (never past the frame: the agenda is 870 × 1.08 = 940 wide, the column's width). */
 const K_MAX = 1.08;
+/** A poster this tall (units) is laid out as a Story: Tall is 1620, Story 1920. */
+const STORY_FROM = 1800;
+/** How big the bottom scene may grow on a Story (Tall's is 1.12 at most). */
+const SCENE_MAX_STORY = 1.42;
+/** The paragraph's type (units) and line height: larger on a Story, which has the room. */
+const paragraphType = (story: boolean) => (story ? { size: 28, line: 41 } : { size: 23, line: 34 });
 
 /** Roughly how wide a line is, in units: generous on purpose (an overestimate only leaves more air). */
 export function textWidth(s: string, size: number, o: { caps?: boolean; spacing?: number; serif?: boolean } = {}): number {
@@ -117,12 +124,19 @@ const HEADLINE_FILL = 0.95;
  * for long ones. The lines are counted word by word (lineCount), and no word is ever wider than a line: a long word
  * ("Dasalakshanaparva") makes the type smaller until it fits.
  */
-export function headlineFit(text: string, maxWidth = COL - 20): { size: number; lines: number } {
+export function headlineFit(text: string, maxWidth = COL - 20, o: { tall?: boolean } = {}): { size: number; lines: number } {
   const floors = [100, 74, 58, 44];
   const measure = (size: number) => lineCount(text, size, maxWidth, { serif: true, fill: HEADLINE_FILL });
   // The biggest type at which the longest word still fits on one line.
   const longest = Math.max(1, ...text.split(/\s+/).map((word) => textWidth(word, 100, { serif: true })));
   const widest = Math.floor((maxWidth * HEADLINE_FILL * 100) / longest);
+  // A Story has the height to spare: the biggest type that fits in up to three lines (a two-line headline set larger as three).
+  if (o.tall) {
+    for (let size = Math.min(142, widest); size >= floors[2]!; size--) {
+      const n = measure(size);
+      if (n <= 3) return { size, lines: n };
+    }
+  }
   for (let lines = 1; lines <= 4; lines++) {
     for (let size = Math.min(142, widest); size >= floors[lines - 1]!; size--) {
       const n = measure(size);
@@ -146,7 +160,7 @@ export function badgeSizes(label: string, sub: string): { label: number; labelGa
 }
 
 /** The ribbon: one row (date and time | venue) when it fits at scale `k`, else the venue on its own line(s) below. */
-function ribbonLayout(date: string, time: string, venue: string, k = 1) {
+export function ribbonLayout(date: string, time: string, venue: string, k = 1) {
   const left = 58 + 22 + Math.max(textWidth(date, 35), textWidth(time, 29));
   const right = venue ? 44 + 16 + textWidth(venue, 32) : 0;
   // The ribbon's box does not scale (it spans the poster), the words do.
@@ -218,7 +232,8 @@ export function planPoster(input: Pick<PosterInput, "design" | "poster" | "logo"
   const heights: Partial<Record<PosterSection, number>> = {};
   const hasHeader = (poster.logo && Boolean(input.logo)) || poster.partner.on;
   if (hasHeader) heights.header = 132;
-  const headline = headlineFit(design.headline);
+  const story = H > STORY_FROM;
+  const headline = headlineFit(design.headline, COL - 20, { tall: story });
   heights.headline = 10 + headline.lines * headline.size * 1.04;
   if (poster.subhead) heights.subhead = 12 + lineCount(poster.subhead, 35, SUBHEAD_W, { caps: true, spacing: 5 }) * 44;
   if (poster.slogan) heights.slogan = 12 + lineCount(poster.slogan, 46, COL - 20, { spacing: 1.5 }) * 56;
@@ -238,10 +253,13 @@ export function planPoster(input: Pick<PosterInput, "design" | "poster" | "logo"
     }
     heights.agenda = rows;
   }
-  if (poster.paragraph) heights.paragraph = 18 + lineCount(poster.paragraph, 23, 830) * 34;
+  const para = paragraphType(story);
+  if (poster.paragraph) heights.paragraph = 18 + lineCount(poster.paragraph, para.size, 830) * para.line;
 
-  // The scene: a little smaller on the shorter sizes, a little bigger on Story.
-  let sceneScale = Math.min(1.12, Math.max(0.78, H / 1620));
+  // The scene: a little smaller on the shorter sizes, bigger on Story. Story (1920 tall) used to keep Tall's scene and
+  // spacing, which left a large empty band in the middle (fixed 2026-10-11): its scene grows to fill the extra height
+  // (drawn wider, so still in proportion) and the sections spread further apart.
+  let sceneScale = Math.min(story ? SCENE_MAX_STORY : 1.12, Math.max(0.78, story ? (H / 1620) * 1.2 : H / 1620));
   const showQr = design.show_qr;
   const sceneOn = poster.scene.source !== "none";
   const reserveFor = (s: number) => Math.max(sceneOn ? pack.scene.busy * s - FOOTER : 0, showQr ? QR_CARD * Math.max(s, 0.8) + 22 : 24);
@@ -283,9 +301,11 @@ export function planPoster(input: Pick<PosterInput, "design" | "poster" | "logo"
   const reserve = reserveFor(sceneScale);
   const left = Math.max(0, room(sceneScale) - (natural + topPad) * k);
   const sections = Object.keys(heights).length;
-  // Spare room: some between the sections (never so much that they drift apart), then the stack is centred in what is left.
-  const gap = Math.min(H > 1700 ? 92 : H > 1500 ? 74 : 44, left / (sections + 1));
-  const extraTop = Math.max(0, left - gap * sections) * 0.42;
+  // Spare room: some between the sections (never so much that they drift apart), then the stack is centred in what is left
+  // (a little above the middle; on Story, in the middle of the room between the frame's top and the scene).
+  const gap = Math.min(story ? 170 : H > 1700 ? 92 : H > 1500 ? 74 : 44, left / (sections + 1));
+  // (A Story counts only the gaps really drawn, between the sections, so the stack sits in the true middle.)
+  const extraTop = story ? Math.max(0, left - gap * Math.max(0, sections - 1)) * 0.5 : Math.max(0, left - gap * sections) * 0.42;
   return {
     k: Math.round(k * 1000) / 1000,
     H,
@@ -326,7 +346,38 @@ export function posterNotes(input: Pick<PosterInput, "design" | "poster" | "logo
 
 /** Every word on the poster (for choosing fonts). */
 export function posterText(p: PosterContent): string {
-  return [p.subhead, p.slogan, p.partner.label, p.partner.sub, p.stat.label, p.stat.value, p.stat.caption, p.ribbon.date, p.ribbon.time, p.paragraph, p.footer, ...p.agenda.flatMap((r) => [r.time, r.text]), "RSVP Scan to reply"].join(" ");
+  return [p.subhead, p.slogan, p.partner.label, p.partner.sub, p.stat.label, p.stat.value, p.stat.caption, p.ribbon.date, p.ribbon.time, p.paragraph, p.footer, ...p.agenda.flatMap((r) => [r.time, r.text]), p.layout ? layoutText(p.layout) : "", "RSVP Scan to reply"].join(" ");
+}
+
+/**
+ * How an AI frame (a portrait picture of its own shape, asked for at 2:3) covers a poster of another shape without being
+ * stretched or squashed (it used to be drawn with object-fit: fill, so a Story pulled it 18% taller): the picture is drawn at
+ * the poster's width in its own proportions; its top half is pinned to the top and its bottom half to the bottom. On a taller
+ * poster the band between them repeats the picture's middle row stretched downwards only (a frame's middle is its side borders,
+ * which carry on unchanged); on a shorter one the halves overlap in the middle (the words cover it). Pure, for the tests.
+ */
+export function frameSlices(img: { w: number; h: number }, w: number, h: number): { top: number; height: number; imageTop: number; imageHeight: number }[] {
+  const ih = Math.max(1, Math.round((w * Math.max(1, img.h)) / Math.max(1, img.w)));
+  if (Math.abs(ih - h) <= 2) return [{ top: 0, height: h, imageTop: 0, imageHeight: h }];
+  const half = Math.floor(h / 2);
+  if (ih > h) {
+    // Shorter poster: the picture's top half from the top, its bottom half from the bottom.
+    return [
+      { top: 0, height: half, imageTop: 0, imageHeight: ih },
+      { top: half, height: h - half, imageTop: -(ih - (h - half)), imageHeight: ih },
+    ];
+  }
+  const piece = Math.floor(ih / 2);
+  const gap = h - 2 * piece;
+  // A band from the picture's middle (a tenth of it, or half the gap if that is more), stretched over the gap: at most
+  // twice its height, and only in the middle of the frame.
+  const band = Math.max(1, Math.round(Math.min(ih, Math.max(ih * 0.1, gap / 2))));
+  const stretched = Math.round((ih * gap) / band);
+  return [
+    { top: 0, height: piece, imageTop: 0, imageHeight: ih },
+    { top: piece, height: gap, imageTop: -Math.round((stretched * (piece - band / 2)) / ih), imageHeight: stretched },
+    { top: piece + gap, height: h - piece - gap, imageTop: -(ih - (h - piece - gap)), imageHeight: ih },
+  ];
 }
 
 function fitImage(img: PosterImage, maxW: number, maxH: number): { width: number; height: number } {
@@ -345,7 +396,7 @@ function fitImage(img: PosterImage, maxW: number, maxH: number): { width: number
  * outward, drawn as absolutely positioned children of the box they surround. (`box-shadow` with a blur becomes an SVG
  * Gaussian blur, which the renderer runs over a big area at Print size: one shadow cost seconds there.)
  */
-function haloLayers(o: { rgb: string; alpha: number; radius: number; spread: number; dy?: number; steps?: number }): ReactNode[] {
+export function haloLayers(o: { rgb: string; alpha: number; radius: number; spread: number; dy?: number; steps?: number }): ReactNode[] {
   const steps = o.steps ?? 4;
   const dy = o.dy ?? 0;
   return Array.from({ length: steps }, (_, i) => {
@@ -359,40 +410,51 @@ function haloLayers(o: { rgb: string; alpha: number; radius: number; spread: num
   });
 }
 
-export function posterElement(input: PosterInput, dims: { w: number; h: number }, fonts: Fonts, qrDataUri: string | null): ReactElement {
-  const { design, poster } = input;
-  const pack = artPack(poster.occasion, input.brand);
-  const pal: PosterPalette = pack.palette;
-  const plan = planPoster(input, dims, pack);
-  const u = dims.w / W;
-  const k = plan.k;
-  /** Units at scale k to pixels. */
-  const px = (v: number) => Math.round(v * k * u * 10) / 10;
-  /** Units (unscaled) to pixels. */
+/** The helpers every poster element is built from. */
+export const box = (style: Record<string, string | number>, ...children: ReactNode[]) => <div style={{ display: "flex", ...style }}>{children}</div>;
+export const txt = (style: Record<string, string | number>, s: string) => <div style={{ display: "flex", ...style }}>{s}</div>;
+export const image = (src: string, iw: number, ih: number, style: Record<string, string | number> = {}) => (
+  // eslint-disable-next-line @next/next/no-img-element
+  <img alt="" src={src} width={iw} height={ih} style={{ width: iw, height: ih, ...style }} />
+);
+export const diamond = (size: number, color: string) => box({ width: size, height: size, backgroundColor: color, transform: "rotate(45deg)", flexShrink: 0 });
+
+/**
+ * The art under the words: the pack's frame (drawn, an AI picture laid over the poster without distorting it, or plain
+ * paper), the bottom scene anchored to the bottom edge, and the soft paper panel behind the words when the frame is AI art.
+ * Shared by the original stacked poster and the layouts (flyer-layout-render.tsx).
+ */
+export function posterLayers(o: {
+  poster: PosterContent;
+  assets: PosterAssets;
+  pack: ArtPack;
+  pal: PosterPalette;
+  dims: { w: number; h: number };
+  H: number;
+  sceneScale: number;
+  sceneH: number;
+  reserve: number;
+  /** The height of the footer band the layer sits above (the original poster has one, the layouts none: 0). */
+  footer?: number;
+}): ReactNode[] {
+  const { poster, pack, pal, H } = o;
+  const { w, h } = o.dims;
+  const u = w / W;
   const ux = (v: number) => Math.round(v * u * 10) / 10;
-  const { w, h } = dims;
-  const H = plan.H;
-  const gap = ux(plan.gap);
-
-  const box = (style: Record<string, string | number>, ...children: ReactNode[]) => <div style={{ display: "flex", ...style }}>{children}</div>;
-  const txt = (style: Record<string, string | number>, s: string) => <div style={{ display: "flex", ...style }}>{s}</div>;
-  const image = (src: string, iw: number, ih: number, style: Record<string, string | number> = {}) => (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img alt="" src={src} width={iw} height={ih} style={{ width: iw, height: ih, ...style }} />
-  );
-  const diamond = (size: number, color: string) => box({ width: size, height: size, backgroundColor: color, transform: "rotate(45deg)", flexShrink: 0 });
-  const iconCircle = (name: PosterIcon, size: number) =>
-    box(
-      { width: px(size), height: px(size), borderRadius: px(size / 2), border: `${Math.max(1, px(3))}px solid ${pal.gold}`, backgroundColor: "rgba(255,255,255,0.82)", alignItems: "center", justifyContent: "center", flexShrink: 0 },
-      image(posterIconUri(name, pal.ink), px(size * 0.56), px(size * 0.56)),
-    );
-
+  const plan = { sceneScale: o.sceneScale, sceneH: o.sceneH, reserve: o.reserve };
+  const input = { assets: o.assets };
+  const aiFrame = poster.frame.source === "ai" ? input.assets.frame : null;
   const layers: ReactNode[] = [];
 
-  // 1. Frame: the pack's drawing, an AI picture (stretched to the poster, with a drawn gold edge and a soft panel behind the words), or plain paper.
-  const aiFrame = poster.frame.source === "ai" ? input.assets.frame : null;
+
+  // 1. Frame: the pack's drawing, an AI picture (laid over the poster without distorting it, with a drawn gold edge and a soft
+  //    panel behind the words), or plain paper.
   if (aiFrame) {
-    layers.push(image(aiFrame.dataUri, w, h, { position: "absolute", left: 0, top: 0, objectFit: "fill" }));
+    for (const s of frameSlices(aiFrame, w, h)) {
+      layers.push(
+        box({ position: "absolute", left: 0, top: s.top, width: w, height: s.height, overflow: "hidden" }, image(aiFrame.dataUri, w, s.imageHeight, { position: "absolute", left: 0, top: s.imageTop })),
+      );
+    }
     layers.push(image(svgDataUri(frameEdgeSvg(W, H, pal.gold)), w, h, { position: "absolute", left: 0, top: 0 }));
   } else {
     const svg = poster.frame.source === "none" ? plainPaperSvg(W, H, pal) : pack.frame(W, H);
@@ -434,12 +496,67 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
         left: ux(SIDE + 34),
         top: ux(50),
         width: ux(W - 2 * (SIDE + 34)),
-        height: Math.max(1, h - ux(FOOTER + plan.reserve + 70)),
+        height: Math.max(1, h - ux((o.footer ?? FOOTER) + plan.reserve + 70)),
         borderRadius: ux(60),
         backgroundColor: `rgba(${rgb},${pack.scrim})`,
       }, ...haloLayers({ rgb, alpha: pack.scrim, radius: ux(60), spread: ux(44), steps: 9 })),
     );
   }
+
+  return layers;
+}
+
+/**
+ * The RSVP card (the QR code, "RSVP", "Scan to reply") for the bottom-left corner, `bottom` pixels above the poster's bottom edge.
+ * It scales with the bottom scene (never below 80%).
+ */
+export function qrCardElement(o: { qr: string; sceneScale: number; u: number; pal: PosterPalette; bottom: number; /** A fixed scale (the layouts use one), instead of following the scene's. */ scale?: number }): ReactElement {
+  const { pal } = o;
+  const qs = o.scale ?? Math.max(o.sceneScale, 0.8);
+  const q = (v: number) => Math.round(v * qs * o.u * 10) / 10;
+  return box(
+    { position: "absolute", left: Math.round(40 * o.u * 10) / 10, bottom: o.bottom, width: q(QR_CARD_WIDTH) },
+    ...haloLayers({ rgb: "27,44,92", alpha: 0.25, radius: q(16), spread: q(12), dy: q(6) }),
+    box(
+      {
+        width: q(QR_CARD_WIDTH),
+        padding: `${q(QR_PAD)}px ${q(QR_PAD)}px ${q(8)}px`,
+        backgroundColor: "#FFFFFF",
+        borderRadius: q(16),
+        border: `${Math.max(1, q(QR_BORDER))}px solid ${pal.gold}`,
+        flexDirection: "column",
+        alignItems: "center",
+      },
+      image(o.qr, q(QR_IMAGE), q(QR_IMAGE)),
+      txt({ fontWeight: 800, fontSize: q(20), lineHeight: 1.2, letterSpacing: q(5), color: pal.ink, marginTop: q(6), marginLeft: q(5) }, "RSVP"),
+      txt({ fontWeight: 500, fontSize: q(13), lineHeight: 1.2, color: pal.body }, "Scan to reply"),
+    ),
+  );
+}
+
+export function posterElement(input: PosterInput, dims: { w: number; h: number }, fonts: Fonts, qrDataUri: string | null): ReactElement {
+  const { design, poster } = input;
+  const pack = artPack(poster.occasion, input.brand);
+  const pal: PosterPalette = pack.palette;
+  const plan = planPoster(input, dims, pack);
+  const u = dims.w / W;
+  const k = plan.k;
+  /** Units at scale k to pixels. */
+  const px = (v: number) => Math.round(v * k * u * 10) / 10;
+  /** Units (unscaled) to pixels. */
+  const ux = (v: number) => Math.round(v * u * 10) / 10;
+  const { w, h } = dims;
+  const H = plan.H;
+  const gap = ux(plan.gap);
+
+  const iconCircle = (name: PosterIcon, size: number) =>
+    box(
+      { width: px(size), height: px(size), borderRadius: px(size / 2), border: `${Math.max(1, px(3))}px solid ${pal.gold}`, backgroundColor: "rgba(255,255,255,0.82)", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+      image(posterIconUri(name, pal.ink), px(size * 0.56), px(size * 0.56)),
+    );
+
+  const aiFrame = poster.frame.source === "ai" ? input.assets.frame : null;
+  const layers = posterLayers({ poster, assets: input.assets, pack, pal, dims, H, sceneScale: plan.sceneScale, sceneH: plan.sceneH, reserve: plan.reserve });
 
   // 4. The words.
   const sections: ReactNode[] = [];
@@ -610,7 +727,8 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
 
   if (plan.heights.paragraph) {
     sections.push(spacer("g-para"));
-    sections.push(<div key="paragraph" style={{ ...center, marginTop: px(18), width: px(830), fontSize: px(23), lineHeight: 1.45, fontWeight: 500, color: pal.body }}>{poster.paragraph}</div>);
+    const para = paragraphType(H > STORY_FROM);
+    sections.push(<div key="paragraph" style={{ ...center, marginTop: px(18), width: px(830), fontSize: px(para.size), lineHeight: para.line / para.size, fontWeight: 500, color: pal.body }}>{poster.paragraph}</div>);
   }
 
   const column = (
@@ -621,8 +739,6 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
 
   // 5. QR code and footer.
   const qr = design.show_qr && qrDataUri ? qrDataUri : null;
-  const qs = Math.max(plan.sceneScale, 0.8);
-  const q = (v: number) => Math.round(v * qs * u * 10) / 10;
   // A small honest line when AI made some of the art; nothing when it was all drawn in code.
   const credit = (aiFrame ? 1 : 0) + (input.assets.scene && poster.scene.source === "ai" ? 1 : 0) > 0 ? "Art: Google Gemini (AI)" : "";
   const footerText = poster.footer || input.centerName;
@@ -631,26 +747,7 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
     <div style={{ width: w, height: h, display: "flex", flexDirection: "column", position: "relative", backgroundColor: pal.paper, fontFamily: fonts.body, color: pal.ink, wordBreak: "break-word" }}>
       {layers}
       {column}
-      {qr
-        ? box(
-            { position: "absolute", left: ux(40), bottom: ux(FOOTER + 18), width: q(QR_CARD_WIDTH) },
-            ...haloLayers({ rgb: "27,44,92", alpha: 0.25, radius: q(16), spread: q(12), dy: q(6) }),
-            box(
-              {
-                width: q(QR_CARD_WIDTH),
-                padding: `${q(QR_PAD)}px ${q(QR_PAD)}px ${q(8)}px`,
-                backgroundColor: "#FFFFFF",
-                borderRadius: q(16),
-                border: `${Math.max(1, q(QR_BORDER))}px solid ${pal.gold}`,
-                flexDirection: "column",
-                alignItems: "center",
-              },
-              image(qr, q(QR_IMAGE), q(QR_IMAGE)),
-              txt({ fontWeight: 800, fontSize: q(20), lineHeight: 1.2, letterSpacing: q(5), color: pal.ink, marginTop: q(6), marginLeft: q(5) }, "RSVP"),
-              txt({ fontWeight: 500, fontSize: q(13), lineHeight: 1.2, color: pal.body }, "Scan to reply"),
-            ),
-          )
-        : null}
+      {qr ? qrCardElement({ qr, sceneScale: plan.sceneScale, u, pal, bottom: ux(FOOTER + 18) }) : null}
       {/* Pinned to the bottom edge, after everything else: a wrong estimate above can never push it out of the picture. */}
       <div style={{ display: "flex", position: "absolute", left: 0, bottom: 0, width: w, height: ux(FOOTER), backgroundColor: pal.footerBg, borderTop: `${Math.max(1, ux(3))}px solid ${pal.gold}`, alignItems: "center", justifyContent: "center", gap: ux(18) }}>
         {diamond(ux(9), pal.gold)}

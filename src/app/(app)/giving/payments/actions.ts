@@ -2,18 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 
+import { withActivity } from "@/lib/activity/with-activity";
 import { previewAllocation } from "@/lib/allocation";
 import { todayInTz } from "@/lib/dates";
-import { stockMemo } from "@/lib/giving";
 import { explainError, failure, type ActionResult } from "@/lib/errors";
-import { OFFLINE_METHODS } from "@/lib/labels";
-import { formatCents, parseAmountToCents } from "@/lib/money";
+import { formatCents } from "@/lib/money";
+import { checkOfflinePayment, type AllocationMode } from "@/lib/payments/offline-payment";
 import { parsePossibleDuplicates, type RecordedZelle } from "@/lib/payments/zelle";
 import { canAccess } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, type CrmSession } from "@/lib/session";
-
-type OfflineMethod = (typeof OFFLINE_METHODS)[number];
 
 export type RecordPaymentInput = {
   householdId: string;
@@ -25,7 +23,7 @@ export type RecordPaymentInput = {
   envelopeNumber?: string;
   memo?: string;
   /** "auto" = earliest open pledge first; "choose" = only pledgeIds, in that order; "none" = leave unallocated. */
-  allocation: "auto" | "choose" | "none";
+  allocation: AllocationMode;
   pledgeIds?: string[];
 };
 
@@ -93,38 +91,22 @@ async function applyToPledges(
 }
 
 export async function recordOfflinePaymentAction(input: RecordPaymentInput): Promise<ActionResult<RecordPaymentResult>> {
+  return withActivity("giving.record_payment", () => recordOfflinePayment(input), {
+    entityFrom: (result) => ({ kind: "payment", id: result?.data?.paymentId }),
+  });
+}
+
+async function recordOfflinePayment(input: RecordPaymentInput): Promise<ActionResult<RecordPaymentResult>> {
   const auth = await authorizeAction("recordPayment", "record the payment");
   if (!auth.ok) return auth;
   const { session } = auth;
   const { db, center } = session;
 
-  const amountCents = parseAmountToCents(input.amount);
-  const method = input.method as OfflineMethod;
   const today = todayInTz(center.time_zone);
-  if (!isUuid(input.householdId)) return { ok: false, error: "Could not record the payment — choose the household first." };
-  if (amountCents === null || amountCents <= 0) {
-    return { ok: false, error: "Could not record the payment — enter an amount greater than zero, like 251.00." };
-  }
-  if (!OFFLINE_METHODS.includes(method)) return { ok: false, error: "Could not record the payment — choose check, cash, ACH, Zelle or stock." };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.receivedOn) || input.receivedOn > today) {
-    return { ok: false, error: "Could not record the payment — the received date must be a real date, not in the future." };
-  }
-  const chosen = input.allocation === "choose" ? (input.pledgeIds ?? []).filter(isUuid) : null;
-  if (input.allocation === "choose" && (!chosen || chosen.length === 0)) {
-    return { ok: false, error: "Could not record the payment — tick the pledges to apply it to, or switch to earliest-first." };
-  }
-  const clip = (v: string | undefined, n: number) => (v ?? "").trim().slice(0, n) || null;
-  const ref = (input.reference ?? "").trim();
-  // payments has no stock or reference columns: stock details and other references lead the memo.
-  const memo =
-    method === "stock"
-      ? stockMemo(ref, input.memo ?? "")
-      : method !== "check" && ref
-        ? clip(`Ref ${ref}${input.memo?.trim() ? ` · ${input.memo.trim()}` : ""}`, 500)
-        : clip(input.memo, 500);
-  if (method === "stock" && !ref) {
-    return { ok: false, error: "Could not record the payment — for a stock gift, enter the shares and their value on the date received." };
-  }
+  // The same checks, in the same words, as the prepared payment (giving.draft_payment) uses: src/lib/payments/offline-payment.ts.
+  const checked = checkOfflinePayment(input, today);
+  if (!checked.ok) return { ok: false, error: checked.error };
+  const { amountCents, method, chosen, memo } = checked.value;
 
   const ins = await db
     .from("payments")
@@ -137,8 +119,8 @@ export async function recordOfflinePaymentAction(input: RecordPaymentInput): Pro
       provider: "offline",
       received_on: input.receivedOn,
       recorded_by: session.userId,
-      check_number: method === "check" ? clip(ref.replace(/^#/, ""), 40) : null,
-      envelope_number: clip(input.envelopeNumber, 40),
+      check_number: checked.value.checkNumber,
+      envelope_number: checked.value.envelopeNumber,
       memo,
     })
     .select("id, receipt_number")
@@ -184,7 +166,13 @@ export async function recordOfflinePaymentAction(input: RecordPaymentInput): Pro
 }
 
 /** Retry applying an already-recorded payment's remaining amount to pledges. */
-export async function applyPaymentAction(input: {
+export async function applyPaymentAction(input: ApplyPaymentInput): Promise<ReturnType<typeof applyPayment>> {
+  return withActivity("giving.apply_payment", () => applyPayment(input), { entityFrom: { kind: "payment", id: input.paymentId } });
+}
+
+type ApplyPaymentInput = Parameters<typeof applyPayment>[0];
+
+async function applyPayment(input: {
   paymentId: string;
   householdId: string;
   pledgeIds: string[] | null;

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gift matching directory</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+a{color:#2b2a8a}a:hover{color:#1e1d5c}
+button,textarea,input,select{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1320px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; align-items: center; gap: 6px;">
+<img src="/_blob/a892f24db66aedf02e346cf7a7d298a6" alt="" style="height: 40px; width: auto;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; letter-spacing: -0.01em; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700; color: #1e1d5c;">Riverbend Community Center</span>
+<span style="color: #1e1d5c; font-size: 15px;">Signed in as Dana R. (CatchTheMatch lead)</span>
+<span style="background: #ffffff; color: #1e1d5c; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1320px; margin: 0 auto; padding: 28px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="align-self: flex-start; background: #f1eefc; color: #2b2a8a; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;">SLICE 2 · BEING BUILT</span>
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">Giving › Gift matching</nav>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; color: #2b2a8a;">Gift matching</h1>
+<p style="margin: 0; max-width: 780px; font-size: 18px; line-height: 1.6; color: #33325f;">Employers that match their staff's gifts, and the people here who work for them. Asking for matches comes later.</p>
+</div>
+<div role="tablist" aria-label="Gift matching" style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+<button role="tab" aria-selected="{{t.selected}}" onClick="{{t.pick}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid {{t.bd}}; background: {{t.bg}}; color: {{t.fg}}; font-size: 15px; font-weight: 700;">{{t.label}}</button>
+</sc-for>
+</div>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div role="status" style="background: #e4f2ea; color: #1f7a4d; border-radius: 16px; padding: 10px 14px; font-size: 15px; font-weight: 700;">{{toast}}</div>
+</sc-if>
+
+<sc-if value="{{onDirectory}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
+<section aria-label="Programs" style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 10px;">
+<label for="mt-q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Find an employer</label>
+<input id="mt-q" value="{{q}}" onChange="{{onQ}}" placeholder="Find an employer by any of its names" style="min-height: 48px; border: 1px solid #e3d6ca; border-radius: 9999px; padding: 0 18px; font-size: 15.5px; color: #1e1d5c; background: #ffffff;">
+<sc-for list="{{programs}}" as="p" hint-placeholder-count="4">
+<button onClick="{{p.pick}}" aria-pressed="{{p.selected}}" style="text-align: left; background: #ffffff; border: 1px solid #eee3d9; box-shadow: {{p.ring}}; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; color: #1e1d5c;">
+<span style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 18px; font-weight: 600;">{{p.name}}</span>
+<span style="background: {{p.relBg}}; color: {{p.relFg}}; border-radius: 9999px; padding: 3px 10px; font-size: 12.5px; font-weight: 700;">{{p.relShort}}</span>
+</span>
+<span style="font-size: 15px;">{{p.match}}</span>
+<span style="font-size: 14px; color: #555a79;">{{p.portal}} · {{p.verified}}</span>
+</button>
+</sc-for>
+<sc-if value="{{noPrograms}}" hint-placeholder-val="{{false}}">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+<strong>No program found for "{{q}}"</strong>
+<span style="font-size: 15px; color: #555a79;">If a member told you about one, suggest it below. Weaver's team adds programs from each employer's own pages.</span>
+</div>
+</sc-if>
+</section>
+
+<aside aria-label="Program details" style="flex: 1 1 420px; min-width: 0; background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 22px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px;">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 26px; font-weight: 600; color: #2b2a8a;">{{d.name}}</h2>
+<span style="font-size: 14.5px; color: #555a79;">Also known as: {{d.aliases}}</span>
+<div style="background: {{d.relBg}}; color: {{d.relFg}}; border-radius: 16px; padding: 12px 14px; font-size: 15px; font-weight: 700;">Religious organizations: {{d.rel}}</div>
+<dl style="margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 8px 14px; font-size: 15px;">
+<dt style="color: #555a79;">Match</dt><dd style="margin: 0;">{{d.match}}</dd>
+<dt style="color: #555a79;">Smallest gift</dt><dd style="margin: 0;">{{d.min}}</dd>
+<dt style="color: #555a79;">Gifts that count</dt><dd style="margin: 0;">{{d.gifts}}</dd>
+<dt style="color: #555a79;">Where to ask</dt><dd style="margin: 0;">{{d.portal}}</dd>
+<dt style="color: #555a79;">Deadline</dt><dd style="margin: 0;">{{d.deadline}}</dd>
+<dt style="color: #555a79;">Volunteer grants</dt><dd style="margin: 0;">{{d.volunteer}}</dd>
+<dt style="color: #555a79;">Verified</dt><dd style="margin: 0;">{{d.verified}}</dd>
+<dt style="color: #555a79;">Source</dt><dd style="margin: 0;">{{d.source}}</dd>
+</dl>
+<div style="border-top: 1px solid #f6eee6; padding-top: 14px; display: flex; flex-direction: column; gap: 10px;">
+<sc-if value="{{notSuggesting}}" hint-placeholder-val="{{true}}">
+<button onClick="{{openSuggest}}" style="align-self: flex-start; min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 15px; font-weight: 700;">Suggest a change</button>
+</sc-if>
+<sc-if value="{{suggesting}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 10px; background: #fff6ee; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px;">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">What changed
+<input value="{{sg.what}}" onChange="{{onSgWhat}}" placeholder="For example: the yearly maximum is now $2,000" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 12px; font-size: 15px; color: #1e1d5c; background: #ffffff;"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">How you know
+<input value="{{sg.how}}" onChange="{{onSgHow}}" placeholder="For example: a member showed us the 2027 benefits page" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 12px; font-size: 15px; color: #1e1d5c; background: #ffffff;"></label>
+<span style="font-size: 13.5px; color: #555a79;">{{d.suggestNote}}</span>
+<sc-if value="{{hasSgErr}}" hint-placeholder-val="{{false}}">
+<div role="alert" style="background: #fbe3e1; color: #b3261e; border-radius: 12px; padding: 10px 12px; font-size: 14.5px;">{{sgErr}}</div>
+</sc-if>
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+<button onClick="{{sendSuggest}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 15px; font-weight: 700;">Send suggestion</button>
+<button onClick="{{cancelSuggest}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 15px; font-weight: 700;">Cancel</button>
+</div>
+</div>
+</sc-if>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{onSuggestions}}" hint-placeholder-val="{{false}}">
+<section aria-label="Suggestions" style="display: flex; flex-direction: column; gap: 12px; max-width: 900px;">
+<sc-for list="{{suggestions}}" as="s" hint-placeholder-count="2">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;">
+<strong style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 18px; font-weight: 600;">{{s.title}}</strong>
+<span style="background: {{s.stBg}}; color: {{s.stFg}}; border-radius: 9999px; padding: 3px 10px; font-size: 13px; font-weight: 700;">{{s.state}}</span>
+</div>
+<span style="font-size: 15px;">{{s.detail}}</span>
+<span style="font-size: 14px; color: #555a79;">{{s.meta}}</span>
+<sc-if value="{{s.canDecide}}" hint-placeholder-val="{{true}}">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">Reason (needed to reject)
+<input value="{{s.reason}}" onChange="{{s.onReason}}" placeholder="For example: the employer's page says otherwise" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 12px; font-size: 15px; color: #1e1d5c; background: #ffffff;"></label>
+<sc-if value="{{s.hasErr}}" hint-placeholder-val="{{false}}">
+<div role="alert" style="background: #fbe3e1; color: #b3261e; border-radius: 12px; padding: 10px 12px; font-size: 14.5px;">{{s.err}}</div>
+</sc-if>
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+<button onClick="{{s.approve}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 15px; font-weight: 700;">Approve and publish</button>
+<button onClick="{{s.reject}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #b3261e; font-size: 15px; font-weight: 700;">Reject</button>
+<button onClick="{{s.merge}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 15px; font-weight: 700;">{{s.mergeLabel}}</button>
+</div>
+<span style="font-size: 13.5px; color: #555a79;">Approving publishes it to every community at once, labelled "verified by a community".</span>
+</sc-if>
+</div>
+</sc-for>
+<sc-if value="{{noSuggestions}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; color: #555a79;">No suggestions waiting.</p>
+</sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{onPeople}}" hint-placeholder-val="{{false}}">
+<section aria-label="Employers on file" style="display: flex; flex-direction: column; gap: 12px; max-width: 900px;">
+<p style="margin: 0; font-size: 15.5px; color: #33325f;">Adults who agreed to have their employer on file. Weaver suggests a program by name; you decide. Only CatchTheMatch roles here see this list, and Weaver's staff never do.</p>
+<sc-for list="{{people}}" as="pe" hint-placeholder-count="3">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;">
+<strong style="font-size: 16.5px;">{{pe.name}}</strong>
+<span style="font-size: 14px; color: #555a79;">{{pe.card}}</span>
+</div>
+<span style="font-size: 15px;">Employer on file: {{pe.employer}} <span style="color: #555a79;">({{pe.source}})</span></span>
+<sc-if value="{{pe.linked}}" hint-placeholder-val="{{false}}">
+<span style="color: #1f7a4d; font-weight: 700; font-size: 15px;">Linked to {{pe.linkedTo}}</span>
+</sc-if>
+<sc-if value="{{pe.unlinked}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{pe.candidates}}" as="cd" hint-placeholder-count="2">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; background: #fff6ee; border-radius: 12px; padding: 8px 12px;">
+<span style="font-size: 15px;"><strong>{{cd.program}}</strong> <span style="color: #555a79;">· {{cd.kind}}</span></span>
+<button onClick="{{cd.confirm}}" style="min-height: 40px; padding: 0 14px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 14px; font-weight: 700;">This is it</button>
+</div>
+</sc-for>
+<sc-if value="{{pe.noCandidates}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 14.5px; color: #555a79;">No program with that name yet. Suggest one from the Directory tab.</span>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</section>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      tab: 'dir', q: '', sel: 'northwind', suggesting: false, sg: { what: '', how: '' }, sgErr: '', toast: '',
+      programs: [
+        { id: 'northwind', name: 'Northwind Analytics', aliases: 'Northwind Analytics Inc., NWA', match: '1:1, up to $1,000 a year per employee', min: '$25', gifts: 'Donations only, not tickets or memberships', portal: 'Benevity', deadline: 'By January 31 of the next year', volunteer: '$10 an hour after 20 hours', rel: 'only programs open to everyone, not worship', relShort: 'Religious: non-worship only', relKind: 'partial', verified: 'Verified by Weaver\'s team on Oct 2', weaver: true, source: 'The employer\'s benefits page' },
+        { id: 'bluepeak', name: 'Bluepeak Health', aliases: 'Bluepeak Health Systems', match: '2:1, up to $500 a year per employee', min: '$10', gifts: 'Donations only', portal: 'YourCause', deadline: 'Within 90 days of the gift', volunteer: 'None', rel: 'not eligible', relShort: 'Religious: not eligible', relKind: 'no', verified: 'Verified by Weaver\'s team on Sep 18', weaver: true, source: 'The employer\'s giving portal' },
+        { id: 'sunridge', name: 'Sunridge Foods', aliases: 'Sunridge Foods Co-op', match: '1:1, up to $5,000 a year per employee', min: '$50', gifts: 'Donations and pledge payments', portal: 'The employer\'s own form', deadline: 'Within the calendar year of the gift', volunteer: '$250 after 25 hours a year', rel: 'eligible', relShort: 'Religious: eligible', relKind: 'yes', verified: 'Verified by a community on Oct 9', weaver: false, source: 'A member\'s copy of the staff handbook' },
+        { id: 'harbor', name: 'Harbor & Pine Insurance', aliases: 'Harbor and Pine', match: '1 dollar for every 2, up to $2,500 a year', min: '$25', gifts: 'Donations only', portal: 'CyberGrants', deadline: 'By March 31 of the next year', volunteer: 'None', rel: 'not stated yet: ask the employer', relShort: 'Religious: not stated', relKind: 'unknown', verified: 'Verified by Weaver\'s team on Aug 30', weaver: true, source: 'The employer\'s benefits page' }
+      ],
+      suggestions: [
+        { id: 's1', title: 'New program: Kestrel Logistics', detail: '1:1 up to $1,500 a year, through Benevity. Religious organizations: not stated.', meta: 'Suggested by Dana R. on Oct 12 · from what a member told the office', state: 'Waiting for you', weaverEntry: false, reason: '', err: '' },
+        { id: 's2', title: 'Change to Bluepeak Health', detail: 'The yearly maximum is now $750.', meta: 'Suggested by Dana R. on Oct 10 · Weaver\'s team verified this program, so the change goes to them', state: 'Forwarded to Weaver', weaverEntry: true, reason: '', err: '' }
+      ],
+      people: [
+        { id: 'p1', name: 'Adaeze Okafor', card: 'Okafor household · H-1042', employer: 'Northwind Analytics Inc.', source: 'given by Adaeze in the app', linkedTo: '', candidates: [['Northwind Analytics', 'same name'], ['Northwind Logistics', 'part of the name']] },
+        { id: 'p2', name: 'Linh Nguyen', card: 'Nguyen household · H-1107', employer: 'Bluepeak Health Systems', source: 'paper form, Oct 4', linkedTo: '', candidates: [['Bluepeak Health', 'same name']] },
+        { id: 'p3', name: 'Kwame Mensah', card: 'Mensah household · H-1199', employer: 'Mensah & Daughters Carpentry', source: 'paper form, Oct 12', linkedTo: '', candidates: [] },
+        { id: 'p4', name: 'Lucía García', card: 'García Morales household · H-0988', employer: 'Sunridge Foods', source: 'given by Lucía in the app', linkedTo: 'Sunridge Foods', candidates: [] }
+      ]
+    };
+  }
+
+  relColors(k) {
+    if (k === 'yes') return ['#e4f2ea', '#1f7a4d'];
+    if (k === 'no') return ['#fbe3e1', '#b3261e'];
+    if (k === 'partial') return ['#fff1e6', '#a8400d'];
+    return ['#f6eee6', '#33325f'];
+  }
+
+  setSug(id, fn) {
+    this.setState({ suggestions: this.state.suggestions.map((s) => s.id === id ? fn(Object.assign({}, s)) : s) });
+  }
+
+  renderVals() {
+    const st = this.state;
+    const waiting = st.suggestions.filter((s) => s.state === 'Waiting for you').length;
+    const unlinked = st.people.filter((p) => !p.linkedTo).length;
+    const tabs = [['dir', 'Directory'], ['sug', 'Suggestions · ' + waiting], ['people', 'Employers on file · ' + unlinked]].map((t) => {
+      const on = st.tab === t[0];
+      return { label: t[1], selected: on ? 'true' : 'false', bg: on ? '#2b2a8a' : '#ffffff', fg: on ? '#ffffff' : '#1e1d5c', bd: on ? '#2b2a8a' : '#e3d6ca', pick: () => this.setState({ tab: t[0], toast: '' }) };
+    });
+    const q = st.q.trim().toLowerCase();
+    const shown = st.programs.filter((p) => !q || (p.name + ' ' + p.aliases).toLowerCase().indexOf(q) >= 0);
+    const programs = shown.map((p) => {
+      const rc = this.relColors(p.relKind);
+      return { name: p.name, match: p.match, portal: p.portal, verified: p.verified, relShort: p.relShort, relBg: rc[0], relFg: rc[1],
+        selected: st.sel === p.id ? 'true' : 'false', ring: st.sel === p.id ? '0 0 0 2px #2b2a8a' : 'none',
+        pick: () => this.setState({ sel: p.id, suggesting: false, sgErr: '' }) };
+    });
+    const dp = st.programs.find((p) => p.id === st.sel) || st.programs[0];
+    const drc = this.relColors(dp.relKind);
+    const d = Object.assign({}, dp, { relBg: drc[0], relFg: drc[1],
+      suggestNote: dp.weaver ? 'Weaver\'s team verified this program, so your suggestion goes to them first.' : 'A community verified this program. Your community\'s lead can approve the change.' });
+    const suggestions = st.suggestions.map((s) => {
+      const decided = s.state !== 'Waiting for you';
+      const colors = s.state === 'Published' ? ['#e4f2ea', '#1f7a4d'] : (s.state === 'Rejected' ? ['#fbe3e1', '#b3261e'] : (s.state === 'Forwarded to Weaver' ? ['#f1eefc', '#2b2a8a'] : ['#fff1e6', '#a8400d']));
+      return {
+        title: s.title, detail: s.detail, meta: s.meta + (s.decision ? ' · ' + s.decision : ''), state: s.state, stBg: colors[0], stFg: colors[1],
+        canDecide: !decided, reason: s.reason, err: s.err, hasErr: !!s.err,
+        mergeLabel: 'Merge into an existing program',
+        onReason: (e) => { const v = e.target.value; this.setSug(s.id, (x) => { x.reason = v; x.err = ''; return x; }); },
+        approve: () => {
+          this.setSug(s.id, (x) => { x.state = 'Published'; x.decision = 'approved by Dana R. today'; return x; });
+          if (s.id === 's1') {
+            this.setState({ programs: st.programs.concat([{ id: 'kestrel', name: 'Kestrel Logistics', aliases: 'Kestrel Logistics Group', match: '1:1, up to $1,500 a year per employee', min: '$25', gifts: 'Donations only', portal: 'Benevity', deadline: 'Not stated yet', volunteer: 'None', rel: 'not stated yet: ask the employer', relShort: 'Religious: not stated', relKind: 'unknown', verified: 'Verified by a community today', weaver: false, source: 'What a member told the office' }]) });
+          }
+          this.setState({ toast: 'Published. Every community with CatchTheMatch can now see it, labelled "verified by a community".' });
+        },
+        reject: () => {
+          if (!s.reason.trim()) { this.setSug(s.id, (x) => { x.err = 'Add a reason so the person who suggested it knows why.'; return x; }); return; }
+          this.setSug(s.id, (x) => { x.state = 'Rejected'; x.decision = 'rejected by Dana R.: ' + s.reason.trim(); return x; });
+        },
+        merge: () => { this.setSug(s.id, (x) => { x.state = 'Published'; x.decision = 'merged into an existing program by Dana R.'; return x; }); this.setState({ toast: 'Merged. The facts were added to the existing program.' }); }
+      };
+    });
+    const people = st.people.map((p) => ({
+      name: p.name, card: p.card, employer: p.employer, source: p.source,
+      linked: !!p.linkedTo, unlinked: !p.linkedTo, linkedTo: p.linkedTo,
+      noCandidates: p.candidates.length === 0,
+      candidates: p.candidates.map((c) => ({ program: c[0], kind: c[1],
+        confirm: () => this.setState({ people: st.people.map((y) => y.id === p.id ? Object.assign({}, y, { linkedTo: c[0] }) : y), toast: p.name + ' is linked to ' + c[0] + '. You confirmed it; nothing was matched automatically.' }) }))
+    }));
+    return {
+      tabs: tabs, toast: st.toast, hasToast: !!st.toast,
+      onDirectory: st.tab === 'dir', onSuggestions: st.tab === 'sug', onPeople: st.tab === 'people',
+      q: st.q, onQ: (e) => this.setState({ q: e.target.value }),
+      programs: programs, noPrograms: programs.length === 0, d: d,
+      suggesting: st.suggesting, notSuggesting: !st.suggesting, sg: st.sg, sgErr: st.sgErr, hasSgErr: !!st.sgErr,
+      openSuggest: () => this.setState({ suggesting: true, sg: { what: '', how: '' }, sgErr: '' }),
+      cancelSuggest: () => this.setState({ suggesting: false, sgErr: '' }),
+      onSgWhat: (e) => this.setState({ sg: Object.assign({}, st.sg, { what: e.target.value }) }),
+      onSgHow: (e) => this.setState({ sg: Object.assign({}, st.sg, { how: e.target.value }) }),
+      sendSuggest: () => {
+        if (!st.sg.what.trim() || !st.sg.how.trim()) { this.setState({ sgErr: 'Say what changed and how you know, so it can be checked.' }); return; }
+        const fwd = dp.weaver;
+        const s = { id: 's' + Date.now(), title: 'Change to ' + dp.name, detail: st.sg.what.trim(), meta: 'Suggested by Dana R. just now · ' + st.sg.how.trim(), state: fwd ? 'Forwarded to Weaver' : 'Waiting for you', weaverEntry: fwd, reason: '', err: '' };
+        this.setState({ suggestions: [s].concat(st.suggestions), suggesting: false, sgErr: '', toast: fwd ? 'Sent to Weaver\'s team, who verified this program. Weaver sees that Riverbend suggested it, not who.' : 'Suggestion saved. It is waiting in Suggestions.' });
+      },
+      suggestions: suggestions, noSuggestions: suggestions.length === 0,
+      people: people
+    };
+  }
+}
+</script>
+</body>
+</html>

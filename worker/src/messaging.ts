@@ -10,6 +10,7 @@ import { MissingConfigError, ProviderError, sendEmail, emailKey, sendExpoPush, s
 import { unsubscribeUrl } from "../../src/lib/messaging/signatures";
 import { smsLength } from "../../src/lib/messaging/sms";
 import { NotConfiguredError, PermanentError, messageOf } from "./errors";
+import { buildAttachments } from "./message-attachments";
 import type { Env } from "./config";
 import type { Http } from "./http";
 import { portalPublicUrl } from "./portal-url";
@@ -30,6 +31,17 @@ type ToSend = {
 };
 
 export const PORTAL_URL_MARK = "%PORTAL_URL%";
+
+/**
+ * B88: a demo community is made of invented people with invented addresses. Nothing is ever delivered to one, whatever the
+ * channel; the message is recorded as suppressed with this reason (the Messages screen shows it) and logged.
+ */
+export const DEMO_REFUSAL = "demo community: nothing is sent";
+
+async function isDemoCenter(ctx: JobContext, centerId: string): Promise<boolean> {
+  const rows = await ctx.db.query<{ demo: boolean | null }>("select app.is_demo_center($1::uuid) as demo", [centerId]);
+  return rows[0]?.demo === true;
+}
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v : null);
 
@@ -75,6 +87,11 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
     await record(ctx, m.id, "suppressed", null, null, m.skip, null);
     return { message_id: m.id, status: "suppressed", reason: m.skip };
   }
+  if (m.center_id !== null && (await isDemoCenter(ctx, m.center_id))) {
+    ctx.log.info(`messaging: ${DEMO_REFUSAL}`, { message: m.id, channel: m.channel, center: m.center_id });
+    await record(ctx, m.id, "suppressed", null, null, DEMO_REFUSAL, null);
+    return { message_id: m.id, status: "suppressed", reason: DEMO_REFUSAL };
+  }
   const req = reqFrom(ctx.http);
   // o-https: PORTAL_PUBLIC_URL, else the portal domain saved in Platform setup.
   const portalUrl = await portalPublicUrl(ctx);
@@ -101,10 +118,12 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
       if (m.route.unsubscribe === true && !unsub) ctx.log.warn("no unsubscribe link: PORTAL_PUBLIC_URL or MESSAGING_LINK_SECRET is not set", { message: m.id });
       const footer = (m.route.footer ?? null) as { postal_address: string | null; note: string | null } | null;
       const email = renderEmail({ subject: m.subject ?? "", body: m.body, brand, footer, sandbox: m.sandbox, unsubscribeUrl: unsub });
+      // Files that go with the email (a pledge's PDF): drawn here from the ids in the payload, after every check above has passed.
+      const attachments = await buildAttachments(ctx, { id: m.id, payload: m.payload ?? {} });
       const res = await sendEmail(req, env, p, emailKey(env, p, null), {
         from: fromHeader(sender, brand, { address: str(env.MESSAGING_FROM_ADDRESS) ?? "", name: str(env.MESSAGING_FROM_NAME) ?? "Weaver" }),
         to: m.to, subject: email.subject, html: email.html, text: email.text,
-        replyTo: sender?.reply_to ?? (sender ? null : m.brand?.public_email ?? null), unsubscribeUrl: unsub,
+        replyTo: sender?.reply_to ?? (sender ? null : m.brand?.public_email ?? null), unsubscribeUrl: unsub, attachments,
       });
       await record(ctx, m.id, "sent", p, res.id, null, null);
       return { message_id: m.id, status: "sent", provider: p, provider_ref: res.id };

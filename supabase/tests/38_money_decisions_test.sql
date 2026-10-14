@@ -1,7 +1,7 @@
 -- Wave F · stream f-money (0520–0522): the owner's second batch of 2026-09-25.
 --   #12 a used OAuth authorization code leaves the vault (the worker's delete path)
 --   QuickBooks: the accounting basis is the first choice after connecting; changing
---       it later needs the treasurer, a reason and a fresh 2FA check; posting stays
+--       it later needs the treasurer and a reason (no fresh 2FA check since 0787); posting stays
 --       cash-only (accrual: postings wait, readiness says so plainly)
 --   Year-end statements leave out opening-balance lines; history still has them
 -- Everything runs in its own community (F38).
@@ -129,7 +129,7 @@ rollback;
 begin;
 set local role authenticated;
 select pg_temp.as_user(:tara, false);
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-0000000000f8', 'income.general', '1', 'x')$$, 'accounting basis',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-0000000000f8', 'role', 'income.general', '1', 'x')$$, 'accounting basis',
   'basis: nothing is mapped before the basis is chosen');
 select pg_temp.assert_raises($$select app.set_qbo_settings('00000000-0000-4000-8000-0000000000f8', null, 'per_txn', current_date, 'x')$$, 'accounting basis',
   'basis: posting and go-live wait for the basis');
@@ -170,21 +170,19 @@ select pg_temp.assert(not exists (select 1 from jsonb_array_elements(app.qbo_wor
   'accrual: the hourly round does not queue the poster');
 commit;
 
--- Changing the basis later: the treasurer, a reason and a fresh 2FA check.
+-- Changing the basis later: the treasurer and a reason, with no fresh 2FA check (0787).
 begin;
 set local role authenticated;
 select pg_temp.as_user(:tara, false);
-select pg_temp.assert_state($$select app.set_qbo_basis('00000000-0000-4000-8000-0000000000f8', 'cash', 'Back to cash')$$, 'CCSTP',
-  'change: needs a fresh 2FA check');
-select pg_temp.assert_state($$select app.set_qbo_settings('00000000-0000-4000-8000-0000000000f8', 'cash', 'per_txn', current_date, 'Back to cash')$$, 'CCSTP',
-  'change: set_qbo_settings cannot change it without the 2FA check either');
 select pg_temp.assert((app.set_qbo_basis(:c, 'accrual', 'Same again'))->>'changed' = 'false', 'change: choosing the same basis changes nothing');
+select pg_temp.assert((app.set_qbo_settings(:c, 'cash', 'per_txn', current_date, 'Back to cash'))->>'basis' = 'cash',
+  'change: set_qbo_settings changes it too, without asking for a fresh 2FA check');
 rollback;
 begin;
 set local role authenticated;
-select pg_temp.as_user(:tara);
+select pg_temp.as_user(:tara, false);
 select pg_temp.assert((app.set_qbo_basis(:c, 'cash', 'We stay on cash basis until an accrual customer needs it'))->>'from' = 'accrual',
-  'change: with a fresh 2FA check the treasurer changes it');
+  'change: the treasurer changes it with a reason and no fresh 2FA check');
 commit;
 select pg_temp.assert((select settings->>'basis' = 'cash' and settings->>'basis_changed_by' = :tara and settings->>'basis_changed_from' = 'accrual'
                           and not (settings ? 'mapping_approved_at') and not (settings ? 'test_post_approved_at')

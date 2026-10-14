@@ -164,6 +164,141 @@ export type Database = {
         };
         Relationships: [];
       };
+      account_mapping_changes: {
+        Row: {
+          id: string;
+          center_id: string;
+          subject: string;
+          target_key: string;
+          target_label: string;
+          connection_id: string | null;
+          realm_id: string | null;
+          from_ref: string | null;
+          from_name: string | null;
+          to_ref: string | null;
+          to_name: string | null;
+          to_type: string | null;
+          mode: string;
+          status: string;
+          requested_by: string;
+          requested_at: string;
+          request_reason: string;
+          expires_at: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_reason: string | null;
+          cancelled_by: string | null;
+          applied_at: string | null;
+          queued_postings: number | null;
+          requeued_postings: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          subject: string;
+          target_key: string;
+          target_label: string;
+          connection_id?: string | null;
+          realm_id?: string | null;
+          from_ref?: string | null;
+          from_name?: string | null;
+          to_ref?: string | null;
+          to_name?: string | null;
+          to_type?: string | null;
+          mode?: string;
+          status?: string;
+          requested_by: string;
+          requested_at?: string;
+          request_reason: string;
+          expires_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          cancelled_by?: string | null;
+          applied_at?: string | null;
+          queued_postings?: number | null;
+          requeued_postings?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          subject?: string;
+          target_key?: string;
+          target_label?: string;
+          connection_id?: string | null;
+          realm_id?: string | null;
+          from_ref?: string | null;
+          from_name?: string | null;
+          to_ref?: string | null;
+          to_name?: string | null;
+          to_type?: string | null;
+          mode?: string;
+          status?: string;
+          requested_by?: string;
+          requested_at?: string;
+          request_reason?: string;
+          expires_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          cancelled_by?: string | null;
+          applied_at?: string | null;
+          queued_postings?: number | null;
+          requeued_postings?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      account_roles: {
+        Row: {
+          key: string;
+          kind: string;
+          label: string;
+          hint: string | null;
+          account_types: string[];
+          aliases: string[];
+          needs_item: boolean;
+          required_when: string;
+          module_key: string | null;
+          listed: string;
+          sort: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          kind: string;
+          label: string;
+          hint?: string | null;
+          account_types: string[];
+          aliases?: string[];
+          needs_item?: boolean;
+          required_when?: string;
+          module_key?: string | null;
+          listed?: string;
+          sort?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          kind?: string;
+          label?: string;
+          hint?: string | null;
+          account_types?: string[];
+          aliases?: string[];
+          needs_item?: boolean;
+          required_when?: string;
+          module_key?: string | null;
+          listed?: string;
+          sort?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       accounting_periods: {
         Row: {
           center_id: string;
@@ -296,6 +431,135 @@ export type Database = {
         };
         Relationships: [];
       };
+      activity_catalog: {
+        Row: {
+          key: string;
+          kind: string;
+          surface: string;
+          label: string;
+          entity_kind: string | null;
+          commandable_key: string | null;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          kind: string;
+          surface: string;
+          label: string;
+          entity_kind?: string | null;
+          commandable_key?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          kind?: string;
+          surface?: string;
+          label?: string;
+          entity_kind?: string | null;
+          commandable_key?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      activity_events: {
+        Row: {
+          id: number;
+          center_id: string;
+          occurred_at: string;
+          received_at: string;
+          session_id: string | null;
+          seq: number | null;
+          surface: string;
+          actor_hash: string;
+          role_keys: string[];
+          key: string;
+          kind: string;
+          entity_kind: string | null;
+          entity_id: string | null;
+          outcome: string;
+          error_code: string | null;
+          duration_ms: number | null;
+          via: string;
+          app_version: string | null;
+          platform: string | null;
+        };
+        Insert: {
+          id?: number;
+          center_id: string;
+          occurred_at: string;
+          received_at?: string;
+          session_id?: string | null;
+          seq?: number | null;
+          surface: string;
+          actor_hash: string;
+          role_keys?: string[];
+          key: string;
+          kind: string;
+          entity_kind?: string | null;
+          entity_id?: string | null;
+          outcome: string;
+          error_code?: string | null;
+          duration_ms?: number | null;
+          via: string;
+          app_version?: string | null;
+          platform?: string | null;
+        };
+        Update: {
+          id?: number;
+          center_id?: string;
+          occurred_at?: string;
+          received_at?: string;
+          session_id?: string | null;
+          seq?: number | null;
+          surface?: string;
+          actor_hash?: string;
+          role_keys?: string[];
+          key?: string;
+          kind?: string;
+          entity_kind?: string | null;
+          entity_id?: string | null;
+          outcome?: string;
+          error_code?: string | null;
+          duration_ms?: number | null;
+          via?: string;
+          app_version?: string | null;
+          platform?: string | null;
+        };
+        Relationships: [];
+      };
+      activity_optouts: {
+        Row: {
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      activity_salts: {
+        Row: {
+          center_id: string;
+          salt: string;
+          created_at: string;
+        };
+        Insert: {
+          center_id: string;
+          salt: string;
+          created_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          salt?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       alerts: {
         Row: {
           id: string;
@@ -365,6 +629,117 @@ export type Database = {
           kind?: string;
           message?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      assistant_messages: {
+        Row: {
+          id: string;
+          center_id: string;
+          actor_user_id: string;
+          thread_id: string;
+          role: string;
+          content: string;
+          command_key: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          actor_user_id: string;
+          thread_id: string;
+          role: string;
+          content: string;
+          command_key?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          actor_user_id?: string;
+          thread_id?: string;
+          role?: string;
+          content?: string;
+          command_key?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      assistant_proposals: {
+        Row: {
+          id: string;
+          center_id: string;
+          actor_user_id: string;
+          thread_id: string | null;
+          command_key: string;
+          level: number;
+          input: Json;
+          input_hash: string;
+          preview: Json;
+          status: string;
+          expires_at: string;
+          confirmed_at: string | null;
+          finished_at: string | null;
+          result_summary: string | null;
+          correlation_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          actor_user_id: string;
+          thread_id?: string | null;
+          command_key: string;
+          level?: number;
+          input: Json;
+          input_hash: string;
+          preview?: Json;
+          status?: string;
+          expires_at: string;
+          confirmed_at?: string | null;
+          finished_at?: string | null;
+          result_summary?: string | null;
+          correlation_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          actor_user_id?: string;
+          thread_id?: string | null;
+          command_key?: string;
+          level?: number;
+          input?: Json;
+          input_hash?: string;
+          preview?: Json;
+          status?: string;
+          expires_at?: string;
+          confirmed_at?: string | null;
+          finished_at?: string | null;
+          result_summary?: string | null;
+          correlation_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      assistant_usage: {
+        Row: {
+          center_id: string;
+          month: string;
+          used: number;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          month: string;
+          used?: number;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          month?: string;
+          used?: number;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -509,6 +884,78 @@ export type Database = {
         };
         Relationships: [];
       };
+      automation_candidates: {
+        Row: {
+          id: string;
+          center_id: string;
+          role_key: string;
+          pattern: string[];
+          pattern_hash: string;
+          support: number;
+          distinct_actors: number;
+          sessions: number;
+          median_seconds: number;
+          minutes_per_month: number;
+          error_rate: number;
+          regularity: number;
+          score: number;
+          suggested_kind: string;
+          status: string;
+          stale: boolean;
+          decided_by: string | null;
+          decided_at: string | null;
+          first_seen: string;
+          last_seen: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          role_key: string;
+          pattern: string[];
+          pattern_hash: string;
+          support: number;
+          distinct_actors?: number;
+          sessions?: number;
+          median_seconds?: number;
+          minutes_per_month?: number;
+          error_rate?: number;
+          regularity?: number;
+          score?: number;
+          suggested_kind?: string;
+          status?: string;
+          stale?: boolean;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          first_seen: string;
+          last_seen: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          role_key?: string;
+          pattern?: string[];
+          pattern_hash?: string;
+          support?: number;
+          distinct_actors?: number;
+          sessions?: number;
+          median_seconds?: number;
+          minutes_per_month?: number;
+          error_rate?: number;
+          regularity?: number;
+          score?: number;
+          suggested_kind?: string;
+          status?: string;
+          stale?: boolean;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          first_seen?: string;
+          last_seen?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       background_checks: {
         Row: {
           id: string;
@@ -563,6 +1010,7 @@ export type Database = {
           active: boolean;
           statement_format: string;
           custom: Json;
+          qbo_account_realm: string | null;
         };
         Insert: {
           id?: string;
@@ -575,6 +1023,7 @@ export type Database = {
           active?: boolean;
           statement_format?: string;
           custom?: Json;
+          qbo_account_realm?: string | null;
         };
         Update: {
           id?: string;
@@ -587,6 +1036,7 @@ export type Database = {
           active?: boolean;
           statement_format?: string;
           custom?: Json;
+          qbo_account_realm?: string | null;
         };
         Relationships: [];
       };
@@ -1019,6 +1469,192 @@ export type Database = {
         };
         Relationships: [];
       };
+      care_message_kinds: {
+        Row: {
+          source: string;
+          key: string;
+          counts: boolean;
+        };
+        Insert: {
+          source: string;
+          key: string;
+          counts: boolean;
+        };
+        Update: {
+          source?: string;
+          key?: string;
+          counts?: boolean;
+        };
+        Relationships: [];
+      };
+      care_notes: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          person_id: string | null;
+          body: string;
+          created_by: string | null;
+          created_at: string;
+          edited_at: string | null;
+          archived_at: string | null;
+          archived_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          person_id?: string | null;
+          body: string;
+          created_by?: string | null;
+          created_at?: string;
+          edited_at?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          person_id?: string | null;
+          body?: string;
+          created_by?: string | null;
+          created_at?: string;
+          edited_at?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+        };
+        Relationships: [];
+      };
+      care_owners: {
+        Row: {
+          household_id: string;
+          center_id: string;
+          owner_user_id: string | null;
+          backup_user_id: string | null;
+          assigned_by: string | null;
+          assigned_at: string;
+          created_at: string;
+        };
+        Insert: {
+          household_id: string;
+          center_id: string;
+          owner_user_id?: string | null;
+          backup_user_id?: string | null;
+          assigned_by?: string | null;
+          assigned_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          household_id?: string;
+          center_id?: string;
+          owner_user_id?: string | null;
+          backup_user_id?: string | null;
+          assigned_by?: string | null;
+          assigned_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      care_profiles: {
+        Row: {
+          household_id: string;
+          center_id: string;
+          thanks: string | null;
+          recognition: string | null;
+          channel: string | null;
+          language: string | null;
+          contact_person_id: string | null;
+          do_not_ask: boolean;
+          rest_until: string | null;
+          updated_by: string | null;
+          updated_at: string;
+          created_at: string;
+        };
+        Insert: {
+          household_id: string;
+          center_id: string;
+          thanks?: string | null;
+          recognition?: string | null;
+          channel?: string | null;
+          language?: string | null;
+          contact_person_id?: string | null;
+          do_not_ask?: boolean;
+          rest_until?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          household_id?: string;
+          center_id?: string;
+          thanks?: string | null;
+          recognition?: string | null;
+          channel?: string | null;
+          language?: string | null;
+          contact_person_id?: string | null;
+          do_not_ask?: boolean;
+          rest_until?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      care_touches: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          person_id: string | null;
+          kind: string;
+          channel: string;
+          outcome: string;
+          is_ask: boolean;
+          note: string | null;
+          touched_at: string;
+          by_user_id: string | null;
+          created_at: string;
+          voided_at: string | null;
+          voided_by: string | null;
+          void_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          person_id?: string | null;
+          kind: string;
+          channel: string;
+          outcome?: string;
+          is_ask?: boolean;
+          note?: string | null;
+          touched_at?: string;
+          by_user_id?: string | null;
+          created_at?: string;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          person_id?: string | null;
+          kind?: string;
+          channel?: string;
+          outcome?: string;
+          is_ask?: boolean;
+          note?: string | null;
+          touched_at?: string;
+          by_user_id?: string | null;
+          created_at?: string;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
+        };
+        Relationships: [];
+      };
       category_dietary_options: {
         Row: {
           category_key: string;
@@ -1074,6 +1710,7 @@ export type Database = {
           aliases: string[];
           sort: number;
           active: boolean;
+          template: Json | null;
         };
         Insert: {
           category_key: string;
@@ -1084,6 +1721,7 @@ export type Database = {
           aliases?: string[];
           sort?: number;
           active?: boolean;
+          template?: Json | null;
         };
         Update: {
           category_key?: string;
@@ -1094,6 +1732,7 @@ export type Database = {
           aliases?: string[];
           sort?: number;
           active?: boolean;
+          template?: Json | null;
         };
         Relationships: [];
       };
@@ -1262,6 +1901,36 @@ export type Database = {
           changed_by?: string | null;
           changed_at?: string;
           reason?: string | null;
+        };
+        Relationships: [];
+      };
+      center_module_grants: {
+        Row: {
+          center_id: string;
+          module_key: string;
+          granted: boolean;
+          reason: string;
+          granted_by: string | null;
+          granted_at: string;
+          is_trial: boolean;
+        };
+        Insert: {
+          center_id: string;
+          module_key: string;
+          granted: boolean;
+          reason: string;
+          granted_by?: string | null;
+          granted_at?: string;
+          is_trial?: boolean;
+        };
+        Update: {
+          center_id?: string;
+          module_key?: string;
+          granted?: boolean;
+          reason?: string;
+          granted_by?: string | null;
+          granted_at?: string;
+          is_trial?: boolean;
         };
         Relationships: [];
       };
@@ -1473,6 +2142,30 @@ export type Database = {
           notes?: string | null;
           completed_by?: string | null;
           completed_at?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      center_site_inputs: {
+        Row: {
+          center_id: string;
+          own_url: string | null;
+          reference_urls: string[];
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          own_url?: string | null;
+          reference_urls?: string[];
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          own_url?: string | null;
+          reference_urls?: string[];
           updated_at?: string;
           updated_by?: string | null;
         };
@@ -1709,6 +2402,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      comms_templates: {
+        Row: {
+          id: string;
+          center_id: string;
+          name: string;
+          channels: Database["app"]["Enums"]["channel"][];
+          title: string;
+          body_md: string;
+          translations: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          name: string;
+          channels: Database["app"]["Enums"]["channel"][];
+          title?: string;
+          body_md?: string;
+          translations?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          name?: string;
+          channels?: Database["app"]["Enums"]["channel"][];
+          title?: string;
+          body_md?: string;
+          translations?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       concerns: {
         Row: {
           id: string;
@@ -1898,6 +2633,8 @@ export type Database = {
           payment_id: string | null;
           notes: string | null;
           created_at: string;
+          bank_transaction_id: string | null;
+          bank_line_marked: boolean;
         };
         Insert: {
           id?: string;
@@ -1913,6 +2650,8 @@ export type Database = {
           payment_id?: string | null;
           notes?: string | null;
           created_at?: string;
+          bank_transaction_id?: string | null;
+          bank_line_marked?: boolean;
         };
         Update: {
           id?: string;
@@ -1928,6 +2667,8 @@ export type Database = {
           payment_id?: string | null;
           notes?: string | null;
           created_at?: string;
+          bank_transaction_id?: string | null;
+          bank_line_marked?: boolean;
         };
         Relationships: [];
       };
@@ -2096,6 +2837,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      demo_auth_users: {
+        Row: {
+          email: string;
+          user_id: string;
+          vault_secret_id: string;
+          created_at: string;
+          rotated_at: string | null;
+        };
+        Insert: {
+          email: string;
+          user_id: string;
+          vault_secret_id: string;
+          created_at?: string;
+          rotated_at?: string | null;
+        };
+        Update: {
+          email?: string;
+          user_id?: string;
+          vault_secret_id?: string;
+          created_at?: string;
+          rotated_at?: string | null;
+        };
+        Relationships: [];
+      };
       demo_packs: {
         Row: {
           key: string;
@@ -2105,6 +2870,7 @@ export type Database = {
           contents: Json;
           active: boolean;
           created_at: string;
+          content: Json | null;
         };
         Insert: {
           key: string;
@@ -2114,6 +2880,7 @@ export type Database = {
           contents?: Json;
           active?: boolean;
           created_at?: string;
+          content?: Json | null;
         };
         Update: {
           key?: string;
@@ -2123,6 +2890,121 @@ export type Database = {
           contents?: Json;
           active?: boolean;
           created_at?: string;
+          content?: Json | null;
+        };
+        Relationships: [];
+      };
+      demo_personas: {
+        Row: {
+          id: string;
+          center_id: string;
+          role_key: string;
+          display_name: string;
+          headline: string;
+          story: string;
+          email: string;
+          person_id: string;
+          household_id: string | null;
+          scope_kind: Database["app"]["Enums"]["scope_kind"];
+          scope_id: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          center_id: string;
+          role_key: string;
+          display_name: string;
+          headline: string;
+          story: string;
+          email: string;
+          person_id: string;
+          household_id?: string | null;
+          scope_kind?: Database["app"]["Enums"]["scope_kind"];
+          scope_id?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          role_key?: string;
+          display_name?: string;
+          headline?: string;
+          story?: string;
+          email?: string;
+          person_id?: string;
+          household_id?: string | null;
+          scope_kind?: Database["app"]["Enums"]["scope_kind"];
+          scope_id?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      demo_qbo_links: {
+        Row: {
+          id: string;
+          center_id: string;
+          subject: string;
+          row_id: string;
+          qbo_id: string;
+          saved_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          subject: string;
+          row_id: string;
+          qbo_id: string;
+          saved_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          subject?: string;
+          row_id?: string;
+          qbo_id?: string;
+          saved_at?: string;
+        };
+        Relationships: [];
+      };
+      demo_sessions: {
+        Row: {
+          id: string;
+          persona_email: string;
+          user_id: string;
+          role_key: string;
+          ip_hash: string;
+          started_at: string;
+          expires_at: string;
+          auth_session_id: string | null;
+          ended_at: string | null;
+          ended_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          persona_email: string;
+          user_id: string;
+          role_key: string;
+          ip_hash: string;
+          started_at?: string;
+          expires_at: string;
+          auth_session_id?: string | null;
+          ended_at?: string | null;
+          ended_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          persona_email?: string;
+          user_id?: string;
+          role_key?: string;
+          ip_hash?: string;
+          started_at?: string;
+          expires_at?: string;
+          auth_session_id?: string | null;
+          ended_at?: string | null;
+          ended_reason?: string | null;
         };
         Relationships: [];
       };
@@ -2204,6 +3086,144 @@ export type Database = {
         };
         Relationships: [];
       };
+      email_automation_sends: {
+        Row: {
+          id: string;
+          center_id: string;
+          automation_id: string;
+          ref_id: string;
+          period: string;
+          household_id: string | null;
+          person_id: string | null;
+          to_address: string;
+          outcome: string;
+          reason: string | null;
+          message_id: string | null;
+          created_at: string;
+          reason_code: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          automation_id: string;
+          ref_id: string;
+          period?: string;
+          household_id?: string | null;
+          person_id?: string | null;
+          to_address?: string;
+          outcome: string;
+          reason?: string | null;
+          message_id?: string | null;
+          created_at?: string;
+          reason_code?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          automation_id?: string;
+          ref_id?: string;
+          period?: string;
+          household_id?: string | null;
+          person_id?: string | null;
+          to_address?: string;
+          outcome?: string;
+          reason?: string | null;
+          message_id?: string | null;
+          created_at?: string;
+          reason_code?: string | null;
+        };
+        Relationships: [];
+      };
+      email_automations: {
+        Row: {
+          id: string;
+          center_id: string;
+          kind: string;
+          trigger_key: string | null;
+          template_key: string;
+          enabled: boolean;
+          options: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_by: string | null;
+          updated_at: string;
+          name: string | null;
+          audience: string | null;
+          audience_params: Json;
+          frequency: string | null;
+          day_of_week: number | null;
+          day_of_month: number | null;
+          month_of_year: number | null;
+          send_hour: number | null;
+          status: string;
+          approved_by: string | null;
+          approved_at: string | null;
+          next_run_at: string | null;
+          run_period: string | null;
+          last_run_at: string | null;
+          last_run: Json | null;
+          run_claimed_until: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          kind?: string;
+          trigger_key?: string | null;
+          template_key: string;
+          enabled?: boolean;
+          options?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+          name?: string | null;
+          audience?: string | null;
+          audience_params?: Json;
+          frequency?: string | null;
+          day_of_week?: number | null;
+          day_of_month?: number | null;
+          month_of_year?: number | null;
+          send_hour?: number | null;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          next_run_at?: string | null;
+          run_period?: string | null;
+          last_run_at?: string | null;
+          last_run?: Json | null;
+          run_claimed_until?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          kind?: string;
+          trigger_key?: string | null;
+          template_key?: string;
+          enabled?: boolean;
+          options?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+          name?: string | null;
+          audience?: string | null;
+          audience_params?: Json;
+          frequency?: string | null;
+          day_of_week?: number | null;
+          day_of_month?: number | null;
+          month_of_year?: number | null;
+          send_hour?: number | null;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          next_run_at?: string | null;
+          run_period?: string | null;
+          last_run_at?: string | null;
+          last_run?: Json | null;
+          run_claimed_until?: string | null;
+        };
+        Relationships: [];
+      };
       email_domains: {
         Row: {
           id: string;
@@ -2282,6 +3302,24 @@ export type Database = {
           verified?: boolean;
           updated_by?: string | null;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      email_upload_marks: {
+        Row: {
+          payment_id: string;
+          center_id: string;
+          created_at: string;
+        };
+        Insert: {
+          payment_id: string;
+          center_id: string;
+          created_at?: string;
+        };
+        Update: {
+          payment_id?: string;
+          center_id?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -2430,6 +3468,8 @@ export type Database = {
           flyer_generated_at: string | null;
           flyer_job_id: number | null;
           flyer_design: Json | null;
+          publish_at: string | null;
+          publish_failure: string | null;
         };
         Insert: {
           id?: string;
@@ -2473,6 +3513,8 @@ export type Database = {
           flyer_generated_at?: string | null;
           flyer_job_id?: number | null;
           flyer_design?: Json | null;
+          publish_at?: string | null;
+          publish_failure?: string | null;
         };
         Update: {
           id?: string;
@@ -2516,6 +3558,8 @@ export type Database = {
           flyer_generated_at?: string | null;
           flyer_job_id?: number | null;
           flyer_design?: Json | null;
+          publish_at?: string | null;
+          publish_failure?: string | null;
         };
         Relationships: [];
       };
@@ -2628,6 +3672,7 @@ export type Database = {
           qbo_class_id: string | null;
           active: boolean;
           custom: Json;
+          qbo_class_realm: string | null;
         };
         Insert: {
           id?: string;
@@ -2638,6 +3683,7 @@ export type Database = {
           qbo_class_id?: string | null;
           active?: boolean;
           custom?: Json;
+          qbo_class_realm?: string | null;
         };
         Update: {
           id?: string;
@@ -2648,6 +3694,58 @@ export type Database = {
           qbo_class_id?: string | null;
           active?: boolean;
           custom?: Json;
+          qbo_class_realm?: string | null;
+        };
+        Relationships: [];
+      };
+      giving_uploads: {
+        Row: {
+          id: string;
+          center_id: string;
+          kind: string;
+          idempotency_key: string;
+          file_name: string | null;
+          file_sha256: string | null;
+          reason: string;
+          row_count: number;
+          total_cents: number;
+          created_by: string | null;
+          created_at: string;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          cancel_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          kind: string;
+          idempotency_key: string;
+          file_name?: string | null;
+          file_sha256?: string | null;
+          reason: string;
+          row_count: number;
+          total_cents: number;
+          created_by?: string | null;
+          created_at?: string;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancel_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          kind?: string;
+          idempotency_key?: string;
+          file_name?: string | null;
+          file_sha256?: string | null;
+          reason?: string;
+          row_count?: number;
+          total_cents?: number;
+          created_by?: string | null;
+          created_at?: string;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancel_reason?: string | null;
         };
         Relationships: [];
       };
@@ -3401,6 +4499,87 @@ export type Database = {
         };
         Relationships: [];
       };
+      import_clusters: {
+        Row: {
+          run_id: string;
+          center_id: string;
+          kind: string;
+          id: string;
+          record_ids: string[];
+          existing: string[];
+          batch: string | null;
+        };
+        Insert: {
+          run_id: string;
+          center_id: string;
+          kind: string;
+          id: string;
+          record_ids: string[];
+          existing?: string[];
+          batch?: string | null;
+        };
+        Update: {
+          run_id?: string;
+          center_id?: string;
+          kind?: string;
+          id?: string;
+          record_ids?: string[];
+          existing?: string[];
+          batch?: string | null;
+        };
+        Relationships: [];
+      };
+      import_decision_rules: {
+        Row: {
+          id: string;
+          center_id: string;
+          signature: string;
+          scope: string;
+          conditions: Json;
+          answer: string;
+          decided_by: string | null;
+          decided_at: string;
+          from_group: string | null;
+          from_run: string | null;
+          uses: number;
+          last_used_at: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
+        };
+        Insert: {
+          id: string;
+          center_id: string;
+          signature: string;
+          scope: string;
+          conditions: Json;
+          answer: string;
+          decided_by?: string | null;
+          decided_at?: string;
+          from_group?: string | null;
+          from_run?: string | null;
+          uses?: number;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          signature?: string;
+          scope?: string;
+          conditions?: Json;
+          answer?: string;
+          decided_by?: string | null;
+          decided_at?: string;
+          from_group?: string | null;
+          from_run?: string | null;
+          uses?: number;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+        };
+        Relationships: [];
+      };
       import_entities: {
         Row: {
           key: string;
@@ -3443,6 +4622,159 @@ export type Database = {
           natural_key?: string[];
           money_columns?: string[];
           has_center?: boolean;
+        };
+        Relationships: [];
+      };
+      import_exception_items: {
+        Row: {
+          id: string;
+          center_id: string;
+          run_id: string;
+          key: string;
+          signature: string;
+          kind: string;
+          tier: string;
+          subject: string;
+          record_ids: string[];
+          fingerprints: string[];
+          evidence_kinds: string[];
+          conflict_kinds: string[];
+          shared: Json;
+          money_cents: number;
+          members: number;
+          contacts: number;
+          batch: string | null;
+          answer: string | null;
+          answer_source: string | null;
+          answered_by: string | null;
+          answered_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          run_id: string;
+          key: string;
+          signature: string;
+          kind: string;
+          tier: string;
+          subject: string;
+          record_ids: string[];
+          fingerprints: string[];
+          evidence_kinds?: string[];
+          conflict_kinds?: string[];
+          shared?: Json;
+          money_cents?: number;
+          members?: number;
+          contacts?: number;
+          batch?: string | null;
+          answer?: string | null;
+          answer_source?: string | null;
+          answered_by?: string | null;
+          answered_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          run_id?: string;
+          key?: string;
+          signature?: string;
+          kind?: string;
+          tier?: string;
+          subject?: string;
+          record_ids?: string[];
+          fingerprints?: string[];
+          evidence_kinds?: string[];
+          conflict_kinds?: string[];
+          shared?: Json;
+          money_cents?: number;
+          members?: number;
+          contacts?: number;
+          batch?: string | null;
+          answer?: string | null;
+          answer_source?: string | null;
+          answered_by?: string | null;
+          answered_at?: string | null;
+        };
+        Relationships: [];
+      };
+      import_exceptions: {
+        Row: {
+          id: string;
+          center_id: string;
+          run_id: string;
+          signature: string;
+          tier: string;
+          batch: string | null;
+          question: Json;
+          recommended: string;
+          subject_count: number;
+          item_count: number;
+          money_cents: number;
+          members: number;
+          contacts: number;
+          rank_no: number;
+          route_suggested: string | null;
+          status: string;
+          answer: string | null;
+          apply_to_rest: boolean;
+          answered_by: string | null;
+          answered_at: string | null;
+          routed_to: string | null;
+          status_by: string | null;
+          status_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          run_id: string;
+          signature: string;
+          tier: string;
+          batch?: string | null;
+          question: Json;
+          recommended: string;
+          subject_count?: number;
+          item_count?: number;
+          money_cents?: number;
+          members?: number;
+          contacts?: number;
+          rank_no: number;
+          route_suggested?: string | null;
+          status?: string;
+          answer?: string | null;
+          apply_to_rest?: boolean;
+          answered_by?: string | null;
+          answered_at?: string | null;
+          routed_to?: string | null;
+          status_by?: string | null;
+          status_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          run_id?: string;
+          signature?: string;
+          tier?: string;
+          batch?: string | null;
+          question?: Json;
+          recommended?: string;
+          subject_count?: number;
+          item_count?: number;
+          money_cents?: number;
+          members?: number;
+          contacts?: number;
+          rank_no?: number;
+          route_suggested?: string | null;
+          status?: string;
+          answer?: string | null;
+          apply_to_rest?: boolean;
+          answered_by?: string | null;
+          answered_at?: string | null;
+          routed_to?: string | null;
+          status_by?: string | null;
+          status_at?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -3506,6 +4838,78 @@ export type Database = {
         };
         Relationships: [];
       };
+      import_record_links: {
+        Row: {
+          run_id: string;
+          center_id: string;
+          a: string;
+          b: string;
+          relation: string;
+          strength: string;
+          score: number;
+          independent: number;
+          evidence: Json;
+          conflicts: Json;
+          name_level: string | null;
+          name_only: boolean;
+          via_keys: string[];
+          money: Json | null;
+          tier: string;
+          tier_reasons: string[];
+          hold: string | null;
+          signature: string | null;
+          affected: string[];
+          implied: boolean;
+          batch: string | null;
+        };
+        Insert: {
+          run_id: string;
+          center_id: string;
+          a: string;
+          b: string;
+          relation: string;
+          strength: string;
+          score: number;
+          independent: number;
+          evidence?: Json;
+          conflicts?: Json;
+          name_level?: string | null;
+          name_only?: boolean;
+          via_keys?: string[];
+          money?: Json | null;
+          tier: string;
+          tier_reasons?: string[];
+          hold?: string | null;
+          signature?: string | null;
+          affected?: string[];
+          implied?: boolean;
+          batch?: string | null;
+        };
+        Update: {
+          run_id?: string;
+          center_id?: string;
+          a?: string;
+          b?: string;
+          relation?: string;
+          strength?: string;
+          score?: number;
+          independent?: number;
+          evidence?: Json;
+          conflicts?: Json;
+          name_level?: string | null;
+          name_only?: boolean;
+          via_keys?: string[];
+          money?: Json | null;
+          tier?: string;
+          tier_reasons?: string[];
+          hold?: string | null;
+          signature?: string | null;
+          affected?: string[];
+          implied?: boolean;
+          batch?: string | null;
+        };
+        Relationships: [];
+      };
       import_rows: {
         Row: {
           id: number;
@@ -3560,6 +4964,51 @@ export type Database = {
           status?: string;
           target_id?: string | null;
           message?: string | null;
+        };
+        Relationships: [];
+      };
+      import_run_metrics: {
+        Row: {
+          run_id: string;
+          center_id: string;
+          status: string;
+          batch: string | null;
+          engine_version: string | null;
+          config: Json | null;
+          metrics: Json | null;
+          record_count: number;
+          started_by: string | null;
+          started_at: string | null;
+          stored_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          run_id: string;
+          center_id: string;
+          status?: string;
+          batch?: string | null;
+          engine_version?: string | null;
+          config?: Json | null;
+          metrics?: Json | null;
+          record_count?: number;
+          started_by?: string | null;
+          started_at?: string | null;
+          stored_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          run_id?: string;
+          center_id?: string;
+          status?: string;
+          batch?: string | null;
+          engine_version?: string | null;
+          config?: Json | null;
+          metrics?: Json | null;
+          record_count?: number;
+          started_by?: string | null;
+          started_at?: string | null;
+          stored_at?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -3671,6 +5120,117 @@ export type Database = {
           ai_job_id?: number | null;
           created_at?: string;
           raw_purged_at?: string | null;
+        };
+        Relationships: [];
+      };
+      import_signatures: {
+        Row: {
+          signature: string;
+          tier: string;
+          answers: string[];
+          rememberable: boolean;
+          default_scope: string;
+          route_to: string | null;
+          money: boolean;
+          same_for_rest: boolean;
+          scopes: string[];
+          item_kind: string;
+        };
+        Insert: {
+          signature: string;
+          tier: string;
+          answers: string[];
+          rememberable: boolean;
+          default_scope: string;
+          route_to?: string | null;
+          money: boolean;
+          same_for_rest: boolean;
+          scopes?: string[];
+          item_kind: string;
+        };
+        Update: {
+          signature?: string;
+          tier?: string;
+          answers?: string[];
+          rememberable?: boolean;
+          default_scope?: string;
+          route_to?: string | null;
+          money?: boolean;
+          same_for_rest?: boolean;
+          scopes?: string[];
+          item_kind?: string;
+        };
+        Relationships: [];
+      };
+      import_staged_records: {
+        Row: {
+          run_id: string;
+          center_id: string;
+          id: string;
+          source: string;
+          source_kind: string;
+          row_no: number;
+          order_no: number;
+          kind: string;
+          read_confidence: number | null;
+          raw: Json | null;
+          normalized: Json | null;
+          fingerprint: string | null;
+          minor: boolean;
+          minor_reasons: string[];
+          type_uncertain: boolean;
+          problems: string[];
+          status: string | null;
+          how: string | null;
+          tier: string | null;
+          cluster_id: string | null;
+          duplicate_of: string | null;
+        };
+        Insert: {
+          run_id: string;
+          center_id: string;
+          id: string;
+          source: string;
+          source_kind: string;
+          row_no: number;
+          order_no: number;
+          kind: string;
+          read_confidence?: number | null;
+          raw?: Json | null;
+          normalized?: Json | null;
+          fingerprint?: string | null;
+          minor?: boolean;
+          minor_reasons?: string[];
+          type_uncertain?: boolean;
+          problems?: string[];
+          status?: string | null;
+          how?: string | null;
+          tier?: string | null;
+          cluster_id?: string | null;
+          duplicate_of?: string | null;
+        };
+        Update: {
+          run_id?: string;
+          center_id?: string;
+          id?: string;
+          source?: string;
+          source_kind?: string;
+          row_no?: number;
+          order_no?: number;
+          kind?: string;
+          read_confidence?: number | null;
+          raw?: Json | null;
+          normalized?: Json | null;
+          fingerprint?: string | null;
+          minor?: boolean;
+          minor_reasons?: string[];
+          type_uncertain?: boolean;
+          problems?: string[];
+          status?: string | null;
+          how?: string | null;
+          tier?: string | null;
+          cluster_id?: string | null;
+          duplicate_of?: string | null;
         };
         Relationships: [];
       };
@@ -4041,6 +5601,9 @@ export type Database = {
           created_at: string;
           claimed_at: string | null;
           request_id: string | null;
+          qbo_doc: Json | null;
+          qbo_realm: string | null;
+          needs_mapping: string | null;
         };
         Insert: {
           id?: string;
@@ -4063,6 +5626,9 @@ export type Database = {
           created_at?: string;
           claimed_at?: string | null;
           request_id?: string | null;
+          qbo_doc?: Json | null;
+          qbo_realm?: string | null;
+          needs_mapping?: string | null;
         };
         Update: {
           id?: string;
@@ -4085,6 +5651,9 @@ export type Database = {
           created_at?: string;
           claimed_at?: string | null;
           request_id?: string | null;
+          qbo_doc?: Json | null;
+          qbo_realm?: string | null;
+          needs_mapping?: string | null;
         };
         Relationships: [];
       };
@@ -4169,6 +5738,450 @@ export type Database = {
           assigned?: number;
           served?: number;
           status?: string;
+        };
+        Relationships: [];
+      };
+      marketplace_interest: {
+        Row: {
+          center_id: string;
+          product_key: string;
+          requested_by: string | null;
+          created_at: string;
+          told_at: string | null;
+          told_status: string | null;
+        };
+        Insert: {
+          center_id: string;
+          product_key: string;
+          requested_by?: string | null;
+          created_at?: string;
+          told_at?: string | null;
+          told_status?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          product_key?: string;
+          requested_by?: string | null;
+          created_at?: string;
+          told_at?: string | null;
+          told_status?: string | null;
+        };
+        Relationships: [];
+      };
+      marketplace_products: {
+        Row: {
+          key: string;
+          module_key: string | null;
+          name: string;
+          mark: string;
+          line: string;
+          gets: string[];
+          needs: Json;
+          members_line: string | null;
+          data_line: string | null;
+          price_text: string;
+          price_short: string | null;
+          included: boolean;
+          status: string;
+          target_quarter: string | null;
+          on_note: string | null;
+          off_note: string | null;
+          sort: number;
+        };
+        Insert: {
+          key: string;
+          module_key?: string | null;
+          name: string;
+          mark: string;
+          line: string;
+          gets?: string[];
+          needs?: Json;
+          members_line?: string | null;
+          data_line?: string | null;
+          price_text?: string;
+          price_short?: string | null;
+          included?: boolean;
+          status: string;
+          target_quarter?: string | null;
+          on_note?: string | null;
+          off_note?: string | null;
+          sort?: number;
+        };
+        Update: {
+          key?: string;
+          module_key?: string | null;
+          name?: string;
+          mark?: string;
+          line?: string;
+          gets?: string[];
+          needs?: Json;
+          members_line?: string | null;
+          data_line?: string | null;
+          price_text?: string;
+          price_short?: string | null;
+          included?: boolean;
+          status?: string;
+          target_quarter?: string | null;
+          on_note?: string | null;
+          off_note?: string | null;
+          sort?: number;
+        };
+        Relationships: [];
+      };
+      marketplace_requests: {
+        Row: {
+          id: string;
+          center_id: string;
+          product_key: string;
+          note: string;
+          status: string;
+          requested_by: string | null;
+          requested_at: string;
+          closed_by: string | null;
+          closed_at: string | null;
+          close_note: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          product_key: string;
+          note: string;
+          status?: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          closed_by?: string | null;
+          closed_at?: string | null;
+          close_note?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          product_key?: string;
+          note?: string;
+          status?: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          closed_by?: string | null;
+          closed_at?: string | null;
+          close_note?: string | null;
+        };
+        Relationships: [];
+      };
+      match_program_names: {
+        Row: {
+          id: string;
+          program_id: string;
+          name: string;
+          name_key: string;
+          is_primary: boolean;
+          retired_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          program_id: string;
+          name: string;
+          name_key: string;
+          is_primary?: boolean;
+          retired_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          program_id?: string;
+          name?: string;
+          name_key?: string;
+          is_primary?: boolean;
+          retired_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      match_program_submissions: {
+        Row: {
+          id: string;
+          center_id: string;
+          program_id: string | null;
+          proposal: Json;
+          note: string | null;
+          channel: string;
+          submitted_by: string;
+          submitted_at: string;
+          status: string;
+          reviewed: Json | null;
+          forwarded_by: string | null;
+          forwarded_at: string | null;
+          forward_note: string | null;
+          forwarded_because: string | null;
+          decided_kind: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_reason: string | null;
+          result_program_id: string | null;
+          duplicate_of: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          program_id?: string | null;
+          proposal: Json;
+          note?: string | null;
+          channel?: string;
+          submitted_by: string;
+          submitted_at?: string;
+          status?: string;
+          reviewed?: Json | null;
+          forwarded_by?: string | null;
+          forwarded_at?: string | null;
+          forward_note?: string | null;
+          forwarded_because?: string | null;
+          decided_kind?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          result_program_id?: string | null;
+          duplicate_of?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          program_id?: string | null;
+          proposal?: Json;
+          note?: string | null;
+          channel?: string;
+          submitted_by?: string;
+          submitted_at?: string;
+          status?: string;
+          reviewed?: Json | null;
+          forwarded_by?: string | null;
+          forwarded_at?: string | null;
+          forward_note?: string | null;
+          forwarded_because?: string | null;
+          decided_kind?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          result_program_id?: string | null;
+          duplicate_of?: string | null;
+        };
+        Relationships: [];
+      };
+      match_program_versions: {
+        Row: {
+          id: string;
+          program_id: string;
+          version: number;
+          facts: Json;
+          written_kind: string;
+          written_center_id: string | null;
+          note: string | null;
+          written_at: string;
+        };
+        Insert: {
+          id?: string;
+          program_id: string;
+          version: number;
+          facts: Json;
+          written_kind: string;
+          written_center_id?: string | null;
+          note?: string | null;
+          written_at?: string;
+        };
+        Update: {
+          id?: string;
+          program_id?: string;
+          version?: number;
+          facts?: Json;
+          written_kind?: string;
+          written_center_id?: string | null;
+          note?: string | null;
+          written_at?: string;
+        };
+        Relationships: [];
+      };
+      match_programs: {
+        Row: {
+          id: string;
+          company_name: string;
+          country: string | null;
+          gift_match: boolean;
+          volunteer_grant: boolean;
+          match_ratio_bp: number | null;
+          currency: string;
+          min_gift_cents: number | null;
+          max_gift_cents: number | null;
+          max_year_cents: number | null;
+          gift_types: string[];
+          org_kinds: string[];
+          religious_orgs: string | null;
+          eligibility_note: string | null;
+          portal: string | null;
+          portal_url: string | null;
+          deadline_kind: string | null;
+          deadline_months: number | null;
+          deadline_month: number | null;
+          deadline_day: number | null;
+          deadline_note: string | null;
+          volunteer_cents_per_hour: number | null;
+          volunteer_min_hours: number | null;
+          volunteer_max_year_cents: number | null;
+          volunteer_note: string | null;
+          notes: string | null;
+          source: string;
+          source_url: string | null;
+          last_verified_on: string | null;
+          verified_by_kind: string | null;
+          verified_submission_id: string | null;
+          version: number;
+          status: string;
+          merged_into: string | null;
+          status_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_name: string;
+          country?: string | null;
+          gift_match?: boolean;
+          volunteer_grant?: boolean;
+          match_ratio_bp?: number | null;
+          currency?: string;
+          min_gift_cents?: number | null;
+          max_gift_cents?: number | null;
+          max_year_cents?: number | null;
+          gift_types?: string[];
+          org_kinds?: string[];
+          religious_orgs?: string | null;
+          eligibility_note?: string | null;
+          portal?: string | null;
+          portal_url?: string | null;
+          deadline_kind?: string | null;
+          deadline_months?: number | null;
+          deadline_month?: number | null;
+          deadline_day?: number | null;
+          deadline_note?: string | null;
+          volunteer_cents_per_hour?: number | null;
+          volunteer_min_hours?: number | null;
+          volunteer_max_year_cents?: number | null;
+          volunteer_note?: string | null;
+          notes?: string | null;
+          source: string;
+          source_url?: string | null;
+          last_verified_on?: string | null;
+          verified_by_kind?: string | null;
+          verified_submission_id?: string | null;
+          version?: number;
+          status?: string;
+          merged_into?: string | null;
+          status_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_name?: string;
+          country?: string | null;
+          gift_match?: boolean;
+          volunteer_grant?: boolean;
+          match_ratio_bp?: number | null;
+          currency?: string;
+          min_gift_cents?: number | null;
+          max_gift_cents?: number | null;
+          max_year_cents?: number | null;
+          gift_types?: string[];
+          org_kinds?: string[];
+          religious_orgs?: string | null;
+          eligibility_note?: string | null;
+          portal?: string | null;
+          portal_url?: string | null;
+          deadline_kind?: string | null;
+          deadline_months?: number | null;
+          deadline_month?: number | null;
+          deadline_day?: number | null;
+          deadline_note?: string | null;
+          volunteer_cents_per_hour?: number | null;
+          volunteer_min_hours?: number | null;
+          volunteer_max_year_cents?: number | null;
+          volunteer_note?: string | null;
+          notes?: string | null;
+          source?: string;
+          source_url?: string | null;
+          last_verified_on?: string | null;
+          verified_by_kind?: string | null;
+          verified_submission_id?: string | null;
+          version?: number;
+          status?: string;
+          merged_into?: string | null;
+          status_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      match_publishing_controls: {
+        Row: {
+          center_id: string;
+          paused: boolean;
+          pause_reason: string | null;
+          daily_cap: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          paused?: boolean;
+          pause_reason?: string | null;
+          daily_cap?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          paused?: boolean;
+          pause_reason?: string | null;
+          daily_cap?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      matching_filing_grants: {
+        Row: {
+          id: string;
+          center_id: string;
+          grantee_user_id: string;
+          granted_by: string;
+          granted_at: string;
+          ends_at: string;
+          ended_at: string | null;
+          ended_by: string | null;
+          end_reason: string | null;
+          reason: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          grantee_user_id: string;
+          granted_by: string;
+          granted_at?: string;
+          ends_at: string;
+          ended_at?: string | null;
+          ended_by?: string | null;
+          end_reason?: string | null;
+          reason: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          grantee_user_id?: string;
+          granted_by?: string;
+          granted_at?: string;
+          ends_at?: string;
+          ended_at?: string | null;
+          ended_by?: string | null;
+          end_reason?: string | null;
+          reason?: string;
         };
         Relationships: [];
       };
@@ -5368,6 +7381,7 @@ export type Database = {
           wording_pack: string;
           wording: Json;
           library_pack: string | null;
+          template: Json | null;
         };
         Insert: {
           key: string;
@@ -5385,6 +7399,7 @@ export type Database = {
           wording_pack?: string;
           wording?: Json;
           library_pack?: string | null;
+          template?: Json | null;
         };
         Update: {
           key?: string;
@@ -5402,6 +7417,7 @@ export type Database = {
           wording_pack?: string;
           wording?: Json;
           library_pack?: string | null;
+          template?: Json | null;
         };
         Relationships: [];
       };
@@ -6629,6 +8645,7 @@ export type Database = {
           is_historical: boolean;
           crm_external_id: string | null;
           is_opening_balance: boolean;
+          idempotency_key: string | null;
         };
         Insert: {
           id?: string;
@@ -6665,6 +8682,7 @@ export type Database = {
           is_historical?: boolean;
           crm_external_id?: string | null;
           is_opening_balance?: boolean;
+          idempotency_key?: string | null;
         };
         Update: {
           id?: string;
@@ -6701,6 +8719,7 @@ export type Database = {
           is_historical?: boolean;
           crm_external_id?: string | null;
           is_opening_balance?: boolean;
+          idempotency_key?: string | null;
         };
         Relationships: [];
       };
@@ -6718,6 +8737,10 @@ export type Database = {
           variance_cents: number;
           ledger_posting_id: string | null;
           created_at: string;
+          difference_code: string | null;
+          difference_note: string | null;
+          matched_by: string | null;
+          matched_at: string | null;
         };
         Insert: {
           id?: string;
@@ -6732,6 +8755,10 @@ export type Database = {
           variance_cents?: number;
           ledger_posting_id?: string | null;
           created_at?: string;
+          difference_code?: string | null;
+          difference_note?: string | null;
+          matched_by?: string | null;
+          matched_at?: string | null;
         };
         Update: {
           id?: string;
@@ -6746,6 +8773,10 @@ export type Database = {
           variance_cents?: number;
           ledger_posting_id?: string | null;
           created_at?: string;
+          difference_code?: string | null;
+          difference_note?: string | null;
+          matched_by?: string | null;
+          matched_at?: string | null;
         };
         Relationships: [];
       };
@@ -6896,6 +8927,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      people_saved: {
+        Row: {
+          id: string;
+          center_id: string;
+          user_id: string;
+          kind: string;
+          name: string | null;
+          list_view: string | null;
+          params: Json;
+          sort: string | null;
+          household_id: string | null;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          user_id: string;
+          kind: string;
+          name?: string | null;
+          list_view?: string | null;
+          params?: Json;
+          sort?: string | null;
+          household_id?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          user_id?: string;
+          kind?: string;
+          name?: string | null;
+          list_view?: string | null;
+          params?: Json;
+          sort?: string | null;
+          household_id?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       person_deceased_events: {
         Row: {
           id: string;
@@ -6965,6 +9041,78 @@ export type Database = {
           label?: string;
           verified?: boolean;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      person_match_employers: {
+        Row: {
+          person_id: string;
+          center_id: string;
+          employer_name: string | null;
+          source: string;
+          recorded_by: string;
+          consented_by_user: string | null;
+          consent_email: string | null;
+          consented_at: string;
+          withdrawn_at: string | null;
+          withdrawn_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          person_id: string;
+          center_id: string;
+          employer_name?: string | null;
+          source: string;
+          recorded_by: string;
+          consented_by_user?: string | null;
+          consent_email?: string | null;
+          consented_at?: string;
+          withdrawn_at?: string | null;
+          withdrawn_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          person_id?: string;
+          center_id?: string;
+          employer_name?: string | null;
+          source?: string;
+          recorded_by?: string;
+          consented_by_user?: string | null;
+          consent_email?: string | null;
+          consented_at?: string;
+          withdrawn_at?: string | null;
+          withdrawn_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      person_match_programs: {
+        Row: {
+          person_id: string;
+          center_id: string;
+          program_id: string;
+          how: string;
+          confirmed_by: string;
+          confirmed_at: string;
+          confirmed_version: number;
+        };
+        Insert: {
+          person_id: string;
+          center_id: string;
+          program_id: string;
+          how: string;
+          confirmed_by: string;
+          confirmed_at?: string;
+          confirmed_version: number;
+        };
+        Update: {
+          person_id?: string;
+          center_id?: string;
+          program_id?: string;
+          how?: string;
+          confirmed_by?: string;
+          confirmed_at?: string;
+          confirmed_version?: number;
         };
         Relationships: [];
       };
@@ -7220,6 +9368,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      pledge_emails: {
+        Row: {
+          id: string;
+          center_id: string;
+          pledge_id: string;
+          household_id: string | null;
+          to_address: string;
+          idempotency_key: string;
+          requested_by: string | null;
+          requested_at: string;
+          status: string;
+          reason: string | null;
+          reason_code: string | null;
+          message_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          pledge_id: string;
+          household_id?: string | null;
+          to_address: string;
+          idempotency_key: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          status?: string;
+          reason?: string | null;
+          reason_code?: string | null;
+          message_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          pledge_id?: string;
+          household_id?: string | null;
+          to_address?: string;
+          idempotency_key?: string;
+          requested_by?: string | null;
+          requested_at?: string;
+          status?: string;
+          reason?: string | null;
+          reason_code?: string | null;
+          message_id?: string | null;
+        };
+        Relationships: [];
+      };
       pledges: {
         Row: {
           id: string;
@@ -7252,6 +9445,7 @@ export type Database = {
           opportunity_option: string | null;
           custom: Json;
           written_off_by_name: string | null;
+          idempotency_key: string | null;
         };
         Insert: {
           id?: string;
@@ -7284,6 +9478,7 @@ export type Database = {
           opportunity_option?: string | null;
           custom?: Json;
           written_off_by_name?: string | null;
+          idempotency_key?: string | null;
         };
         Update: {
           id?: string;
@@ -7316,6 +9511,7 @@ export type Database = {
           opportunity_option?: string | null;
           custom?: Json;
           written_off_by_name?: string | null;
+          idempotency_key?: string | null;
         };
         Relationships: [];
       };
@@ -7541,6 +9737,8 @@ export type Database = {
           qbo_account_name: string | null;
           approved_by: string | null;
           approved_at: string | null;
+          realm_id: string | null;
+          first_approved_at: string | null;
         };
         Insert: {
           id?: string;
@@ -7550,6 +9748,8 @@ export type Database = {
           qbo_account_name?: string | null;
           approved_by?: string | null;
           approved_at?: string | null;
+          realm_id?: string | null;
+          first_approved_at?: string | null;
         };
         Update: {
           id?: string;
@@ -7559,6 +9759,8 @@ export type Database = {
           qbo_account_name?: string | null;
           approved_by?: string | null;
           approved_at?: string | null;
+          realm_id?: string | null;
+          first_approved_at?: string | null;
         };
         Relationships: [];
       };
@@ -9002,6 +11204,129 @@ export type Database = {
         };
         Relationships: [];
       };
+      site_blocks: {
+        Row: {
+          id: string;
+          center_id: string;
+          page_id: string;
+          sort: number;
+          type: string;
+          content: Json;
+          source: string;
+          source_page: string | null;
+          needs_text: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          page_id: string;
+          sort: number;
+          type: string;
+          content: Json;
+          source: string;
+          source_page?: string | null;
+          needs_text?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          page_id?: string;
+          sort?: number;
+          type?: string;
+          content?: Json;
+          source?: string;
+          source_page?: string | null;
+          needs_text?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      site_pages: {
+        Row: {
+          id: string;
+          center_id: string;
+          slug: string;
+          title: string;
+          kind: string;
+          sort: number;
+          status: string;
+          approved_by: string | null;
+          approved_at: string | null;
+          source_path: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          slug: string;
+          title: string;
+          kind: string;
+          sort?: number;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          source_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          slug?: string;
+          title?: string;
+          kind?: string;
+          sort?: number;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          source_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      sites: {
+        Row: {
+          center_id: string;
+          name: string;
+          status: string;
+          theme: Json;
+          draft_version: number;
+          source_job: number | null;
+          built_at: string;
+          built_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          name: string;
+          status?: string;
+          theme?: Json;
+          draft_version?: number;
+          source_job?: number | null;
+          built_at?: string;
+          built_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          name?: string;
+          status?: string;
+          theme?: Json;
+          draft_version?: number;
+          source_job?: number | null;
+          built_at?: string;
+          built_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       special_days: {
         Row: {
           id: string;
@@ -9391,6 +11716,7 @@ export type Database = {
           revoked_at: string | null;
           revoked_by: string | null;
           reason: string;
+          areas: string[];
         };
         Insert: {
           id?: string;
@@ -9402,6 +11728,7 @@ export type Database = {
           revoked_at?: string | null;
           revoked_by?: string | null;
           reason: string;
+          areas?: string[];
         };
         Update: {
           id?: string;
@@ -9413,6 +11740,7 @@ export type Database = {
           revoked_at?: string | null;
           revoked_by?: string | null;
           reason?: string;
+          areas?: string[];
         };
         Relationships: [];
       };
@@ -10366,6 +12694,19 @@ export type Database = {
       };
     };
     Views: {
+      automation_backlog: {
+        Row: {
+          item_key: string | null;
+          label: string | null;
+          surface: string | null;
+          communities: number | null;
+          ideas: number | null;
+          times: number | null;
+          minutes_per_month: number | null;
+          last_seen: string | null;
+        };
+        Relationships: [];
+      };
       directory: {
         Row: {
           center_id: string | null;
@@ -10411,6 +12752,36 @@ export type Database = {
         };
         Returns: Json;
       };
+      account_map_can_approve: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      account_map_can_request: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      account_mapping_in_use: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      account_mapping_overview: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      account_mapping_waiting: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       activate_demo_pack: {
         Args: {
           p_center: string;
@@ -10419,6 +12790,44 @@ export type Database = {
         };
         Returns: number;
       };
+      activity_min_actors: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
+      activity_mine: {
+        Args: {
+          p_center: string;
+          p_days?: number;
+        };
+        Returns: number;
+      };
+      activity_shared: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      activity_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      activity_usage: {
+        Args: {
+          p_center: string;
+          p_days?: number;
+        };
+        Returns: { item_key: string; item_kind: string; surface: string; platform: string; app_version: string; events: number; people: number; errors: number; median_ms: number }[];
+      };
+      add_care_note: {
+        Args: {
+          p_household: string;
+          p_body: string;
+          p_person?: string;
+        };
+        Returns: string;
+      };
       add_email_domain: {
         Args: {
           p_center: string;
@@ -10426,6 +12835,18 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      add_household: {
+        Args: {
+          p_center: string;
+          p_first: string;
+          p_last: string;
+          p_phone?: string;
+          p_email?: string;
+          p_street?: string;
+          p_none_of_these?: boolean;
+        };
+        Returns: Json;
       };
       add_message_suppression: {
         Args: {
@@ -10466,6 +12887,13 @@ export type Database = {
           p_id: string;
         };
         Returns: undefined;
+      };
+      approve_email_schedule: {
+        Args: {
+          p_center: string;
+          p_id: string;
+        };
+        Returns: Json;
       };
       approve_flagged_refund: {
         Args: {
@@ -10529,6 +12957,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      archive_care_note: {
+        Args: {
+          p_note: string;
+          p_reason?: string;
+        };
+        Returns: undefined;
+      };
       assert_entitlement: {
         Args: {
           p_center: string;
@@ -10549,6 +12984,74 @@ export type Database = {
           p_action: string;
         };
         Returns: undefined;
+      };
+      assistant_chat_mode: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
+      assistant_confirm: {
+        Args: {
+          p_proposal: string;
+          p_input_hash: string;
+        };
+        Returns: Json;
+      };
+      assistant_finish: {
+        Args: {
+          p_proposal: string;
+          p_ok: boolean;
+          p_summary: string;
+          p_correlation?: string;
+        };
+        Returns: undefined;
+      };
+      assistant_is_staff: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      assistant_log_message: {
+        Args: {
+          p_center: string;
+          p_thread: string;
+          p_role: string;
+          p_content: string;
+          p_command_key?: string;
+        };
+        Returns: string;
+      };
+      assistant_propose: {
+        Args: {
+          p_center: string;
+          p_command: string;
+          p_input: Json;
+          p_preview: Json;
+          p_thread?: string;
+        };
+        Returns: Json;
+      };
+      assistant_reject: {
+        Args: {
+          p_proposal: string;
+        };
+        Returns: undefined;
+      };
+      assistant_usage_check: {
+        Args: {
+          p_center: string;
+          p_cost: number;
+          p_purpose: string;
+        };
+        Returns: Json;
+      };
+      assistant_usage_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       attach_bank_line_to_payment: {
         Args: {
@@ -10586,6 +13089,13 @@ export type Database = {
           p_note?: string;
         };
         Returns: undefined;
+      };
+      audience_reach: {
+        Args: {
+          p_center: string;
+          p_audience: Json;
+        };
+        Returns: Json;
       };
       audit_clean_app: {
         Args: {
@@ -10673,6 +13183,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      cancel_account_mapping_change: {
+        Args: {
+          p_request: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       cancel_my_rsvp: {
         Args: {
           p_rsvp: string;
@@ -10695,6 +13212,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      cancel_pledge_upload: {
+        Args: {
+          p_center: string;
+          p_upload: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       cancel_rsvp: {
         Args: {
           p_rsvp: string;
@@ -10715,6 +13240,70 @@ export type Database = {
           p_value: string;
         };
         Returns: string;
+      };
+      care_amounts_can: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      care_can: {
+        Args: {
+          p_center: string;
+          p_level: string;
+        };
+        Returns: boolean;
+      };
+      care_holders: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { user_id: string; name: string; level: string }[];
+      };
+      care_household_can: {
+        Args: {
+          p_household: string;
+        };
+        Returns: boolean;
+      };
+      care_household_card: {
+        Args: {
+          p_household: string;
+        };
+        Returns: Json;
+      };
+      care_household_touches: {
+        Args: {
+          p_household: string;
+          p_before_at?: string;
+          p_before_key?: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      care_households: {
+        Args: {
+          p_center: string;
+          p_filter?: string;
+          p_search?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
+      care_my_households: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      care_settings_can: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      care_view_centers: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
       };
       catalog_shows: {
         Args: {
@@ -10873,6 +13462,12 @@ export type Database = {
         };
         Returns: { slug: string; name: string; short_name: string; state_region: string; environment: string }[];
       };
+      community_languages: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string[];
+      };
       community_open: {
         Args: {
           p_center: string;
@@ -10959,6 +13554,36 @@ export type Database = {
         };
         Returns: number;
       };
+      content_library_summary: {
+        Args: {
+          p_center: string;
+          p_stale_days?: number;
+        };
+        Returns: Json;
+      };
+      content_queue_summary: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      copy_campaign_as_draft: {
+        Args: {
+          p_center: string;
+          p_campaign: string;
+          p_name?: string;
+        };
+        Returns: string;
+      };
+      create_campaign_from_template: {
+        Args: {
+          p_center: string;
+          p_template: string;
+          p_name?: string;
+        };
+        Returns: string;
+      };
       create_checkout: {
         Args: {
           p_center: string;
@@ -10968,6 +13593,12 @@ export type Database = {
           p_processor: string;
           p_context: string;
           p_for_label: string;
+        };
+        Returns: Json;
+      };
+      create_demo_community: {
+        Args: {
+          p_kind: string;
         };
         Returns: Json;
       };
@@ -11064,6 +13695,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      decide_account_mapping_change: {
+        Args: {
+          p_request: string;
+          p_approve: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       decide_household_change_request: {
         Args: {
           p_request: string;
@@ -11072,6 +13711,17 @@ export type Database = {
           p_reason?: string;
         };
         Returns: string;
+      };
+      decide_match_submission: {
+        Args: {
+          p_submission: string;
+          p_decision: string;
+          p_program?: Json;
+          p_reason?: string;
+          p_into_program?: string;
+          p_into_submission?: string;
+        };
+        Returns: Json;
       };
       decide_org_verification: {
         Args: {
@@ -11112,6 +13762,21 @@ export type Database = {
         };
         Returns: string;
       };
+      delete_comms_template: {
+        Args: {
+          p_center: string;
+          p_template: string;
+        };
+        Returns: undefined;
+      };
+      delete_pledge: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       demo_can_manage: {
         Args: {
           p_center: string;
@@ -11123,6 +13788,10 @@ export type Database = {
           p_center: string;
         };
         Returns: string;
+      };
+      demo_choices: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
       };
       demo_confirm_word: {
         Args: {
@@ -11151,10 +13820,29 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
+      demo_leave: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
       demo_pack_steps: {
         Args: {
           p_pack: string;
         };
+        Returns: Json;
+      };
+      demo_session_state: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      demo_signin_setup: {
+        Args: {
+          p_reason: string;
+          p_rotate?: boolean;
+        };
+        Returns: Json;
+      };
+      demo_signin_status: {
+        Args: Record<PropertyKey, never>;
         Returns: Json;
       };
       directory_listing: {
@@ -11177,6 +13865,82 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      edit_care_note: {
+        Args: {
+          p_note: string;
+          p_body: string;
+        };
+        Returns: undefined;
+      };
+      edit_pledge: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_changes: Json;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      email_automation_log: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      email_automations_state: {
+        Args: {
+          p_center: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      email_receipts_for_uploaded: {
+        Args: {
+          p_center: string;
+          p_payments: string[];
+        };
+        Returns: Json;
+      };
+      email_schedule_log: {
+        Args: {
+          p_center: string;
+          p_id: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      email_schedule_preview: {
+        Args: {
+          p_center: string;
+          p_audience: string;
+          p_params: Json;
+          p_frequency: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      email_schedules_state: {
+        Args: {
+          p_center: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      employer_name_key: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
+      end_weaver_filing: {
+        Args: {
+          p_grant: string;
+          p_reason?: string;
+        };
+        Returns: undefined;
       };
       enqueue_platform_test: {
         Args: {
@@ -11231,6 +13995,27 @@ export type Database = {
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
       };
+      event_reminder_audience: {
+        Args: {
+          p_event: string;
+          p_statuses?: string[];
+        };
+        Returns: Json;
+      };
+      event_set_rsvp_status: {
+        Args: {
+          p_event: string;
+          p_rsvp: string;
+          p_status: Database["app"]["Enums"]["rsvp_status"];
+        };
+        Returns: boolean;
+      };
+      event_summary: {
+        Args: {
+          p_event: string;
+        };
+        Returns: Json;
+      };
       event_survey_stats: {
         Args: {
           p_survey: string;
@@ -11267,6 +14052,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      explain_payout: {
+        Args: {
+          p_payout: string;
+          p_bank_line: string;
+          p_code?: string;
+          p_note?: string;
+        };
+        Returns: Json;
+      };
       extend_pathshala_hold: {
         Args: {
           p_enrollment: string;
@@ -11288,6 +14082,12 @@ export type Database = {
           p_error: string;
         };
         Returns: Json;
+      };
+      family_name_key: {
+        Args: {
+          p_text: string;
+        };
+        Returns: string;
       };
       feature_access_for_me: {
         Args: {
@@ -11339,6 +14139,78 @@ export type Database = {
         };
         Returns: Json;
       };
+      give_activity_consent: {
+        Args: {
+          p_center: string;
+          p_share_with_weaver: boolean;
+          p_notice_version: string;
+        };
+        Returns: undefined;
+      };
+      giving_deposit_context: {
+        Args: {
+          p_txn: string;
+          p_payment_ids: string[];
+        };
+        Returns: Json;
+      };
+      giving_draft_context: {
+        Args: {
+          p_household: string;
+          p_amount_cents?: number;
+          p_method?: string;
+          p_check_number?: string;
+          p_received_on?: string;
+        };
+        Returns: Json;
+      };
+      giving_export_check: {
+        Args: {
+          p_center: string;
+          p_list: string;
+        };
+        Returns: undefined;
+      };
+      giving_fund_mapping_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      giving_household_summary: {
+        Args: {
+          p_household: string;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      giving_insights: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      giving_payment_confirm_guard: {
+        Args: {
+          p_household: string;
+          p_amount_cents: number;
+          p_minutes?: number;
+        };
+        Returns: Json;
+      };
+      giving_pledges_behind: {
+        Args: {
+          p_center: string;
+          p_today?: string;
+          p_min_days?: number;
+          p_limit?: number;
+          p_fund?: string;
+        };
+        Returns: Json;
+      };
       giving_row_visible: {
         Args: {
           p_active: boolean;
@@ -11346,6 +14218,42 @@ export type Database = {
           p_visible_until: string;
         };
         Returns: boolean;
+      };
+      giving_second_approver_queue: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      giving_unmatched_bank_lines: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      giving_upload_households: {
+        Args: {
+          p_center: string;
+          p_values: string[];
+        };
+        Returns: { input: string; match_kind: string; household_id: string; person_id: string; household_name: string; household_number: string; org_household_id: string; primary_member: string; city: string }[];
+      };
+      giving_upload_payment_repeats: {
+        Args: {
+          p_center: string;
+          p_rows: Json;
+        };
+        Returns: { row_no: number; receipt_number: string; received_on: string }[];
+      };
+      giving_zelle_waiting: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+          p_today?: string;
+        };
+        Returns: Json;
       };
       golive_approval_status: {
         Args: {
@@ -11358,6 +14266,15 @@ export type Database = {
           p_center: string;
           p_grantee: string;
           p_hours: number;
+          p_reason: string;
+        };
+        Returns: string;
+      };
+      grant_weaver_filing: {
+        Args: {
+          p_center: string;
+          p_grantee: string;
+          p_days: number;
           p_reason: string;
         };
         Returns: string;
@@ -11505,6 +14422,16 @@ export type Database = {
           p_household: string;
         };
         Returns: number;
+      };
+      household_possible_matches: {
+        Args: {
+          p_center: string;
+          p_first: string;
+          p_last: string;
+          p_phone?: string;
+          p_email?: string;
+        };
+        Returns: Json;
       };
       i_am_adult: {
         Args: {
@@ -11748,6 +14675,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      is_demo_center: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       is_first_second_admin_grant: {
         Args: {
           p_grant: string;
@@ -11817,6 +14750,21 @@ export type Database = {
         };
         Returns: string;
       };
+      link_count_to_bank_deposit: {
+        Args: {
+          p_session: string;
+          p_txn: string;
+        };
+        Returns: Json;
+      };
+      link_match_program: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_program: string;
+        };
+        Returns: Json;
+      };
       link_payment_report: {
         Args: {
           p_report: string;
@@ -11835,6 +14783,13 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { key: string; label: string; description: string; family_key: string; family_label: string; faith_based: boolean; active: boolean; sort: number }[];
       };
+      log_care_touch: {
+        Args: {
+          p_household: string;
+          p_touch: Json;
+        };
+        Returns: string;
+      };
       log_practice: {
         Args: {
           p_center: string;
@@ -11842,6 +14797,15 @@ export type Database = {
           p_on?: string;
         };
         Returns: { points_awarded: number; day_complete: boolean; streak_days: number }[];
+      };
+      log_private_read: {
+        Args: {
+          p_center: string;
+          p_product: string;
+          p_what: string;
+          p_rows: number;
+        };
+        Returns: undefined;
       };
       make_primary_of_own_household: {
         Args: {
@@ -11866,6 +14830,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      mark_donation_upload: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
       mark_person_deceased: {
         Args: {
           p_person: string;
@@ -11875,12 +14843,167 @@ export type Database = {
         };
         Returns: Json;
       };
+      marketplace_audit: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: { at: string; actor: string; what: string; why: string }[];
+      };
+      marketplace_needs_ok: {
+        Args: {
+          p: Json;
+        };
+        Returns: boolean;
+      };
+      marketplace_notify_me: {
+        Args: {
+          p_center: string;
+          p_product: string;
+        };
+        Returns: Json;
+      };
+      marketplace_open_requests: {
+        Args: Record<PropertyKey, never>;
+        Returns: { id: string; center_id: string; center_name: string; center_slug: string; product_key: string; product_name: string; note: string; requested_at: string; requested_by_name: string }[];
+      };
+      marketplace_request: {
+        Args: {
+          p_center: string;
+          p_product: string;
+          p_note: string;
+        };
+        Returns: Json;
+      };
+      marketplace_request_cancel: {
+        Args: {
+          p_center: string;
+          p_product: string;
+        };
+        Returns: Json;
+      };
+      marketplace_set_product: {
+        Args: {
+          p_center: string;
+          p_product: string;
+          p_on: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      marketplace_states: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { key: string; module_key: string; name: string; module_label: string; mark: string; line: string; gets: string[]; needs: Json; members_line: string; data_line: string; price_text: string; price_short: string; included: boolean; catalog_status: string; target_quarter: string; on_note: string; off_note: string; sort: number; state: string; enabled: boolean; granted: boolean; paused: boolean; waiting_for: string[]; source: string; granted_at: string; granted_by_name: string; grant_reason: string; paused_at: string; paused_by_name: string; pause_reason: string; request_id: string; request_note: string; requested_at: string; requested_by_name: string; notified_at: string }[];
+      };
+      match_deadline_kinds: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
       match_deposit: {
         Args: {
           p_txn: string;
           p_payment_ids: string[];
         };
         Returns: number;
+      };
+      match_directory_can_read: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      match_employer_adult: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
+      match_employers_queue: {
+        Args: {
+          p_center: string;
+          p_filter?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
+      match_gift_types: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      match_link_readable: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
+      match_org_kinds: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      match_portals: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      match_program_candidates: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: Json;
+      };
+      match_program_search: {
+        Args: {
+          p_query?: string;
+          p_status?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
+      match_publishing_cap: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      match_publishing_state: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      match_religious_rules: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      match_sources: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      matching_can: {
+        Args: {
+          p_center: string;
+          p_level: string;
+        };
+        Returns: boolean;
+      };
+      matching_org_readable_centers: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      matching_readable_centers: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      may_grant_private_role: {
+        Args: {
+          p_center: string;
+          p_role: string;
+        };
+        Returns: boolean;
       };
       media_item: {
         Args: {
@@ -11943,6 +15066,21 @@ export type Database = {
         };
         Returns: undefined;
       };
+      merge_households_preview: {
+        Args: {
+          p_keep: string;
+          p_drop: string;
+        };
+        Returns: Json;
+      };
+      merge_match_programs: {
+        Args: {
+          p_keep: string;
+          p_drop: string;
+          p_reason: string;
+        };
+        Returns: string;
+      };
       merge_people: {
         Args: {
           p_keep: string;
@@ -11950,6 +15088,14 @@ export type Database = {
           p_take?: string[];
         };
         Returns: undefined;
+      };
+      merge_people_preview: {
+        Args: {
+          p_keep: string;
+          p_drop: string;
+          p_take?: string[];
+        };
+        Returns: Json;
       };
       messaging_can_manage: {
         Args: {
@@ -11980,7 +15126,7 @@ export type Database = {
         Args: {
           p_center: string;
         };
-        Returns: { key: string; label: string; description: string; core: boolean; depends_on: string[]; sort: number; availability: string; enabled: boolean; switchable: boolean; changed_by: string; changed_at: string; reason: string }[];
+        Returns: { key: string; label: string; description: string; core: boolean; depends_on: string[]; sort: number; availability: string; enabled: boolean; switchable: boolean; changed_by: string; changed_at: string; reason: string; granted: boolean; granted_by: string; granted_at: string; grant_reason: string; paused: boolean; waiting_for: string[] }[];
       };
       move_lunch_slot: {
         Args: {
@@ -12023,6 +15169,12 @@ export type Database = {
           p_center: string;
         };
         Returns: string[];
+      };
+      my_match_employer: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       my_membership_application: {
         Args: {
@@ -12279,6 +15431,23 @@ export type Database = {
         };
         Returns: { kind: string; title: string; required: boolean; document_id: string; version: string; published: boolean; accepted: boolean; accepted_version: string; accepted_at: string; accepted_by_name: string }[];
       };
+      org_private_can: {
+        Args: {
+          p_center: string;
+          p_perm: string;
+        };
+        Returns: boolean;
+      };
+      org_private_keys: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      org_private_product: {
+        Args: {
+          p_perm: string;
+        };
+        Returns: string;
+      };
       org_verification_queue: {
         Args: Record<PropertyKey, never>;
         Returns: { center_id: string; center_name: string; center_slug: string; center_status: string; legal_name: string; dba: string; ein: string; entity_type: string; incorporation_state: string; verification_status: string; verification_note: string; submitted_at: string; verified_at: string; documents: number; irs: Json }[];
@@ -12333,6 +15502,12 @@ export type Database = {
           p_names: string[];
         };
         Returns: string;
+      };
+      pathshala_fee_totals: {
+        Args: {
+          p_term: string;
+        };
+        Returns: Json;
       };
       pathshala_i_am_adult: {
         Args: {
@@ -12413,6 +15588,13 @@ export type Database = {
           p_term: string;
         };
         Returns: { students: number; waitlisted: number; teachers: number; background_checks_expiring: number; attendance_percent: number; signoffs_waiting: number }[];
+      };
+      pause_email_schedule: {
+        Args: {
+          p_center: string;
+          p_id: string;
+        };
+        Returns: Json;
       };
       payee_can_approve: {
         Args: {
@@ -12518,6 +15700,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      payouts_close_state: {
+        Args: {
+          p_center: string;
+          p_month: string;
+        };
+        Returns: Json;
+      };
       paypal_email_only: {
         Args: {
           p_center: string;
@@ -12593,6 +15782,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      platform_community_summary: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       platform_create_sandbox: {
         Args: {
           p_name: string;
@@ -12621,6 +15816,30 @@ export type Database = {
         };
         Returns: boolean;
       };
+      platform_match_communities: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      platform_match_program_versions: {
+        Args: {
+          p_id: string;
+        };
+        Returns: Json;
+      };
+      platform_match_recent_publishes: {
+        Args: {
+          p_days?: number;
+        };
+        Returns: Json;
+      };
+      platform_match_submissions: {
+        Args: {
+          p_view?: string;
+          p_program?: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
       platform_onboarding_pipeline: {
         Args: Record<PropertyKey, never>;
         Returns: { center_id: string; slug: string; name: string; environment: string; status: string; stage: string; stage_since: string; steps_done: number; steps_total: number; readiness_ok: number; readiness_total: number; blockers: string[]; owner_name: string; owner_email: string; owner_phone: string; golive_id: string; golive_status: string; promoted_to: string; last_activity_at: string; support_live: boolean }[];
@@ -12636,6 +15855,50 @@ export type Database = {
       platform_setting_keys: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      platform_waiting: {
+        Args: {
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      pledge_document: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      pledge_edit_state: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+        };
+        Returns: Json;
+      };
+      pledge_email_recipient: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      pledge_email_request_status: {
+        Args: {
+          p_center: string;
+          p_request: string;
+        };
+        Returns: Json;
+      };
+      pledge_email_status: {
+        Args: {
+          p_center: string;
+          p_pledges: string[];
+          p_majority?: number;
+        };
+        Returns: Json;
       };
       pledge_writeoff_postings: {
         Args: {
@@ -12867,16 +16130,49 @@ export type Database = {
         };
         Returns: boolean;
       };
+      receipt_copy: {
+        Args: {
+          p_payment: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
       recheck_email_domain: {
         Args: {
           p_domain: string;
         };
         Returns: number;
       };
+      record_activity: {
+        Args: {
+          p_center: string;
+          p_events: Json;
+        };
+        Returns: number;
+      };
+      record_donation_upload: {
+        Args: {
+          p_center: string;
+          p_idempotency_key: string;
+          p_file_name: string;
+          p_file_sha256: string;
+          p_reason: string;
+          p_rows: Json;
+        };
+        Returns: Json;
+      };
       record_export: {
         Args: {
           p_center: string;
           p_kind: string;
+          p_detail?: Json;
+        };
+        Returns: undefined;
+      };
+      record_giving_export: {
+        Args: {
+          p_center: string;
+          p_list: string;
           p_detail?: Json;
         };
         Returns: undefined;
@@ -12908,6 +16204,31 @@ export type Database = {
         };
         Returns: Json;
       };
+      record_manual_pledge: {
+        Args: {
+          p_idempotency_key: string;
+          p_center: string;
+          p_household: string;
+          p_amount_cents: number;
+          p_reason: string;
+          p_fund?: string;
+          p_campaign?: string;
+          p_opportunity?: string;
+          p_opportunity_option?: string;
+          p_due_on?: string;
+          p_pledged_by_person?: string;
+          p_dedication?: string;
+        };
+        Returns: Json;
+      };
+      record_match_employer: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_employer: string;
+        };
+        Returns: Json;
+      };
       record_member_legal_answers: {
         Args: {
           p_center: string;
@@ -12932,6 +16253,34 @@ export type Database = {
           p_joint?: boolean;
         };
         Returns: string;
+      };
+      record_offline_payment_once: {
+        Args: {
+          p_idempotency_key: string;
+          p_center: string;
+          p_household: string;
+          p_amount_cents: number;
+          p_method: Database["app"]["Enums"]["payment_method"];
+          p_received_on: string;
+          p_allocations?: Json;
+          p_chosen?: boolean;
+          p_check_number?: string;
+          p_envelope_number?: string;
+          p_memo?: string;
+        };
+        Returns: Json;
+      };
+      record_pledge_upload: {
+        Args: {
+          p_center: string;
+          p_idempotency_key: string;
+          p_file_name: string;
+          p_file_sha256: string;
+          p_reason: string;
+          p_rows: Json;
+          p_send_emails: boolean;
+        };
+        Returns: Json;
       };
       record_security_event: {
         Args: {
@@ -13028,6 +16377,20 @@ export type Database = {
         };
         Returns: undefined;
       };
+      remove_my_match_employer: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      rename_comms_template: {
+        Args: {
+          p_center: string;
+          p_template: string;
+          p_name: string;
+        };
+        Returns: undefined;
+      };
       reopen_platform_setup_step: {
         Args: {
           p_key: string;
@@ -13053,6 +16416,88 @@ export type Database = {
           p_sender_name: string;
           p_pledge_ids: string[];
           p_note: string;
+        };
+        Returns: Json;
+      };
+      reports_attendance: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_top?: number;
+        };
+        Returns: Json;
+      };
+      reports_membership_changes: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      reports_membership_matrix: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      reports_payments_summary: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_group?: string;
+        };
+        Returns: Json;
+      };
+      reports_people_overview: {
+        Args: {
+          p_center: string;
+          p_year: number;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      reports_period_figures: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
+      reports_pledges_summary: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
+      reports_store_sales: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_top?: number;
+        };
+        Returns: Json;
+      };
+      reports_tz: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
+      request_account_mapping_change: {
+        Args: {
+          p_center: string;
+          p_subject: string;
+          p_target: string;
+          p_to: string;
+          p_reason: string;
         };
         Returns: Json;
       };
@@ -13129,6 +16574,12 @@ export type Database = {
         };
         Returns: { invitation_id: string; token: string; expires_at: string }[];
       };
+      reset_demo_community: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       reset_sandbox: {
         Args: {
           p_center: string;
@@ -13146,6 +16597,53 @@ export type Database = {
         };
         Returns: number;
       };
+      resolve_answer: {
+        Args: {
+          p_group: string;
+          p_answer: string;
+          p_item?: string;
+          p_apply_rest?: boolean;
+          p_remember?: boolean;
+          p_scope?: string;
+          p_expected_others?: number;
+          p_change?: boolean;
+        };
+        Returns: Json;
+      };
+      resolve_begin: {
+        Args: {
+          p_run: string;
+          p_engine_version: string;
+          p_config: Json;
+        };
+        Returns: string;
+      };
+      resolve_card: {
+        Args: {
+          p_raw: Json;
+        };
+        Returns: Json;
+      };
+      resolve_card_limited: {
+        Args: {
+          p_raw: Json;
+        };
+        Returns: Json;
+      };
+      resolve_center_allowed: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      resolve_finish: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_metrics: Json;
+        };
+        Returns: Json;
+      };
       resolve_identifier: {
         Args: {
           p_center: string;
@@ -13153,12 +16651,158 @@ export type Database = {
         };
         Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
       };
+      resolve_inbox: {
+        Args: {
+          p_run: string;
+        };
+        Returns: Json;
+      };
+      resolve_item_detail: {
+        Args: {
+          p_item: string;
+        };
+        Returns: Json;
+      };
+      resolve_list: {
+        Args: {
+          p_j: Json;
+          p_what: string;
+          p_max?: number;
+        };
+        Returns: undefined;
+      };
+      resolve_progress: {
+        Args: {
+          p_run: string;
+          p_config: Json;
+        };
+        Returns: Json;
+      };
+      resolve_reopen: {
+        Args: {
+          p_group: string;
+        };
+        Returns: Json;
+      };
+      resolve_revoke_rule: {
+        Args: {
+          p_center: string;
+          p_rule: string;
+        };
+        Returns: Json;
+      };
       resolve_rsvp_credit: {
         Args: {
           p_id: string;
           p_note?: string;
         };
         Returns: undefined;
+      };
+      resolve_rules: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      resolve_run_metrics: {
+        Args: {
+          p_run: string;
+        };
+        Returns: Json;
+      };
+      resolve_runs: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      resolve_runs_allowed: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      resolve_set_group_status: {
+        Args: {
+          p_group: string;
+          p_status: string;
+          p_routed_to?: string;
+        };
+        Returns: undefined;
+      };
+      resolve_stage_records: {
+        Args: {
+          p_run: string;
+          p_records: Json;
+          p_first?: boolean;
+        };
+        Returns: number;
+      };
+      resolve_staged_page: {
+        Args: {
+          p_run: string;
+          p_after?: number;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      resolve_store_clusters: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_clusters: Json;
+        };
+        Returns: number;
+      };
+      resolve_store_groups: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_groups: Json;
+        };
+        Returns: number;
+      };
+      resolve_store_items: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_items: Json;
+        };
+        Returns: number;
+      };
+      resolve_store_pairs: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_pairs: Json;
+        };
+        Returns: number;
+      };
+      resolve_store_records: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_records: Json;
+        };
+        Returns: number;
+      };
+      resolve_template: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      resolve_texts: {
+        Args: {
+          p_j: Json;
+        };
+        Returns: string[];
+      };
+      revert_match_program: {
+        Args: {
+          p_id: string;
+          p_version: number;
+          p_reason: string;
+        };
+        Returns: number;
       };
       review_gyan_submission: {
         Args: {
@@ -13197,6 +16841,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      role_private_products: {
+        Args: {
+          p_role: string;
+        };
+        Returns: string[];
+      };
       rotate_member_join_code: {
         Args: {
           p_center: string;
@@ -13233,6 +16883,32 @@ export type Database = {
         };
         Returns: undefined;
       };
+      save_campaign_as_template: {
+        Args: {
+          p_center: string;
+          p_campaign: string;
+          p_name?: string;
+        };
+        Returns: string;
+      };
+      save_care_profile: {
+        Args: {
+          p_household: string;
+          p_profile: Json;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
+      save_email_automation_wording: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_language: string;
+          p_subject: string;
+          p_body: string;
+        };
+        Returns: Json;
+      };
       save_email_footer: {
         Args: {
           p_center: string;
@@ -13241,6 +16917,24 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      save_email_schedule: {
+        Args: {
+          p_center: string;
+          p_id: string;
+          p_name: string;
+          p_audience: string;
+          p_params: Json;
+          p_frequency: string;
+          p_day_of_week: number;
+          p_day_of_month: number;
+          p_month: number;
+          p_hour: number;
+          p_language: string;
+          p_subject: string;
+          p_body: string;
+        };
+        Returns: Json;
       };
       save_email_sender: {
         Args: {
@@ -13268,6 +16962,14 @@ export type Database = {
           p_files: Json;
         };
         Returns: Json;
+      };
+      save_match_program: {
+        Args: {
+          p_id: string;
+          p_program: Json;
+          p_reason: string;
+        };
+        Returns: string;
       };
       save_numbering: {
         Args: {
@@ -13333,6 +17035,24 @@ export type Database = {
         };
         Returns: number;
       };
+      send_email_automation_test: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_language: string;
+          p_vars: Json;
+        };
+        Returns: string;
+      };
+      send_pledge_email: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_to: string;
+          p_key: string;
+        };
+        Returns: Json;
+      };
       send_recipient_verification: {
         Args: {
           p_recipient: string;
@@ -13354,6 +17074,26 @@ export type Database = {
         };
         Returns: undefined;
       };
+      set_activity_opt_out: {
+        Args: {
+          p_out: boolean;
+        };
+        Returns: undefined;
+      };
+      set_activity_recording: {
+        Args: {
+          p_center: string;
+          p_enabled: boolean;
+        };
+        Returns: undefined;
+      };
+      set_activity_sharing: {
+        Args: {
+          p_center: string;
+          p_share: boolean;
+        };
+        Returns: undefined;
+      };
       set_audit_context: {
         Args: {
           p_reason: string;
@@ -13366,6 +17106,15 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_care_owner: {
+        Args: {
+          p_household: string;
+          p_owner?: string;
+          p_backup?: string;
+          p_reason?: string;
+        };
+        Returns: Json;
       };
       set_center_branding: {
         Args: {
@@ -13408,6 +17157,22 @@ export type Database = {
         };
         Returns: undefined;
       };
+      set_demo_signin: {
+        Args: {
+          p_enabled: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_email_automation: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_enabled: boolean;
+          p_uploaded?: boolean;
+        };
+        Returns: Json;
+      };
       set_email_provider: {
         Args: {
           p_center: string;
@@ -13449,6 +17214,23 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_match_program_retired: {
+        Args: {
+          p_id: string;
+          p_retired: boolean;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_match_publishing: {
+        Args: {
+          p_center: string;
+          p_paused: boolean;
+          p_daily_cap: number;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       set_messaging_review_status: {
         Args: {
           p_kind: string;
@@ -13467,6 +17249,22 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_module_grant: {
+        Args: {
+          p_center: string;
+          p_module: string;
+          p_granted: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_my_match_employer: {
+        Args: {
+          p_center: string;
+          p_employer: string;
+        };
+        Returns: Json;
       };
       set_pathshala_level_fees: {
         Args: {
@@ -13551,28 +17349,19 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_pledge_due_on: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_due_on: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       set_qbo_basis: {
         Args: {
           p_center: string;
           p_basis: string;
-          p_reason: string;
-        };
-        Returns: Json;
-      };
-      set_qbo_fund_class: {
-        Args: {
-          p_center: string;
-          p_fund: string;
-          p_qbo_class_id: string;
-          p_reason: string;
-        };
-        Returns: Json;
-      };
-      set_qbo_mapping: {
-        Args: {
-          p_center: string;
-          p_purpose: string;
-          p_qbo_account_id: string;
           p_reason: string;
         };
         Returns: Json;
@@ -13595,6 +17384,14 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      set_support_grant_areas: {
+        Args: {
+          p_grant: string;
+          p_areas: string[];
+          p_reason: string;
+        };
+        Returns: string[];
       };
       set_zelle_reporting: {
         Args: {
@@ -13635,6 +17432,64 @@ export type Database = {
         };
         Returns: { person_id: string; name: string; roles: string }[];
       };
+      site_crawl_start: {
+        Args: {
+          p_center: string;
+          p_slot?: string;
+        };
+        Returns: Json;
+      };
+      site_draft_data: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      site_draft_get: {
+        Args: {
+          p_center: string;
+          p_with_blocks?: boolean;
+        };
+        Returns: Json;
+      };
+      site_draft_save: {
+        Args: {
+          p_center: string;
+          p_draft: Json;
+          p_job?: number;
+          p_replace?: boolean;
+        };
+        Returns: Json;
+      };
+      site_found_report: {
+        Args: {
+          p_center: string;
+          p_job: number;
+        };
+        Returns: Json;
+      };
+      site_found_save_inputs: {
+        Args: {
+          p_center: string;
+          p_own: string;
+          p_refs: string[];
+        };
+        Returns: Json;
+      };
+      site_found_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      site_page_set_status: {
+        Args: {
+          p_center: string;
+          p_page: string;
+          p_status: string;
+        };
+        Returns: Json;
+      };
       sms_segments: {
         Args: {
           p_text: string;
@@ -13654,6 +17509,18 @@ export type Database = {
         };
         Returns: string;
       };
+      staff_assign_membership: {
+        Args: {
+          p_household: string;
+          p_person: string;
+          p_type: string;
+          p_starts_on: string;
+          p_ends_on: string;
+          p_reason: string;
+          p_record_fee: boolean;
+        };
+        Returns: string;
+      };
       staff_household_search: {
         Args: {
           p_center: string;
@@ -13667,6 +17534,24 @@ export type Database = {
           p_ids: string[];
         };
         Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
+      };
+      staff_save_profile_details: {
+        Args: {
+          p_person: string;
+          p_patch: Json;
+          p_reason?: string;
+        };
+        Returns: undefined;
+      };
+      staff_update_membership: {
+        Args: {
+          p_membership: string;
+          p_starts_on: string;
+          p_ends_on: string;
+          p_notes: string;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       start_paypal_email_verification: {
         Args: {
@@ -13695,6 +17580,10 @@ export type Database = {
           p: string;
         };
         Returns: string;
+      };
+      step_up_stamp: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
       };
       storage_bucket_module: {
         Args: {
@@ -13740,6 +17629,14 @@ export type Database = {
         };
         Returns: string;
       };
+      store_sales_summary: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
       submit_access_request: {
         Args: {
           p_org_legal_name: string;
@@ -13761,6 +17658,15 @@ export type Database = {
           p_org_detail?: string;
           p_org_type_label?: string;
           p_experience_label?: string;
+        };
+        Returns: string;
+      };
+      submit_match_program: {
+        Args: {
+          p_center: string;
+          p_program: string;
+          p_proposal: Json;
+          p_note?: string;
         };
         Returns: string;
       };
@@ -13836,6 +17742,10 @@ export type Database = {
         };
         Returns: { sunrise: string; sunset: string };
       };
+      support_grant_areas: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
       support_staff_options: {
         Args: {
           p_center: string;
@@ -13862,6 +17772,12 @@ export type Database = {
           p_center: string;
         };
         Returns: { user_id: string; person_id: string; name: string; email: string; roles: string[]; has_totp: boolean; phone_verified: boolean; is_owner: boolean; is_admin: boolean }[];
+      };
+      template_problems: {
+        Args: {
+          p: Json;
+        };
+        Returns: string[];
       };
       tier_rank: {
         Args: {
@@ -13902,6 +17818,20 @@ export type Database = {
         };
         Returns: Json;
       };
+      unlink_count_from_bank_deposit: {
+        Args: {
+          p_session: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      unlink_match_program: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
       unlog_practice: {
         Args: {
           p_person: string;
@@ -13917,6 +17847,13 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      unpair_payout: {
+        Args: {
+          p_payout: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       unsubscribe_calendar_layer: {
         Args: {
@@ -13954,11 +17891,32 @@ export type Database = {
         };
         Returns: string;
       };
+      void_care_touch: {
+        Args: {
+          p_touch: string;
+          p_reason?: string;
+        };
+        Returns: undefined;
+      };
       webhook_job_kind: {
         Args: {
           p_provider: string;
         };
         Returns: string;
+      };
+      withdraw_activity_consent: {
+        Args: {
+          p_center: string;
+        };
+        Returns: undefined;
+      };
+      withdraw_match_employer: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_reason: string;
+        };
+        Returns: boolean;
       };
       withdraw_payment_report: {
         Args: {
@@ -13976,6 +17934,14 @@ export type Database = {
       worker_stale_after: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      year_end_review: {
+        Args: {
+          p_center: string;
+          p_year: number;
+          p_majority?: number;
+        };
+        Returns: { household_id: string; household_name: string; household_number: string; org_household_id: string; city: string; adults: Json; gift_count: number; given_cents: number; refunded_cents: number; refunded_count: number; opening_balance_count: number; opening_balance_cents: number; mail_opt_in: boolean; address_complete: boolean }[];
       };
       year_end_statement: {
         Args: {
@@ -14015,7 +17981,7 @@ export type Database = {
       payment_method: "card" | "ach" | "apple_pay" | "google_pay" | "check" | "cash" | "stock" | "daf" | "matching_gift" | "zelle" | "other" | "paypal" | "venmo";
       payment_status: "authorized" | "captured" | "pending_clearing" | "settled" | "refunded" | "partially_refunded" | "failed" | "voided";
       person_role_in_household: "primary" | "spouse" | "child" | "parent" | "sibling" | "other";
-      pledge_source: "rsvp_commitment" | "boli" | "sponsorship" | "pujan" | "labh" | "construction" | "membership_fee" | "pathshala_fee" | "general" | "recurring" | "store" | "other";
+      pledge_source: "rsvp_commitment" | "boli" | "sponsorship" | "pujan" | "labh" | "construction" | "membership_fee" | "pathshala_fee" | "general" | "recurring" | "store" | "other" | "manual";
       pledge_status: "open" | "partially_paid" | "paid" | "written_off" | "cancelled";
       rsvp_status: "invited" | "rsvpd" | "confirmed" | "cancelled" | "waitlisted" | "no_show" | "attended";
       scope_kind: "platform" | "center" | "zone" | "event" | "campaign" | "class" | "store" | "pathshala";

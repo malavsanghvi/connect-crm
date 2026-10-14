@@ -792,6 +792,548 @@ body {
   }
 }
 
+/* ------------------------------------------------------------------ Look v2 (the redesigned shell, chosen per person)
+ * docs/ADMIN_REDESIGN.md "Visual identity: the logo's colors". Everything below is scoped to [data-look="v2"], which AppShell
+ * sets on the shell when the person chose "New look" (src/lib/look.ts). Nobody else sees any of it; the classic tokens above
+ * are not touched. The same scope on <html> (via :has) lets a modal, drawer or palette that is drawn outside the shell
+ * (straight under <body>) take the same colors. Light mode only: the portal has no dark mode.
+ * [data-v2-tokens] gives one page container the same colors in either shell (the onboarding front door, drawn to match its
+ * board in the classic look too); unlike the shell scope it does not reach <html>, so the classic shell around it is unchanged.
+ *
+ * Text contrast (WCAG AA, 4.5:1) is checked by tests/look-tokens.test.ts against the values written here. Two changes from
+ * the design table: "faint" is #5e6a82, not #6b778c, which is only 4.2:1 on the page surface (#f3f7fb); and teal text on its
+ * tint uses --v2-teal-ink (#0a6870), because #0e7c86 is 4.36:1 there.
+ */
+html:has([data-look="v2"]),
+[data-look="v2"],
+[data-v2-tokens] {
+  /* The logo palette */
+  --v2-blue: #1c56b0;
+  --v2-blue-hover: #164690;
+  --v2-blue-tint: #e8f1fc;
+  --v2-blue-border: #bbd3f2;
+  --v2-indigo: #3d3bb8;
+  --v2-indigo-dark: #2b2a8a;
+  --v2-indigo-tint: #ecebfa;
+  --v2-lavender: #5a48b8;
+  --v2-lavender-tint: #f1eefc;
+  --v2-teal: #0e7c86;
+  --v2-teal-ink: #0a6870;
+  --v2-teal-fill: #34c4cb;
+  --v2-teal-tint: #dff5f6;
+  --v2-green: #17724a;
+  --v2-green-ink: #0f4f33;
+  --v2-green-fill: #6cc68f;
+  --v2-green-tint: #e3f5ea;
+  --v2-sun-from: #ffb82a;
+  --v2-sun-to: #ff7640;
+  --v2-sun-ink: #a8400d;
+  --v2-sun-tint: #fff1e6;
+  --v2-sun: linear-gradient(135deg, #ffb82a, #ff7640); /* Niva only */
+  --v2-danger: #b3261e;
+  --v2-danger-tint: #fbe3e1;
+  /* Cool surfaces and ink */
+  --v2-page: #f3f7fb;
+  --v2-ground: #f8fafd;
+  --v2-line: #dde6f0;
+  --v2-line-input: #cbd7e4;
+  --v2-ink: #12203a;
+  --v2-ink-2: #2c3a55;
+  --v2-muted: #4f5d75;
+  --v2-faint: #5e6a82;
+
+  /* The portal's existing token names, pointed at the logo palette, so the pages inside the shell take the same colors. */
+  --color-navy: var(--v2-blue);
+  --color-navy-hover: var(--v2-blue-hover);
+  --color-navy-50: var(--v2-blue-tint);
+  --color-navy-100: #dce9fa;
+  --color-navy-200: #dce9fa; /* text on blue */
+  --color-navy-300: var(--v2-blue-border);
+  --color-navy-400: #8fadde;
+  --color-saffron: var(--v2-sun-ink);
+  --color-saffron-50: var(--v2-sun-tint);
+  --color-saffron-200: #ffd5b8;
+  --color-gold: var(--v2-sun-from);
+  --color-brown: var(--v2-sun-ink);
+  --color-brown-900: #7c2d06;
+  --color-success: var(--v2-green);
+  --color-success-900: var(--v2-green-ink);
+  --color-success-50: var(--v2-green-tint);
+  --color-success-200: #b5dfc7;
+  --color-danger: var(--v2-danger);
+  --color-danger-50: var(--v2-danger-tint);
+  --color-live: var(--v2-danger);
+  --color-maroon: var(--v2-indigo); /* events */
+  --color-purple: var(--v2-lavender); /* pathshala, content, feedback */
+  --color-purple-50: var(--v2-lavender-tint);
+  --color-purple-900: #3a2f7a;
+  --color-store: var(--v2-green);
+  --color-store-50: var(--v2-green-tint);
+  --color-frame: #e6edf5;
+  --color-canvas: var(--v2-page);
+  --color-ground: var(--v2-ground);
+  --color-highlight: #eef4fd;
+  --color-skeleton: #e3eaf2;
+  --color-track: #e8eef5;
+  --color-line: var(--v2-line);
+  --color-line-soft: #ebf0f6;
+  --color-line-input: var(--v2-line-input);
+  --color-toggle-off: #b9c6d6;
+  --color-ink: var(--v2-ink);
+  --color-ink-2: var(--v2-ink-2);
+  --color-muted: var(--v2-muted);
+  --color-faint: var(--v2-faint);
+  --color-subtle: var(--v2-page);
+  --color-line-strong: var(--v2-line-input);
+  --color-navy-700: var(--v2-blue-hover);
+  --color-maroon-50: var(--v2-danger-tint);
+  --shadow-toast: 0 8px 24px rgba(18, 32, 58, 0.25);
+  --shadow-menu: 0 10px 30px rgba(18, 32, 58, 0.2);
+  --shadow-sheet: -8px 0 30px rgba(18, 32, 58, 0.12);
+}
+
+html:has([data-look="v2"]) {
+  scroll-padding-top: 72px;
+}
+
+/* Niva's panel hangs under the 64px bar here (its own classes say 60px). */
+@media (min-width: 768px) {
+  [data-look="v2"] #niva-panel {
+    top: 64px;
+  }
+}
+@media (min-width: 1280px) {
+  [data-look="v2"] #niva-panel {
+    height: calc(100vh - 64px);
+  }
+}
+
+@layer components {
+  .v2-skip {
+    position: absolute;
+    left: 8px;
+    top: -56px;
+    z-index: 70;
+    padding: 10px 16px;
+    border-radius: 12px;
+    background: var(--v2-blue);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .v2-skip:focus {
+    top: 8px;
+  }
+
+  /* Top bar: 64px; the community's mark sits in a cell as wide as the rail below it. */
+  .v2-topbar {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 12px;
+    background: #fff;
+    border-bottom: 1px solid var(--v2-line);
+  }
+  .v2-topbar-home {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 12px;
+  }
+  .v2-product {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--v2-blue);
+    white-space: nowrap;
+  }
+  @media (min-width: 768px) {
+    .v2-topbar {
+      gap: 16px;
+      padding: 0 20px 0 0;
+    }
+    .v2-topbar-home {
+      width: 88px;
+    }
+  }
+
+  /* Rail: 88px, icon over label. The list scrolls when there are more workspaces than the window is tall; Niva and the account stay put. */
+  .v2-rail {
+    position: sticky;
+    top: 64px;
+    height: calc(100vh - 64px);
+    width: 88px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding: 12px 8px 10px;
+    background: #fff;
+    border-right: 1px solid var(--v2-line);
+  }
+  .v2-rail-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .v2-rail-list,
+  .v2-rail-end {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .v2-rail-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    /* A scrollbar would eat the width of the labels; the list still scrolls with the wheel, touch and the keyboard, and a soft
+       shadow at the top or bottom edge shows when there is more. */
+    scrollbar-width: none;
+    background:
+      linear-gradient(#fff 30%, rgba(255, 255, 255, 0)) center top,
+      linear-gradient(rgba(255, 255, 255, 0), #fff 70%) center bottom,
+      radial-gradient(farthest-side at 50% 0, rgba(18, 32, 58, 0.16), rgba(18, 32, 58, 0)) center top,
+      radial-gradient(farthest-side at 50% 100%, rgba(18, 32, 58, 0.16), rgba(18, 32, 58, 0)) center bottom;
+    background-repeat: no-repeat;
+    background-size: 100% 24px, 100% 24px, 100% 8px, 100% 8px;
+    background-attachment: local, local, scroll, scroll;
+  }
+  .v2-rail-list::-webkit-scrollbar {
+    display: none;
+  }
+  .v2-rail-end {
+    flex-shrink: 0;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--v2-line);
+  }
+  .v2-rail-foot {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--v2-line);
+  }
+  .v2-rail-avatar {
+    display: grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 22px;
+  }
+  .v2-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 56px;
+    padding: 4px 2px;
+    border-radius: 14px;
+    color: var(--v2-ink-2);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+  .v2-nav-item:hover {
+    background: var(--v2-page);
+    color: var(--v2-ink);
+  }
+  .v2-nav-item[aria-current="page"] {
+    background: var(--v2-blue-tint);
+    color: var(--v2-blue);
+    font-weight: 700;
+  }
+  .v2-nav-label {
+    max-width: 100%;
+    font-size: 12px;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .v2-nav-badge {
+    position: absolute;
+    top: -7px;
+    right: -13px;
+    display: grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--v2-sun-ink);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* The list scrolls, so an outside focus ring would be clipped at its edges: draw it inside. */
+  .v2-nav-item:focus-visible,
+  .v2-bar-item:focus-visible {
+    outline-offset: -2px;
+  }
+
+  /* Niva's button: the sun gradient, kept for Niva alone. */
+  .v2-niva {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    min-height: 56px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 14px;
+    background: none;
+    color: var(--v2-ink-2);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .v2-niva-orb {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 19px;
+    background: var(--v2-sun);
+    color: var(--v2-ink);
+    box-shadow: 0 2px 8px rgba(255, 118, 64, 0.35);
+    transition: filter 0.12s ease;
+  }
+  .v2-niva:hover .v2-niva-orb {
+    filter: brightness(1.05);
+  }
+  .v2-niva[aria-expanded="true"] .v2-niva-orb {
+    box-shadow: 0 0 0 3px var(--v2-blue-border);
+  }
+
+  /* Phone: the bottom bar and its "More" sheet. */
+  .v2-bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    background: #fff;
+    border-top: 1px solid var(--v2-line);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .v2-bar-list {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 2px;
+    margin: 0;
+    padding: 6px 4px;
+    list-style: none;
+  }
+  .v2-bar-list > li:empty {
+    display: none;
+  }
+  .v2-bar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    min-height: 54px;
+    padding: 4px 0;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: var(--v2-ink-2);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .v2-bar-item[aria-current="page"],
+  .v2-bar-item[data-active="true"] {
+    background: var(--v2-blue-tint);
+    color: var(--v2-blue);
+    font-weight: 700;
+  }
+  .v2-bar .v2-nav-label,
+  .v2-bar .v2-niva {
+    font-size: 11px;
+  }
+  .v2-bar .v2-niva {
+    min-height: 54px;
+    padding: 4px 0;
+  }
+  .v2-bar .v2-niva-orb {
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+  }
+  .v2-sheet-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+  }
+  .v2-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(18, 32, 58, 0.45);
+  }
+  .v2-sheet {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+    border-radius: 20px 20px 0 0;
+    background: #fff;
+    box-shadow: 0 -8px 30px rgba(18, 32, 58, 0.18);
+    animation: v2-sheet-in 0.18s ease-out;
+  }
+  @keyframes v2-sheet-in {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  .v2-sheet-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 76px;
+    padding: 8px 4px;
+    border: 1px solid var(--v2-line);
+    border-radius: 14px;
+    background: var(--v2-ground);
+    color: var(--v2-ink-2);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .v2-sheet-item[aria-current="page"] {
+    border-color: var(--v2-blue-border);
+    background: var(--v2-blue-tint);
+    color: var(--v2-blue);
+    font-weight: 700;
+  }
+
+  /* The account menu: an avatar button and a small panel. */
+  .v2-avatar-btn {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 20px;
+    background: var(--v2-blue);
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .v2-avatar-btn:hover {
+    background: var(--v2-blue-hover);
+  }
+  .v2-usermenu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 50;
+    width: min(280px, calc(100vw - 24px));
+    padding: 6px;
+    border: 1px solid var(--v2-line);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: var(--shadow-menu);
+  }
+  .v2-menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: var(--v2-ink-2);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .v2-menu-item:hover {
+    background: var(--v2-page);
+    color: var(--v2-ink);
+  }
+  .v2-menu-item:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  /* The workspace's areas, above a module's own tab strip (Giving: Giving, Bolis, Accounting). */
+  .v2-areas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .v2-area {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--v2-line-input);
+    border-radius: 18px;
+    background: #fff;
+    color: var(--v2-ink-2);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .v2-area:hover {
+    background: var(--v2-page);
+  }
+  .v2-area[aria-current="page"] {
+    border-color: var(--v2-blue-border);
+    background: var(--v2-blue-tint);
+    color: var(--v2-blue);
+    font-weight: 700;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-sheet {
+    animation: none;
+  }
+  .v2-nav-item,
+  .v2-niva-orb {
+    transition: none;
+  }
+}
+
 /* ------------------------------------------------------------------ Public website (src/app/site) */
 @theme {
   --animate-site-float: site-float 7s ease-in-out infinite;

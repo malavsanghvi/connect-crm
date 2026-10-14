@@ -1,4 +1,4 @@
-// The public website (www.weaverams.org): its name, the optional-tip promise, and which
+// The public website (www.weaverams.org): its name, the Chip In promise, and which
 // requests belong to it. Pure functions only; src/proxy.ts applies the routing and
 // tests/site.test.ts covers it.
 //
@@ -14,13 +14,13 @@ import { hostName } from "@/lib/tenancy";
 
 export { DEFAULT_SITE_DOMAIN, SITE_PAGES };
 
-export const SITE_NAME = "Weaver AMS";
-export const SITE_TAGLINE = "Free membership software for communities";
+export const SITE_NAME = "Weaver";
+export const SITE_TAGLINE = "Do more good. Weaver handles the operations. For free. Forever.";
 export const SITE_DESCRIPTION =
-  "Faith Weaver, Community Weaver and Org Weaver (Weaver AMS) bring your members, households, events, giving, classes and accounting into one trusted place. Free for your organization, forever.";
+  "Weaver takes members, giving, events, classes and the books off your volunteers' plates. AI does the busywork and people make the final decisions. Free for your organization, with no lock-in.";
 
 /**
- * The optional tip: the most one account is ever asked to add, in total across every transaction in
+ * The optional Chip In: the most one account is ever asked to add, in total across every transaction in
  * a year (owner decision 2026-10-07). Integer cents like every amount; format only at the edge.
  */
 export const TIP_YEARLY_CAP_CENTS = 2_500;
@@ -54,7 +54,7 @@ export function isPublicSiteHost(rawHost: string | null | undefined, domain: str
 }
 
 /** Portal paths that may be linked from the website; a request for one is sent to the portal's address. */
-export const PORTAL_PATH_PREFIXES = ["/login", "/request-access", "/start", "/invite", "/c", "/api"] as const;
+export const PORTAL_PATH_PREFIXES = ["/login", "/request-access", "/start", "/invite", "/c", "/api", "/demo"] as const;
 
 /** Files the website serves itself (robots.txt, sitemap.xml, icons, the social preview image). */
 const SITE_FILES = ["/robots.txt", "/sitemap.xml", "/icon.svg", "/apple-icon.png", "/favicon.ico"] as const;

@@ -4,6 +4,7 @@ import { MobileMenu } from "@/components/site/mobile-menu";
 import { NavDropdown } from "@/components/site/nav-dropdown";
 import { SiteLink, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS } from "@/components/site/weavers";
+import { PRODUCT_DESCRIPTOR, PRODUCT_NAME } from "@/lib/brand";
 import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 const CAP = usd(TIP_YEARLY_CAP_CENTS);
@@ -11,28 +12,33 @@ const CAP = usd(TIP_YEARLY_CAP_CENTS);
 type MenuEntry = { to: string; icon: IconName; title: string; body: string };
 
 export const PRODUCT_MENU: MenuEntry[] = [
-  { to: "/#households", icon: "users", title: "Members and households", body: "Families, memberships and every ID in one record" },
-  { to: "/#giving", icon: "heart", title: "Giving and accounting", body: "Pledges, bank matching and QuickBooks" },
-  { to: "/#events", icon: "calendar", title: "Events and event day", body: "Tickets, lunch slots and check-in" },
-  { to: "/#learning", icon: "book", title: "Classes and learning", body: "Terms, attendance and homework" },
-  { to: "/#member-app", icon: "phone", title: "The member app", body: "One sign-in for the whole family" },
-  { to: "/#messages", icon: "mail", title: "Messages and volunteers", body: "Email, WhatsApp and sign-ups" },
+  { to: "/#product", icon: "users", title: "Members and households", body: "Families, memberships and every ID in one record" },
+  { to: "/#product", icon: "heart", title: "Giving and accounting", body: "Pledges, bank matching and QuickBooks" },
+  { to: "/#product", icon: "calendar", title: "Events and event day", body: "Tickets, lunch slots and check-in" },
+  { to: "/#product", icon: "book", title: "Classes and learning", body: "Terms, attendance and homework" },
+  { to: "/#product", icon: "phone", title: "The member app", body: "One sign-in for the whole family" },
+  { to: "/#ai", icon: "smile", title: "Niva, the AI assistant", body: "AI does the busywork; people decide" },
 ];
 
 /** The three Weavers: each links to its card on the home page. */
 export const SOLUTIONS_MENU: MenuEntry[] = WEAVERS.map((w) => ({ to: `/#${w.id}`, icon: w.icon, title: w.name, body: w.menu }));
 
 export const RESOURCES_MENU: MenuEntry[] = [
-  { to: "/#how", icon: "check", title: "How it works", body: "From request to going live" },
-  { to: "/pricing#how-we-stay-free", icon: "heart", title: "How we stay free", body: `Optional tips, capped at ${CAP} a year` },
+  { to: "/#get-ready", icon: "check", title: "How it works", body: "From request to going live" },
+  { to: "/pricing#how-we-stay-free", icon: "heart", title: "How we stay free", body: `Optional Chip Ins, capped at ${CAP} a year` },
   { to: "/#security", icon: "shield", title: "Security and privacy", body: "How your community's data is protected" },
+  { to: "/#own", icon: "lock", title: "No vendor lock-in", body: "Your data is yours, and leaving is easy" },
+  { to: "/brand", icon: "globe", title: "Brand and logos", body: "Our logo, colours and words to download" },
   { to: "/#faq", icon: "smile", title: "Questions and answers", body: "The things people ask first" },
 ];
 
-/** The Weaver mark and name. On a dark background (`light`) the mark sits on a white tile so its blues stay readable. */
-export function Logo({ light = false }: { light?: boolean }) {
+/**
+ * The Weaver mark and name. On a dark background (`light`) the mark sits on a white tile so its blues stay readable; on the
+ * orange header (`onAccent`) the small line under the name turns dark to stay legible.
+ */
+export function Logo({ light = false, onAccent = false }: { light?: boolean; onAccent?: boolean }) {
   return (
-    <span className="flex items-center gap-3">
+    <span className="flex items-center gap-1.5">
       {light ? (
         <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-white">
           <WeaverMark className="h-8 w-8" />
@@ -40,7 +46,10 @@ export function Logo({ light = false }: { light?: boolean }) {
       ) : (
         <WeaverMark className="h-11 w-11 flex-none" />
       )}
-      <span className={`font-display text-[22px] font-semibold tracking-[-0.01em] ${light ? "text-white" : "text-navy"}`}>{SITE_NAME}</span>
+      <span className="flex flex-col">
+        <span className={`font-display text-[24px] font-semibold leading-none tracking-[-0.01em] ${light ? "text-white" : "text-navy"}`}>{PRODUCT_NAME}</span>
+        <span className={`mt-1 text-[11.5px] font-semibold leading-none ${light ? "text-navy-200" : onAccent ? "text-ink" : "text-muted"}`}>{PRODUCT_DESCRIPTOR}</span>
+      </span>
     </span>
   );
 }
@@ -78,7 +87,7 @@ function MobileGroup({ label, items }: { label: string; items: MenuEntry[] }) {
       </summary>
       <div className="flex flex-col pb-3">
         {items.map((item) => (
-          <SiteLink key={item.to} to={item.to} className="flex min-h-[48px] items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-ink-2">
+          <SiteLink key={item.title} to={item.to} className="flex min-h-[48px] items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-ink-2">
             <Icon name={item.icon} className="h-5 w-5 text-navy" />
             {item.title}
           </SiteLink>
@@ -94,9 +103,9 @@ function Announcement() {
     <div className="bg-navy text-white">
       <div className={`${container} flex min-h-[44px] items-center justify-center gap-2 py-2 text-center text-[14px] font-semibold`}>
         <span className="hidden rounded-full bg-gold px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-navy sm:inline">Free forever</span>
-        <span className="text-navy-100">No fees for your organization. Members may add an optional tip, capped at {CAP} a year.</span>
+        <span className="text-navy-100">Free for your organization: no subscription, no setup fee and no lock-in.</span>
         <SiteLink to="/pricing#how-we-stay-free" className="inline-flex items-center gap-1 whitespace-nowrap font-bold text-gold underline-offset-4 hover:underline">
-          See how
+          Why it&apos;s free
           <Icon name="arrow" className="h-3.5 w-3.5" strokeWidth={2.5} />
         </SiteLink>
       </div>
@@ -111,18 +120,19 @@ export function SiteHeader() {
   return (
     <>
       <Announcement />
-      <header className="sticky top-0 z-40 border-b border-line/80 bg-canvas/85 backdrop-blur-md">
+      {/* Orange, with the darker ink for text so it stays readable on it. */}
+      <header className="sticky top-0 z-40 bg-saffron [--color-ink-2:var(--color-ink)]">
         <div className={`${container} relative flex h-[72px] items-center justify-between gap-4`}>
           <SiteLink to="/" className="rounded-xl">
             <span className="sr-only">{SITE_NAME} home</span>
-            <Logo />
+            <Logo onAccent />
           </SiteLink>
 
           <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
             <NavDropdown label="Product" width={640}>
               <div className="grid grid-cols-2 gap-1">
                 {PRODUCT_MENU.map((item) => (
-                  <PanelLink key={item.to} item={item} />
+                  <PanelLink key={item.title} item={item} />
                 ))}
               </div>
               <PanelFooter />
@@ -130,7 +140,7 @@ export function SiteHeader() {
             <NavDropdown label="Solutions" width={440}>
               <div className="flex flex-col gap-1">
                 {SOLUTIONS_MENU.map((item) => (
-                  <PanelLink key={item.to} item={item} />
+                  <PanelLink key={item.title} item={item} />
                 ))}
               </div>
             </NavDropdown>
@@ -140,7 +150,7 @@ export function SiteHeader() {
             <NavDropdown label="Resources" width={440}>
               <div className="flex flex-col gap-1">
                 {RESOURCES_MENU.map((item) => (
-                  <PanelLink key={item.to} item={item} />
+                  <PanelLink key={item.title} item={item} />
                 ))}
               </div>
             </NavDropdown>

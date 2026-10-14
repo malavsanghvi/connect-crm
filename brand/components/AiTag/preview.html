@@ -1,0 +1,16 @@
+<link rel="stylesheet" href="../../weaver-tokens.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--white); }
+  .stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; }
+  .line { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px; border-radius: var(--radius-tile); border: 1px solid var(--saffron-200); background: var(--saffron-50); color: var(--ink-2); font-size: 14.5px; line-height: 1.375; }
+  .tag { display: inline-flex; flex: none; align-items: center; gap: 6px; padding: 4px 8px; border-radius: var(--radius-chip); background: linear-gradient(90deg, var(--gold), var(--saffron)); color: var(--navy-hover); font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; }
+  .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--white); }
+  q { font-weight: 600; color: var(--ink); }
+</style>
+<div class="stack">
+  <p class="line"><span class="tag">AI</span><span>AI maps your spreadsheet columns without seeing any names, and Niva finds likely duplicate families to merge.</span></p>
+  <p class="line"><span class="tag">Niva</span><span>A new volunteer asks Niva <q>what's waiting on me?</q> and gets the list for their role.</span></p>
+  <p class="line"><span class="tag">AI</span><span>Ask Niva to match a deposit to the checks you recorded. AI suggests QuickBooks matches for the treasurer to approve.</span></p>
+  <p class="line"><span class="tag">Niva</span><span>“Which pledges are behind?”</span></p>
+</div>

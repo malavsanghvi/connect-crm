@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
+import { withActivity } from "@/lib/activity/with-activity";
 import type { Json } from "@/lib/database.types";
 import { bankTransactionInsert } from "@/lib/db-inserts";
 import { explainError, failure, type ActionResult } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
+import { depositMatchedMessage, depositTotalProblem } from "@/lib/payments/bank-match";
 import { parseDuplicateError } from "@/lib/payments/zelle";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, type CrmSession } from "@/lib/session";
@@ -196,7 +198,13 @@ async function describeMatch(
   };
 }
 
-export async function confirmBankMatchAction(input: {
+export async function confirmBankMatchAction(input: ConfirmBankMatchInput): Promise<ConfirmBankMatchResult> {
+  return withActivity("giving.confirm_bank_match", () => confirmBankMatch(input), { entityFrom: { kind: "bank_line", id: input.txnId } });
+}
+
+type ConfirmBankMatchInput = Parameters<typeof confirmBankMatch>[0];
+
+async function confirmBankMatch(input: {
   txnId: string;
   householdId: string;
   pledgeIds: string[] | null;
@@ -324,18 +332,12 @@ export async function matchDepositAction(input: { txnId: string; paymentIds: str
   if (ids.length === 0) return { ok: false, error: "Could not match the deposit — tick the payments that make up this deposit." };
   const { data, error } = await auth.session.db.rpc("match_deposit", { p_txn: input.txnId, p_payment_ids: ids });
   if (error) {
-    const m = /chosen payments total (-?\d+) but the deposit is (-?\d+)/.exec(error.message ?? "");
-    if (m) {
-      const cur = auth.session.center.currency;
-      return {
-        ok: false,
-        error: `Could not match the deposit — the ticked payments total ${formatCents(Number(m[1]), cur)} but the deposit is ${formatCents(Number(m[2]), cur)}. They must add up exactly.`,
-      };
-    }
+    const problem = depositTotalProblem(error.message, auth.session.center.currency);
+    if (problem) return { ok: false, error: problem };
     return failure("Could not match the deposit", error);
   }
   refresh();
-  return { ok: true, message: `Deposit matched to ${data} recorded payment${data === 1 ? "" : "s"} and queued for QuickBooks as one deposit.`, data: { count: data } };
+  return { ok: true, message: depositMatchedMessage(data), data: { count: data } };
 }
 
 // ---------------------------------------------------------------------------

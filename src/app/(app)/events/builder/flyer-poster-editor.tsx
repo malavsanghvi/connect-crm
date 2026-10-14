@@ -7,40 +7,18 @@ import { buttonClass } from "@/components/ui";
 import { FLYER_LIMITS, POSTER_AGENDA_MAX, POSTER_LIMITS, type FlyerDesign, type PosterAgendaRow, type PosterContent } from "@/lib/events/flyer";
 import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
+import type { OccasionSuggestion } from "@/lib/events/flyer-occasions";
 import { POSTER_ICONS, POSTER_ICON_LABEL, posterIconUri, type PosterIcon } from "@/lib/events/flyer-icons";
+import { greetingFor, ornamentFor } from "@/lib/events/flyer-layout";
+import { useKind } from "@/components/kind-context";
 
 import { uploadPartnerLogoAction } from "./flyer-art-actions";
 import { FlyerArtPicker } from "./flyer-art-picker";
 import { InlineError, SectionBox, TextField } from "./flyer-fields";
+import { IconPicker } from "./flyer-icon-picker";
+import { LayoutBlockEditors, LayoutChooser } from "./flyer-layout-editor";
 
 const INK = "#1B2C5C";
-
-/** A row of icon buttons (the built-in icon library); one is chosen. */
-function IconPicker({ label, value, onChange, disabled }: { label: string; value: PosterIcon; onChange: (v: PosterIcon) => void; disabled: boolean }) {
-  return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
-      {POSTER_ICONS.map((icon) => {
-        const on = icon === value;
-        return (
-          <button
-            key={icon}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            aria-label={POSTER_ICON_LABEL[icon]}
-            title={POSTER_ICON_LABEL[icon]}
-            disabled={disabled}
-            onClick={() => onChange(icon)}
-            className={`flex h-11 w-11 items-center justify-center rounded-[10px] border bg-white disabled:opacity-60 ${on ? "border-navy ring-2 ring-navy/30" : "border-line"}`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={posterIconUri(icon, INK)} alt="" width={26} height={26} />
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /**
  * Flyer maker › Poster: the words and sections of the Poster template (Flyers
@@ -57,7 +35,9 @@ export function FlyerPosterEditor({
   hasLogo,
   brand,
   art,
+  suggestions,
   defaults,
+  isGuestVisible,
 }: {
   eventId: string;
   design: FlyerDesign;
@@ -67,11 +47,19 @@ export function FlyerPosterEditor({
   hasLogo: boolean;
   brand: FlyerBrand;
   art: FlyerArtSetup;
+  /** The occasions that suit this event, best first, with their reasons. */
+  suggestions?: readonly OccasionSuggestion[];
   /** The event's own words and date (what "Use the event's…" puts back). */
   defaults: { poster: PosterContent; venue_line: string };
+  /** Anyone who sees the flyer sees a picture from an album, guests included (a note beside the picture choice). */
+  isGuestVisible?: boolean;
 }) {
   const poster = design.poster ?? defaults.poster;
   const patchPoster = (fn: (p: PosterContent) => PosterContent) => update((d) => ({ ...d, poster: fn(d.poster ?? defaults.poster) }));
+  // The greeting of the community's tradition, offered when a layout is chosen ("" when it has none).
+  const kind = useKind();
+  const greeting = greetingFor({ kind });
+  const ornament = ornamentFor({ kind });
   const setPoster = (patch: Partial<PosterContent>) => patchPoster((p) => ({ ...p, ...patch }));
 
   // ── The partner's logo ──
@@ -154,6 +142,10 @@ export function FlyerPosterEditor({
 
   return (
     <div className="flex flex-col gap-3">
+      <SectionBox title="Layout" note="How the words are arranged. Everything you have typed is kept when you change layout.">
+        <LayoutChooser poster={poster} brand={brand} headline={design.headline} greeting={greeting} ornament={ornament} onPoster={patchPoster} disabled={disabled} />
+      </SectionBox>
+
       <SectionBox title="Headline" note="Big and set in a serif face. It is the one thing a poster must have.">
         <TextField id="poster-headline" label="Headline" value={design.headline} max={FLYER_LIMITS.headline} onChange={(v) => update((d) => ({ ...d, headline: v }))} disabled={disabled} required />
         <TextField
@@ -167,6 +159,8 @@ export function FlyerPosterEditor({
         />
         <TextField id="poster-slogan" label="Slogan (optional)" value={poster.slogan} max={POSTER_LIMITS.slogan} onChange={(v) => setPoster({ slogan: v })} disabled={disabled} />
       </SectionBox>
+
+      {poster.layout ? <LayoutBlockEditors eventId={eventId} poster={poster} headline={design.headline} greeting={greeting} onPoster={patchPoster} disabled={disabled} isGuestVisible={isGuestVisible} /> : null}
 
       <SectionBox
         title="Logos"
@@ -422,7 +416,7 @@ export function FlyerPosterEditor({
       </SectionBox>
 
       <SectionBox title="Art" note="The border and the picture along the bottom. The words, logos and layout are always drawn by the flyer maker.">
-        <FlyerArtPicker eventId={eventId} brand={brand} poster={poster} onPoster={setPoster} art={art} disabled={disabled} />
+        <FlyerArtPicker eventId={eventId} brand={brand} poster={poster} onPoster={setPoster} art={art} suggestions={suggestions} disabled={disabled} />
       </SectionBox>
     </div>
   );

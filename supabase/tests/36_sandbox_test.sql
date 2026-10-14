@@ -111,7 +111,7 @@ select pg_temp.assert(app.center_slug_for_domain('nothing.example') is null
   'A · the web name still resolves (portal and member app default community read centers by slug)');
 select pg_temp.assert(exists (select 1 from app.audit_log where id > :audit_start and record_table = 'centers' and record_id = :jsh
                                 and reason like 'Owner decision 2026-09-25%'), 'A · the switch is in the audit log with its reason');
-select pg_temp.assert(app.demo_center_problem(:jsh) is null, 'A · demo data may be loaded (a sandbox), guarded by the typed name and 2FA');
+select pg_temp.assert(app.demo_center_problem(:jsh) is null, 'A · demo data may be loaded (a sandbox), guarded by the typed name');
 select pg_temp.assert(app.demo_confirm_word(:jsh) = 'JSH', 'A · the word to type is JSH');
 set role authenticated;
 select pg_temp.claims(:jowner, false);

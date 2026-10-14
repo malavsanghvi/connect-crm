@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone: Today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A; overflow: hidden; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #DDE6F0">
+    <svg width="34" height="34" viewBox="170 166 1600 1600" role="img" aria-label="Weaver">
+      <defs>
+        <linearGradient id="pt-base" gradientUnits="userSpaceOnUse" x1="300" y1="560" x2="1640" y2="640"><stop offset="0" stop-color="#34c4cb"></stop><stop offset="0.5" stop-color="#2f8ed8"></stop><stop offset="1" stop-color="#6cc68f"></stop></linearGradient>
+        <linearGradient id="pt-wash" gradientUnits="userSpaceOnUse" x1="960" y1="700" x2="960" y2="1300"><stop offset="0" stop-color="#2a6fe3" stop-opacity="0"></stop><stop offset="1" stop-color="#2a6fe3" stop-opacity="0.55"></stop></linearGradient>
+        <linearGradient id="pt-dark" gradientUnits="userSpaceOnUse" x1="990" y1="1000" x2="700" y2="1400"><stop offset="0" stop-color="#1a7fc6" stop-opacity="0"></stop><stop offset="0.45" stop-color="#1676c4" stop-opacity="0.85"></stop><stop offset="1" stop-color="#1c56b0"></stop></linearGradient>
+        <linearGradient id="pt-purple" gradientUnits="userSpaceOnUse" x1="1010" y1="1090" x2="1290" y2="1400"><stop offset="0" stop-color="#3d3bb8"></stop><stop offset="1" stop-color="#7a69da"></stop></linearGradient>
+        <linearGradient id="pt-sun" gradientUnits="userSpaceOnUse" x1="1060" y1="580" x2="880" y2="860"><stop offset="0" stop-color="#ffb82a"></stop><stop offset="1" stop-color="#ff7640"></stop></linearGradient>
+        <clipPath id="pt-w"><path d="M370,535 C520,535 640,650 700,800 C740,900 765,990 790,1075 C850,990 900,925 965,925 C1030,925 1085,990 1140,1075 C1230,830 1330,535 1560,535 C1650,535 1675,625 1620,690 C1560,760 1500,800 1460,880 C1400,1030 1370,1150 1330,1255 C1280,1340 1230,1397 1170,1397 C1090,1397 1040,1320 965,1175 C900,1290 840,1397 760,1397 C680,1397 630,1330 600,1250 C540,1080 500,950 470,860 C430,770 380,725 330,685 C285,645 275,610 285,585 C300,548 330,535 370,535 Z"></path></clipPath>
+      </defs>
+      <g clip-path="url(#pt-w)">
+        <rect x="250" y="500" width="1450" height="950" fill="url(#pt-base)"></rect>
+        <rect x="250" y="700" width="1450" height="700" fill="url(#pt-wash)"></rect>
+        <path d="M598,1256 C690,1246 752,1170 792,1076 C850,1000 905,930 965,925 L965,1175 L965,1420 L560,1420 Z" fill="url(#pt-dark)"></path>
+        <path d="M968,1176 C1010,1108 1060,1068 1112,1068 C1220,1170 1272,1256 1332,1258 L1332,1420 L968,1420 Z" fill="url(#pt-purple)"></path>
+      </g>
+      <circle cx="965" cy="718" r="152" fill="url(#pt-sun)"></circle>
+    </svg>
+    <span style="flex: 1; font-size: 15px; font-weight: 700; line-height: 1.2">Jain Society of Houston</span>
+    <span aria-label="Priya Mehta" style="width: 44px; height: 44px; border-radius: 22px; background: #1C56B0; color: #FFFFFF; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center">PM</span>
+  </header>
+
+  <main style="flex: 1; min-height: 0; padding: 18px 16px 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3D3BB8">Friday 9 October</span>
+      <h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 28px; line-height: 1.15">Good morning, Priya.</h1>
+      <span style="font-size: 13px; color: #4F5D75">{{progressText}}</span>
+      <div style="height: 8px; border-radius: 4px; background: #EAF0F7; overflow: hidden"><div style="width: {{pct}}; height: 8px; background: linear-gradient(90deg, #34C4CB, #2F8ED8, #6CC68F)"></div></div>
+    </div>
+
+    <section aria-label="Your routine" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 18px; padding: 8px 8px 6px">
+      <div style="padding: 8px 8px 4px; font-size: 14px; font-weight: 800">Your routine · Treasurer</div>
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+        <button type="button" role="checkbox" aria-checked="{{s.checked}}" onClick="{{s.toggle}}" style="display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; min-height: 52px; padding: 6px 8px; border: 0; border-radius: 12px; background: transparent; cursor: pointer; color: #12203A">
+          <span aria-hidden="true" style="flex: none; width: 24px; height: 24px; border-radius: 12px; box-sizing: border-box; border: 2px solid {{s.ring}}; background: {{s.fill}}; display: flex; align-items: center; justify-content: center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{s.tick}}"><path d="M5 13l4 4 10-10"></path></svg>
+          </span>
+          <span style="flex: 1; font-size: 14px; font-weight: 600; line-height: 1.35; color: {{s.ink}}">{{s.title}}</span>
+        </button>
+      </sc-for>
+    </section>
+
+    <a href="PhoneAsk.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 8px 0 16px; border-radius: 26px; background: #FFFFFF; border: 1px solid #CBD7E4">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="pt-spark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB82A"></stop><stop offset="1" stop-color="#FF7640"></stop></linearGradient></defs><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="url(#pt-spark)"></path></svg>
+      <span style="flex: 1; font-size: 15px; color: #4F5D75">Ask Niva anything</span>
+    </a>
+  </main>
+
+  <a href="PhoneAsk.dc.html" aria-label="Ask Niva" style="position: absolute; right: 16px; bottom: 92px; width: 56px; height: 56px; border-radius: 28px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(255, 118, 64, 0.4)">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"></path></svg>
+  </a>
+
+  <nav aria-label="Main" style="display: flex; height: 76px; background: #FFFFFF; border-top: 1px solid #DDE6F0">
+    <a href="PhoneToday.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 700; color: #1C56B0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+    <a href="PhoneAsk.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; color: #4F5D75"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.5 8a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z M4.5 21c0-3.9 3.4-6 7.5-6s7.5 2.1 7.5 6"></path></svg>People</a>
+    <a href="PhoneAsk.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; color: #4F5D75"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"></path></svg>Giving</a>
+    <a href="PhoneAsk.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; color: #4F5D75"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4"></path></svg>Events</a>
+    <a href="PhoneAsk.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; color: #4F5D75"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01 M12 12h.01 M19 12h.01"></path></svg>More</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { done: [true, true, false, false, true, false] };
+  }
+  renderVals() {
+    const titles = [
+      'Bank lines imported from Chase',
+      'Record the weekend’s checks',
+      'Second approval: refund of $120.00',
+      'Match the $2,340.00 Chase deposit',
+      'Nothing waiting for QuickBooks',
+      'Friday: look at pledge aging'
+    ];
+    const d = this.state.done;
+    const n = d.filter(Boolean).length;
+    return {
+      steps: titles.map((t, i) => ({
+        title: t,
+        checked: d[i] ? 'true' : 'false',
+        ring: d[i] ? '#17724A' : '#6B778C',
+        fill: d[i] ? '#17724A' : '#FFFFFF',
+        tick: d[i] ? 1 : 0,
+        ink: d[i] ? '#4F5D75' : '#12203A',
+        toggle: () => { const m = this.state.done.slice(); m[i] = !m[i]; this.setState({ done: m }); }
+      })),
+      pct: Math.round((n / d.length) * 100) + '%',
+      progressText: n === d.length ? 'All done. Nice work.' : n + ' of ' + d.length + ' done · about ' + (d.length - n) * 2 + ' minutes left'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -8,24 +8,53 @@ import type { CrmSession } from "@/lib/session";
 
 const LIMIT = 150;
 
-/** Audit trail for the household record and the records hanging off it. */
-export async function AuditTab({ session, householdId }: { session: CrmSession; householdId: string }) {
-  if (!canAccess(session, "audit")) return <NoAccess area="The audit log" access="audit" />;
+/**
+ * Audit trail for the household record and the records hanging off it. With `personId` (the Family page's History filter, and the
+ * person slide-over's History) only that person's own record and identifiers are shown. With no `householdId` (a person in no
+ * household) it is that person's alone. `bare` draws just the table, for a panel that has its own heading.
+ */
+export async function AuditTab({
+  session,
+  householdId,
+  personId,
+  bare = false,
+}: {
+  session: CrmSession;
+  householdId?: string | null;
+  personId?: string;
+  bare?: boolean;
+}) {
+  if (!canAccess(session, "audit")) {
+    return bare ? <p className="m-0 py-1 text-[14px] text-muted">You don&apos;t have access to this area</p> : <NoAccess area="The audit log" access="audit" />;
+  }
   const { db, center } = session;
-  const retry = `/households/${householdId}?tab=audit`;
+  const retry = householdId ? `/households/${householdId}?tab=audit` : personId ? `/people/${personId}` : "/people";
 
   // Ids of related records (only those this user can see; the audit rows are filtered the same way).
-  const [members, extIds, memberships, pledges, payments, applications] = await Promise.all([
-    db.from("household_members").select("person_id").eq("household_id", householdId),
-    db.from("external_ids").select("id").eq("household_id", householdId).limit(500),
-    db.from("memberships").select("id").eq("household_id", householdId).limit(500),
-    db.from("pledges").select("id").eq("household_id", householdId).limit(500),
-    db.from("payments").select("id").eq("household_id", householdId).limit(500),
-    db.from("membership_applications").select("id").eq("household_id", householdId).limit(500),
-  ]);
-  const related: [string, string[]][] = [
-    ["households", [householdId]],
-    ["people", (members.data ?? []).map((m) => m.person_id)],
+  const none = Promise.resolve({ data: [] as { id: string }[] });
+  const [members, extIds, memberships, pledges, payments, applications] = householdId
+    ? await Promise.all([
+        db.from("household_members").select("person_id").eq("household_id", householdId),
+        db.from("external_ids").select("id").eq("household_id", householdId).limit(500),
+        db.from("memberships").select("id").eq("household_id", householdId).limit(500),
+        db.from("pledges").select("id").eq("household_id", householdId).limit(500),
+        db.from("payments").select("id").eq("household_id", householdId).limit(500),
+        db.from("membership_applications").select("id").eq("household_id", householdId).limit(500),
+      ])
+    : [{ data: [] as { person_id: string }[] }, await none, await none, await none, await none, await none];
+  const memberIds = (members.data ?? []).map((m) => m.person_id);
+  // Only a person of this household can be the filter (nothing else is asked for). Without a household the person is the whole subject.
+  const only = personId && (!householdId || memberIds.includes(personId)) ? personId : null;
+  const personExt = only ? await db.from("external_ids").select("id").eq("person_id", only).limit(500) : null;
+  const related: [string, string[]][] = only
+    ? [
+        ["people", [only]],
+        ["household_members", []],
+        ["external_ids", (personExt?.data ?? []).map((r) => r.id)],
+      ]
+    : [
+    ["households", householdId ? [householdId] : []],
+    ["people", memberIds],
     ["household_members", []],
     ["external_ids", (extIds.data ?? []).map((r) => r.id)],
     ["memberships", (memberships.data ?? []).map((r) => r.id)],
@@ -55,6 +84,15 @@ export async function AuditTab({ session, householdId }: { session: CrmSession; 
   rows.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at) || b.id - a.id);
   const shown = rows.slice(0, LIMIT);
   const actors = await userNames(db, center.id, shown.map((r) => r.actor_user_id));
+
+  if (bare) {
+    return (
+      <div data-testid="history">
+        {error ? <QueryError what="part of the history" error={error} retryHref={retry} /> : null}
+        <AuditTable rows={shown} timeZone={center.time_zone} actors={actors} />
+      </div>
+    );
+  }
 
   return (
     <Card

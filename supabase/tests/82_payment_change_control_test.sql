@@ -1,5 +1,5 @@
 -- 0597 (payments plan PR 5): who may change where gifts go (a second, different person with giving.approve,
--- each with a fresh 2FA check and a reason), Community Connect's pause of a way to pay (platform admins only),
+-- each with a reason; no fresh 2FA check since 0787), Community Connect's pause of a way to pay (platform admins only),
 -- readiness check 6 for every enabled way to pay, the Zelle instructions approval, and the refresh of the stored
 -- plugin rows when a rehearsal Zelle report is matched.
 -- Everything runs in one transaction on fresh organizations and is rolled back at the end.
@@ -219,14 +219,8 @@ select pg_temp.assert_state($$select app.request_payee_change('00000000-0000-400
   '42501', 'nor a Community Connect platform admin');
 reset role;
 
--- Tanu: no fresh 2FA check.
+-- Tanu asks without a fresh 2FA check: none is asked for any more (0787).
 select pg_temp.claims('82000000-0000-4000-8000-000000000002', false);
-set local role authenticated;
-select pg_temp.assert_state($$select app.request_payee_change('00000000-0000-4000-8000-000000008201', 'zelle', '{"recipient":"new@pc82.example"}', 'The treasurer moved to a new Zelle address')$$,
-  'CCSTP', 'asking for a change needs a fresh 2FA check');
-reset role;
-select pg_temp.assert(not exists (select 1 from app.payee_changes where center_id = :c), 'and nothing was written');
-select pg_temp.claims('82000000-0000-4000-8000-000000000002', true);
 set local role authenticated;
 select pg_temp.assert_raises($$select app.request_payee_change('00000000-0000-4000-8000-000000008201', 'zelle', '{"recipient":"new@pc82.example"}', ' ')$$,
   'say why', 'asking for a change needs a reason');
@@ -246,7 +240,7 @@ select pg_temp.assert_raises($$select app.request_payee_change('00000000-0000-40
   'Only the Zelle address', 'the PayPal email is not asked for here (it is asked for when the new one is verified)');
 select app.request_payee_change('00000000-0000-4000-8000-000000008201', 'zelle', '{"recipient":"new@pc82.example"}', 'The treasurer moved to a new Zelle address') as r1 \gset
 select (:'r1'::jsonb)->>'id' as req1 \gset
-select pg_temp.assert((:'r1'::jsonb)->>'status' = 'pending', 'the request is waiting for a second person');
+select pg_temp.assert((:'r1'::jsonb)->>'status' = 'pending', 'the request, made without a fresh 2FA check, is waiting for a second person');
 reset role;
 select pg_temp.assert(pg_temp.zelle_recipient(:c) = 'give@pc82.example'
                       and (select changes #>> '{recipient,from}' = 'give@pc82.example' and changes #>> '{recipient,to}' = 'new@pc82.example'
@@ -296,18 +290,12 @@ select pg_temp.assert_state(format($$select app.decide_payee_change(%L, true, 'S
 reset role;
 select pg_temp.assert(pg_temp.req_status(:'req1') = 'pending' and pg_temp.zelle_recipient(:c) = 'give@pc82.example', 'none of them changed anything');
 
--- The second person: a fresh 2FA check and a reason.
+-- The second person: a reason (no fresh 2FA check is asked for any more, 0787).
 select pg_temp.claims('82000000-0000-4000-8000-000000000003', false);
-set local role authenticated;
-select pg_temp.assert_state(format($$select app.decide_payee_change(%L, true, 'Checked with the bank')$$, :'req1'), 'CCSTP',
-  'confirming needs a fresh 2FA check');
-reset role;
-select pg_temp.assert(pg_temp.req_status(:'req1') = 'pending' and pg_temp.zelle_recipient(:c) = 'give@pc82.example', 'and without it nothing changed');
-select pg_temp.claims('82000000-0000-4000-8000-000000000003', true);
 set local role authenticated;
 select pg_temp.assert_raises(format($$select app.decide_payee_change(%L, true, ' ')$$, :'req1'), 'say why', 'confirming needs a reason');
 select pg_temp.assert((app.decide_payee_change(:'req1', true, 'Checked with the bank that the new address is ours')->>'status') = 'applied',
-  'a different treasurer with a fresh 2FA check and a reason confirms it');
+  'a different treasurer with a reason confirms it, with no fresh 2FA check');
 select pg_temp.assert_raises(format($$select app.decide_payee_change(%L, true, 'Again')$$, :'req1'), 'already confirmed', 'a confirmed request cannot be confirmed twice');
 reset role;
 select pg_temp.assert(pg_temp.zelle_recipient(:c) = 'new@pc82.example'
@@ -401,13 +389,7 @@ select pg_temp.assert(pg_temp.req_status(:'req6') = 'expired' and pg_temp.req_st
   'asking again marked the lapsed request lapsed; nothing changed');
 
 -- The bank account Zelle payments arrive in: the window is saved now, the account waits for a second person.
-select pg_temp.claims('82000000-0000-4000-8000-000000000002', false);
-set local role authenticated;
-select pg_temp.assert_state($$select app.set_zelle_reporting('00000000-0000-4000-8000-000000008201', 7, '82000000-0000-4000-8000-0000000000b2', 'Move Zelle to the savings account')$$,
-  'CCSTP', 'changing the Zelle bank account needs a fresh 2FA check');
-reset role;
-select pg_temp.assert(app.zelle_report_window_days(:c) = 10 and app.zelle_bank_account_id(:c) = :ba1, 'and without it neither the window nor the account changed');
-select pg_temp.claims('82000000-0000-4000-8000-000000000002', true);
+select pg_temp.claims('82000000-0000-4000-8000-000000000002', false);   -- asking to move the account needs no fresh 2FA check (0787)
 set local role authenticated;
 select app.set_zelle_reporting('00000000-0000-4000-8000-000000008201', 7, '82000000-0000-4000-8000-0000000000b2', 'Move Zelle to the savings account') as zr \gset
 reset role;
@@ -579,23 +561,23 @@ select pg_temp.assert((select ic.external_account_id is null and ic.settings->>'
 -- "Fresh 2FA" is conditional: the rule of app.assert_step_up (0150)
 -- ═════════════════════════════════════════════════════════════════════════════
 -- (Tara is staff of this organization only: the rule is read for every organization a person is staff of.)
--- A payee change asks for a fresh 2FA check from a person who has an authenticator app, or whose organization requires 2FA
--- for its staff (the default for a new community). Communities that existed in 0150 (JSH among them) have the rule off, and
--- a person there without an authenticator app is not asked. This is an owner decision of 0150 and is not changed here.
+-- A payee change no longer asks for a fresh 2FA check at all (0787): only four gatekeeping actions do, so the conditional rule is
+-- shown here with a listed one, creating a sandbox. It asks a person who has an authenticator app, or whose organization
+-- requires 2FA for its staff (the default for a new community). Communities that existed in 0150 (JSH among them) have the rule
+-- off, and a person there without an authenticator app is not asked. This is an owner decision of 0150 and is not changed here.
 select pg_temp.no_claims();
 update app.centers set rules = jsonb_set(coalesce(rules, '{}'::jsonb), '{security}', coalesce(rules->'security', '{}'::jsonb) || '{"require_2fa_for_staff": false}') where id = :c;
 select pg_temp.claims('82000000-0000-4000-8000-000000000003', false);
 set local role authenticated;
-select (app.request_payee_change(:c, 'zelle', '{"recipient":"rule-off@pc82.example"}', 'Checking the 2FA rule'))->>'id' as req10 \gset
-select app.cancel_payee_change(:'req10', 'Only checking the 2FA rule');
+select app.assert_step_up('platform.create_sandbox');
 reset role;
-select pg_temp.assert(pg_temp.req_status(:'req10') = 'cancelled',
+select pg_temp.assert(true,
   '2FA rule off and no authenticator app: the person is not asked for a fresh check (the caveat stated in the pull request)');
 select pg_temp.no_claims();
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values ('82000000-0000-4000-8000-0000000000f2', :tara, 'Phone', 'totp', 'verified');
 select pg_temp.claims('82000000-0000-4000-8000-000000000003', false);
 set local role authenticated;
-select pg_temp.assert_state($$select app.request_payee_change('00000000-0000-4000-8000-000000008201', 'zelle', '{"recipient":"rule-off@pc82.example"}', 'Checking the 2FA rule')$$,
+select pg_temp.assert_state($$select app.assert_step_up('platform.create_sandbox')$$,
   'CCSTP', '2FA rule off but the person has an authenticator app: a fresh check is asked');
 reset role;
 select pg_temp.no_claims();
@@ -603,7 +585,7 @@ delete from auth.mfa_factors where id = '82000000-0000-4000-8000-0000000000f2';
 update app.centers set rules = rules #- '{security,require_2fa_for_staff}' where id = :c;
 select pg_temp.claims('82000000-0000-4000-8000-000000000003', false);
 set local role authenticated;
-select pg_temp.assert_state($$select app.request_payee_change('00000000-0000-4000-8000-000000008201', 'zelle', '{"recipient":"rule-off@pc82.example"}', 'Checking the 2FA rule')$$,
+select pg_temp.assert_state($$select app.assert_step_up('platform.create_sandbox')$$,
   'CCSTP', '2FA rule on (the default of a new community): a fresh check is asked even without an authenticator app');
 reset role;
 
@@ -773,12 +755,7 @@ set local role authenticated;
 select pg_temp.assert_state($$select app.suspend_payment_plugin('zelle', '00000000-0000-4000-8000-000000008201', 'We want it off')$$, '42501', 'a treasurer cannot either');
 reset role;
 
-select pg_temp.claims('82000000-0000-4000-8000-000000000007', false);
-set local role authenticated;
-select pg_temp.assert_state($$select app.suspend_payment_plugin('zelle', '00000000-0000-4000-8000-000000008201', 'The bank reported a problem')$$, 'CCSTP',
-  'pausing needs a fresh 2FA check');
-reset role;
-select pg_temp.claims('82000000-0000-4000-8000-000000000007', true);
+select pg_temp.claims('82000000-0000-4000-8000-000000000007', false);   -- pausing asks for no fresh 2FA check (0787)
 set local role authenticated;
 select pg_temp.assert_raises($$select app.suspend_payment_plugin('zelle', '00000000-0000-4000-8000-000000008201', ' ')$$, 'say why', 'and a reason');
 select pg_temp.assert_raises($$select app.suspend_payment_plugin('venmo_direct', null, 'x')$$, 'not a payment method', 'an unknown way to pay is refused');

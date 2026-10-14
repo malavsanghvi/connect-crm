@@ -10,12 +10,12 @@ import * as pull from "../src/handlers/qbo.pull_lists";
 import * as refresh from "../src/handlers/qbo.refresh_token";
 import * as testPost from "../src/handlers/qbo.test_post";
 import { createHttp } from "../src/http";
-import { applyCreditMemo, checkDoc, dollars, references, toQbo, totalCents, type QboDoc } from "../src/qbo/documents";
+import { applyCreditMemo, checkDoc, dollars, references, resolveLinks, toQbo, totalCents, type QboDoc } from "../src/qbo/documents";
 import { apiBase, appKeys, faultMessage, ReconnectNeededError, tokenRequest, tokenUrl } from "../src/qbo/intuit";
 import { createRegistry, jobContext } from "../src/runner";
 import { captureLog, fakeDb, job } from "./helpers";
 
-type Mock = { base: string; realm: string; state: { created: { entity: string; requestId: string; doc: Record<string, unknown> }[]; tokens: { grant: string }[] }; close(): Promise<void> };
+type Mock = { base: string; realm: string; state: { created: { entity: string; requestId: string; doc: Record<string, unknown> }[]; tokens: { grant: string }[]; rejectActiveFilter: Set<string> | null }; close(): Promise<void> };
 const require = createRequire(import.meta.url);
 const { startIntuitMock } = require("../../e2e/mocks/intuit.cjs") as { startIntuitMock: (o?: object) => Promise<Mock> };
 
@@ -96,6 +96,22 @@ describe("documents", () => {
     expect(toQbo(dep)).toMatchObject({ DepositToAccountRef: { value: "2" }, Line: [{ DetailType: "DepositLineDetail", DepositLineDetail: { AccountRef: { value: "3" } } }] });
     expect(references(dep)).toEqual({ accounts: ["2", "3"], items: [], classes: [] });
   });
+  it("a deposit of money held in Undeposited Funds links the receipt it came in on (a plain line naming Undeposited Funds is refused by QuickBooks)", () => {
+    const dep: QboDoc = { entity: "Deposit", txn_date: "2026-03-03", deposit_account: "2",
+      lines: [{ amount_cents: 100, description: "Receipt R-1", account_id: "3", linked_txn: { type: "SalesReceipt", id: "145" } }] };
+    expect(toQbo(dep)).toEqual({ TxnDate: "2026-03-03", DepositToAccountRef: { value: "2" },
+      Line: [{ Amount: 1, Description: "Receipt R-1", LinkedTxn: [{ TxnId: "145", TxnType: "SalesReceipt", TxnLineId: "0" }] }] });
+    // the account is not sent but is still checked (the database and the read-only test post look it up)
+    expect(references(dep)).toEqual({ accounts: ["2", "3"], items: [], classes: [] });
+  });
+  it("the test post's Deposit names its receipt before it exists: unresolved it cannot be sent, resolved it links it", () => {
+    const dep: QboDoc = { entity: "Deposit", txn_date: "2026-03-03", deposit_account: "2", lines: [{ amount_cents: 100, account_id: "3", link_to: "SalesReceipt" }] };
+    expect(() => toQbo(dep)).toThrow(/waiting for the receipt/);
+    expect((toQbo(resolveLinks(dep, { SalesReceipt: "145" }, false)).Line as { LinkedTxn: { TxnId: string }[] }[])[0]!.LinkedTxn[0]!.TxnId).toBe("145");
+    expect((toQbo(resolveLinks(dep, {}, true)).Line as { LinkedTxn: { TxnId: string }[] }[])[0]!.LinkedTxn[0]!.TxnId).toBe("(the sales receipt above)");
+    expect(() => resolveLinks(dep, {}, false)).toThrow(/Not attempted: the sales receipt it deposits was not created/);
+    expect(resolveLinks({ ...dep, lines: [{ amount_cents: 100, account_id: "3" }] }, {}, false).lines[0]).toEqual({ amount_cents: 100, account_id: "3" });
+  });
   it("a pledge write-off credit memo goes to the customer, and is applied to its invoice with a $0 payment", () => {
     const cm: QboDoc = { entity: "CreditMemo", txn_date: "2026-09-25", doc_number: "WO-P-1", customer_ref: "701", apply_to_invoice: "7401",
       lines: [{ amount_cents: 50000, description: "Pledge write-off", item_id: "23", account_id: "10" }] };
@@ -163,6 +179,26 @@ describe("qbo.pull_lists", () => {
     expect((stored.accounts as { qbo_id: string; active: boolean; account_type: string }[]).find((a) => a.qbo_id === "9")).toMatchObject({ active: false, account_type: "Income" });
     expect((stored.classes as { name: string }[]).map((c) => c.name)).toContain("Construction");
     expect(calls.some((c) => c.fn === "query" && String(c.args[0]).includes("qbo_worker_pull_done($1, $2, true"))).toBe(true);
+  });
+  it("a list QuickBooks will not filter by Active is pulled without the filter, and the pull still succeeds", async () => {
+    // Seen on a real sandbox company: "Invalid query: value true is not valid for property 'Active'" (code 4001) failed the whole pull.
+    mock.state.rejectActiveFilter = new Set(["TaxCode", "Class"]);
+    try {
+      const { db, calls } = qboDb({ secrets: await signedIn(), settings: { access_expires_at: new Date(Date.now() + 3600e3).toISOString() } });
+      const j = job({ kind: "qbo.pull_lists", payload: { connection_id: CONN } });
+      const { ctx, lines } = ctxOf(db, j);
+      const out = await pull.run(j, ctx);
+      // Classes lose their retired one (active rows only); every other list is complete.
+      expect(out.counts).toEqual({ accounts: 9, classes: 2, locations: 1, items: 3, tax_codes: 2, payment_methods: 3 });
+      expect(calls.some((c) => c.fn === "query" && String(c.args[0]).includes("qbo_worker_pull_done($1, $2, true"))).toBe(true);
+      expect(lines.filter((l) => String(l.msg).includes("does not take the Active filter")).length).toBe(2);
+    } finally {
+      mock.state.rejectActiveFilter = null;
+    }
+  });
+  it("any other refusal still fails the pull", async () => {
+    const qbo = { queryAll: async () => { throw new PermanentError("QuickBooks refused it — Invalid Reference Id (code 2500)"); } };
+    await expect(pull.listRows(qbo, "Account")).rejects.toThrow(/Invalid Reference Id/);
   });
   it("renews an expired sign-in first, then pulls", async () => {
     const { db, calls } = qboDb({ secrets: await signedIn(), settings: { access_expires_at: new Date(Date.now() - 1000).toISOString() } });
@@ -240,7 +276,7 @@ describe("qbo.test_post", () => {
   const docs: QboDoc[] = [
     { entity: "SalesReceipt", txn_date: "2026-03-02", deposit_account: "3", lines: [{ amount_cents: 100, item_id: "20", account_id: "1", class_id: "30" }] },
     { entity: "RefundReceipt", txn_date: "2026-03-02", deposit_account: "2", lines: [{ amount_cents: 100, item_id: "20", account_id: "1", class_id: "30" }] },
-    { entity: "Deposit", txn_date: "2026-03-02", deposit_account: "2", lines: [{ amount_cents: 100, account_id: "3" }] },
+    { entity: "Deposit", txn_date: "2026-03-02", deposit_account: "2", lines: [{ amount_cents: 100, account_id: "3", link_to: "SalesReceipt" }] },
     { entity: "JournalEntry", txn_date: "2026-03-02", lines: [{ amount_cents: 100, posting: "Debit", account_id: "5" }, { amount_cents: 100, posting: "Credit", account_id: "4" }] },
   ];
   it("post mode creates one of each type", async () => {
@@ -250,6 +286,34 @@ describe("qbo.test_post", () => {
     expect(out).toMatchObject({ ok: true, mode: "post" });
     expect(mock.state.created.filter((c) => c.requestId.startsWith("t1-")).map((c) => c.entity).sort()).toEqual(["Deposit", "JournalEntry", "RefundReceipt", "SalesReceipt"]);
     expect(calls.some((c) => c.fn === "query" && String(c.args[0]).includes("qbo_worker_test_post_done"))).toBe(true);
+  });
+  it("the Deposit links the Sales receipt the same run created", async () => {
+    const { db } = qboDb({ secrets: await signedIn(), plan: { ok: true, mode: "post", connection_id: CONN, docs } });
+    const j = job({ kind: "qbo.test_post", payload: { test_id: "t3" } });
+    const before = mock.state.created.length;
+    const out = (await testPost.run(j, ctxOf(db, j).ctx)) as { ok: boolean };
+    expect(out.ok).toBe(true);
+    const made = mock.state.created.slice(before);
+    const receipt = made.find((c) => c.entity === "SalesReceipt")!;
+    const deposit = made.find((c) => c.entity === "Deposit")!;
+    expect((deposit.doc.Line as { LinkedTxn: { TxnId: string; TxnType: string; TxnLineId: string }[] }[])[0]!.LinkedTxn).toEqual([{ TxnId: String(receipt.doc.Id), TxnType: "SalesReceipt", TxnLineId: "0" }]);
+  });
+  it("a plain Deposit line naming Undeposited Funds fails the way QuickBooks answered the sandbox; the other entries still post", async () => {
+    const plain = docs.map((d) => (d.entity === "Deposit" ? { ...d, lines: [{ amount_cents: 100, account_id: "3" }] } : d));
+    const { db } = qboDb({ secrets: await signedIn(), plan: { ok: true, mode: "post", connection_id: CONN, docs: plain } });
+    const j = job({ kind: "qbo.test_post", payload: { test_id: "t4" } });
+    const out = (await testPost.run(j, ctxOf(db, j).ctx)) as { ok: boolean; results: { entity: string; ok: boolean; error?: string }[] };
+    expect(out.ok).toBe(false);
+    expect(out.results.find((r) => r.entity === "Deposit")).toMatchObject({ ok: false, error: expect.stringContaining("Select a bank account for this deposit") });
+    expect(out.results.filter((r) => r.entity !== "Deposit").every((r) => r.ok)).toBe(true);
+  });
+  it("the Deposit is not attempted when its Sales receipt could not be created", async () => {
+    (mock.state as unknown as { failNextCreate: unknown }).failNextCreate = { status: 400, message: "Business Validation Error", detail: "nope", code: "6000" };
+    const { db } = qboDb({ secrets: await signedIn(), plan: { ok: true, mode: "post", connection_id: CONN, docs } });
+    const j = job({ kind: "qbo.test_post", payload: { test_id: "t5" } });
+    const out = (await testPost.run(j, ctxOf(db, j).ctx)) as { ok: boolean; results: { entity: string; ok: boolean; error?: string }[] };
+    expect(out.results.find((r) => r.entity === "SalesReceipt")?.ok).toBe(false);
+    expect(out.results.find((r) => r.entity === "Deposit")).toMatchObject({ ok: false, error: expect.stringContaining("Not attempted") });
   });
   it("dry run (read-only company) creates nothing and checks every reference", async () => {
     const before = mock.state.created.length;

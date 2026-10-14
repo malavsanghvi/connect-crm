@@ -12,9 +12,26 @@
 // 1398 Print, 1620 Tall, 1920 Story), and the renderer scales the SVG to the
 // output pixels, so the print PDF is as sharp as the screen.
 
-import { contrastRatio, parseHexColor, textOn } from "@/lib/setup";
+import { contrastRatio, textOn } from "@/lib/setup";
 
+import { borderLines, building, filigree, flattenOpacity, flower, fourCorners, grownScene, mix, n, paperFill, petal, qb, rgba, rng, skyGradient, star, stringLights, svgDoc } from "./flyer-packs/draw";
+import type { ArtColors, DrawnPack } from "./flyer-packs/types";
+import { annualMeetingPack } from "./flyer-packs/annual_meeting";
+import { christmasEvePack } from "./flyer-packs/christmas_eve";
+import { easterPack } from "./flyer-packs/easter";
+import { eidPack } from "./flyer-packs/eid";
+import { galaPack } from "./flyer-packs/gala";
+import { hanukkahPack } from "./flyer-packs/hanukkah";
+import { mixerPack } from "./flyer-packs/mixer";
+import { newYearPack } from "./flyer-packs/new_year";
+import { picnicPack } from "./flyer-packs/picnic";
+import { ribbonCuttingPack } from "./flyer-packs/ribbon_cutting";
+import { thanksgivingPack } from "./flyer-packs/thanksgiving";
+import { volunteerDayPack } from "./flyer-packs/volunteer_day";
+import { workshopPack } from "./flyer-packs/workshop";
+import { worshipPack } from "./flyer-packs/worship";
 import type { FlyerOccasion } from "./flyer-art";
+import { occasionSpec } from "./flyer-occasions";
 
 // ── Palettes ─────────────────────────────────────────────────────────────────
 
@@ -41,7 +58,8 @@ export type PosterPalette = {
   footerText: string;
 };
 
-const FIXED: Record<Exclude<FlyerOccasion, "general">, PosterPalette> = {
+// The traditional palettes of the Flyers v2 packs; every other occasion takes the brand kit (brandPalette).
+const FIXED: Partial<Record<FlyerOccasion, PosterPalette>> = {
   // The reference: the owner's JAINA 2027 Houston Host City Kick-Off poster.
   convention: { paper: "#FBF3E4", ink: "#1B2C5C", body: "#27325A", gold: "#C9A227", goldText: "#9C7A12", accent: "#8C1D2E", accentDeep: "#5E101C", onAccent: "#FBF3E4", ribbonHi: "#DDB740", footerBg: "#1B2C5C", footerText: "#D8B23A" },
   garba: { paper: "#FFF4E6", ink: "#5A1446", body: "#4A2340", gold: "#D9A21B", goldText: "#8A5A00", accent: "#B0174F", accentDeep: "#6E0B30", onAccent: "#FFF4E6", ribbonHi: "#FFD36B", footerBg: "#5A1446", footerText: "#F6C445" },
@@ -54,14 +72,6 @@ const FIXED: Record<Exclude<FlyerOccasion, "general">, PosterPalette> = {
 
 const HEX = /^#[0-9a-f]{6}$/i;
 const hexOr = (v: string, fallback: string) => (HEX.test(v) ? v.toUpperCase() : fallback);
-
-/** Mix two hex colours: t = 0 is `a`, 1 is `b`. */
-export function mix(a: string, b: string, t: number): string {
-  const x = parseHexColor(a) ?? [0, 0, 0];
-  const y = parseHexColor(b) ?? [0, 0, 0];
-  const c = x.map((v, i) => Math.round(v + (y[i] - v) * t));
-  return `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`.toUpperCase();
-}
 
 /** `preferred` when it reads at `min`:1 on `bg`, else a darker (or lighter) step of it that does, else ink/white. */
 function readableOn(preferred: string, bg: string, min: number): string {
@@ -97,49 +107,6 @@ export function brandPalette(brand: { primary: string; accent: string; backgroun
 }
 
 // ── Small SVG helpers ────────────────────────────────────────────────────────
-
-const n = (v: number) => String(Math.round(v * 10) / 10);
-function rgba(hex: string, a: number): string {
-  const c = parseHexColor(hex) ?? [0, 0, 0];
-  return `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-}
-
-/** A tiny deterministic random number generator (the same art every render). */
-function rng(seed: number) {
-  let s = seed >>> 0;
-  return () => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
-}
-
-const qb = (p0: number[], p1: number[], p2: number[], t: number) => [
-  (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t ** 2 * p2[0],
-  (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t ** 2 * p2[1],
-];
-
-/**
- * An `opacity="x"` on a single shape becomes `fill-opacity` / `stroke-opacity`. The renderer (resvg) draws a shape with
- * `opacity` through a layer the size of the whole picture: at Print size that is tens of milliseconds PER SHAPE, so the
- * hundreds of lit windows and string-light bulbs of a scene took half a minute. `fill-opacity` costs nothing. (A group's
- * `opacity` is one layer and is left alone.)
- */
-export function flattenOpacity(svg: string): string {
-  return svg.replace(/<(?:circle|ellipse|path|rect|line|polygon|polyline)\b[^>]*>/g, (tag) => {
-    const m = / opacity="([^"]+)"/.exec(tag);
-    if (!m) return tag;
-    const rest = tag.replace(m[0], "");
-    const stroked = / stroke="(?!none)/.test(rest);
-    const filled = !/ fill="none"/.test(rest);
-    return rest.replace(/(\/?>)$/, `${filled ? ` fill-opacity="${m[1]}"` : ""}${stroked ? ` stroke-opacity="${m[1]}"` : ""}$1`);
-  });
-}
-
-function svgDoc(W: number, H: number, body: string, defs = ""): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${n(W)}" height="${n(H)}" viewBox="0 0 ${n(W)} ${n(H)}">${defs ? `<defs>${defs}</defs>` : ""}${flattenOpacity(body)}</svg>`;
-}
-
-/** A petal from (0,0) pointing up. */
-function petal(len: number, wid: number): string {
-  return `M0 0C${n(wid)} ${n(-len * 0.32)} ${n(wid * 0.62)} ${n(-len * 0.86)} 0 ${n(-len)}C${n(-wid * 0.62)} ${n(-len * 0.86)} ${n(-wid)} ${n(-len * 0.32)} 0 0Z`;
-}
 
 /** The prototype's mandala: rings, a dot ring, two layers of petals, a centre rosette. */
 function mandala(cx: number, cy: number, r: number, gold: string, opacity = 1, fills: string[] = []): string {
@@ -208,13 +175,6 @@ function sprig(p0: number[], p1: number[], p2: number[], o: { leaves: number; si
   return out.join("");
 }
 
-/** A five-petal flower (jasmine, marigold) centred on (x, y). */
-function flower(x: number, y: number, r: number, fill: string, centre: string, petals = 5, rot = 0): string {
-  let out = `<g transform="translate(${n(x)} ${n(y)}) rotate(${n(rot)})">`;
-  for (let i = 0; i < petals; i++) out += `<ellipse cx="0" cy="${n(-r * 0.55)}" rx="${n(r * 0.36)}" ry="${n(r * 0.55)}" transform="rotate(${n((360 / petals) * i)})" fill="${fill}"/>`;
-  return `${out}<circle r="${n(r * 0.28)}" fill="${centre}"/></g>`;
-}
-
 /** A lotus flower sitting on (x, y), `s` tall. */
 function lotusFlower(x: number, y: number, s: number, outer: string, inner: string, stroke: string): string {
   let out = `<g transform="translate(${n(x)} ${n(y)})">`;
@@ -238,17 +198,6 @@ function diya(x: number, y: number, s: number, bowl: string, rim: string, flame 
   );
 }
 
-/** A paper-cut star with five points. */
-function star(x: number, y: number, r: number, fill: string, rot = 0): string {
-  const pts: string[] = [];
-  for (let i = 0; i < 10; i++) {
-    const a = ((Math.PI * 2) / 10) * i - Math.PI / 2 + (rot * Math.PI) / 180;
-    const rr = i % 2 ? r * 0.45 : r;
-    pts.push(`${n(x + Math.cos(a) * rr)} ${n(y + Math.sin(a) * rr)}`);
-  }
-  return `<path d="M${pts.join("L")}Z" fill="${fill}"/>`;
-}
-
 /** A garland hanging between two points: beads of marigold along a sag, with leaves. */
 function garland(x0: number, x1: number, y: number, sag: number, beads: number, colors: string[], leaf: string): string {
   let out = "";
@@ -260,51 +209,6 @@ function garland(x0: number, x1: number, y: number, sag: number, beads: number, 
     if (i % 3 === 1) out += `<path d="M${n(x)} ${n(yy + 6)}q6 10 0 22q-6-12 0-22z" fill="${leaf}"/>`;
   }
   return out;
-}
-
-/** The thin gold rules every frame shares: an outer line, an inner line, a dotted line. */
-function borderLines(W: number, H: number, gold: string, o: { inset?: number; dotted?: boolean; radius?: number } = {}): string {
-  const a = o.inset ?? 16;
-  const r = o.radius ?? 10;
-  return (
-    `<rect x="${a}" y="${a}" width="${n(W - 2 * a)}" height="${n(H - 2 * a)}" rx="${r}" fill="none" stroke="${gold}" stroke-width="3"/>` +
-    `<rect x="${a + 28}" y="${a + 28}" width="${n(W - 2 * a - 56)}" height="${n(H - 2 * a - 56)}" rx="${Math.max(2, r - 4)}" fill="none" stroke="${gold}" stroke-width="1.2"/>` +
-    (o.dotted === false
-      ? ""
-      : `<rect x="${a + 36}" y="${a + 36}" width="${n(W - 2 * a - 72)}" height="${n(H - 2 * a - 72)}" rx="4" fill="none" stroke="${gold}" stroke-width="1" stroke-dasharray="1.5 7" stroke-linecap="round"/>`)
-  );
-}
-
-/** Small gold diamonds and dots along the side edges and the top, between the corners. */
-function filigree(W: number, H: number, gold: string, o: { sides?: boolean; top?: boolean } = {}): string {
-  const out: string[] = [];
-  if (o.sides !== false) {
-    for (let y = 420; y <= H - 420; y += 46) {
-      for (const x of [30, W - 30]) {
-        out.push(`<path d="M${x} ${y - 7}l5 7-5 7-5-7z" fill="${gold}" opacity="0.85"/>`, `<circle cx="${x}" cy="${y + 23}" r="1.8" fill="${gold}" opacity="0.8"/>`);
-      }
-    }
-  }
-  if (o.top !== false) for (let x = 400; x <= W - 400; x += 46) out.push(`<path d="M${x - 7} 30l7-5 7 5-7 5z" fill="${gold}" opacity="0.85"/>`);
-  return out.join("");
-}
-
-/** Mirror the top-left corner art into the other three corners. */
-function fourCorners(W: number, H: number, corner: string): string {
-  return (
-    `<g>${corner}</g>` +
-    `<g transform="translate(${n(W)} 0) scale(-1 1)">${corner}</g>` +
-    `<g transform="translate(0 ${n(H)}) scale(1 -1)">${corner}</g>` +
-    `<g transform="translate(${n(W)} ${n(H)}) scale(-1 -1)">${corner}</g>`
-  );
-}
-
-/** The paper: a soft radial glow towards the middle. */
-function paperFill(W: number, H: number, pal: PosterPalette, glow = "#FFFFFF"): { defs: string; body: string } {
-  return {
-    defs: `<radialGradient id="paper" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="${mix(pal.paper, glow, 0.45)}"/><stop offset="0.55" stop-color="${mix(pal.paper, glow, 0.15)}"/><stop offset="1" stop-color="${pal.paper}"/></radialGradient>`,
-    body: `<rect width="${n(W)}" height="${n(H)}" fill="url(#paper)"/>`,
-  };
 }
 
 // ── Frames ───────────────────────────────────────────────────────────────────
@@ -515,10 +419,6 @@ export function frameEdgeSvg(W: number, H: number, gold: string): string {
 
 type SceneFn = (W: number, h: number, pal: PosterPalette) => string;
 
-function skyGradient(id: string, stops: [number, string, number][]): string {
-  return `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${a}"/>`).join("")}</linearGradient>`;
-}
-
 /** One Garba dancer in a flared ghagra with dandiya sticks (a silhouette: no face). */
 function dancer(x: number, base: number, s: number, skirt: string, choli: string, facing: number, hem: string, body = "#2A1B3D"): string {
   const X = (dx: number) => n(x + dx * s * facing);
@@ -555,42 +455,6 @@ const SKIRTS: [string, string, string][] = [
   ["#E53935", "#F9A825", "#FFF3B0"],
   ["#43A047", "#F57C00", "#FFD54F"],
 ];
-
-function building(x: number, w: number, top: number, base: number, fill: string, kind: string): string {
-  switch (kind) {
-    case "bevel":
-      return `<path d="M${x} ${base}V${top + 10}l10 -10H${x + w}V${base}Z" fill="${fill}"/>`;
-    case "round":
-      return `<path d="M${x} ${base}V${top + 24}Q${x} ${top} ${x + w / 2} ${top}Q${x + w} ${top} ${x + w} ${top + 24}V${base}Z" fill="${fill}"/>`;
-    case "gables": {
-      const s = w / 3;
-      return `<path d="M${x} ${base}V${top + 70}l${s / 2} -18l${s / 2} 18V${top + 40}l${s / 2} -20l${s / 2} 20V${top + 18}l${s / 2} -18l${s / 2} 18V${top + 40}l${s / 2} -20l${s / 2} 20V${top + 70}V${base}Z" fill="${fill}"/>`;
-    }
-    case "spire":
-      return `<path d="M${x} ${base}V${top + 30}L${x + w / 2} ${top}L${x + w} ${top + 30}V${base}Z" fill="${fill}"/><circle cx="${x + w / 2}" cy="${top - 8}" r="4" fill="#FFE6A3"/>`;
-    case "stepped":
-      return `<path d="M${x} ${base}V${top + 30}h6v-10h6v-10h${w - 24}v10h6v10h6V${base}Z" fill="${fill}"/>`;
-    case "twin":
-      return `<path d="M${x} ${base}V${top + 22}L${x + w * 0.46} ${top}V${base}Z M${x + w * 0.54} ${base}V${top}L${x + w} ${top + 22}V${base}Z" fill="${fill}"/>`;
-    default:
-      return `<rect x="${x}" y="${top}" width="${w}" height="${base - top}" fill="${fill}"/>`;
-  }
-}
-
-function stringLights(W: number, y0: number, sag: number, phase: number, out: string[]): void {
-  const colours = ["#FFD36B", "#FF8FB1", "#7FE0D2", "#FFB25B", "#C9A0FF"];
-  const pts: number[][] = [];
-  for (let i = 0; i <= 40; i++) {
-    const t = i / 40;
-    pts.push([t * W, y0 + sag * 4 * t * (1 - t)]);
-  }
-  out.push(`<path d="M${pts.map((p) => p.map(n).join(" ")).join("L")}" stroke="#5B4A6E" stroke-width="1.4" fill="none" opacity="0.7"/>`);
-  for (let i = 1; i < 40; i += 2) {
-    const [bx, by] = pts[i];
-    const c = colours[(i + phase) % colours.length];
-    out.push(`<circle cx="${n(bx)}" cy="${n(by + 5)}" r="9" fill="${c}" opacity="0.25"/><circle cx="${n(bx)}" cy="${n(by + 5)}" r="3.6" fill="${c}"/>`);
-  }
-}
 
 /** Convention / kick-off: a city skyline at dusk, string lights and Garba dancers (the reference poster). */
 const skylineScene: SceneFn = (W, h, pal) => {
@@ -895,7 +759,8 @@ export type ArtPack = {
 
 type PackSpec = { blurb: string; frame: FrameFn; scene: SceneFn; sceneHeight: number; busy: number; fade: { from: number; to: number }; scrim: number; topInset: number };
 
-const SPECS: Record<FlyerOccasion, PackSpec> = {
+// The drawn packs, by pack key (an occasion names its pack in flyer-occasions.ts). General is always here.
+const SPECS: Partial<Record<string, PackSpec>> & { general: PackSpec } = {
   garba: { blurb: "Dancers, bunting and lanterns; mirror-work border", frame: garbaFrame, scene: garbaScene, sceneHeight: 470, busy: 330, fade: { from: 0.12, to: 0.4 }, scrim: 0.84, topInset: 54 },
   paryushan: { blurb: "A calm lotus pond at dawn; a quiet gold border", frame: lotusFrame, scene: lotusScene, sceneHeight: 420, busy: 250, fade: { from: 0.15, to: 0.42 }, scrim: 0.8, topInset: 54 },
   diwali: { blurb: "Glowing diyas and rangoli; a marigold toran", frame: diwaliFrame, scene: diwaliScene, sceneHeight: 450, busy: 320, fade: { from: 0.12, to: 0.4 }, scrim: 0.84, topInset: 128 },
@@ -906,10 +771,14 @@ const SPECS: Record<FlyerOccasion, PackSpec> = {
   general: { blurb: "Your brand colours; mandala corners and soft hills", frame: simpleFrame, scene: hillsScene, sceneHeight: 400, busy: 200, fade: { from: 0.15, to: 0.45 }, scrim: 0.8, topInset: 54 },
 };
 
-/** The pack for an occasion. General takes its palette from the community's brand kit. */
+/**
+ * The pack for an occasion: the one its catalog entry names, or General while that pack is not drawn yet. The Flyers v2
+ * packs keep their traditional palettes; every other occasion takes its palette from the community's brand kit.
+ */
 export function artPack(occasion: FlyerOccasion, brand: { primary: string; accent: string; background: string }): ArtPack {
-  const spec = SPECS[occasion];
-  const palette = occasion === "general" ? brandPalette(brand) : FIXED[occasion];
+  const key = drawnPackKey(occasion);
+  const spec = drawnSpec(key) ?? SPECS[key] ?? SPECS.general;
+  const palette = FIXED[occasion] ?? brandPalette(brand);
   return {
     occasion,
     blurb: spec.blurb,
@@ -920,6 +789,12 @@ export function artPack(occasion: FlyerOccasion, brand: { primary: string; accen
     scrim: spec.scrim,
     topInset: spec.topInset,
   };
+}
+
+/** The drawn pack an occasion is drawn with today: the one its catalog entry names when it is drawn, else General. */
+export function drawnPackKey(occasion: FlyerOccasion): string {
+  const key = occasionSpec(occasion).pack;
+  return SPECS[key] || drawnSpec(key) ? key : "general";
 }
 
 /** An SVG as a data URI (base64 of ASCII: works in the browser and on the server). */
@@ -951,8 +826,64 @@ export function packThumbnailSvg(pack: ArtPack, o: { frame: boolean; scene: bool
   const inner = (svg: string) => svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
   // Unique gradient ids: the frame and the scene each define their own.
   const f = inner(frame).replace(/id="paper"/g, 'id="tpaper"').replace(/url\(#paper\)/g, "url(#tpaper)");
-  const s = scene ? inner(scene).replace(/id="(sky|sun|water|rb)"/g, 'id="t$1"').replace(/url\(#(sky|sun|water|rb)\)/g, "url(#t$1)") : "";
+  const s = scene ? inner(scene).replace(/id="([\w-]+)"/g, 'id="t$1"').replace(/url\(#([\w-]+)\)/g, "url(#t$1)") : "";
   const bars = [0.2, 0.27, 0.36].map((y, i) => `<rect x="${200 + i * 40}" y="${n(H * y)}" width="${680 - i * 80}" height="${i === 0 ? 70 : 34}" rx="10" fill="${i === 0 ? pack.palette.ink : pack.palette.goldText}" opacity="${i === 0 ? 0.85 : 0.6}"/>`);
   const ribbon = `<rect x="60" y="${n(H * 0.47)}" width="960" height="90" fill="${pack.palette.accent}"/>`;
   return svgDoc(W, H, `${f}${bars.join("")}${ribbon}${s ? `<g transform="translate(0 ${n(H - sh)})">${s}</g>` : ""}<rect x="0" y="${n(H - 66)}" width="${W}" height="66" fill="${pack.palette.footerBg}"/>`);
 }
+
+// ── Packs for the occasions every kind of organization holds ─────────────────
+// Christmas Eve, a mixer, a ribbon cutting, a gala... each drawn in its own file in ./flyer-packs and registered in
+// the ONE list below. Their colours come from the community's brand kit, like General's.
+
+export const DRAWN_PACKS: readonly DrawnPack[] = [christmasEvePack, mixerPack, ribbonCuttingPack, galaPack, easterPack, eidPack, picnicPack, workshopPack, volunteerDayPack, thanksgivingPack, hanukkahPack, newYearPack, annualMeetingPack, worshipPack];
+
+/** The drawn pack for an occasion of the shared catalog, or null (the eight packs above draw their own). */
+export function drawnPack(occasion: string): DrawnPack | null {
+  return DRAWN_PACKS.find((p) => p.occasion === occasion) ?? null;
+}
+
+/** The colours a drawn pack takes from a poster palette: the brand's (made readable), the text colour and the paper. */
+export function artColors(pal: PosterPalette): ArtColors {
+  return { primary: pal.accent, secondary: pal.gold, ink: pal.ink, paper: pal.paper };
+}
+
+/**
+ * How tall a drawn scene is shown, in units: about 42% of a Tall poster (1620), so the art fills the canvas rather than a
+ * strip along the bottom. A pack draws at its own size and is shown larger, every shape in proportion; its busy part grows
+ * with it (plus the 20-unit words margin, scaled), so the quiet sky still ends where the words can reach. The layout shrinks
+ * the scene again when a poster has a lot to say (planPoster).
+ */
+export const DRAWN_SCENE_HEIGHT = 680;
+
+const DRAWN_SPECS = new Map<string, PackSpec>(
+  DRAWN_PACKS.map((p) => {
+    const g = Math.max(1, DRAWN_SCENE_HEIGHT / p.sceneHeight);
+    return [
+      p.occasion,
+      {
+        blurb: p.blurb,
+        frame: (W, H, pal) => p.frame(W, H, artColors(pal)),
+        // A Story draws its scene narrow (about 760 wide): it is enlarged less there, so it shows more sky, not a close-up.
+        // Any enlargement up to g keeps the quiet sky above the words line (busy grows by g).
+        scene: (W, h, pal) => {
+          const k = Math.min(g, Math.max(1, W / 620));
+          return grownScene(p.scene(W / k, h / k, artColors(pal)), W, h, k);
+        },
+        sceneHeight: Math.round(p.sceneHeight * g),
+        busy: Math.ceil(p.busy * g + 20 * (g - 1)),
+        fade: p.fade,
+        scrim: p.scrim,
+        topInset: p.topInset,
+      },
+    ];
+  }),
+);
+
+/** A drawn pack as one of the pack specs above (its palette is the brand kit's, like General's), or null. */
+function drawnSpec(key: string): PackSpec | null {
+  return DRAWN_SPECS.get(key) ?? null;
+}
+
+// The colour mixer and the opacity flattener now live with the other drawing helpers (./flyer-packs/draw).
+export { flattenOpacity, mix };

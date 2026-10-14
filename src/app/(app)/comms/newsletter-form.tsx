@@ -7,14 +7,14 @@ import { Card, buttonClass } from "@/components/ui";
 import {
   DEFAULT_RSVP_STATUSES,
   EMPTY_SELECTION,
-  LANGUAGES,
   buildAudience,
   composeAction,
+  hasUnknownAudienceKeys,
   parseAudience,
   requiresSecondApprover,
   type AudienceSelection,
-  type LanguageCode,
 } from "@/lib/comms";
+import { languageLabel, primaryLanguage, textDirection } from "@/lib/languages";
 
 import { previewRecipientsAction, saveCampaignAction, submitNewsletterAction } from "./actions";
 import { CustomSegmentPicker, type CustomFieldOption } from "./custom-segment-picker";
@@ -31,6 +31,8 @@ export type CampaignDraft = {
   audience: unknown;
   translations: unknown;
   scheduled_local: string;
+  /** Its status. A working draft (a copy, or a start from a template) is saved as a draft and sent for approval with its own button. */
+  status?: string;
 };
 
 const CHANNELS: { value: string; label: string }[] = [
@@ -65,17 +67,31 @@ export function NewsletterCompose({
   canApprove,
   myEmail,
   campaign,
+  languages = ["en"],
 }: {
   options: ComposeOptions;
   canApprove: boolean;
   myEmail: string | null;
   campaign?: CampaignDraft;
+  /** The community's languages, preferred first (Setup > Profile). The message is written in the first; each other one can have a translation. */
+  languages?: string[];
 }) {
+  const main = languages[0] ?? "en";
+  // The other languages the community uses, plus any the saved campaign already has a translation in (so none is ever hidden).
+  const translatable = useMemo(() => {
+    const out = languages.filter((l) => primaryLanguage(l) !== primaryLanguage(main));
+    if (campaign && campaign.translations && typeof campaign.translations === "object") {
+      for (const code of Object.keys(campaign.translations as Record<string, unknown>)) if (!out.includes(code) && code !== main) out.push(code);
+    }
+    return out;
+  }, [languages, main, campaign]);
   const [sel, setSel] = useState<AudienceSelection>(() => (campaign ? parseAudience(campaign.audience) : { ...EMPTY_SELECTION }));
   const [channels, setChannels] = useState<string[]>(campaign?.channels ?? ["email", "push", "in_app"]);
-  const [langs, setLangs] = useState<LanguageCode[]>(() => {
-    const out: LanguageCode[] = ["en"];
-    if (campaign) for (const l of LANGUAGES) if (l.code !== "en" && translationOf(campaign.translations, l.code).title) out.push(l.code);
+  const [langs, setLangs] = useState<string[]>(() => {
+    const out: string[] = [];
+    if (campaign && campaign.translations && typeof campaign.translations === "object") {
+      for (const code of Object.keys(campaign.translations as Record<string, unknown>)) if (translationOf(campaign.translations, code).title) out.push(code);
+    }
     return out;
   });
   const [count, setCount] = useState<{ n: number | null; error: string | null }>({ n: null, error: null });
@@ -107,10 +123,13 @@ export function NewsletterCompose({
   const toggle = (k: "allMembers" | "lifeMembers") => setSel((s) => ({ ...s, [k]: !s[k] }));
   const toggleZone = (id: string) => setSel((s) => ({ ...s, zoneIds: s.zoneIds.includes(id) ? s.zoneIds.filter((z) => z !== id) : [...s.zoneIds, id] }));
   const toggleChannel = (v: string) => setChannels((c) => (c.includes(v) ? c.filter((x) => x !== v) : [...c, v]));
-  const toggleLang = (code: LanguageCode) => {
-    if (code === "en") return;
+  const toggleLang = (code: string) => {
     setLangs((l) => (l.includes(code) ? l.filter((x) => x !== code) : [...l, code]));
   };
+
+  // A working draft is saved as a draft; its own button sends it for approval (or schedules it, for an approver).
+  const isDraft = campaign?.status === "working_draft";
+  const reach = count.n !== null ? `${count.n.toLocaleString()} households by email` : "the chosen audience";
 
   const previewBg = !built.ok ? "bg-[#FBF7F0]" : needsSecond || mode === "submit" ? "bg-[#FBEBD7]" : "bg-[#E4F2EA]";
   const approvalLine = !built.ok
@@ -123,18 +142,28 @@ export function NewsletterCompose({
 
   return (
     <>
-      <Card title={campaign ? "Edit newsletter" : "New newsletter"} span={7}>
+      <Card title={isDraft ? "Edit draft" : campaign ? "Edit newsletter" : "New newsletter"} span={7}>
         <ActionForm
           action={campaign ? saveCampaignAction : submitNewsletterAction}
-          submitLabel={campaign ? "Save changes" : mode === "schedule" ? "Schedule send" : "Send for approval"}
+          submitLabel={isDraft ? "Save draft" : campaign ? "Save changes" : mode === "schedule" ? "Schedule send" : "Send for approval"}
+          variant={isDraft ? "ghost" : "primary"}
           resetOnSuccess={!campaign}
-          confirmMessage={
-            !campaign && mode === "schedule"
-              ? `Schedule this newsletter? ${count.n !== null ? `It goes to ${count.n.toLocaleString()} households by email` : "It goes to the chosen audience"} once it is scheduled.`
-              : undefined
-          }
+          confirmMessage={!campaign && mode === "schedule" ? `Schedule this newsletter? It goes to ${reach} once it is scheduled.` : undefined}
           extraButtons={
-            campaign ? null : (
+            isDraft ? (
+              <button
+                type="submit"
+                name="intent"
+                value="submit"
+                disabled={!built.ok}
+                title={built.ok ? undefined : "Choose who receives it first"}
+                data-variant="primary"
+                data-confirm={mode === "schedule" ? `Schedule this newsletter? It goes to ${reach} once it is scheduled.` : undefined}
+                className={buttonClass(built.ok ? "primary" : "off")}
+              >
+                {mode === "schedule" ? "Schedule send" : "Send for approval"}
+              </button>
+            ) : campaign ? null : (
               <button
                 type="button"
                 disabled
@@ -147,6 +176,12 @@ export function NewsletterCompose({
           }
         >
           {campaign ? <input type="hidden" name="id" value={campaign.id} /> : null}
+          {isDraft && hasUnknownAudienceKeys(campaign?.audience) ? (
+            <p className="mb-3 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900" role="status">
+              This draft&apos;s audience was set up somewhere other than this form (for example from a boli), so the chips below cannot show it. Choose the audience again here: saving
+              the draft replaces the old one.
+            </p>
+          ) : null}
           <input type="hidden" name="audience" value={audienceJson} />
           {channels.map((c) => (
             <input key={c} type="hidden" name="channels" value={c} />
@@ -229,9 +264,12 @@ export function NewsletterCompose({
             <div>
               <p className="crm-label">Language</p>
               <div className="flex flex-wrap gap-1.5" role="group" aria-label="Languages">
-                {LANGUAGES.map((l) => (
-                  <Chip key={l.code} on={langs.includes(l.code)} onClick={() => toggleLang(l.code)} title={l.code === "en" ? "English is always included" : "Add a translation"}>
-                    {l.label}
+                <Chip on disabled title="The message is written in this language">
+                  {languageLabel(main)}
+                </Chip>
+                {translatable.map((code) => (
+                  <Chip key={code} on={langs.includes(code)} onClick={() => toggleLang(code)} title="Add a translation">
+                    {languageLabel(code)}
                   </Chip>
                 ))}
               </div>
@@ -244,24 +282,29 @@ export function NewsletterCompose({
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="nl-body" className="crm-label">
-                Message
+                Message · {languageLabel(main)}
               </label>
-              <textarea id="nl-body" name="body_md" required rows={7} defaultValue={campaign?.body_md ?? ""} className="crm-input" />
+              <textarea id="nl-body" name="body_md" required rows={7} defaultValue={campaign?.body_md ?? ""} className="crm-input" dir={textDirection(main)} />
+              {translatable.some((c) => !langs.includes(c)) ? (
+                <p className="mt-1 text-[12px] text-muted">
+                  Not translated yet: {translatable.filter((c) => !langs.includes(c)).map(languageLabel).join(", ")}. Families who read those languages get this message until a person adds a translation.
+                </p>
+              ) : null}
             </div>
-            {LANGUAGES.filter((l) => l.code !== "en").map((l) =>
-              langs.includes(l.code) ? (
-                <div key={l.code} className="flex flex-col gap-2 sm:col-span-2">
+            {translatable.map((code) =>
+              langs.includes(code) ? (
+                <div key={code} className="flex flex-col gap-2 sm:col-span-2">
                   <div>
-                    <label htmlFor={`nl-title-${l.code}`} className="crm-label">
-                      Subject · {l.label}
+                    <label htmlFor={`nl-title-${code}`} className="crm-label">
+                      Subject · {languageLabel(code)}
                     </label>
-                    <input id={`nl-title-${l.code}`} name={`title_${l.code}`} defaultValue={translationOf(campaign?.translations, l.code).title} className="crm-input" />
+                    <input id={`nl-title-${code}`} name={`title_${code}`} defaultValue={translationOf(campaign?.translations, code).title} className="crm-input" dir={textDirection(code)} lang={code} />
                   </div>
                   <div>
-                    <label htmlFor={`nl-body-${l.code}`} className="crm-label">
-                      Message · {l.label}
+                    <label htmlFor={`nl-body-${code}`} className="crm-label">
+                      Message · {languageLabel(code)}
                     </label>
-                    <textarea id={`nl-body-${l.code}`} name={`body_${l.code}`} rows={4} defaultValue={translationOf(campaign?.translations, l.code).body_md} className="crm-input" />
+                    <textarea id={`nl-body-${code}`} name={`body_${code}`} rows={4} defaultValue={translationOf(campaign?.translations, code).body_md} className="crm-input" dir={textDirection(code)} lang={code} />
                   </div>
                 </div>
               ) : null,
@@ -274,6 +317,11 @@ export function NewsletterCompose({
               <p className="crm-hint">Blank = as soon as it is approved.</p>
             </div>
           </div>
+          {isDraft ? (
+            <p className="mb-2 text-xs text-muted">
+              Saving keeps this as a draft: nothing is sent and nobody is asked to approve it until you send it for approval. The audience can wait until you do.
+            </p>
+          ) : null}
           {!campaign ? (
             <p className="mb-2 text-xs text-muted">
               Send test to me is unavailable: email delivery is not connected to this app yet{myEmail ? `, so nothing can reach ${myEmail}` : ""}.

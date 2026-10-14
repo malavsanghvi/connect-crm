@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { PosterContent } from "@/lib/events/flyer";
+import { defaultLayout } from "@/lib/events/flyer-layout";
 import { flyerArtPath } from "@/lib/events/flyer-art";
 import type { AppSupabase } from "@/lib/supabase/server";
 
@@ -107,5 +108,67 @@ describe("loadPosterAssets: the pictures a poster draws that are not drawn in co
     expect(downloads).toEqual([]);
     expect(r.assets).toEqual({ frame: null, scene: null, partnerLogo: null });
     expect(r.notes).toHaveLength(3);
+  });
+});
+
+// ── A layout's picture: an approved album photo of the community's own, under the same rules as a photo background ──
+const PHOTO = "33333333-3333-4333-8333-333333333333";
+type PhotoRow = { id: string; center_id: string; album_id: string; storage_path: string; status: string; contains_children: boolean };
+const photoRow = (over: Partial<PhotoRow> = {}): PhotoRow => ({ id: PHOTO, center_id: C, album_id: "alb", storage_path: "photos/albums/one.png", status: "approved", contains_children: false, ...over });
+
+/** The organizer's database for photos: one photo row, one album row, and the storage that holds the files. */
+function albums(photo: PhotoRow | null, album: { id: string; visibility: string } | null, files: Record<string, Uint8Array>) {
+  const { db: storageDb, downloads } = storage(files);
+  const db = {
+    storage: (storageDb as unknown as { storage: unknown }).storage,
+    from: (table: string) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: table === "photos" ? photo : album, error: null }) }) }) }),
+  } as unknown as AppSupabase;
+  return { db, downloads };
+}
+const withHero = () =>
+  poster({
+    frame: { source: "code" },
+    scene: { source: "code" },
+    partner: { on: false, label: "", sub: "", logo_path: null },
+    layout: { ...defaultLayout("ceremony", { headline: "x" }), hero: { photo_id: PHOTO, shape: "arch" } },
+  });
+
+describe("loadPosterAssets: the layout's picture", () => {
+  it("loads an approved photo without children from a members' album", async () => {
+    const { db, downloads } = albums(photoRow(), { id: "alb", visibility: "members" }, { "albums/one.png": pngOf(1600, 1200) });
+    const r = await loadPosterAssets(db, C, E, withHero(), { size: "tall", contentModuleOn: true });
+    expect(r.notes).toEqual([]);
+    expect(r.assets.hero).toMatchObject({ w: 1600, h: 1200 });
+    expect(downloads).toEqual(["albums/one.png"]);
+  });
+
+  it("has no hero key at all for a poster that chose none (older posters get exactly the assets they always did)", async () => {
+    const { db } = albums(null, null, {});
+    const r = await loadPosterAssets(db, C, E, poster({ frame: { source: "code" }, scene: { source: "code" }, partner: { on: false, label: "", sub: "", logo_path: null } }), { contentModuleOn: true });
+    expect(r.assets).toEqual({ frame: null, scene: null, partnerLogo: null });
+    expect("hero" in r.assets).toBe(false);
+  });
+
+  const left = (note: string) => `The picture was left out: ${note}`;
+  it.each([
+    ["a photo of children", photoRow({ contains_children: true }), { id: "alb", visibility: "members" }, true, left("Photos showing children can't be used on a flyer. Choose another photo.")],
+    ["a photo that is not approved", photoRow({ status: "pending" }), { id: "alb", visibility: "members" }, true, left("That photo is not approved for sharing. Choose another photo.")],
+    ["a photo from a staff-only album", photoRow(), { id: "alb", visibility: "private" }, true, left("Photos from staff-only albums can't be used on a flyer. Choose a photo from an album members can see.")],
+    ["a photo of another community", photoRow({ center_id: "99999999-9999-4999-8999-999999999999" }), { id: "alb", visibility: "members" }, true, left("That photo is no longer available, or you can't see it. Choose another photo.")],
+    ["a photo while the albums are switched off", photoRow(), { id: "alb", visibility: "members" }, false, left("Photo albums are switched off (Settings › Modules) — no album photo can be used until they are on.")],
+  ])("leaves the picture out, with a sentence, for %s", async (_what, row, album, moduleOn, note) => {
+    const { db, downloads } = albums(row, album, { "albums/one.png": pngOf(100, 100) });
+    const r = await loadPosterAssets(db, C, E, withHero(), { contentModuleOn: moduleOn });
+    expect(r.assets.hero).toBeUndefined();
+    expect(r.notes).toEqual([note]);
+    expect(downloads).toEqual([]);
+  });
+
+  it("leaves it out, with a sentence, when the file is not a picture the flyer maker can read", async () => {
+    const { db } = albums(photoRow(), { id: "alb", visibility: "members" }, { "albums/one.png": WEBP });
+    const r = await loadPosterAssets(db, C, E, withHero(), { contentModuleOn: true });
+    expect(r.assets.hero).toBeUndefined();
+    expect(r.notes).toHaveLength(1);
+    expect(r.notes[0]).toMatch(/^The picture was left out: This photo is in a format the flyer maker can't use/);
   });
 });

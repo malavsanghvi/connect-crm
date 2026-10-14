@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { failure, type ActionResult, type DbErrorLike } from "@/lib/errors";
+import { exactConfirmSummary } from "@/lib/payments/bank-match";
 import {
   MAX_BULK_PAIRS,
   MAX_WINDOW_DAYS,
@@ -51,13 +52,8 @@ export async function confirmExactMatchesAction(pairs: ExactPairInput[]): Promis
     return { ok: false, error: `Could not ${doing} — ${UNEXPECTED_SHAPE} Reload the page to see which were recorded.` };
   }
   refresh();
-  const n = outcome.confirmed.length;
-  const s = outcome.skipped.length;
-  const message =
-    n === 0
-      ? `Nothing was confirmed: ${s === 1 ? "the match is" : `all ${s} matches are`} no longer exact. Match ${s === 1 ? "it" : "them"} by hand.`
-      : `Confirmed ${n} Zelle${n === 1 ? "" : "s"}${s > 0 ? `; ${s} skipped (no longer exact)` : ""}.`;
-  return n === 0 ? { ok: false, error: `Could not ${doing} — ${message}` } : { ok: true, message, data: outcome };
+  const { ok, message } = exactConfirmSummary(outcome);
+  return ok ? { ok: true, message, data: outcome } : { ok: false, error: `Could not ${doing} — ${message}` };
 }
 
 /** Close a member's report with a reason; the member is told why. */
@@ -128,7 +124,7 @@ export async function saveZelleReportingAction(
       ok: true,
       message:
         `The report window is saved: reports are flagged after ${savedDays} days. The bank account is NOT changed yet: changing it needs a second person. ` +
-        `A different person with giving.approve has to confirm it (Settings › Payments, Changes to where gifts go; it needs a fresh 2FA check and a reason). ` +
+        `A different person with giving.approve has to confirm it (Settings › Payments, Changes to where gifts go; it needs a reason). ` +
         `Until then Zelle lines are matched against ${savedAccount ? "the account that was chosen before" : "any account"}.`,
       data: { windowDays: savedDays, bankAccountId: savedAccount, pendingChange: true },
     };

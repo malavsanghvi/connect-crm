@@ -1,0 +1,83 @@
+// The commands. Read and draft commands are on for everyone whose role allows them; every confirm-level write is registered but OFF
+// until the owner approves it (assistant.tools.<key> in the community's settings). The Settings ones can give or take away a role and
+// switch a module (settings/index.ts). The Giving commands (giving.*, B90 phase 4) are reads and one draft: they look at pledges,
+// bank lines, Zelle reports and approvals, and giving.draft_payment prepares a payment without saving it. The three that move money
+// (giving.record_payment, giving.confirm_exact_zelle_matches, giving.match_deposit) and giving.record_pledge (a money record: it moves
+// no money, but adds what a family owes) are built but OFF for every door until an owner switches each one on (requiresOwnerSwitch). Refunds and write-offs have no command: they need a second person.
+
+import { defaultRegistry } from "../registry";
+import type { AnyCommand } from "../types";
+
+import { CONTENT_COMMANDS } from "./content";
+import { EVENT_COMMANDS } from "./events";
+import { bankLinesUnmatched } from "./giving-bank-lines";
+import { confirmExactZelleMatches } from "./giving-confirm-zelle";
+import { draftPayment } from "./giving-draft-payment";
+import { fundMappingStatus } from "./giving-fund-mapping";
+import { householdGivingSummary } from "./giving-household-summary";
+import { matchDeposit } from "./giving-match-deposit";
+import { recordPayment } from "./giving-record-payment";
+import { recordPledge } from "./giving-record-pledge";
+import { waitingForSecondApprover } from "./giving-second-approver";
+import { zelleWaiting } from "./giving-zelle-waiting";
+import { LEARNING_COMMANDS } from "./learning";
+import { MESSAGES_COMMANDS } from "./messages";
+import { draftReminderCommand } from "./messages-draft-reminder";
+import { monthCloseBlockers } from "./month-close-blockers";
+import { PEOPLE_COMMANDS } from "./people";
+import { peopleSearch } from "./people-search";
+import { PLATFORM_COMMANDS } from "./platform";
+import { pledgesBehind } from "./pledges-behind";
+import { REPORTS_COMMANDS } from "./reports";
+import { SETTINGS_COMMANDS } from "./settings";
+import { STORE_COMMANDS } from "./store";
+import { tasksMine } from "./tasks-mine";
+
+export const CATALOG: readonly AnyCommand[] = [
+  // read
+  peopleSearch,
+  tasksMine,
+  pledgesBehind,
+  householdGivingSummary,
+  bankLinesUnmatched,
+  zelleWaiting,
+  waitingForSecondApprover,
+  fundMappingStatus,
+  monthCloseBlockers,
+  // draft
+  draftReminderCommand,
+  draftPayment,
+  // Events: read, draft and confirm (the confirm ones off by default), see events/index.ts
+  ...EVENT_COMMANDS,
+  // People (docs/ADMIN_REDESIGN.md phase 4)
+  ...PEOPLE_COMMANDS,
+  // Messages (docs/ADMIN_REDESIGN.md phase 4): the inbox, drafts, audience, approvals and replies
+  ...MESSAGES_COMMANDS,
+  // Settings and Setup: the setup concierge and the roles helper (reads, one draft, and what only the person can do)
+  ...SETTINGS_COMMANDS,
+  // Content (approval queue, Niva's sources, media counts, drafts) and Store (orders, stock, sales): reads, a draft, and confirm ones that are off for Niva by default
+  ...CONTENT_COMMANDS,
+  ...STORE_COMMANDS,
+  // Reports (ask questions of your data; the sums are done in the database) and the Platform console (Weaver team only)
+  ...REPORTS_COMMANDS,
+  ...PLATFORM_COMMANDS,
+  // Learning (docs/ADMIN_REDESIGN.md phase 4): terms, levels, fees, classes and teachers (adults); nothing about a learner (D2)
+  ...LEARNING_COMMANDS,
+  // Giving: the three that move money are confirm commands, off for EVERY door until an owner switches each one on (requiresOwnerSwitch)
+  recordPayment,
+  confirmExactZelleMatches,
+  matchDeposit,
+  // Recording a pledge by hand (slice 7, 0745): a money record, off for every door until an owner switches it on, like the three above
+  recordPledge,
+];
+
+let registered = false;
+
+/** Put the catalog in the shared registry, once. */
+export function ensureCatalog(): void {
+  if (registered) return;
+  registered = true;
+  for (const command of CATALOG) {
+    if (!defaultRegistry.get(command.key)) defaultRegistry.register(command);
+  }
+}

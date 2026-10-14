@@ -1,17 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useKind } from "@/components/kind-context";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
-import type { PosterContent } from "@/lib/events/flyer";
+import { MARKETPLACE_HREF } from "@/lib/ai-gate";
+import { POSTER_LIMITS, type PosterContent } from "@/lib/events/flyer";
 import {
   FLYER_LAYER_KINDS,
   FLYER_LAYER_LABEL,
-  flyerOccasionsFor,
-  FLYER_OCCASION_LABEL,
   artCostSentence,
   formatArtCost,
   isNewPicture,
@@ -23,6 +23,7 @@ import {
 } from "@/lib/events/flyer-art";
 import { artPack, packLayerThumbnailSvg, packThumbnailSvg, svgDataUri } from "@/lib/events/flyer-art-packs";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
+import { OCCASION_GROUP_LABEL, flyerTraditionFor, occasionChoices, occasionLabel, type OccasionGroup, type OccasionSuggestion } from "@/lib/events/flyer-occasions";
 
 import { collectFlyerArtAction, discardFlyerArtAction, loadFlyerArtAction, requestFlyerArtAction } from "./flyer-art-actions";
 import { InlineError } from "./flyer-fields";
@@ -47,6 +48,10 @@ type Problem = { text: string; retry: "check" | "load" | "ask" | null };
  * earlier for this occasion (free to reuse), or ask for a new one (the price is
  * on the button; it is made once and kept for everyone). Nothing here is
  * saved until "Use this flyer".
+ *
+ * The occasions are the community's own (flyer-occasions.ts, by kind and
+ * tradition), grouped, with "Other occasion" and its description always there;
+ * the best suggestion for the event is shown with its reason.
  */
 export function FlyerArtPicker({
   eventId,
@@ -54,6 +59,7 @@ export function FlyerArtPicker({
   poster,
   onPoster,
   art,
+  suggestions,
   disabled,
 }: {
   eventId: string;
@@ -61,6 +67,8 @@ export function FlyerArtPicker({
   poster: PosterContent;
   onPoster: (patch: Partial<PosterContent>) => void;
   art: FlyerArtSetup;
+  /** The occasions that suit this event, best first, each with its reason (suggestOccasion). */
+  suggestions?: readonly OccasionSuggestion[];
   disabled: boolean;
 }) {
   const toast = useToast();
@@ -100,9 +108,22 @@ export function FlyerArtPicker({
   }, [discard]);
 
   const brandKey = `${brand.primary}${brand.accent}${brand.background}`;
-  // A kind without a tradition pack is offered the general and convention packs (and the one this poster already has).
+  // The community's own occasions (and the one this poster already has), in the order and words it sees them.
   const kind = useKind();
-  const occasions = useMemo(() => flyerOccasionsFor(kind, poster.occasion), [kind, poster.occasion]);
+  const choices = useMemo(() => occasionChoices(kind, null, poster.occasion), [kind, poster.occasion]);
+  const occasions = useMemo(() => choices.map((c) => c.key), [choices]);
+  const labelOf = (o: FlyerOccasion) => choices.find((c) => c.key === o)?.label ?? occasionLabel(o, kind, flyerTraditionFor(kind));
+  const groups = useMemo(() => {
+    const out: { group: OccasionGroup; keys: FlyerOccasion[] }[] = [];
+    for (const c of choices) {
+      const g = out.find((x) => x.group === c.group);
+      if (g) g.keys.push(c.key);
+      else out.push({ group: c.group, keys: [c.key] });
+    }
+    return out;
+  }, [choices]);
+  // The best suggestion the community is offered (the kind's default is not news).
+  const top = (suggestions ?? []).find((s) => s.basis !== "default" && occasions.includes(s.occasion)) ?? null;
   const packs = useMemo(() => occasions.map((o) => ({ occasion: o, pack: artPack(o, brand) })), [brandKey, occasions]); // eslint-disable-line react-hooks/exhaustive-deps
   const pack = packs.find((p) => p.occasion === poster.occasion)?.pack ?? packs[0]!.pack;
   const thumbs = useMemo(
@@ -145,7 +166,7 @@ export function FlyerArtPicker({
    */
   function addEntry(entry: FlyerArtEntry): boolean {
     if (entry.occasion !== occasionRef.current) {
-      setProgress(`A ${FLYER_LAYER_LABEL[entry.layer].toLowerCase()} for ${FLYER_OCCASION_LABEL[entry.occasion]} is ready and kept. Choose that occasion to use it.`);
+      setProgress(`A ${FLYER_LAYER_LABEL[entry.layer].toLowerCase()} for ${labelOf(entry.occasion)} is ready and kept. Choose that occasion to use it.`);
       return false;
     }
     setSetup((s) => (s.entries.some((e) => e.path === entry.path) ? s : { ...s, entries: [entry, ...s.entries] }));
@@ -189,7 +210,7 @@ export function FlyerArtPicker({
     setBusy(layer);
     setProgress(`Asking Gemini for a ${FLYER_LAYER_LABEL[layer].toLowerCase()}… this usually takes under a minute.`);
     try {
-      const res = await requestFlyerArtAction(eventId, poster.occasion, layer);
+      const res = await requestFlyerArtAction(eventId, poster.occasion, layer, poster.occasion === "other" ? (poster.occasion_note ?? "") : null);
       if (!res.ok) {
         setProblem({ text: res.error, retry: null, layer });
         setProgress("");
@@ -337,26 +358,63 @@ export function FlyerArtPicker({
         <p className="crm-label" id="poster-occasion-label">
           Occasion
         </p>
-        <div role="radiogroup" aria-labelledby="poster-occasion-label" className="mt-1 grid grid-cols-4 gap-2 sm:grid-cols-4">
-          {packs.map(({ occasion }) => {
-            const on = occasion === poster.occasion;
-            return (
-              <button
-                key={occasion}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                disabled={disabled || waiting}
-                onClick={() => chooseOccasion(occasion)}
-                className={`flex flex-col items-center gap-1 rounded-[10px] border p-1.5 text-center text-[11px] font-bold leading-tight ${on ? "border-navy ring-2 ring-navy/30" : "border-line"} disabled:opacity-60`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={thumbs[occasion]} alt="" width={120} height={180} loading="lazy" className="h-auto w-full rounded-[6px] border border-line-soft" />
-                {FLYER_OCCASION_LABEL[occasion]}
+        {top ? (
+          <div className="mt-1 flex flex-wrap items-center gap-2 rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">
+            <p className="m-0 min-w-0 flex-1">
+              {top.occasion === poster.occasion ? "Suggested for this event, and chosen" : "Suggested for this event"}: <strong>{labelOf(top.occasion)}</strong>. {top.reason}
+            </p>
+            {top.occasion !== poster.occasion ? (
+              <button type="button" className={buttonClass("ghost", "xs")} disabled={disabled || waiting} onClick={() => chooseOccasion(top.occasion)}>
+                Use {labelOf(top.occasion)}
               </button>
-            );
-          })}
+            ) : null}
+          </div>
+        ) : null}
+        <div role="radiogroup" aria-labelledby="poster-occasion-label" className="mt-1 flex flex-col gap-2">
+          {groups.map(({ group, keys }) => (
+            <div key={group}>
+              <p className="m-0 mb-1 text-[11px] font-bold uppercase tracking-[0.06em] text-muted">{OCCASION_GROUP_LABEL[group]}</p>
+              <div className="grid grid-cols-4 gap-2">
+                {keys.map((occasion) => {
+                  const on = occasion === poster.occasion;
+                  return (
+                    <button
+                      key={occasion}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={disabled || waiting}
+                      onClick={() => chooseOccasion(occasion)}
+                      className={`flex flex-col items-center gap-1 rounded-[10px] border p-1.5 text-center text-[11px] font-bold leading-tight ${on ? "border-navy ring-2 ring-navy/30" : "border-line"} disabled:opacity-60`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumbs[occasion]} alt="" width={120} height={180} loading="lazy" className="h-auto w-full rounded-[6px] border border-line-soft" />
+                      {labelOf(occasion)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
+        {poster.occasion === "other" ? (
+          <div className="mt-2">
+            <label htmlFor="poster-occasion-note" className="crm-label">
+              What is the occasion?
+            </label>
+            <input
+              id="poster-occasion-note"
+              type="text"
+              className="crm-input mt-1 w-full"
+              value={poster.occasion_note ?? ""}
+              maxLength={POSTER_LIMITS.occasion_note}
+              disabled={disabled || waiting}
+              placeholder="For example: a lantern walk by the river"
+              onChange={(e) => onPoster({ occasion_note: e.target.value })}
+            />
+            <p className="crm-hint">In English, describing how the occasion looks (not who is there, and no names): it guides the AI art. The drawn art stays the general one.</p>
+          </div>
+        ) : null}
         <p className="crm-hint">{pack.blurb}. Drawn in code: free, and it always works.</p>
       </div>
 
@@ -438,6 +496,15 @@ export function FlyerArtPicker({
       ) : notReady ? (
         <div className="rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">
           <p>{notReady.message}</p>
+          {notReady.state === "ai_off" ? (
+            <p className="mt-1">
+              An administrator can ask for it in{" "}
+              <Link href={MARKETPLACE_HREF} className="font-semibold underline">
+                Settings › Marketplace
+              </Link>
+              .
+            </p>
+          ) : null}
           {notReady.state === "unknown" ? (
             <button type="button" className={`${buttonClass("ghost", "xs")} mt-2`} onClick={() => void reload(poster.occasion)} disabled={loading}>
               {loading ? "Checking…" : "Check again"}

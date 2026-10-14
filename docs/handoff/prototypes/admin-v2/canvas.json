@@ -1,0 +1,45 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-09T16:00:00Z" },
+  "title": "Weaver Admin: Conversation-first Portal",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 980, "title": "Today: the conversation-first home", "is_interactive": true },
+    "Routines.dc.html": { "x": 1520, "y": 0, "w": 1440, "h": 1100, "title": "Routines: a checklist for each role", "is_interactive": true },
+    "Giving.dc.html": { "x": 3040, "y": 0, "w": 1440, "h": 1060, "title": "Giving: record a payment by asking", "is_interactive": true },
+    "Events.dc.html": { "x": 4560, "y": 0, "w": 1440, "h": 1060, "title": "Event Weaver: a workspace with Niva beside it", "is_interactive": true },
+    "People.dc.html": { "x": 0, "y": 1500, "w": 1440, "h": 1040, "title": "People: ask your data", "is_interactive": true },
+    "Marketplace.dc.html": { "x": 1520, "y": 1500, "w": 1440, "h": 1240, "title": "Marketplace: choose your products", "is_interactive": true },
+    "Setup.dc.html": { "x": 3040, "y": 1500, "w": 1440, "h": 1120, "title": "Settings: Niva runs a setup, you do the human parts", "is_interactive": true },
+    "Rules.dc.html": { "x": 0, "y": 3200, "w": 1440, "h": 1320, "title": "How Niva works: tiers and rules" },
+    "ScreenMap.dc.html": { "x": 1520, "y": 3200, "w": 1440, "h": 1700, "title": "From 138 screens to 11 workspaces" },
+    "PhoneToday.dc.html": { "x": 3040, "y": 3200, "w": 390, "h": 844, "title": "Phone: Today", "is_interactive": true },
+    "PhoneAsk.dc.html": { "x": 3510, "y": 3200, "w": 390, "h": 844, "title": "Phone: ask Niva" },
+    "Rail.dc.html": { "x": 0, "y": 5400, "w": 88, "h": 916, "title": "Shared: workspace rail" },
+    "TopBar.dc.html": { "x": 168, "y": 5400, "w": 1440, "h": 64, "title": "Shared: top bar" }
+  },
+  "order": [
+    "Main.dc.html",
+    "Routines.dc.html",
+    "Giving.dc.html",
+    "Events.dc.html",
+    "People.dc.html",
+    "Marketplace.dc.html",
+    "Setup.dc.html",
+    "Rules.dc.html",
+    "ScreenMap.dc.html",
+    "PhoneToday.dc.html",
+    "PhoneAsk.dc.html",
+    "Rail.dc.html",
+    "TopBar.dc.html"
+  ],
+  "notes": {
+    "t1": { "x": 0, "y": -260, "text": "Conversation first: Today, Routines, Giving, Events", "kind": "title1", "maxW": 6000 },
+    "t2": { "x": 0, "y": 1240, "text": "The rest of the workspace: People, Marketplace, Settings", "kind": "title1", "maxW": 4480 },
+    "t3": { "x": 0, "y": 2960, "text": "The rules, the map of all 138 screens, and the phone", "kind": "title1", "maxW": 4480 },
+    "t4": { "x": 0, "y": 5160, "text": "Shared parts", "kind": "title1", "maxW": 1608 },
+    "n1": { "x": 6080, "y": 0, "w": 520, "text": "All people, households, amounts and figures on these boards are made-up sample data. Niva is a working name. Prices are not shown: that is still an owner decision.", "fill": "orange" }
+  },
+  "designSystems": []
+}

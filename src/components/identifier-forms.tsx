@@ -165,9 +165,12 @@ export function RetireIdentifierButton({ id, value, returnPath }: { id: string; 
       variant="danger"
       size="sm"
       confirmMessage={`Retire "${value}"? It will stop matching from today but stays in the history.`}
+      className="flex flex-wrap items-center justify-end gap-2"
     >
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="returnPath" value={returnPath} />
+      {/* A reason is required (People redesign, slice 5): it goes in the audit log. */}
+      <input name="reason" required maxLength={1000} aria-label={`Why retire ${value}? Goes in the audit log`} placeholder="Why? (goes in the audit log)" className="crm-input w-48 text-[0.8125rem]" autoComplete="off" />
     </ActionForm>
   );
 }

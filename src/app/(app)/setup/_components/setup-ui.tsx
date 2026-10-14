@@ -7,7 +7,13 @@ import { stepStatusLabel, stepStatusTone } from "@/lib/setup";
 
 /** The Setup module's title block (module tabs underneath). */
 export function SetupHeader({ session, sub, actions }: { session: CrmSession; sub: string; actions?: ReactNode }) {
-  return <PageHeader title="Setup" description={`${session.center.short_name || session.center.name} · ${sub}`} actions={actions} />;
+  return (
+    <PageHeader
+      title="Setup"
+      description={`${session.center.short_name || session.center.name} · ${sub}`}
+      actions={actions}
+    />
+  );
 }
 
 /** Setup is for settings.manage holders (the owner is also allowed by the database). */

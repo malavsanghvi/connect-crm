@@ -1,0 +1,30 @@
+<link rel="stylesheet" href="../../weaver-tokens.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;600;700&display=swap">
+<style>
+  body { margin: 0; font-family: var(--font-sans); }
+  .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 12px; }
+  .panel { display: flex; align-items: center; min-height: 104px; padding: 0 20px; border-radius: var(--radius-tile); }
+  .on-canvas { background: var(--canvas); border: 1px solid var(--line); }
+  .on-accent { background: var(--saffron); }
+  .on-navy { background: var(--navy); }
+  .lockup { display: flex; align-items: center; gap: 6px; }
+  .mark { width: 44px; height: 44px; flex: none; }
+  .tile { width: 44px; height: 44px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-logo-tile); background: var(--white); }
+  .tile img { width: 32px; height: 32px; }
+  .name { display: block; font-family: var(--font-display); font-size: 24px; font-weight: 600; line-height: 1; letter-spacing: -0.01em; color: var(--navy); }
+  .desc { display: block; margin-top: 4px; font-size: 11.5px; font-weight: 600; line-height: 1; color: var(--muted); }
+  .on-accent .desc { color: var(--ink); }
+  .on-navy .name { color: var(--white); }
+  .on-navy .desc { color: var(--navy-200); }
+</style>
+<div class="row">
+  <div class="panel on-canvas">
+    <span class="lockup"><img class="mark" src="../../logos/weaver-mark.svg" alt=""><span><span class="name">Weaver</span><span class="desc">Community management platform</span></span></span>
+  </div>
+  <div class="panel on-accent">
+    <span class="lockup"><img class="mark" src="../../logos/weaver-mark.svg" alt=""><span><span class="name">Weaver</span><span class="desc">Community management platform</span></span></span>
+  </div>
+  <div class="panel on-navy">
+    <span class="lockup"><span class="tile"><img src="../../logos/weaver-mark.svg" alt=""></span><span><span class="name">Weaver</span><span class="desc">Community management platform</span></span></span>
+  </div>
+</div>

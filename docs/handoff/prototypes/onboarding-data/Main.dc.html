@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bring your data in: one front door</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; min-height: 2300px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A;">
+<div style="display: flex; justify-content: center; padding: 5px 0 4px; background: #FFFFFF;"><span style="background: #B3261E; color: #FFFFFF; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;">PROTOTYPE · SAMPLE DATA</span></div>
+<dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+<div style="display: flex; flex: 1; min-height: 0;">
+<dc-import name="Rail" active="settings" height="2230" hint-size="88px,2230px"></dc-import>
+
+<nav aria-label="Steps to bring your data in" style="width: 320px; flex: none; box-sizing: border-box; padding: 28px 22px; background: #FFFFFF; border-right: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 13px; color: #4F5D75;">Settings › Setup</span>
+<h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 26px; line-height: 1.2; color: #12203A;">Bring your data in</h1>
+<span style="font-size: 13px; color: #4F5D75;">Step {{cur}} of 4</span>
+<div style="height: 8px; border-radius: 4px; background: #EAF0F7; overflow: hidden;"><div style="height: 8px; background: linear-gradient(90deg, #34C4CB, #2F8ED8, #6CC68F); width: {{pct}};"></div></div>
+</div>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{navSteps}}" as="s" hint-placeholder-count="4">
+<li aria-current="{{s.now}}" style="display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: {{s.bg}}; border: 1px solid {{s.bd}};">
+<sc-if value="{{s.done}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #17724A; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+<sc-if value="{{s.now}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<sc-if value="{{s.todo}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; border: 2px solid #9FB0C6; box-sizing: border-box; color: #4F5D75; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 14px; font-weight: {{s.tw}}; color: {{s.tfg}};">{{s.title}}</span><span style="font-size: 12px; line-height: 1.4; color: #4F5D75;">{{s.sub}}</span></span>
+</li>
+</sc-for>
+</ol>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+<div style="padding: 12px 14px; background: #F8FAFD; border: 1px solid #DDE6F0; border-radius: 14px; font-size: 12px; line-height: 1.55; color: #2C3A55;">Nothing is saved until you confirm. A load can be undone for 30 days.</div>
+<div style="padding: 12px 14px; background: #FFF1E6; border-radius: 14px; font-size: 12px; line-height: 1.55; color: #5C2A0B;"><b>Children.</b> Nothing about anyone under 18 is ever sent to an AI service.</div>
+</div>
+</nav>
+
+<main style="flex: 1; min-width: 0; padding: 26px 36px 22px; display: flex; flex-direction: column; gap: 18px;">
+
+<div style="align-self: flex-end; max-width: 520px; padding: 12px 16px; background: #1C56B0; color: #FFFFFF; border-radius: 18px 18px 4px 18px; font-size: 15px; line-height: 1.5;">I want to bring our data into Weaver.</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">Happy to. I read the answers you gave when you asked for access, so I can suggest the quickest route. I will read anything you give me, ask only what I cannot tell, and save nothing until you say so.</div>
+<section aria-label="Your plan" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+<div style="display: flex; align-items: center; gap: 10px;">
+<h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">Your plan</h2>
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 12px; background: #FFF1E6; color: #A8400D; font-size: 12px; font-weight: 700;">Suggested by Niva</span>
+</div>
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Edit my answers</button>
+</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{facts}}" as="f" hint-placeholder-count="7">
+<li style="padding: 5px 12px; border-radius: 14px; background: #F8FAFD; border: 1px solid #DDE6F0; font-size: 14px; color: #2C3A55;">{{f}}</li>
+</sc-for>
+</ul>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #2C3A55;"><strong>Suggested route:</strong> connect Neon and QuickBooks, add what is left from your spreadsheet, then let families check their own details. About two hours of your time, which you can spread over a week. Modules you do not use, such as Pathshala, are left out.</p>
+</section>
+</div>
+</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">Drop whatever you have in one place. I will work out what each file is and where it goes, so you do not have to choose first.</div>
+<section aria-label="Drop your files" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+<div style="border: 2px dashed #BBD3F2; border-radius: 14px; background: #F8FAFD; padding: 28px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;">
+<svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1C56B0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="M7 9l5-5 5 5"></path><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"></path></svg>
+<div style="font-size: 18px; font-weight: 700;">Drop spreadsheets, exports or PDFs here</div>
+<div style="font-size: 14px; line-height: 1.5; color: #4F5D75; max-width: 600px;">Excel, CSV, Google Sheets, and exports from Neon, QuickBooks, Zeffy, PayPal or your bank. Uploads are private and deleted after 90 days.</div>
+<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+<button type="button" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 600;">Choose files</button>
+<button type="button" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 15px; font-weight: 600;">Paste a Google Sheets link</button>
+<button type="button" onClick="{{toggleDrop}}" aria-pressed="{{dropped}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px dashed #A8400D; background: #FFF1E6; color: #A8400D; font-size: 15px; font-weight: 600;">{{toggleLabel}}</button>
+</div>
+</div>
+<sc-if value="{{dropped}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div role="status" style="font-size: 15px; font-weight: 700;">I read 3 files and 1 photo. Here is what each is and where it goes. Nothing has been saved.</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{files}}" as="f" hint-placeholder-count="4">
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 16px; border: 1px solid #DDE6F0; border-radius: 12px; background: #FFFFFF;">
+<div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+<span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;">{{f.name}}</span>
+<span style="font-size: 12px; color: #4F5D75;">{{f.size}}</span>
+<span style="padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; background: {{f.tagBg}}; color: {{f.tagFg}};">{{f.tag}}</span>
+</div>
+<div style="font-size: 14px; line-height: 1.5; color: #2C3A55;">{{f.says}}</div>
+</div>
+<a href="{{f.href}}" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">{{f.cta}}</a>
+</li>
+</sc-for>
+</ul>
+</div>
+</sc-if>
+</section>
+</div>
+</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">Or connect a system and I will pull it. I only read: I never change anything in it. You can pull once and I forget the key, or keep it in step until you switch.</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="5">
+<li style="display: flex;">
+<a href="Connect.dc.html" style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid #DDE6F0; border-radius: 14px; background: #FFFFFF; color: #12203A; min-height: 44px;">
+<div style="display: flex; align-items: center; gap: 10px;">
+<span aria-hidden="true" style="flex: none; width: 36px; height: 36px; border-radius: 18px; background: #E8F1FC; color: #1C56B0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;">{{t.mono}}</span>
+<span style="font-size: 15px; font-weight: 700;">{{t.name}}</span>
+</div>
+<span style="font-size: 13px; line-height: 1.5; color: #2C3A55;">{{t.what}}</span>
+<span style="font-size: 12px; color: #4F5D75;">{{t.how}}</span>
+</a>
+</li>
+</sc-for>
+</ul>
+</div>
+</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">Two more ways, if they suit you better.</div>
+<div style="display: flex; gap: 14px;">
+<section style="flex: 1; min-width: 0; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+<h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 20px;">Start from Weaver's templates</h2>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #2C3A55;">One workbook with a tab for each thing you will load, in the right order, with dropdowns and checks built in. Only the modules you use, part-filled with what I already know.</p>
+<div><a href="Templates.dc.html" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 600;">Get the starter workbook</a></div>
+</section>
+<section style="flex: 1; min-width: 0; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+<h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 20px;">Hand a part to someone</h2>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #2C3A55;">Send your treasurer a link for the giving data and your membership coordinator a link for the member list. Each sees only their part. Or send us your files and the Weaver team prepares them with you; you approve.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+<button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Invite a helper</button>
+<button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Send us the files</button>
+</div>
+</section>
+</div>
+</div>
+</div>
+
+<section aria-label="What Niva sees" style="margin-left: 46px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; gap: 14px;">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 2px;"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 20px;">What Niva sees, and what it never does</h2>
+<ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.65; color: #2C3A55;">
+<li>To suggest where a column goes, I see the column headings and a few sample values with names, digits and dates masked. Your full file stays in Weaver.</li>
+<li><strong>Nothing about children.</strong> Columns and lines that look like children's names, ages or schools are not shown to me at all, and photos and PDFs are read on Weaver's own servers, not by an AI service.</li>
+<li>I never save anything on my own, and I never merge two families because their names look alike.</li>
+<li>Keys are stored encrypted. You see the last four characters, and changing or removing one needs a fresh 2FA check.</li>
+</ul>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 10px; margin-left: 46px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #4F5D75;">Not sure? Ask me</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{qs}}" as="q" hint-placeholder-count="3">
+<button type="button" onClick="{{q.pick}}" aria-pressed="{{q.pressed}}" style="text-align: left; min-height: 44px; padding: 8px 16px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 14px; font-weight: 600; background: {{q.bg}}; color: {{q.fg}};">{{q.label}}</button>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{hasAnswer}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="align-self: flex-end; max-width: 520px; padding: 12px 16px; background: #1C56B0; color: #FFFFFF; border-radius: 18px 18px 4px 18px; font-size: 15px; line-height: 1.5;">{{question}}</div>
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div role="status" style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">{{answer}}</div>
+</div>
+</div>
+</sc-if>
+
+<div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 18px; background: #FFFFFF; border: 1px solid #CBD7E4; border-radius: 28px;">
+<input type="text" aria-label="Ask Niva about your data" placeholder="Ask Niva about your data, a file, or a connection" style="flex: 1; min-height: 44px; border: 0; outline: 0; background: transparent; font-size: 15px; color: #12203A;">
+<button type="button" aria-label="Send" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: #1C56B0; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+</div>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dropped: false, ask: 0 };
+  }
+  renderVals() {
+    const s = this.state;
+    const cur = 1;
+    const defs = [
+      ['Choose how', 'Drop it, connect it or use a template'],
+      ['Bring it in', 'Niva reads it and asks only what it must'],
+      ['Review', 'See exactly what will happen'],
+      ['Ready', 'Make it good, then switch over']
+    ];
+    const navSteps = defs.map((d, i) => {
+      const n = i + 1;
+      const st = n < cur ? 'done' : n === cur ? 'now' : 'todo';
+      return {
+        n, title: d[0], sub: d[1], done: st === 'done', now: st === 'now', todo: st === 'todo',
+        bg: st === 'now' ? '#E8F1FC' : 'transparent', bd: st === 'now' ? '#BBD3F2' : 'transparent',
+        tfg: st === 'todo' ? '#4F5D75' : st === 'now' ? '#164690' : '#12203A', tw: st === 'now' ? '800' : '700'
+      };
+    });
+    const qa = [
+      { q: 'How much history should I load?', a: 'Most communities load the last 7 years of giving, which covers tax and audit retention, and all memberships. Older years can come in as one yearly total per household, so balances still make sense without thousands of old rows.' },
+      { q: 'Can I keep using Neon while I try this?', a: 'Yes. Nothing here changes Neon. Pull as often as you like: records that already match are updated, not duplicated. When you are ready to switch, we pull the last changes once more.' },
+      { q: 'I only have paper. Where do I start?', a: 'Take a clear photo of each page, or scan to PDF, and drop it in. I read printed lists on Weaver\'s own servers and mark every part I am unsure of, so you only correct those. Handwriting works less well, and I tell you which lines to check.' }
+    ];
+    return {
+      cur, pct: (cur * 25) + '%', navSteps,
+      facts: ['About 620 households', '6 years of donations', 'QuickBooks Online', 'Neon CRM', 'Zeffy for event tickets', 'Satvik Store: on', 'Pathshala: off'],
+      dropped: s.dropped,
+      toggleLabel: s.dropped ? 'Clear the sample files' : 'Try it with 4 sample files',
+      toggleDrop: () => this.setState({ dropped: !s.dropped }),
+      files: [
+        { name: 'Neon_accounts_export.csv', size: '612 accounts · 41 columns', tag: 'Known source', tagBg: '#E8F1FC', tagFg: '#164690', says: 'A Neon CRM export. I know this layout, so the column matching is already done.', href: 'Files.dc.html', cta: 'Check the matching' },
+        { name: 'Giving_2019-2025_master.xlsx', size: '7 sheets · 4,812 rows', tag: 'Your own spreadsheet', tagBg: '#FFF1E6', tagFg: '#A8400D', says: 'One tab per year, one row per gift. I drafted how to load it and have 2 questions for you.', href: 'Files.dc.html', cta: 'See how I will load it' },
+        { name: 'people-template-filled.xlsx', size: '1 sheet · 214 rows', tag: 'Weaver template', tagBg: '#E3F5EA', tagFg: '#0F4F33', says: 'Weaver\'s own template, filled in. It matches exactly, so it goes straight to the checks.', href: 'Review.dc.html', cta: 'Go to the checks' },
+        { name: 'directory-2019-page-14.jpg', size: 'Photo · 26 rows', tag: 'Photo of paper', tagBg: '#EAF0F7', tagFg: '#2C3A55', says: 'A printed member list. I read it on Weaver\'s own servers and mark every part I am unsure of.', href: 'Files.dc.html', cta: 'See what I read' }
+      ],
+      tiles: [
+        { mono: 'QB', name: 'QuickBooks', what: 'Chart of accounts and classes (your funds), plus seven years of customer history to match to families.', how: 'Sign in with Intuit' },
+        { mono: 'N', name: 'Neon CRM', what: 'People, households, donations, memberships and events with their history.', how: 'Organization ID and API key' },
+        { mono: 'Z', name: 'Zeffy', what: 'Contacts, payments and campaigns. Read-only beta from Zeffy.', how: 'API key from a Zeffy admin' },
+        { mono: 'G', name: 'Google Sheets', what: 'Pick a spreadsheet you already keep. Read, never edited.', how: 'Sign in with Google' },
+        { mono: '+', name: 'Something else', what: 'Bloomerang, DonorPerfect, Wild Apricot, Mailchimp. Tell me and I show the fastest way.', how: 'Usually a CSV export' }
+      ],
+      qs: qa.map((x, i) => ({
+        label: x.q, pressed: s.ask === i + 1,
+        bg: s.ask === i + 1 ? '#1C56B0' : '#FFFFFF', fg: s.ask === i + 1 ? '#FFFFFF' : '#1C56B0',
+        pick: () => this.setState({ ask: s.ask === i + 1 ? 0 : i + 1 })
+      })),
+      hasAnswer: s.ask > 0,
+      question: s.ask > 0 ? qa[s.ask - 1].q : '',
+      answer: s.ask > 0 ? qa[s.ask - 1].a : ''
+    };
+  }
+}
+</script>
+</body>
+</html>

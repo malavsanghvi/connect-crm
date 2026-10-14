@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WeCare area and Care card</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+a{color:#2b2a8a}a:hover{color:#1e1d5c}
+button,textarea,input,select{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1320px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; align-items: center; gap: 6px;">
+<img src="/_blob/a892f24db66aedf02e346cf7a7d298a6" alt="" style="height: 40px; width: auto;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; letter-spacing: -0.01em; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700; color: #1e1d5c;">Riverbend Community Center</span>
+<span style="color: #1e1d5c; font-size: 15px;">Signed in as {{viewerName}}</span>
+<span style="background: #ffffff; color: #1e1d5c; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1320px; margin: 0 auto; padding: 28px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">People › {{careLabel}}</nav>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; color: #2b2a8a;">{{careLabel}}</h1>
+<p style="margin: 0; max-width: 760px; font-size: 18px; line-height: 1.6; color: #33325f;">Every household has someone who keeps in touch, not only when we need something.</p>
+</div>
+
+<sc-if value="{{noAccess}}" hint-placeholder-val="{{false}}">
+<div role="status" style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 32px; display: flex; flex-direction: column; gap: 8px; max-width: 640px;">
+<strong style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 22px; font-weight: 600;">You don't have access to this area</strong>
+<span style="font-size: 16px; color: #555a79;">Care records are seen only by the roles your community gives. Ask your WeCare lead or your community's owner if you need access.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{hasAccess}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
+<section aria-label="Households" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px;">
+<div role="tablist" aria-label="Which households" style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button role="tab" aria-selected="{{t.selected}}" onClick="{{t.pick}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid {{t.bd}}; background: {{t.bg}}; color: {{t.fg}}; font-size: 15px; font-weight: 700;">{{t.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+<label for="care-q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Find a household</label>
+<input id="care-q" value="{{q}}" onChange="{{onQ}}" placeholder="Find a household by name or number" style="flex: 1 1 260px; min-height: 48px; border: 1px solid #e3d6ca; border-radius: 9999px; padding: 0 18px; font-size: 15.5px; color: #1e1d5c; background: #ffffff;">
+</div>
+<sc-if value="{{showPlanned}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+<span style="font-size: 13px; font-weight: 700; color: #a8400d; margin-right: 4px;">HEALTH (SLICE 4)</span>
+<sc-for list="{{healthChips}}" as="h" hint-placeholder-count="6">
+<button onClick="{{h.pick}}" aria-pressed="{{h.selected}}" style="min-height: 36px; padding: 0 12px; border-radius: 9999px; border: 1px solid {{h.bd}}; background: {{h.bg}}; color: {{h.fg}}; font-size: 13.5px; font-weight: 700;">{{h.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+<button onClick="{{r.pick}}" aria-pressed="{{r.selected}}" style="text-align: left; background: #ffffff; border: 1px solid #eee3d9; box-shadow: {{r.ring}}; border-radius: 16px; padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; color: #1e1d5c;">
+<span style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 18px; font-weight: 600;">{{r.name}}</span>
+<span style="font-size: 14px; color: #555a79;">{{r.hid}} · {{r.members}} · {{r.lastGift}}</span>
+<span style="font-size: 14px; color: #33325f;">{{r.ownerLine}}</span>
+</span>
+<span style="flex: 1 1 180px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: #33325f;">
+<span>{{r.lastTouch}}</span>
+<sc-if value="{{r.hasThanks}}" hint-placeholder-val="{{false}}"><span style="color: #a8400d; font-weight: 700;">{{r.thanksLine}}</span></sc-if>
+<sc-if value="{{r.resting}}" hint-placeholder-val="{{false}}"><span style="color: #555a79;">{{r.restingLine}}</span></sc-if>
+</span>
+<sc-if value="{{r.showHealth}}" hint-placeholder-val="{{true}}">
+<span style="background: {{r.healthBg}}; color: {{r.healthFg}}; border-radius: 9999px; padding: 3px 10px; font-size: 13px; font-weight: 700;">{{r.health}}</span>
+</sc-if>
+<sc-if value="{{r.needsOwner}}" hint-placeholder-val="{{false}}">
+<span style="background: #fbe3e1; color: #b3261e; border-radius: 9999px; padding: 3px 10px; font-size: 13px; font-weight: 700;">Needs an owner</span>
+</sc-if>
+</button>
+</sc-for>
+<sc-if value="{{noRows}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; padding: 18px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; color: #555a79;">No households match.</p>
+</sc-if>
+</div>
+</section>
+
+<aside aria-label="Care card" style="flex: 1 1 420px; min-width: 0; background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 22px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="align-self: flex-start; background: #f1eefc; color: #2b2a8a; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 700;">Care card · on the Family page too</span>
+<h2 style="margin: 4px 0 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 26px; line-height: 1.15; font-weight: 600; color: #2b2a8a;">{{c.name}}</h2>
+<span style="font-size: 14.5px; color: #555a79;">{{c.hid}} · {{c.members}} · {{c.lastGift}}</span>
+</div>
+
+<sc-if value="{{toastShown}}" hint-placeholder-val="{{false}}">
+<div role="status" style="background: #e4f2ea; color: #1f7a4d; border-radius: 16px; padding: 10px 14px; font-size: 15px; font-weight: 700;">{{toast}}</div>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #f6eee6; padding-bottom: 16px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">OWNER</h3>
+<span style="font-size: 15.5px;">{{c.ownerLine}}</span>
+<sc-if value="{{c.canChange}}" hint-placeholder-val="{{true}}">
+<sc-if value="{{notEditingOwner}}" hint-placeholder-val="{{true}}">
+<button onClick="{{openOwner}}" style="align-self: flex-start; min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 15px; font-weight: 700;">Change owner or backup</button>
+</sc-if>
+<sc-if value="{{editingOwner}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 10px; background: #fff6ee; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px;">
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; flex: 1 1 150px;">Owner
+<select value="{{od.owner}}" onChange="{{onOdOwner}}" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 10px; font-size: 15px; background: #ffffff; color: #1e1d5c;">
+<option value="">No owner</option>
+<option value="Sam K.">Sam K.</option>
+<option value="Priya N.">Priya N.</option>
+<option value="Amira S.">Amira S.</option>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; flex: 1 1 150px;">Backup
+<select value="{{od.backup}}" onChange="{{onOdBackup}}" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 10px; font-size: 15px; background: #ffffff; color: #1e1d5c;">
+<option value="">No backup</option>
+<option value="Sam K.">Sam K.</option>
+<option value="Priya N.">Priya N.</option>
+<option value="Amira S.">Amira S.</option>
+</select></label>
+</div>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">Reason (kept with the change)
+<textarea rows="2" value="{{od.reason}}" onChange="{{onOdReason}}" placeholder="For example: Sam knows the family from the choir" style="border: 1px solid #e3d6ca; border-radius: 12px; padding: 10px 12px; font-size: 15px; color: #1e1d5c; background: #ffffff;"></textarea></label>
+<span style="font-size: 13.5px; color: #555a79;">Only people who hold a WeCare role are listed. Owner and backup must be two different people.</span>
+<sc-if value="{{hasOwnerErr}}" hint-placeholder-val="{{false}}">
+<div role="alert" style="background: #fbe3e1; color: #b3261e; border-radius: 12px; padding: 10px 12px; font-size: 14.5px;">{{ownerErr}}</div>
+</sc-if>
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+<button onClick="{{saveOwner}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 15px; font-weight: 700;">Save</button>
+<button onClick="{{cancelOwner}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 15px; font-weight: 700;">Cancel</button>
+</div>
+</div>
+</sc-if>
+</sc-if>
+</div>
+
+<sc-if value="{{showPlanned}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #f6eee6; padding-bottom: 16px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">THANK-YOUS DUE · SLICE 3</h3>
+<sc-for list="{{c.thanks}}" as="th" hint-placeholder-count="1">
+<div style="background: #fff1e6; border: 1px solid #ffd6b8; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">
+<strong style="font-size: 15.5px;">{{th.label}}</strong>
+<span style="font-size: 14.5px; color: #33325f;">{{th.why}} · {{th.due}}</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px;">
+<sc-for list="{{th.actions}}" as="a" hint-placeholder-count="4">
+<button onClick="{{a.go}}" style="min-height: 40px; padding: 0 14px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 14px; font-weight: 700;">{{a.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{c.noThanks}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 15px; color: #555a79;">Nothing to thank right now. Ordinary gifts are thanked by their receipt.</span>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #f6eee6; padding-bottom: 16px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">HEALTH · SLICE 4</h3>
+<span style="align-self: flex-start; background: {{c.healthBg}}; color: {{c.healthFg}}; border-radius: 9999px; padding: 3px 12px; font-size: 14px; font-weight: 700;">{{c.health}}</span>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: #33325f;">
+<sc-for list="{{c.reasons}}" as="rs" hint-placeholder-count="3"><li>{{rs}}</li></sc-for>
+</ul>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #f6eee6; padding-bottom: 16px;">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">HOW THEY LIKE TO BE CARED FOR</h3>
+<sc-if value="{{notEditingProfile}}" hint-placeholder-val="{{true}}">
+<button onClick="{{openProfile}}" style="min-height: 36px; padding: 0 14px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 14px; font-weight: 700;">Edit</button>
+</sc-if>
+</div>
+<sc-if value="{{notEditingProfile}}" hint-placeholder-val="{{true}}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; font-size: 15px;">
+<span><span style="color: #555a79;">Thank them by: </span>{{c.p.thanks}}</span>
+<span><span style="color: #555a79;">Recognition: </span>{{c.p.recog}}</span>
+<span><span style="color: #555a79;">Best channel: </span>{{c.p.channel}}</span>
+<span><span style="color: #555a79;">Language: </span>{{c.p.lang}}</span>
+<span><span style="color: #555a79;">Main contact: </span>{{c.p.contact}}</span>
+<span><span style="color: #555a79;">Asking: </span>{{c.p.ask}}</span>
+</div>
+<span style="font-size: 13.5px; color: #555a79;">Interests, best call time and special days come from the person's profile in People.</span>
+</sc-if>
+<sc-if value="{{editingProfile}}" hint-placeholder-val="{{false}}">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; background: #fff6ee; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px;">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">Thank them by
+<select value="{{pd.thanks}}" onChange="{{onPdThanks}}" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 10px; font-size: 15px; background: #ffffff; color: #1e1d5c;">
+<option value="In person">In person</option><option value="Call">Call</option><option value="Card">Card</option><option value="Message">Message</option><option value="No thanks needed">No thanks needed</option>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">Recognition
+<select value="{{pd.recog}}" onChange="{{onPdRecog}}" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 10px; font-size: 15px; background: #ffffff; color: #1e1d5c;">
+<option value="Public">Public</option><option value="Private only">Private only</option><option value="Anonymous">Anonymous</option>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">Best channel
+<select value="{{pd.channel}}" onChange="{{onPdChannel}}" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 10px; font-size: 15px; background: #ffffff; color: #1e1d5c;">
+<option value="Email">Email</option><option value="Text message">Text message</option><option value="App">App</option><option value="Phone">Phone</option><option value="Post">Post</option>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">Language (from your community's languages)
+<select value="{{pd.lang}}" onChange="{{onPdLang}}" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 10px; font-size: 15px; background: #ffffff; color: #1e1d5c;">
+<option value="English">English</option><option value="Español">Español</option><option value="Tiếng Việt">Tiếng Việt</option>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">Asking
+<select value="{{pd.ask}}" onChange="{{onPdAsk}}" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 10px; font-size: 15px; background: #ffffff; color: #1e1d5c;">
+<option value="Open to being asked">Open to being asked</option><option value="Resting until Jan 15">Resting until Jan 15</option><option value="Do not ask">Do not ask</option>
+</select></label>
+<div style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
+<button onClick="{{saveProfile}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 15px; font-weight: 700;">Save</button>
+<button onClick="{{cancelProfile}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 15px; font-weight: 700;">Cancel</button>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #f6eee6; padding-bottom: 16px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">LOG A TOUCH</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 6px;">
+<sc-for list="{{presets}}" as="pr" hint-placeholder-count="5">
+<button onClick="{{pr.go}}" style="min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 14.5px; font-weight: 700;">{{pr.label}}</button>
+</sc-for>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; font-size: 15px;">
+<input type="checkbox" checked="{{touchAsk}}" onChange="{{onTouchAsk}}" style="width: 20px; height: 20px;">
+This touch included an ask
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">Note (optional)
+<input value="{{touchNote}}" onChange="{{onTouchNote}}" placeholder="What did you talk about?" style="min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 12px; font-size: 15px; color: #1e1d5c; background: #ffffff;"></label>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #f6eee6; padding-bottom: 16px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">HISTORY</h3>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{c.touches}}" as="tc" hint-placeholder-count="4">
+<li style="display: flex; flex-direction: column; gap: 2px; padding-left: 12px; border-left: 3px solid {{tc.mark}};">
+<span style="font-size: 15px; text-decoration: {{tc.strike}};">{{tc.what}}</span>
+<span style="font-size: 13.5px; color: #555a79;">{{tc.meta}}</span>
+</li>
+</sc-for>
+</ol>
+<span style="font-size: 13.5px; color: #555a79;">Lines marked "Recorded by Weaver" come from messages, receipts, check-ins and shifts. Nobody types them, and only adults appear.</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #a8400d;">NOTES</h3>
+<sc-for list="{{c.notes}}" as="n" hint-placeholder-count="1">
+<div style="background: #fff6ee; border: 1px solid #eee3d9; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 15px; line-height: 1.55;">{{n.text}}</span>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+<span style="font-size: 13.5px; color: #555a79;">{{n.meta}}</span>
+<button onClick="{{n.archive}}" style="min-height: 36px; padding: 0 12px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 13.5px; font-weight: 700;">Archive</button>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{c.hasArchived}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 14px; color: #555a79;">{{c.archivedLine}}</span>
+</sc-if>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700;">Add a note
+<textarea rows="2" value="{{noteDraft}}" onChange="{{onNoteDraft}}" placeholder="Something worth remembering, in a sentence or two" style="border: 1px solid #e3d6ca; border-radius: 12px; padding: 10px 12px; font-size: 15px; color: #1e1d5c; background: #ffffff;"></textarea></label>
+<button onClick="{{addNote}}" style="align-self: flex-start; min-height: 44px; padding: 0 18px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 15px; font-weight: 700;">Add note</button>
+<span style="font-size: 13.5px; color: #555a79;">Notes are never deleted. Archived notes stay in the record.</span>
+</div>
+</aside>
+</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"viewer":{"editor":"enum","options":["WeCare lead","Relationship owner","No WeCare access"],"default":"WeCare lead","section":"Prototype"},"seesAmounts":{"editor":"boolean","default":true,"section":"Prototype"},"careLabel":{"editor":"enum","options":["Donor care","Member care"],"default":"Donor care","section":"Prototype"},"showPlanned":{"editor":"boolean","default":true,"section":"Prototype"},"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      tab: 'all', q: '', health: 'all', sel: 'okafor',
+      data: this.seed(),
+      editingOwner: false, od: { owner: '', backup: '', reason: '' }, ownerErr: '',
+      editingProfile: false, pd: {},
+      touchAsk: false, touchNote: '', noteDraft: '', toast: ''
+    };
+  }
+
+  seed() {
+    return {
+      okafor: { name: 'Okafor household', hid: 'H-1042', members: '2 adults · 1 child', owner: 'Sam K.', backup: 'Priya N.', gift: ['$120', 'Oct 11'], health: 'Steady',
+        reasons: ['Gave 3 times in the last 12 months, the same as the year before', 'Came to 2 events this year', '4 touches with no ask for each ask'],
+        p: { thanks: 'Call', recog: 'Private only', channel: 'Text message', lang: 'English', contact: 'Adaeze Okafor', ask: 'Open to being asked' },
+        thanks: [{ id: 'o1', label: 'First gift on Oct 11', amt: '$120 first gift on Oct 11', why: 'First gift: a personal touch is asked', whyNo: 'First gift: a personal touch is asked', due: 'Due tomorrow' }],
+        touches: [
+          { what: 'Card sent', meta: 'No ask · 6 days ago · Sam K.', w: false },
+          { what: 'Opened "October newsletter"', meta: 'Recorded by Weaver · 8 days ago', w: true },
+          { what: 'Receipt sent for a gift', amt: 'Receipt sent for a $120 gift', meta: 'Recorded by Weaver · Oct 11', w: true },
+          { what: 'Checked in at Harvest supper', meta: 'Recorded by Weaver · 3 weeks ago', w: true },
+          { what: 'Called, talked', meta: 'Voided by Sam K.: logged on the wrong household', w: false, voided: true }
+        ],
+        notes: [{ id: 'n1', text: 'Prefers a call after 6 pm. Adaeze sings in the choir and likes to hear how the food pantry is doing.', meta: 'Sam K. · Sep 12' }], archived: 1 },
+      nguyen: { name: 'Nguyen household', hid: 'H-1107', members: '3 adults', owner: 'Priya N.', backup: '', gift: ['$50', 'Oct 1'], health: 'Thriving',
+        reasons: ['A monthly gift for 3 years', 'Volunteered on 5 shifts this year', '6 touches with no ask for each ask'],
+        p: { thanks: 'Message', recog: 'Public', channel: 'App', lang: 'Tiếng Việt', contact: 'Linh Nguyen', ask: 'Open to being asked' },
+        thanks: [], touches: [
+          { what: 'Called, talked', meta: 'No ask · 3 weeks ago · Priya N.', w: false },
+          { what: 'Volunteer shift: Saturday food drive', meta: 'Recorded by Weaver · 4 weeks ago', w: true }
+        ], notes: [], archived: 0 },
+      garcia: { name: 'García Morales household', hid: 'H-0988', members: '2 adults · 2 children', owner: '', backup: '', ownerGone: 'The owner left the WeCare role on Sep 30', gift: ['$1,000', 'Oct 9'], health: 'Cooling',
+        reasons: ['Fewer gifts than the year before', 'No personal touch in 2 months'],
+        p: { thanks: 'In person', recog: 'Anonymous', channel: 'Phone', lang: 'Español', contact: 'Lucía García', ask: 'Open to being asked' },
+        thanks: [{ id: 'g1', label: 'Gift on Oct 9', amt: '$1,000 gift on Oct 9', why: 'Over $500: a personal touch is asked', whyNo: 'A personal touch is asked', due: 'Overdue by 2 days' }],
+        touches: [{ what: 'Visited', meta: 'No ask · 2 months ago · Jordan T. (no longer in the role)', w: false }], notes: [], archived: 0 },
+      haddad: { name: 'Haddad household', hid: 'H-1120', members: '1 adult', owner: 'Sam K.', backup: 'Amira S.', gift: ['$75', 'Sep 20'], health: 'Steady', resting: 'Resting: do not ask until Jan 15',
+        reasons: ['Gave twice in the last 12 months, the same as the year before', 'Resting after a hard year: care only, no asks'],
+        p: { thanks: 'Card', recog: 'Private only', channel: 'Post', lang: 'English', contact: 'Samir Haddad', ask: 'Resting until Jan 15' },
+        thanks: [], touches: [{ what: 'Visited', meta: 'No ask · 5 days ago · Sam K.', w: false }], notes: [{ id: 'n2', text: 'Asked us to check in quietly this autumn. No appeals until the new year.', meta: 'Sam K. · Oct 3' }], archived: 0 },
+      kowalski: { name: 'Kowalski household', hid: 'H-0765', members: '2 adults', owner: 'Sam K.', backup: '', gift: ['$200', 'last year'], health: 'At risk',
+        reasons: ['Gave last year, nothing so far this year', 'No touch in 4 months'],
+        p: { thanks: 'Call', recog: 'Public', channel: 'Email', lang: 'English', contact: 'Marta Kowalski', ask: 'Open to being asked' },
+        thanks: [], touches: [{ what: 'Opened "Spring update"', meta: 'Recorded by Weaver · 4 months ago', w: true }], notes: [], archived: 0 },
+      mensah: { name: 'Mensah household', hid: 'H-1199', members: '2 adults · 1 child', owner: 'Priya N.', backup: 'Sam K.', gift: ['$40', 'Oct 12'], health: 'Not enough history yet',
+        reasons: ['Joined in August. Signs appear after about 12 months of records'],
+        p: { thanks: 'Message', recog: 'Private only', channel: 'Text message', lang: 'English', contact: 'Kwame Mensah', ask: 'Open to being asked' },
+        thanks: [{ id: 'm1', label: 'First gift on Oct 12', amt: '$40 first gift on Oct 12', why: 'First gift: a personal touch is asked', whyNo: 'First gift: a personal touch is asked', due: 'Due in 1 day' }],
+        touches: [{ what: 'Checked in at Welcome lunch', meta: 'Recorded by Weaver · Aug 24', w: true }], notes: [], archived: 0 },
+      lindqvist: { name: 'Lindqvist household', hid: 'H-0612', members: '2 adults', owner: 'Amira S.', backup: '', gift: ['$300', '2 years ago'], health: 'Lapsed',
+        reasons: ['No gift and no taking part in 18 months'],
+        p: { thanks: 'Card', recog: 'Private only', channel: 'Email', lang: 'English', contact: 'Ingrid Lindqvist', ask: 'Open to being asked' },
+        thanks: [], touches: [{ what: 'Card sent', meta: 'No ask · 7 months ago · Amira S.', w: false }], notes: [], archived: 0 }
+    };
+  }
+
+  hColors(h) {
+    const m = { 'Thriving': ['#e4f2ea', '#1f7a4d'], 'Steady': ['#f1eefc', '#2b2a8a'], 'Cooling': ['#fff1e6', '#a8400d'], 'At risk': ['#fbe3e1', '#b3261e'], 'Lapsed': ['#f6eee6', '#33325f'] };
+    return m[h] || ['#fff6ee', '#555a79'];
+  }
+
+  viewerName() {
+    const v = this.props.viewer || 'WeCare lead';
+    return v === 'Relationship owner' ? 'Sam K. (relationship owner)' : (v === 'WeCare lead' ? 'Amira S. (WeCare lead)' : 'Jordan T. (event volunteer)');
+  }
+
+  ownerLine(h) {
+    if (!h.owner) return h.ownerGone ? 'No owner. ' + h.ownerGone : 'No owner yet';
+    return 'Owner: ' + h.owner + (h.backup ? ' · Backup: ' + h.backup : ' · No backup');
+  }
+
+  patch(id, fn, toast) {
+    const data = Object.assign({}, this.state.data);
+    const h = Object.assign({}, data[id]);
+    fn(h);
+    data[id] = h;
+    this.setState({ data: data, toast: toast || '' });
+  }
+
+  renderVals() {
+    const viewer = this.props.viewer || 'WeCare lead';
+    const amounts = this.props.seesAmounts !== false;
+    const planned = this.props.showPlanned !== false;
+    const isLead = viewer === 'WeCare lead';
+    const isOwner = viewer === 'Relationship owner';
+    const me = isOwner ? 'Sam K.' : 'Amira S.';
+    const data = this.state.data;
+    const ids = Object.keys(data);
+    const visible = ids.filter((id) => isLead || data[id].owner === me || data[id].backup === me);
+    let tab = this.state.tab;
+    if (isOwner && (tab === 'all' || tab === 'needs')) tab = 'mine';
+    const tabDefs = isLead ? [['all', 'All'], ['mine', 'My households'], ['needs', 'Needs an owner'], ['resting', 'Resting']] : [['mine', 'My households'], ['resting', 'Resting']];
+    const inTab = (id) => {
+      const h = data[id];
+      if (tab === 'mine') return h.owner === me || h.backup === me;
+      if (tab === 'needs') return !h.owner;
+      if (tab === 'resting') return !!h.resting;
+      return true;
+    };
+    const count = (t) => visible.filter((id) => {
+      const h = data[id];
+      if (t === 'mine') return h.owner === me || h.backup === me;
+      if (t === 'needs') return !h.owner;
+      if (t === 'resting') return !!h.resting;
+      return true;
+    }).length;
+    const tabs = tabDefs.map((t) => {
+      const on = tab === t[0];
+      return { label: t[1] + ' · ' + count(t[0]), selected: on ? 'true' : 'false', bg: on ? '#2b2a8a' : '#ffffff', fg: on ? '#ffffff' : '#1e1d5c', bd: on ? '#2b2a8a' : '#e3d6ca', pick: () => this.setState({ tab: t[0] }) };
+    });
+    const healthList = ['all', 'Thriving', 'Steady', 'Cooling', 'At risk', 'Lapsed'];
+    const healthChips = healthList.map((x) => {
+      const on = this.state.health === x;
+      return { label: x === 'all' ? 'Any' : x, selected: on ? 'true' : 'false', bg: on ? '#2b2a8a' : '#ffffff', fg: on ? '#ffffff' : '#1e1d5c', bd: on ? '#2b2a8a' : '#e3d6ca', pick: () => this.setState({ health: x }) };
+    });
+    const q = this.state.q.trim().toLowerCase();
+    const shownIds = visible.filter((id) => inTab(id))
+      .filter((id) => !q || data[id].name.toLowerCase().indexOf(q) >= 0 || data[id].hid.toLowerCase().indexOf(q) >= 0)
+      .filter((id) => !planned || this.state.health === 'all' || data[id].health === this.state.health);
+    const giftLine = (h) => 'Last gift ' + (amounts ? h.gift[0] + ', ' : '') + h.gift[1];
+    const rows = shownIds.map((id) => {
+      const h = data[id];
+      const hc = this.hColors(h.health);
+      const t0 = h.touches.find((t) => !t.voided);
+      return {
+        name: h.name, hid: h.hid, members: h.members, lastGift: giftLine(h), ownerLine: this.ownerLine(h),
+        lastTouch: t0 ? 'Last: ' + t0.what + ' · ' + t0.meta.split(' · ').slice(-2, -1).join('') : 'No touches yet',
+        hasThanks: planned && h.thanks.length > 0, thanksLine: h.thanks.length + (h.thanks.length === 1 ? ' thank-you due' : ' thank-yous due'),
+        resting: !!h.resting, restingLine: h.resting || '',
+        showHealth: planned, health: h.health, healthBg: hc[0], healthFg: hc[1],
+        needsOwner: !h.owner,
+        selected: this.state.sel === id ? 'true' : 'false', ring: this.state.sel === id ? '0 0 0 2px #2b2a8a' : 'none',
+        pick: () => this.setState({ sel: id, editingOwner: false, editingProfile: false, ownerErr: '', toast: '' })
+      };
+    });
+
+    let sel = this.state.sel;
+    if (visible.indexOf(sel) < 0) sel = visible[0];
+    const h = data[sel];
+    const hc = this.hColors(h.health);
+    const name = isOwner ? 'Sam K.' : 'Amira S.';
+    const thanks = h.thanks.map((th) => ({
+      label: amounts ? th.amt : th.label,
+      why: amounts ? th.why : th.whyNo,
+      due: th.due,
+      actions: ['Called', 'Card sent', 'Visited', 'Video message'].map((a) => ({
+        label: a,
+        go: () => this.patch(sel, (x) => {
+          x.thanks = x.thanks.filter((y) => y.id !== th.id);
+          x.touches = [{ what: 'Thank-you: ' + a, meta: 'No ask · just now · ' + name, w: false }].concat(x.touches);
+        }, 'Thanked. The step is closed.')
+      }))
+    }));
+    const c = {
+      name: h.name, hid: h.hid, members: h.members, lastGift: giftLine(h),
+      ownerLine: this.ownerLine(h), canChange: isLead,
+      thanks: thanks, noThanks: thanks.length === 0,
+      health: h.health, healthBg: hc[0], healthFg: hc[1], reasons: h.reasons,
+      p: h.p,
+      touches: h.touches.map((t) => ({ what: amounts && t.amt ? t.amt : t.what, meta: t.meta, mark: t.w ? '#d4d2f5' : (t.voided ? '#e3d6ca' : '#ffb82a'), strike: t.voided ? 'line-through' : 'none' })),
+      notes: h.notes.map((n) => ({ text: n.text, meta: n.meta, archive: () => this.patch(sel, (x) => { x.notes = x.notes.filter((y) => y.id !== n.id); x.archived = (x.archived || 0) + 1; }, 'Note archived. It stays in the record.') })),
+      hasArchived: (h.archived || 0) > 0, archivedLine: (h.archived || 0) + ((h.archived || 0) === 1 ? ' archived note' : ' archived notes')
+    };
+    const presets = ['Called, talked', 'Called, no answer', 'Card sent', 'Visited', 'Video message'].map((label) => ({
+      label: label,
+      go: () => {
+        const ask = this.state.touchAsk;
+        const note = this.state.touchNote.trim();
+        this.patch(sel, (x) => {
+          x.touches = [{ what: label + (note ? ': ' + note : ''), meta: (ask ? 'Included an ask' : 'No ask') + ' · just now · ' + name, w: false }].concat(x.touches);
+        }, 'Touch logged.');
+        this.setState({ touchNote: '', touchAsk: false });
+      }
+    }));
+
+    return {
+      careLabel: this.props.careLabel || 'Donor care',
+      viewerName: this.viewerName(),
+      noAccess: viewer === 'No WeCare access', hasAccess: viewer !== 'No WeCare access',
+      showPlanned: planned,
+      tabs: tabs, healthChips: healthChips, q: this.state.q,
+      onQ: (e) => this.setState({ q: e.target.value }),
+      rows: rows, noRows: rows.length === 0,
+      c: c, presets: presets,
+      toast: this.state.toast, toastShown: !!this.state.toast,
+      editingOwner: this.state.editingOwner, notEditingOwner: !this.state.editingOwner,
+      od: this.state.od, ownerErr: this.state.ownerErr, hasOwnerErr: !!this.state.ownerErr,
+      openOwner: () => this.setState({ editingOwner: true, od: { owner: h.owner, backup: h.backup, reason: '' }, ownerErr: '', toast: '' }),
+      cancelOwner: () => this.setState({ editingOwner: false, ownerErr: '' }),
+      onOdOwner: (e) => this.setState({ od: Object.assign({}, this.state.od, { owner: e.target.value }) }),
+      onOdBackup: (e) => this.setState({ od: Object.assign({}, this.state.od, { backup: e.target.value }) }),
+      onOdReason: (e) => this.setState({ od: Object.assign({}, this.state.od, { reason: e.target.value }) }),
+      saveOwner: () => {
+        const od = this.state.od;
+        if (od.owner && od.owner === od.backup) { this.setState({ ownerErr: 'Owner and backup must be two different people.' }); return; }
+        if (!od.reason.trim()) { this.setState({ ownerErr: 'Add a reason. It is kept with the change.' }); return; }
+        this.patch(sel, (x) => { x.owner = od.owner; x.backup = od.backup; x.ownerGone = ''; }, 'Owner saved. The change and its reason are recorded.');
+        this.setState({ editingOwner: false, ownerErr: '' });
+      },
+      editingProfile: this.state.editingProfile, notEditingProfile: !this.state.editingProfile,
+      pd: this.state.pd,
+      openProfile: () => this.setState({ editingProfile: true, pd: Object.assign({}, h.p), toast: '' }),
+      cancelProfile: () => this.setState({ editingProfile: false }),
+      onPdThanks: (e) => this.setState({ pd: Object.assign({}, this.state.pd, { thanks: e.target.value }) }),
+      onPdRecog: (e) => this.setState({ pd: Object.assign({}, this.state.pd, { recog: e.target.value }) }),
+      onPdChannel: (e) => this.setState({ pd: Object.assign({}, this.state.pd, { channel: e.target.value }) }),
+      onPdLang: (e) => this.setState({ pd: Object.assign({}, this.state.pd, { lang: e.target.value }) }),
+      onPdAsk: (e) => this.setState({ pd: Object.assign({}, this.state.pd, { ask: e.target.value }) }),
+      saveProfile: () => {
+        const pd = this.state.pd;
+        this.patch(sel, (x) => { x.p = Object.assign({}, pd); x.resting = pd.ask === 'Resting until Jan 15' ? 'Resting: do not ask until Jan 15' : (pd.ask === 'Do not ask' ? 'Do not ask' : ''); }, 'Saved.');
+        this.setState({ editingProfile: false });
+      },
+      touchAsk: this.state.touchAsk, onTouchAsk: (e) => this.setState({ touchAsk: e.target.checked }),
+      touchNote: this.state.touchNote, onTouchNote: (e) => this.setState({ touchNote: e.target.value }),
+      noteDraft: this.state.noteDraft, onNoteDraft: (e) => this.setState({ noteDraft: e.target.value }),
+      addNote: () => {
+        const t = this.state.noteDraft.trim();
+        if (!t) { this.setState({ toast: '' }); return; }
+        this.patch(sel, (x) => { x.notes = [{ id: 'n' + Date.now(), text: t, meta: name + ' · just now' }].concat(x.notes); }, 'Note added.');
+        this.setState({ noteDraft: '' });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

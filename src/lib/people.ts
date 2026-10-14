@@ -3,6 +3,9 @@
 // No server-only imports, so the forms, the actions and the tests share them.
 
 import type { Enums } from "@/lib/database.types";
+import { communityLanguages, languageFromText, languageList, languageName, normalizeLanguageCode } from "@/lib/languages";
+import { checkInterests } from "@/lib/person-interests";
+import { parseListInput, sameList } from "@/lib/person-lists";
 
 export type HouseholdRole = Enums<"person_role_in_household">;
 export type Tier = Enums<"membership_tier">;
@@ -16,11 +19,52 @@ export const GENDER_OPTIONS = [
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ] as const;
 
-export const LANGUAGE_OPTIONS = [
-  { value: "en", label: "English" },
-  { value: "gu", label: "Gujarati" },
-  { value: "hi", label: "Hindi" },
+/** When to call (people.best_call_time: the database only takes these three). */
+export const BEST_CALL_TIMES = [
+  { value: "morning", label: "Morning" },
+  { value: "afternoon", label: "Afternoon" },
+  { value: "evening", label: "Evening" },
 ] as const;
+
+export function callTimeLabel(v: string | null | undefined): string {
+  return BEST_CALL_TIMES.find((o) => o.value === (v ?? "").trim().toLowerCase())?.label ?? "";
+}
+
+/** The daily learning goals a member can choose (people.gyan_daily_minutes: the database only takes these three). */
+export const DAILY_MINUTES = [5, 10, 15] as const;
+
+export function dailyMinutesLabel(v: string | number | null | undefined): string {
+  const n = Number(v);
+  return v !== null && v !== undefined && v !== "" && (DAILY_MINUTES as readonly number[]).includes(n) ? `${n} minutes a day` : "";
+}
+
+/** The ways a member says they like to be reached (people.contact_channels), in words. Staff read them; the member sets them in the app. */
+export function contactChannelLabel(v: string): string {
+  switch (v) {
+    case "phone_call":
+      return "Phone call";
+    case "sms":
+      return "Text message";
+    case "whatsapp":
+      return "WhatsApp";
+    case "email":
+      return "Email";
+    default:
+      return v.replace(/_/g, " ");
+  }
+}
+
+/**
+ * The languages a person's record can be set to on a screen: the community's own languages (Setup > Profile), plus the person's current
+ * language when it is not among them, so editing someone never hides what is saved. Any language is a valid value (the database
+ * takes any language code); this is only the list offered.
+ */
+export function personLanguageOptions(community: readonly string[], current?: string | null): { value: string; label: string }[] {
+  const codes = communityLanguages(community);
+  const cur = normalizeLanguageCode(current ?? "");
+  if (cur && !codes.includes(cur)) codes.push(cur);
+  return codes.map((value) => ({ value, label: languageName(value) }));
+}
 
 /** Relationships staff can choose (the primary member is set by "Make primary", not by this chip). */
 export const RELATIONSHIP_OPTIONS: { value: HouseholdRole; label: string }[] = [
@@ -53,7 +97,7 @@ export function genderValue(g: string | null | undefined): string {
 }
 
 export function languageLabel(code: string | null | undefined): string {
-  return LANGUAGE_OPTIONS.find((o) => o.value === code)?.label ?? (code || "—");
+  return code ? languageName(code) : "—";
 }
 
 /** "Primary", "Spouse", "Son" / "Daughter" (child + gender), "Parent", "Sibling", "Other". */
@@ -224,6 +268,11 @@ export type PersonProfile = {
   new_member_contact_opt_in: boolean;
   expertise_opt_in: boolean;
   expertise_headline: string | null;
+  preferred_name: string | null;
+  interests: string[];
+  expertise_tags: string[];
+  best_call_time: string | null;
+  gyan_daily_minutes: number | null;
 };
 
 export const PERSON_FIELDS = [
@@ -240,14 +289,31 @@ export const PERSON_FIELDS = [
   "new_member_contact_opt_in",
   "expertise_opt_in",
   "expertise_headline",
+  "preferred_name",
+  "interests",
+  "expertise_tags",
+  "best_call_time",
+  "gyan_daily_minutes",
 ] as const satisfies readonly (keyof PersonProfile)[];
+
+/** Set on the People screen only: Niva does not change them. */
+export const SCREEN_ONLY_FIELDS = ["preferred_name", "interests", "expertise_tags", "best_call_time", "gyan_daily_minutes"] as const;
+
+/** Kept for adults only: a child's record has none of these (D2). A child can have a preferred name and nothing else of the five. */
+export const ADULT_ONLY_FIELDS = ["interests", "expertise_tags", "best_call_time", "gyan_daily_minutes"] as const;
 
 /**
  * Read the person form. Fields the form did not send are left out, so a
  * minor's form (no contact fields) never blanks them. Booleans arrive as
  * "on" / "off" from hidden inputs.
  */
-export function parsePersonForm(f: FieldMap, today: string): Parsed<Partial<PersonProfile>> {
+export function parsePersonForm(
+  f: FieldMap,
+  today: string,
+  languages?: readonly string[],
+  /** What is already on the person's record. An interest on file that is not one of the app's keys may stay; no other may be added. */
+  onFile?: { interests?: readonly string[] | null },
+): Parsed<Partial<PersonProfile>> {
   const out: Partial<PersonProfile> = {};
   if (f.first_name !== undefined) {
     const v = text(f.first_name, 80);
@@ -283,13 +349,40 @@ export function parsePersonForm(f: FieldMap, today: string): Parsed<Partial<Pers
     out.email = e ? e.toLowerCase() : null;
   }
   if (f.language !== undefined) {
-    if (!LANGUAGE_OPTIONS.some((o) => o.value === f.language)) return { ok: false, error: "Choose English, Gujarati or Hindi" };
-    out.language = f.language;
+    const code = languageFromText(f.language);
+    if (!code) return { ok: false, error: "Choose a language from the list (or give its code, like es or pt-BR)" };
+    // With the community's list given, the language must be one of them; without it any language code is taken (an import).
+    const allowed = languages ? communityLanguages(languages) : null;
+    if (allowed && !allowed.includes(code)) {
+      return { ok: false, error: `${languageName(code)} is not one of this community's languages (${languageList(allowed)}). Add it in Setup > Profile first` };
+    }
+    out.language = code;
   }
   for (const k of ["photo_opt_in", "new_member_contact_opt_in", "expertise_opt_in"] as const) {
     if (f[k] !== undefined) out[k] = f[k] === "on";
   }
   if (f.expertise_headline !== undefined) out.expertise_headline = text(f.expertise_headline, 200);
+  if (f.preferred_name !== undefined) out.preferred_name = text(f.preferred_name, 80);
+  for (const k of ["interests", "expertise_tags"] as const) {
+    if (f[k] === undefined) continue;
+    const list = parseListInput(k, f[k] ?? "");
+    if (!list.ok) return list;
+    // Interests are a fixed choice (the member app keeps only its own keys); expertise areas are the member's own words.
+    const checked = k === "interests" ? checkInterests(list.value, onFile?.interests ?? []) : list;
+    if (!checked.ok) return checked;
+    out[k] = checked.value;
+  }
+  if (f.best_call_time !== undefined) {
+    const t = f.best_call_time.trim().toLowerCase();
+    if (t && !BEST_CALL_TIMES.some((o) => o.value === t)) return { ok: false, error: "Choose morning, afternoon or evening" };
+    out.best_call_time = t || null;
+  }
+  if (f.gyan_daily_minutes !== undefined) {
+    const m = f.gyan_daily_minutes.trim();
+    if (!m) out.gyan_daily_minutes = null;
+    else if (/^[0-9]+$/.test(m) && (DAILY_MINUTES as readonly number[]).includes(Number(m))) out.gyan_daily_minutes = Number(m);
+    else return { ok: false, error: "Choose 5, 10 or 15 minutes a day" };
+  }
   return { ok: true, value: out };
 }
 
@@ -346,10 +439,12 @@ export function parseHouseholdForm(f: FieldMap, zoneIds: readonly string[]): Par
   return { ok: true, value: out };
 }
 
-/** Keys whose value differs (null, "" and undefined count as the same "empty"). */
+/** Keys whose value differs (null, "" and undefined count as the same "empty"; a list is the same list in any order and letter case). */
 export function changedKeys<T extends Record<string, unknown>>(original: T, edited: Partial<T>): (keyof T)[] {
   const norm = (v: unknown) => (v === undefined || v === "" ? null : v);
-  return (Object.keys(edited) as (keyof T)[]).filter((k) => norm(edited[k]) !== norm(original[k]));
+  return (Object.keys(edited) as (keyof T)[]).filter((k) =>
+    Array.isArray(edited[k]) || Array.isArray(original[k]) ? !sameList(edited[k], original[k]) : norm(edited[k]) !== norm(original[k]),
+  );
 }
 
 /** Plain-English list: "name, address and zone". */
@@ -372,6 +467,12 @@ export const FIELD_LABELS: Record<string, string> = {
   new_member_contact_opt_in: "open to new members",
   expertise_opt_in: "expertise listing",
   expertise_headline: "expertise",
+  preferred_name: "preferred name",
+  interests: "interests",
+  expertise_tags: "expertise areas",
+  best_call_time: "best time to call",
+  gyan_daily_minutes: "daily learning goal",
+  contact_channels: "contact choices",
   role: "relationship",
   display_name: "name",
   address_line1: "street address",

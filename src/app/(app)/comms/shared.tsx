@@ -6,8 +6,15 @@ import type { AudienceOptions } from "@/lib/data/content-comms";
 import { canAccess, type AccessKey } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
+/** The Communications header, with "Ask Niva" beside the page's own buttons (it shows nothing when Niva is off). */
 export function CommsHeader({ sub, actions }: { sub: ReactNode; actions?: ReactNode }) {
-  return <PageHeader title="Communications" description={sub} actions={actions} />;
+  return (
+    <PageHeader
+      title="Communications"
+      description={sub}
+      actions={actions}
+    />
+  );
 }
 
 /** Header + "You don't have access" when the user cannot open this tab. */
@@ -15,7 +22,7 @@ export function commsGate(session: CrmSession, access: AccessKey, sub: ReactNode
   if (canAccess(session, access)) return null;
   return (
     <>
-      <CommsHeader sub={sub} />
+      <PageHeader title="Communications" description={sub} />
       <NoAccess area="Communications" access={access} />
     </>
   );

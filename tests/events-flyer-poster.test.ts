@@ -18,7 +18,7 @@ import { FLYER_OCCASIONS, flyerArtPath, type FlyerOccasion } from "@/lib/events/
 import { artPack, brandPalette, flattenOpacity, frameEdgeSvg, mix, packLayerThumbnailSvg, packThumbnailSvg, plainPaperSvg, ribbonSvg, svgDataUri } from "@/lib/events/flyer-art-packs";
 import { readFlyerBrand } from "@/lib/events/flyer-brand";
 import { POSTER_ICONS, POSTER_ICON_LABEL, isPosterIcon, posterIconSvg, posterIconUri } from "@/lib/events/flyer-icons";
-import { POSTER_UNITS, SECTION_LABEL, badgeSizes, headlineFit, lineCount, planPoster, posterNotes, posterText, textWidth, type PosterSection } from "@/lib/events/flyer-poster";
+import { POSTER_UNITS, SECTION_LABEL, badgeSizes, frameSlices, headlineFit, lineCount, planPoster, posterNotes, posterText, textWidth, type PosterSection } from "@/lib/events/flyer-poster";
 import { contrastRatio } from "@/lib/setup";
 
 const C = "11111111-1111-4111-8111-111111111111";
@@ -353,7 +353,8 @@ describe("the icon library", () => {
 
   it("knows its names", () => {
     expect(isPosterIcon("clock")).toBe(true);
-    expect(isPosterIcon("calendar")).toBe(false);
+    expect(isPosterIcon("calendar")).toBe(true);
+    expect(isPosterIcon("sparkle")).toBe(false);
     expect(isPosterIcon(undefined)).toBe(false);
   });
 });
@@ -718,5 +719,80 @@ describe("estimating text", () => {
     const p = parsePosterContent(poster());
     const text = p.ok ? posterText(p.poster) : "";
     for (const word of ["JAINA", "HOUSTON", "80%", "Dinner", "Garba", "RSVP"]) expect(text).toContain(word);
+  });
+});
+
+// ── Story (1080 × 1920): laid out for the taller canvas (fixed 2026-10-11) ──
+// A render of the Story size showed Tall's layout on a taller page: a large empty band in the middle, and an AI frame
+// stretched 18% taller (it was drawn with object-fit: fill).
+describe("the Story size", () => {
+  const ev = defaultFlyerDesign({
+    name: "Christmas Eve Candlelight Service",
+    description: "Carols, readings and candlelight for the whole family. Everyone is welcome.",
+    venue: "St. Mark's Sanctuary",
+    startsAt: "2026-12-25T00:00:00Z",
+    endsAt: "2026-12-25T01:30:00Z",
+    tz: "America/Chicago",
+    qrAvailable: true,
+  });
+  const plan = (size: "tall" | "story", headline = ev.headline) => {
+    const d = { ...ev, size, headline };
+    const dims = { w: 540, h: size === "story" ? 960 : 810 };
+    const p = planPoster({ design: d, poster: ev.poster!, logo: null, assets: { frame: null, scene: null, partnerLogo: null } }, dims, artPack("general", brand));
+    const natural = Object.values(p.heights).reduce((a, b) => a + (b ?? 0), 0);
+    const stackEnd = p.top + natural * p.k + p.gap * (Object.keys(p.heights).length - 1);
+    return { p, freeBelow: p.H - POSTER_UNITS.footer - p.reserve - stackEnd };
+  };
+
+  it("uses the extra height: a bigger scene, the headline set larger, the words spread out", () => {
+    const tall = plan("tall");
+    const story = plan("story");
+    expect(story.p.sceneH).toBeGreaterThan(tall.p.sceneH * 1.3);
+    expect(story.p.headline.size).toBeGreaterThan(tall.p.headline.size);
+    expect(story.p.gap).toBeGreaterThan(tall.p.gap);
+  });
+
+  it("leaves no large empty band under the words (at most a sixth of the poster), whatever the headline's length", () => {
+    for (const h of ["Gala", "Christmas Eve Candlelight Service", "Annual Small Business Expo and Community Awards Night 2026"]) {
+      const { p, freeBelow } = plan("story", h);
+      expect(freeBelow, h).toBeLessThanOrEqual(p.H / 6);
+      expect(freeBelow, h).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("keeps Post and Tall exactly as they were (one headline rule, the same scene)", () => {
+    expect(headlineFit("Christmas Eve Candlelight Service")).toEqual(headlineFit("Christmas Eve Candlelight Service", POSTER_UNITS.width - 160, { tall: false }));
+    expect(plan("tall").p.sceneH).toBe(400 * Math.min(1.12, 1));
+  });
+});
+
+describe("an AI frame on a poster of another shape", () => {
+  const img = { w: 1024, h: 1536 }; // asked for at 2:3
+
+  it("is drawn whole when the poster has its shape (Tall)", () => {
+    expect(frameSlices(img, 1080, 1620)).toEqual([{ top: 0, height: 1620, imageTop: 0, imageHeight: 1620 }]);
+  });
+
+  it("is never stretched on a Story: the halves keep the picture's proportions, only a middle band is drawn taller", () => {
+    const s = frameSlices(img, 1080, 1920);
+    expect(s).toHaveLength(3);
+    const [top, mid, bottom] = s as [typeof s[0], typeof s[0], typeof s[0]];
+    expect(top.imageHeight).toBe(1620);
+    expect(bottom.imageHeight).toBe(1620);
+    expect(top.top + top.height).toBe(mid.top);
+    expect(mid.top + mid.height).toBe(bottom.top);
+    expect(bottom.top + bottom.height).toBe(1920);
+    // The bottom half is pinned to the bottom edge.
+    expect(bottom.imageTop + bottom.imageHeight).toBe(bottom.height);
+    // The middle band is stretched at most twice.
+    expect(mid.imageHeight / 1620).toBeLessThanOrEqual(2.01);
+  });
+
+  it("on a shorter poster (Post) shows the top half from the top and the bottom half from the bottom, unsquashed", () => {
+    const s = frameSlices(img, 1080, 1350);
+    expect(s).toHaveLength(2);
+    expect(s.every((x) => x.imageHeight === 1620)).toBe(true);
+    expect(s[0]).toMatchObject({ top: 0, imageTop: 0 });
+    expect(s[1]!.imageTop + s[1]!.imageHeight).toBe(s[1]!.height);
   });
 });

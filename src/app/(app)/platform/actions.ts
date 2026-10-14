@@ -106,15 +106,7 @@ export async function saveWizardStepAction(_prev: ActionResult | null, formData:
   redirect(`/platform/new?center=${id}&step=${nextStep}&saved=${step}`);
 }
 
-/** Last step: mark the center Live. The go-live checks are the platform team's to confirm; the app does not verify them. */
-export async function goLiveAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  const auth = await platformSession("take the center live");
-  if (!auth.ok) return auth;
-  const centerId = String(formData.get("center") ?? "");
-  if (!isUuid(centerId)) return { ok: false, error: "Could not take the center live — start from step 1 so the center exists first." };
-  const { data, error } = await auth.session.db.from("centers").update({ status: "active" }).eq("id", centerId).eq("status", "onboarding").select("id, name");
-  if (error) return failure("Could not take the center live", error);
-  if (!data || data.length === 0) return { ok: false, error: "Could not take the center live — it is not onboarding any more (already live, suspended or removed)." };
-  revalidatePath("/platform");
-  return { ok: true, message: `${data[0].name} is live` };
-}
+// There is deliberately no action here that takes a center live. Going live is the owner's request (Setup › Go-live)
+// after every readiness check passes, then two different Weaver admins approve it with a fresh security code
+// (Platform › Go-live approvals). The wizard's old one-step "Go live" was retired on the owner's decision of
+// 2026-10-09 (backlog B70); tests/platform-golive-guard.test.ts fails if anything in the app sets a center active again.

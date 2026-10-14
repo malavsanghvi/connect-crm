@@ -2,7 +2,7 @@ import "server-only";
 
 import type { DbErrorLike } from "@/lib/errors";
 import { can } from "@/lib/permissions";
-import { dietaryChoices, interestLabels, type DietaryChoice } from "@/lib/profile-details";
+import { dietaryChoices, interestLabels, type DietaryChoice, type DietaryOptionRow } from "@/lib/profile-details";
 import type { CrmSession } from "@/lib/session";
 
 // What a member told the community about themselves in the app (migration 0546), for the
@@ -15,6 +15,10 @@ export type ProfileDetailsView = {
   recorded: boolean;
   anniversary: string | null;
   dietary: DietaryChoice[];
+  /** The member's own words under "Other" (the editor needs them apart from the label). */
+  dietaryOther: string | null;
+  /** The community's dietary list in its own order, switched-off choices included (the editor offers the active ones). */
+  options: DietaryOptionRow[];
   emergency: { name: string; relationship: string | null; phone: string } | null;
   interests: string[];
   /** Volunteering areas the member ticked; null when the viewer has no volunteers permission. */
@@ -32,7 +36,7 @@ export async function loadProfileDetails(
   const seesVolunteers = !person.isMinor && can(session, ["volunteers.view", "volunteers.manage"]);
   const [detailsRes, optionsRes, volunteerRes] = await Promise.all([
     db.from("person_profile_details").select("anniversary, dietary, dietary_other, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, updated_at").eq("person_id", person.id).maybeSingle(),
-    db.from("dietary_options").select("key, label, active").eq("center_id", center.id),
+    db.from("dietary_options").select("key, label, active").eq("center_id", center.id).order("sort", { ascending: true }).order("key", { ascending: true }),
     seesVolunteers ? db.from("volunteer_interests").select("group_id").eq("person_id", person.id).neq("status", "inactive") : null,
   ]);
   if (detailsRes.error) return { ok: false, error: detailsRes.error };
@@ -59,6 +63,8 @@ export async function loadProfileDetails(
       recorded: !!d,
       anniversary: person.isMinor ? null : (d?.anniversary ?? null),
       dietary: dietaryChoices(d?.dietary, options, d?.dietary_other),
+      dietaryOther: d?.dietary_other ?? null,
+      options: options.map((o) => ({ key: o.key, label: o.label, active: o.active })),
       emergency: d?.emergency_contact_name && d.emergency_contact_phone ? { name: d.emergency_contact_name, relationship: d.emergency_contact_relationship, phone: d.emergency_contact_phone } : null,
       interests: interestLabels(person.interests),
       volunteering,

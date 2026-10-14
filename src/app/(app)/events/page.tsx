@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
+import { NewEventActions } from "@/components/event-creator/new-event-actions";
 import { ClickableRow } from "@/components/events/clickable-row";
 import { LoadProblem } from "@/components/events/load-problem";
-import { Card, ChipLinks, EmptyState, NoAccess, PageHeader, TableWrap, buttonClass } from "@/components/ui";
+import { Card, ChipLinks, EmptyState, NoAccess, PageHeader, TableWrap } from "@/components/ui";
 import { allRows, load, rows } from "@/lib/data/events";
 import { formatEventRange, fromDateTimeLocal, todayIso } from "@/lib/events/format";
 import { audienceLabel, eventReport } from "@/lib/events/report";
@@ -11,6 +13,7 @@ import { STATUS_TEXT_CLASS, eventRef, eventRowHref, eventStatusLabel } from "@/l
 import { canAccess } from "@/lib/permissions";
 import { hrefWith, param, type RawSearchParams } from "@/lib/search-params";
 import { kindSchool } from "@/lib/kind";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Events" };
@@ -35,18 +38,10 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
   const session = await getSession();
   const sp = await searchParams;
   const canManage = canAccess(session, "eventsManage");
+  // New look: "New event" opens the guided creator (/events/new); the builder stays as "Advanced form". Classic is unchanged.
+  const v2 = parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2";
   const header = (
-    <PageHeader
-      title="Events"
-      description="RSVPs, eligibility, waitlists, lunch slots and volunteers"
-      actions={
-        canManage ? (
-          <Link href="/events/builder" className={buttonClass("primary")}>
-            New event
-          </Link>
-        ) : null
-      }
-    />
+    <PageHeader title="Events" description="RSVPs, eligibility, waitlists, lunch slots and volunteers" actions={canManage ? <NewEventActions v2={v2} /> : null} />
   );
   if (!canAccess(session, "events")) {
     return (
@@ -137,8 +132,8 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
           {res.data.events.length === 0 ? (
             <EmptyState title={view === "upcoming" ? "No upcoming events" : view === "past" ? "No past events" : "No events without a date"}>
               {canManage ? (
-                <Link href="/events/builder" className="crm-link font-semibold">
-                  Create an event in the builder
+                <Link href={v2 ? "/events/new" : "/events/builder"} className="crm-link font-semibold">
+                  {v2 ? "Create an event" : "Create an event in the builder"}
                 </Link>
               ) : null}
             </EmptyState>

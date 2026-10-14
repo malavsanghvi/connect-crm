@@ -17,11 +17,33 @@ import { NAV, canOpenTab, visibleNav } from "@/lib/permissions";
 const admin = { permissions: [] as string[], isPlatformAdmin: true };
 
 describe("module registry", () => {
-  it("lists the contract's 18 keys once each, with only people core", () => {
+  it("lists the contract's 18 keys, Giving's 7 add-ons and the five Marketplace products once each, with only people core", () => {
     expect(MODULES.map((m) => m.key)).toEqual([...MODULE_KEYS]);
-    expect(new Set(MODULE_KEYS).size).toBe(18);
+    expect(new Set(MODULE_KEYS).size).toBe(30);
     expect(MODULES.filter((m) => m.core).map((m) => m.key)).toEqual(["people"]);
     for (const m of MODULES) for (const d of m.dependsOn) expect(isModuleKey(d)).toBe(true);
+  });
+  it("the Marketplace products (0750): neutral keys, brand labels, and Niva needs iWeaver", () => {
+    expect(MODULES.filter((m) => ["ai", "website", "channels", "care", "matching"].includes(m.key)).map((m) => `${m.key}=${m.label}:${m.dependsOn.join(",")}`)).toEqual([
+      "ai=iWeaver:",
+      "website=WeaverSite:people",
+      "channels=CommunityConnect:comms",
+      "care=WeCare:people",
+      "matching=CatchTheMatch:giving",
+    ]);
+    expect(MODULES.find((m) => m.key === "niva")!.dependsOn).toEqual(["content", "ai"]);
+    expect(isModuleEnabled({ modulesOff: ["ai"] }, "niva")).toBe(false);
+    expect(moduleForPath("/setup/website/preview")).toBe("website");
+    expect(moduleForPath("/setup/website")).toBeNull();
+    expect(moduleForPath("/settings/whatsapp")).toBe("channels");
+    expect(moduleForPath("/comms/whatsapp")).toBe("comms");
+  });
+  it("Giving's add-ons each need Giving only (0741)", () => {
+    const addOns = ["giving_bank", "giving_counts", "giving_insights", "giving_opportunities", "giving_recurring", "giving_statements", "labh"];
+    for (const k of addOns) {
+      expect(isModuleKey(k)).toBe(true);
+      expect(MODULES.find((m) => m.key === k)!.dependsOn).toEqual(["giving"]);
+    }
   });
   it("every NAV module key and tab module key is a registry key", () => {
     for (const m of NAV) {
@@ -38,7 +60,10 @@ describe("module registry", () => {
     expect(isModuleEnabled({}, "giving")).toBe(true);
     expect(isModuleEnabled({ modulesOff: [] }, "giving")).toBe(true);
     expect(isModuleEnabled({ modulesOff: ["giving"] }, "giving")).toBe(false);
-    expect(isModuleEnabled({ modulesOff: ["giving"] }, "bolis")).toBe(true);
+    // 0740: dependencies are evaluated, so Bolis and Giving's add-ons (0741) are off while Giving is.
+    expect(isModuleEnabled({ modulesOff: ["giving"] }, "bolis")).toBe(false);
+    expect(isModuleEnabled({ modulesOff: ["giving"] }, "giving_bank")).toBe(false);
+    expect(isModuleEnabled({ modulesOff: ["giving_bank"] }, "giving")).toBe(true);
   });
 });
 
@@ -144,7 +169,7 @@ describe("modules-db helpers", () => {
   it("modulesOffFrom ignores core rows and sorts", () => {
     expect(
       modulesOffFrom([
-        { key: "store", label: "Satvik Store", enabled: false, core: false },
+        { key: "store", label: "My Store", enabled: false, core: false },
         { key: "people", label: "Members", enabled: false, core: true },
         { key: "bolis", label: "Bolis", enabled: false, core: false },
         { key: "giving", label: "Giving", enabled: true, core: false },
@@ -156,7 +181,7 @@ describe("modules-db helpers", () => {
 describe("moduleOffMessage", () => {
   it("uses the contract's wording", async () => {
     const { moduleOffMessage } = await import("@/lib/modules");
-    expect(moduleOffMessage("store", "JSH")).toBe("The Satvik Store module is switched off for JSH. An administrator can switch it on in Settings › Modules.");
+    expect(moduleOffMessage("store", "JSH")).toBe("The My Store module is switched off for JSH. An administrator can switch it on in Settings › Modules.");
   });
 });
 
@@ -174,7 +199,7 @@ describe("Settings › Modules rows", () => {
       [
         { key: "giving", label: "Pledges & donations", description: null, core: false, depends_on: ["people"], sort: 20 },
         { key: "people", label: "Members & families", description: "Core", core: true, depends_on: null, sort: 10 },
-        { key: "store", label: "Satvik Store", description: "Shop", core: false, depends_on: ["people"], sort: 30 },
+        { key: "store", label: "My Store", description: "Shop", core: false, depends_on: ["people"], sort: 30 },
       ],
       [
         { module_key: "store", enabled: false, changed_by: "u1", changed_at: "2026-09-24T10:00:00Z", reason: "Closed for renovation" },
@@ -189,17 +214,23 @@ describe("Settings › Modules rows", () => {
     expect(rows[1].description).toBe(MODULES.find((m) => m.key === "giving")!.description);
     expect(rows[2].reason).toBe("Closed for renovation");
   });
-  it("explains blocked switches in plain English", async () => {
-    const { buildModuleRows, switchBlocker } = await import("@/lib/modules");
+  it("explains blocked switches in plain English; dependencies only warn (0740)", async () => {
+    const { buildModuleRows, switchBlocker, switchWarning } = await import("@/lib/modules");
     const rows = buildModuleRows(null, [
       { module_key: "content", enabled: false, changed_by: null, changed_at: null, reason: null },
       { module_key: "niva", enabled: false, changed_by: null, changed_at: null, reason: null },
     ]);
     expect(switchBlocker("people", false, rows)).toBe("Members & families is a core module and is always on.");
-    expect(switchBlocker("giving", false, rows)).toBe("Bolis and Accounting & QuickBooks depend on Pledges & donations — switch them off first.");
+    expect(switchBlocker("giving", false, rows)).toBeNull();
+    expect(switchWarning("giving", false, rows)).toBe(
+      "Bank reconciliation, Offering counts, Insights, Opportunities, Recurring gifts, Statements, Special-day offerings, Bolis, Accounting & QuickBooks and CatchTheMatch go off with it and come back when Pledges & donations is switched on again.",
+    );
     expect(switchBlocker("bolis", false, rows)).toBeNull();
-    expect(switchBlocker("niva", true, rows)).toBe("Niva assistant needs Content & library — switch that on first.");
+    expect(switchWarning("bolis", false, rows)).toBeNull();
+    expect(switchBlocker("niva", true, rows)).toBeNull();
+    expect(switchWarning("niva", true, rows)).toBe("Niva assistant stays off until Content & library is on.");
     expect(switchBlocker("content", true, rows)).toBeNull();
+    expect(switchWarning("content", true, rows)).toBeNull();
   });
 });
 
@@ -213,7 +244,7 @@ describe("Home tasks follow module switches", () => {
     expect(off).not.toContain("writeoff");
     expect(off).not.toContain("deposits");
     expect(off).not.toContain("pathshala");
-    expect(off).toContain("bolis"); // its own module (the database keeps bolis off when giving is off)
+    expect(off).not.toContain("bolis"); // 0740: Bolis needs Giving, so it is off while Giving is
     expect(off).toContain("privacy"); // core platform
     const noMembership = visibleTaskSources({ ...admin, modulesOff: ["membership"] }).map((s) => s.key);
     expect(noMembership).not.toContain("membership");

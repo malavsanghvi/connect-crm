@@ -121,7 +121,7 @@ export function historyVerb(action: string): string {
   return words ? words[0].toUpperCase() + words.slice(1) : action;
 }
 
-const APPS: Record<string, string> = { portal: "Portal", member: "Member app", kiosk: "Volunteer kiosk", job: "Scheduled job" };
+const APPS: Record<string, string> = { portal: "Portal", member: "Member app", kiosk: "Volunteer kiosk", job: "Scheduled job", assistant: "Niva assistant" };
 
 /** "Portal · /giving/pledges", "Member app", or null when the change carried no app. */
 export function clientLabel(app: string | null | undefined, screen: string | null | undefined): string | null {

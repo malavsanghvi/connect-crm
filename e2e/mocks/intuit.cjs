@@ -53,7 +53,7 @@ function defaultLists() {
 
 function startIntuitMock({ port = 0, clientId = 'intuit-test-client', clientSecret = 'intuit-test-secret-000' } = {}) {
   const state = { lists: defaultLists(), created: [], byRequest: new Map(), tokens: [], log: [], nextId: 1000, codes: new Map(),
-                  refresh: new Map(), access: new Set(), companyName: 'Jain Society of Houston (Intuit test company)', failNextCreate: null };
+                  refresh: new Map(), access: new Set(), companyName: 'Jain Society of Houston (Intuit test company)', failNextCreate: null, rejectActiveFilter: null };
 
   function issue() {
     const access = 'at_' + crypto.randomBytes(12).toString('hex');
@@ -135,6 +135,10 @@ function startIntuitMock({ port = 0, clientId = 'intuit-test-client', clientSecr
           const entity = mm && mm[1];
           const rows = state.lists[entity];
           if (!rows) return fault(res, 400, 'QueryParserError', `Unknown entity ${entity}`, '4000');
+          // Some real entities refuse the Active filter (seen 2026-10-14 on a sandbox company); tests list them here.
+          if (state.rejectActiveFilter && state.rejectActiveFilter.has(entity) && /Active\s+in/i.test(q)) {
+            return fault(res, 400, 'Invalid query', "QueryValidationError: value true is not valid for property 'Active'", '4001');
+          }
           let out = rows;
           const ids = q.match(/Id\s+in\s*\(([^)]*)\)/i);
           if (ids) { const want = ids[1].split(',').map((s) => s.trim().replace(/'/g, '')); out = rows.filter((r) => want.includes(r.Id)); }
@@ -156,6 +160,21 @@ function startIntuitMock({ port = 0, clientId = 'intuit-test-client', clientSecr
             if (ref && !state.lists.Item.some((i) => i.Id === ref.value && i.Active)) return fault(res, 400, 'Invalid Reference Id', `Item ${ref.value} not found`, '2500');
             const acc = (l.DepositLineDetail && l.DepositLineDetail.AccountRef) || (l.JournalEntryLineDetail && l.JournalEntryLineDetail.AccountRef);
             if (acc && !state.lists.Account.some((a) => a.Id === acc.value && a.Active)) return fault(res, 400, 'Invalid Reference Id', `Account ${acc.value} not found`, '2500');
+          }
+          if (ENT === 'Deposit') {
+            // As the real QuickBooks answered an Intuit sandbox on 2026-10-14: a plain deposit line may not name Undeposited
+            // Funds (money held there leaves it only through a LinkedTxn to the receipt it came in on, which needs TxnLineId).
+            for (const l of doc.Line || []) {
+              const acc = l.DepositLineDetail && l.DepositLineDetail.AccountRef;
+              const acct = acc && state.lists.Account.find((a) => a.Id === acc.value);
+              if (acct && acct.AccountSubType === 'UndepositedFunds') {
+                return fault(res, 400, 'A business validation error has occurred while processing your request', 'Business Validation Error: Select a bank account for this deposit.', '6000');
+              }
+              for (const link of l.LinkedTxn || []) {
+                if (!link.TxnLineId) return fault(res, 400, 'Required param missing, need to supply the required value for the API', 'Required parameter LinkedTxn.TxnLineId is missing in the request', '2020');
+                if (!state.created.some((c) => c.entity === link.TxnType && c.doc.Id === link.TxnId)) return fault(res, 400, 'Invalid Reference Id', `${link.TxnType} ${link.TxnId} not found`, '2500');
+              }
+            }
           }
           if (ENT === 'CreditMemo' && !(doc.CustomerRef && doc.CustomerRef.value)) return fault(res, 400, 'Required param missing', 'CustomerRef is required', '2020');
           if (ENT === 'Payment') {

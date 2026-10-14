@@ -10,7 +10,7 @@ import nextConfig from "../next.config";
 const www = "www.weaverams.org";
 const base = { domain: "weaverams.org", https: true } as const;
 
-describe("the optional tip promise", () => {
+describe("the Chip In promise", () => {
   it("is $25 a year, held as integer cents", () => {
     expect(TIP_YEARLY_CAP_CENTS).toBe(2500);
     expect(Number.isInteger(TIP_YEARLY_CAP_CENTS)).toBe(true);
@@ -122,6 +122,8 @@ describe("the website's page rewrites (next.config.ts)", () => {
     expect(rewrites.map((r) => [r.source, r.destination])).toEqual([
       ["/", "/site"],
       ["/pricing", "/site/pricing"],
+      ["/brand", "/site/brand"],
+      ["/get-ready/checklist.csv", "/site/get-ready/checklist.csv"],
     ]);
     for (const r of rewrites) {
       expect(r.has).toEqual([{ type: "host", value: "www\\.weaverams\\.org" }]);

@@ -3,17 +3,25 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ActionForm } from "@/components/action-form";
-import { BlockGrid, Card, DefinitionList, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { BlockGrid, Card, DefinitionList, EmptyState, PageHeader, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
+import { confirmToolChoices } from "@/lib/assistant/choices";
+import { assistantApiKey } from "@/lib/assistant/key";
+import { consentFromRules } from "@/lib/activity/consent";
+import { assistantEnabled } from "@/lib/assistant/settings";
 import { portalBaseDomain } from "@/lib/center-resolve";
 import { formatDateTime } from "@/lib/dates";
 import { loadExperiences } from "@/lib/experiences-db";
+import { buildModuleRowsFromStates } from "@/lib/modules";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+import { rulesVersion } from "@/lib/settings-rules";
 import { ENTITLEMENT_INFO, entitlementLabel, formatEntitlement, formatJoinCode, sortEntitlements } from "@/lib/tenancy";
 
 import { PlatformNoAccess } from "../../platform-no-access";
-import { addDomainAction, removeDomainAction, setEntitlementAction } from "./actions";
+import { addDomainAction, removeDomainAction, saveAssistantAction, setEntitlementAction } from "./actions";
 import { KindPanel } from "./kind-panel";
+import { ModulesPanel } from "./modules-panel";
+import { RecordingCard } from "./recording-card";
 
 export const metadata: Metadata = { title: "Center · Platform" };
 
@@ -31,7 +39,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
     );
   }
   const { db } = session;
-  const centerRes = await db.from("centers").select("id, slug, name, status, environment, sandbox_for, category_key").eq("id", id).maybeSingle();
+  const centerRes = await db.from("centers").select("id, slug, name, status, environment, sandbox_for, category_key, rules").eq("id", id).maybeSingle();
   if (centerRes.error) {
     return (
       <>
@@ -42,14 +50,31 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
   }
   if (!centerRes.data) notFound();
   const center = centerRes.data;
-  const [entRes, domainRes, codeRes, promotedRes, kinds] = await Promise.all([
+  const [entRes, domainRes, codeRes, promotedRes, kinds, statesRes] = await Promise.all([
     db.rpc("center_entitlement_list", { p_center: id }),
     db.from("center_domains").select("domain, created_at").eq("center_id", id).order("domain"),
     db.from("member_join_codes").select("code, expires_at, created_at").eq("center_id", id).eq("active", true).order("created_at", { ascending: false }),
     center.sandbox_for ? db.from("centers").select("name, slug").eq("id", center.sandbox_for).maybeSingle() : Promise.resolve(null),
     loadExperiences(db),
+    db.rpc("module_states", { p_center: id }),
   ]);
+  const moduleRows = statesRes.error ? [] : buildModuleRowsFromStates(statesRes.data ?? []);
+  const kindLabel = (kinds.status === "ok" ? kinds.experiences.find((k) => k.key === center.category_key)?.label : null) ?? null;
+  // Niva for admins (0755): its commands follow the switch here; its chat needs iWeaver (`ai`) as well, except on the onboarding
+  // pages while the community is onboarding. Unknown (null) when the modules could not be read: the card says so instead of
+  // guessing. No `ai` row (before the catalog has it) reads as on, as everywhere.
+  const aiRow = moduleRows.find((r) => r.key === "ai");
+  const chatAiOn: boolean | null = statesRes.error ? null : aiRow ? aiRow.enabled : true;
   const sandbox = center.environment === "sandbox";
+  const assistantSwitch = assistantEnabled(center.rules);
+  const assistantOn = assistantSwitch;
+  const assistantTools = confirmToolChoices(center.rules);
+  let aiKeySet = false;
+  try {
+    aiKeySet = !!(await assistantApiKey());
+  } catch (error) {
+    console.error("[platform] could not look for the AI key:", error);
+  }
   const base = portalBaseDomain();
   const tz = session.center.time_zone;
 
@@ -89,7 +114,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
         <Card
           span={12}
           title="Kind of organization"
-          description="Which modules, words and Setup checklist this organization has · changing it needs a reason and a fresh 2FA check"
+          description="Which modules, words and Setup checklist this organization has · changing it needs a reason"
         >
           {kinds.status !== "ok" ? (
             <QueryError what="the kinds of organization" error={kinds.error} retryHref={`/platform/centers/${id}`} />
@@ -97,6 +122,100 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
             <KindPanel centerId={id} centerName={center.name} currentKey={center.category_key} experiences={kinds.experiences} sandbox={sandbox} />
           )}
         </Card>
+
+        <Card
+          span={12}
+          title="Products"
+          description="The Marketplace products: turn one on or off with a reason and a fresh code, see the community's requests and the product history"
+          actions={
+            <Link href={`/platform/centers/${id}/products`} className={buttonClass("primary", "sm")}>
+              Open products
+            </Link>
+          }
+        >
+          <p className="text-[13px] text-muted">
+            The modules below are the low-level view of the same switches. Use Products for what a community asked for; use Modules for an exception.
+          </p>
+        </Card>
+
+        <Card
+          span={12}
+          title="Modules"
+          description="Which modules this community has · the community can pause and switch back on only what is enabled here · every change needs a reason and a fresh 2FA check"
+        >
+          {statesRes.error ? (
+            <QueryError what="the modules" error={statesRes.error} retryHref={`/platform/centers/${id}`} />
+          ) : (
+            <ModulesPanel centerId={id} rows={moduleRows} kindLabel={kindLabel} tz={tz} />
+          )}
+        </Card>
+
+        <Card
+          span={12}
+          title="Niva for admins"
+          description="Lets this community's staff ask Niva to look things up and prepare drafts · every change needs a reason and is audited"
+        >
+          <p className="mb-3 text-[13px]">
+            Now: <StatusText tone={assistantOn ? "ok" : "warn"}>{assistantOn ? "On" : "Off"}</StatusText>
+            {assistantSwitch && chatAiOn === null ? (
+              <span className="text-muted"> (the modules could not be read, so whether the chat can answer is not known; reload to try again)</span>
+            ) : null}
+            {assistantSwitch && chatAiOn === false ? (
+              <span className="text-muted">
+                {" "}
+                (the commands work; the chat is part of {aiRow?.label ?? "iWeaver"}, which is not on for this community
+                {center.status === "onboarding" ? ", so it answers only on the onboarding pages while the community is onboarding" : ""})
+              </span>
+            ) : null}{" "}
+            · AI key:{" "}
+            {aiKeySet ? (
+              <StatusText tone="ok">set</StatusText>
+            ) : (
+              <>
+                <StatusText tone="warn">not set</StatusText> <span className="text-muted">(Platform › Setup › AI; the search box and commands list work without it)</span>
+              </>
+            )}
+          </p>
+          <ActionForm action={saveAssistantAction} submitLabel="Save" size="sm" className="space-y-3">
+            <input type="hidden" name="center" value={id} />
+            <input type="hidden" name="version" value={rulesVersion(center.rules) ?? ""} />
+            <label className="flex items-start gap-2 text-[13px]">
+              <input type="checkbox" name="enabled" defaultChecked={assistantSwitch} className="mt-1" />
+              <span>
+                <span className="font-bold">Switch Niva for admins on for this community</span>
+                <span className="block text-muted">
+                  Staff get the search box for actions and the Niva panel. Looking things up and drafting work as soon as this is on. Nothing is changed by Niva unless you also allow it below.
+                </span>
+              </span>
+            </label>
+            {assistantTools.length > 0 ? (
+              <fieldset className="space-y-2">
+                <legend className="crm-label">Changes Niva may prepare (a person always presses a button to confirm)</legend>
+                {assistantTools.map((t) => (
+                  <label key={t.key} className="flex items-start gap-2 text-[13px]">
+                    <input type="checkbox" name="tool" value={t.key} defaultChecked={t.on} className="mt-1" />
+                    <span>
+                      <span className="font-bold">{t.title}</span>
+                      <span className="block text-muted">{t.description}</span>
+                      {t.moneyNote ? <span className="block font-semibold text-danger">{t.moneyNote}</span> : null}
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            ) : null}
+            <label className="block max-w-xl">
+              <span className="crm-label">Reason</span>
+              <input name="reason" className="crm-input" placeholder="Reason (required)" autoComplete="off" />
+            </label>
+          </ActionForm>
+        </Card>
+
+        <RecordingCard
+          centerId={id}
+          centerName={center.name}
+          consent={consentFromRules(center.rules)}
+          tz={tz}
+        />
 
         <Card span={7} title="Portal web addresses" description="Where this community's staff open the portal">
           <ul className="mb-3 space-y-1.5 text-[13px]">

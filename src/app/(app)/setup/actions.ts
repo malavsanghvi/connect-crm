@@ -170,7 +170,15 @@ export async function saveProfileAction(_prev: ActionResult | null, fd: FormData
 
   const c = await db
     .from("centers")
-    .update({ name: p.name, short_name: p.short_name, time_zone: p.time_zone, currency: p.currency })
+    .update({
+      name: p.name,
+      short_name: p.short_name,
+      time_zone: p.time_zone,
+      currency: p.currency,
+      // Where the community is decides the age at which the assistant stops treating someone as a child (never below 18).
+      ...(p.country ? { country: p.country } : {}),
+      ...(p.state_region !== undefined ? { state_region: p.state_region } : {}),
+    })
     .eq("id", center.id)
     .select("id");
   if (c.error) return failure("Could not save the display name, time zone and currency", c.error);

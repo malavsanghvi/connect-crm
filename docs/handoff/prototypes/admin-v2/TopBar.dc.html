@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Top bar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<header style="width: 1440px; height: 64px; box-sizing: border-box; background: #FFFFFF; border-bottom: 1px solid #DDE6F0; display: flex; align-items: center; gap: 16px; padding: 0 20px; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A">
+  <a href="Main.dc.html" aria-label="Weaver, home" style="display: flex; align-items: center; justify-content: center; width: 88px; text-decoration: none">
+    <svg width="40" height="40" viewBox="170 166 1600 1600" role="img" aria-label="Weaver">
+      <defs>
+        <linearGradient id="tb-base" gradientUnits="userSpaceOnUse" x1="300" y1="560" x2="1640" y2="640"><stop offset="0" stop-color="#34c4cb"></stop><stop offset="0.5" stop-color="#2f8ed8"></stop><stop offset="1" stop-color="#6cc68f"></stop></linearGradient>
+        <linearGradient id="tb-wash" gradientUnits="userSpaceOnUse" x1="960" y1="700" x2="960" y2="1300"><stop offset="0" stop-color="#2a6fe3" stop-opacity="0"></stop><stop offset="1" stop-color="#2a6fe3" stop-opacity="0.55"></stop></linearGradient>
+        <linearGradient id="tb-dark" gradientUnits="userSpaceOnUse" x1="990" y1="1000" x2="700" y2="1400"><stop offset="0" stop-color="#1a7fc6" stop-opacity="0"></stop><stop offset="0.45" stop-color="#1676c4" stop-opacity="0.85"></stop><stop offset="1" stop-color="#1c56b0"></stop></linearGradient>
+        <linearGradient id="tb-purple" gradientUnits="userSpaceOnUse" x1="1010" y1="1090" x2="1290" y2="1400"><stop offset="0" stop-color="#3d3bb8"></stop><stop offset="1" stop-color="#7a69da"></stop></linearGradient>
+        <linearGradient id="tb-sun" gradientUnits="userSpaceOnUse" x1="1060" y1="580" x2="880" y2="860"><stop offset="0" stop-color="#ffb82a"></stop><stop offset="1" stop-color="#ff7640"></stop></linearGradient>
+        <clipPath id="tb-w"><path d="M370,535 C520,535 640,650 700,800 C740,900 765,990 790,1075 C850,990 900,925 965,925 C1030,925 1085,990 1140,1075 C1230,830 1330,535 1560,535 C1650,535 1675,625 1620,690 C1560,760 1500,800 1460,880 C1400,1030 1370,1150 1330,1255 C1280,1340 1230,1397 1170,1397 C1090,1397 1040,1320 965,1175 C900,1290 840,1397 760,1397 C680,1397 630,1330 600,1250 C540,1080 500,950 470,860 C430,770 380,725 330,685 C285,645 275,610 285,585 C300,548 330,535 370,535 Z"></path></clipPath>
+      </defs>
+      <g clip-path="url(#tb-w)">
+        <rect x="250" y="500" width="1450" height="950" fill="url(#tb-base)"></rect>
+        <rect x="250" y="700" width="1450" height="700" fill="url(#tb-wash)"></rect>
+        <path d="M598,1256 C690,1246 752,1170 792,1076 C850,1000 905,930 965,925 L965,1175 L965,1420 L560,1420 Z" fill="url(#tb-dark)"></path>
+        <path d="M968,1176 C1010,1108 1060,1068 1112,1068 C1220,1170 1272,1256 1332,1258 L1332,1420 L968,1420 Z" fill="url(#tb-purple)"></path>
+      </g>
+      <circle cx="965" cy="718" r="152" fill="url(#tb-sun)"></circle>
+    </svg>
+  </a>
+  <a href="Marketplace.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px 0 14px; border-radius: 22px; background: #F8FAFD; border: 1px solid #DDE6F0; color: #12203A; text-decoration: none; font-size: 14px; font-weight: 700">
+    <span style="width: 8px; height: 8px; border-radius: 4px; background: #6CC68F"></span>
+    Jain Society of Houston
+    <span style="font-size: 12px; font-weight: 700; color: #0F4F33; background: #E3F5EA; border-radius: 10px; padding: 3px 8px">Live</span>
+  </a>
+  <div style="flex: 1; display: flex; justify-content: center">
+    <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; width: 600px; min-height: 44px; padding: 0 8px 0 16px; border-radius: 22px; background: #F3F7FB; border: 1px solid #CBD7E4; text-decoration: none; color: #4F5D75; font-size: 15px">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tb-spark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB82A"></stop><stop offset="1" stop-color="#FF7640"></stop></linearGradient></defs><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="url(#tb-spark)"></path></svg>
+      <span style="flex: 1">Ask Niva, or search by name, household ID or Connect number</span>
+      <span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: #4F5D75; background: #FFFFFF; border: 1px solid #CBD7E4; border-radius: 8px; padding: 4px 8px">⌘K</span>
+    </a>
+  </div>
+  <button type="button" aria-label="Notifications, 3 new" style="position: relative; width: 44px; height: 44px; border-radius: 22px; border: 1px solid #DDE6F0; background: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #12203A">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z M10 21h4"></path></svg>
+    <span style="position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; border-radius: 10px; background: #B3261E; color: #FFFFFF; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">3</span>
+  </button>
+  <button type="button" aria-label="Priya Mehta, account menu" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: #1C56B0; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer">PM</button>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":64}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

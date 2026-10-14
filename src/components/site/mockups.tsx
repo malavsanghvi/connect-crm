@@ -282,7 +282,7 @@ export function FloatChip({ icon, tone, title, body, className = "", delay = "0s
   );
 }
 
-/** The optional tip at checkout, with the yearly cap. A sketch of the promise on the pricing page, not a screenshot. */
+/** The optional Chip In at checkout, with the yearly cap. A sketch of the promise on the pricing page, not a screenshot. */
 export function TipCheckoutMock({ className = "" }: { className?: string }) {
   const cap = usd(TIP_YEARLY_CAP_CENTS);
   return (
@@ -296,12 +296,12 @@ export function TipCheckoutMock({ className = "" }: { className?: string }) {
       </div>
       <div className="flex flex-col gap-4 p-5">
         <div>
-          <p className="text-[15px] font-bold text-navy">Add an optional tip to keep Weaver AMS free?</p>
+          <p className="text-[15px] font-bold text-navy">Add an optional Chip In to keep Weaver free?</p>
           <p className="mt-1 text-[13px] leading-snug text-muted">Your community pays nothing for this platform. Members like you keep it going.</p>
         </div>
         <div className="grid grid-cols-4 gap-2" role="presentation">
           {[
-            { label: "No tip", on: false },
+            { label: "No Chip In", on: false },
             { label: "$2", on: false },
             { label: "$5", on: true },
             { label: "$10", on: false },
@@ -316,7 +316,7 @@ export function TipCheckoutMock({ className = "" }: { className?: string }) {
         </div>
         <div className="rounded-xl bg-saffron-50 p-3.5">
           <div className="flex items-center justify-between text-[12px] font-bold text-brown">
-            <span>Your tips this year</span>
+            <span>Your Chip Ins this year</span>
             <span>$15 of {cap}</span>
           </div>
           <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white">
@@ -330,5 +330,43 @@ export function TipCheckoutMock({ className = "" }: { className?: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** A new treasurer's first day: the handover on record, then Niva answering "what's waiting on me?" for that role. */
+export function HandoverMock({ className = "" }: { className?: string }) {
+  const steps: [string, string][] = [
+    ["Ownership moved to Ravi Mehta", "Reason: new committee year · two-step check passed"],
+    ["Second administrator: Lena Okafor", "Two-step sign-in on · approves refunds"],
+  ];
+  return (
+    <WindowFrame title="A new treasurer's first day" className={className}>
+      <div className="flex flex-col gap-4 p-4 sm:p-5">
+        <ol className="flex flex-col gap-3">
+          {steps.map(([title, body]) => (
+            <li key={title} className="flex gap-3">
+              <span aria-hidden className="mt-1.5 h-3 w-3 flex-none rounded-full bg-navy ring-4 ring-navy-50" />
+              <div>
+                <p className="text-[14.5px] font-bold text-ink">{title}</p>
+                <p className="text-[12.5px] text-muted">{body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <div className="flex flex-col gap-2">
+          <p className="text-[12px] font-semibold text-muted">Ravi asks Niva</p>
+          <p className="self-end rounded-2xl rounded-br-md bg-navy px-3.5 py-2 text-[14px] text-white">What&apos;s waiting on me?</p>
+          <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-saffron-200 bg-saffron-50 px-3.5 py-2.5 text-[13.5px] text-ink-2">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-brown">Niva</p>
+            <p className="mt-0.5">Three things for the treasurer role:</p>
+            <ul className="mt-1 list-disc pl-4">
+              <li>2 Zelle payments to confirm</li>
+              <li>1 refund waiting for a second approver</li>
+              <li>September close: 1 unmatched deposit</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </WindowFrame>
   );
 }

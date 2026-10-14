@@ -10,6 +10,8 @@ export type ActionResult<T = undefined> =
       data?: undefined;
       /** The database asked for a fresh 2FA check (SQLSTATE CCSTP): the portal opens the step-up modal and retries. */
       stepUp?: boolean;
+      /** The page is older than the server (a deploy replaced the action it was about to call): nothing ran; reloading fixes it. */
+      stale?: boolean;
     };
 
 /** SQLSTATE raised by app.assert_step_up (ONBOARDING_CONTRACT "Security"). */

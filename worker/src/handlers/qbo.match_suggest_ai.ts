@@ -4,7 +4,8 @@
 //
 // What leaves the database (app.qbo_worker_ai_input): the customer's names,
 // city and ZIP and email DOMAINS; for each candidate household its name, city,
-// ZIP, members' first names and email domains. Never a full email, a phone
+// ZIP, adult members' first names and email domains (never a child's or an
+// unknown age's: D2, migration 0680). Never a full email, a phone
 // number, an amount or a note. The model only proposes: proposals are stored
 // as suggestions (method "ai", confidence at most 0.85) for the treasury to
 // approve or reject. Customers with no candidate household are marked checked
@@ -18,7 +19,8 @@
 // The model, the client and what a failed call means come from worker/src/anthropic.ts, shared
 // with niva.answer and import.suggest_mapping (the CLAUDE_MODEL variable overrides the model).
 
-import { anthropicClient, classifyAnthropicError, claudeModel, FALLBACK_BETA, staffJobFailure } from "../anthropic";
+import { addUsage, usageForResult } from "../../../src/lib/anthropic-cache";
+import { anthropicClient, classifyAnthropicError, claudeModel, FALLBACK_BETA, recordUsage, staffJobFailure } from "../anthropic";
 import { providerStatus, type Env, type Readiness } from "../config";
 import { NotConfiguredError, PermanentError } from "../errors";
 import type { Job, JobContext } from "../types";
@@ -149,6 +151,9 @@ export async function run(job: Job, ctx: JobContext) {
     if (!f.retry) throw new PermanentError(f.message);
     throw new Error(f.message, { cause: err });
   }
+  // No system prompt and no repeated start (the whole request is these customers and their candidates), so nothing is marked
+  // for caching here; the counts are recorded so the cost of a batch can be seen.
+  const tokens = addUsage(undefined, recordUsage(ctx.log, "qbo.match_suggest_ai", model, response, undefined));
   if (response.stop_reason === "refusal") throw new PermanentError("The model declined to suggest matches; match these customers by hand.");
   if (response.stop_reason === "max_tokens") throw new PermanentError("The suggestions were cut off; match these customers by hand.");
   const text = response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
@@ -166,5 +171,5 @@ export async function run(job: Job, ctx: JobContext) {
     checked,
   ]);
   ctx.log.info("AI match suggestions", { asked: ask.length, proposed: proposals.length });
-  return { asked: ask.length, checked: checked.length, proposed: proposals.length, stored: stored[0]?.r ?? 0, model: response.model };
+  return { asked: ask.length, checked: checked.length, proposed: proposals.length, stored: stored[0]?.r ?? 0, model: response.model, ...usageForResult(tokens) };
 }

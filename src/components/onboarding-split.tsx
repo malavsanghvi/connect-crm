@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { WeaverMark } from "@/components/brand/weaver-mark";
-import { PRODUCT_NAME } from "@/lib/brand";
+import { GENEROSITY_LINE, PRODUCT_NAME } from "@/lib/brand";
 
 /**
  * The public onboarding pages (/request-access, /start) use the sign-in page's
@@ -15,7 +15,7 @@ export function OnboardingSplit({ title, lead, aside, children }: { title: strin
           <WeaverMark className="h-[46px] w-[46px]" />
         </div>
         <div>
-          <p className="text-[13px] font-semibold uppercase tracking-wide text-navy-200">{PRODUCT_NAME}</p>
+          <p className="text-[13px] font-semibold uppercase tracking-wide text-navy-200">{PRODUCT_NAME} · {GENEROSITY_LINE}</p>
           <h1 className="mt-1 font-display text-[34px] font-semibold leading-[1.15]">{title}</h1>
         </div>
         <div className="max-w-[420px] text-base leading-normal text-navy-200">{lead}</div>

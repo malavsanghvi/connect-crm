@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Send a video message</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+a{color:#2b2a8a}a:hover{color:#1e1d5c}
+button,textarea,input{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,textarea:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1320px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; align-items: center; gap: 6px;">
+<img src="/_blob/a892f24db66aedf02e346cf7a7d298a6" alt="" style="height: 40px; width: auto;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; letter-spacing: -0.01em; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700; color: #1e1d5c;">Riverbend Community Center</span>
+<span style="color: #1e1d5c; font-size: 15px;">Signed in as Amira S. (WeCare lead)</span>
+<span style="background: #ffffff; color: #1e1d5c; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1320px; margin: 0 auto; padding: 28px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="align-self: flex-start; background: #f6eee6; color: #33325f; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;">NEW IDEA · NOT IN A SLICE YET</span>
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">Communications › Video message</nav>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; color: #2b2a8a;">Send a video message</h1>
+<p style="margin: 0; max-width: 800px; font-size: 18px; line-height: 1.6; color: #33325f;">A short video from someone they know, sent to several households at once. People get a notification and watch it in the app. It is never offered as a file to download.</p>
+</div>
+
+<ol aria-label="Steps" style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+<li style="display: flex; align-items: center; gap: 8px; background: {{s.bg}}; color: {{s.fg}}; border: 1px solid {{s.bd}}; border-radius: 9999px; padding: 6px 14px; font-size: 14.5px; font-weight: 700;">
+<span style="width: 24px; height: 24px; border-radius: 9999px; background: {{s.dot}}; color: #1e1d5c; display: flex; align-items: center; justify-content: center; font-size: 13px;">{{s.n}}</span>{{s.label}}
+</li>
+</sc-for>
+</ol>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
+<section aria-label="Compose" style="flex: 999 1 600px; min-width: 0; background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px;">
+
+<sc-if value="{{onStep1}}" hint-placeholder-val="{{true}}">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a;">1. The video</h2>
+<sc-if value="{{noVideo}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+<button onClick="{{record}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Record in the browser</button>
+<button onClick="{{choose}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 16px; font-weight: 700;">Choose a video file</button>
+</div>
+<span style="font-size: 14.5px; color: #555a79;">Up to 2 minutes. Short and personal works best: a thank-you, a welcome, a word after a hard week.</span>
+<sc-if value="{{uploadFailed}}" hint-placeholder-val="{{false}}">
+<div role="alert" style="background: #fbe3e1; color: #b3261e; border-radius: 16px; padding: 12px 14px; font-size: 15px;">Could not upload the video: the connection dropped. Your title and note are kept. Try again.</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{hasVideo}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; background: #fff6ee; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px;">
+<div aria-hidden="true" style="width: 160px; height: 90px; border-radius: 12px; background: #2b2a8a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 28px; font-weight: 700;">AS</div>
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<strong style="font-size: 16px;">Video ready · 0:48</strong>
+<span style="font-size: 14.5px; color: #555a79;">Recorded just now by Amira S.</span>
+<button onClick="{{clearVideo}}" style="align-self: flex-start; min-height: 40px; padding: 0 14px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 14px; font-weight: 700;">Record again</button>
+</div>
+</div>
+</sc-if>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 15px; font-weight: 700;">Title (shown in the notification)
+<input value="{{title}}" onChange="{{onTitle}}" style="min-height: 48px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 14px; font-size: 16px; color: #1e1d5c; background: #ffffff;"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 15px; font-weight: 700;">A line under the video (optional)
+<textarea rows="2" value="{{note}}" onChange="{{onNote}}" style="border: 1px solid #e3d6ca; border-radius: 12px; padding: 10px 14px; font-size: 15.5px; color: #1e1d5c; background: #ffffff;"></textarea></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 15px; font-weight: 700;">Captions (typed by you)
+<textarea rows="3" value="{{captions}}" onChange="{{onCaptions}}" style="border: 1px solid #e3d6ca; border-radius: 12px; padding: 10px 14px; font-size: 15.5px; color: #1e1d5c; background: #ffffff;"></textarea></label>
+<span style="font-size: 14px; color: #555a79;">Captions help everyone, and people watching without sound.</span>
+<sc-if value="{{hasStep1Err}}" hint-placeholder-val="{{false}}">
+<div role="alert" style="background: #fbe3e1; color: #b3261e; border-radius: 12px; padding: 10px 12px; font-size: 14.5px;">{{step1Err}}</div>
+</sc-if>
+<button onClick="{{toStep2}}" style="align-self: flex-start; min-height: 52px; padding: 0 22px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Next: who it goes to</button>
+</sc-if>
+
+<sc-if value="{{onStep2}}" hint-placeholder-val="{{false}}">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a;">2. Who it goes to</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{lists}}" as="l" hint-placeholder-count="4">
+<button onClick="{{l.pick}}" aria-pressed="{{l.selected}}" style="min-height: 44px; padding: 0 16px; border-radius: 9999px; border: 1px solid {{l.bd}}; background: {{l.bg}}; color: {{l.fg}}; font-size: 14.5px; font-weight: 700;">{{l.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{households}}" as="h" hint-placeholder-count="6">
+<label style="display: flex; align-items: center; gap: 12px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 14px;">
+<input type="checkbox" checked="{{h.checked}}" onChange="{{h.toggle}}" style="width: 20px; height: 20px;">
+<span style="display: flex; flex-direction: column; gap: 2px;">
+<strong style="font-size: 15.5px;">{{h.name}}</strong>
+<span style="font-size: 14px; color: #555a79;">{{h.card}}</span>
+</span>
+</label>
+</sc-for>
+</div>
+<div style="background: #fff6ee; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 4px; font-size: 15px;">
+<strong>{{reach.total}}</strong>
+<span>{{reach.app}}</span>
+<span>{{reach.email}}</span>
+<span style="color: #555a79;">Never sent to anyone under 18, or to adults who turned off messages from the community.</span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+<button onClick="{{toStep3}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Next: check and send</button>
+<button onClick="{{toStep1}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 16px; font-weight: 700;">Back</button>
+</div>
+</sc-if>
+
+<sc-if value="{{onStep3}}" hint-placeholder-val="{{false}}">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a;">3. Check and send</h2>
+<span style="font-size: 15px; color: #33325f;">This is the notification people see:</span>
+<div style="max-width: 420px; background: #ffffff; border: 1px solid #e3d6ca; border-radius: 18px; padding: 12px 14px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); display: flex; gap: 10px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 36px; height: 36px; border-radius: 10px; background: #ffffff; border: 1px solid #eee3d9; display: flex; align-items: center; justify-content: center;"><img src="/_blob/a892f24db66aedf02e346cf7a7d298a6" alt="" style="width: 26px; height: 26px;"></span>
+<span style="display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 13px; color: #555a79;">Riverbend Community Center · now</span>
+<strong style="font-size: 15px;">Amira sent you a video message</strong>
+<span style="font-size: 14.5px; color: #33325f;">{{title}}</span>
+</span>
+</div>
+<label style="display: flex; align-items: flex-start; gap: 10px; font-size: 15px;">
+<input type="checkbox" checked="{{logTouch}}" onChange="{{onLogTouch}}" style="width: 20px; height: 20px; margin-top: 2px;">
+<span><strong>Log it on each household's Care card</strong><br><span style="color: #555a79;">As a touch with no ask, and who watched it.</span></span>
+</label>
+<div style="font-size: 15px; color: #33325f; display: flex; flex-direction: column; gap: 4px;">
+<span>{{reach.total}}</span>
+<span>The video can be watched for 30 days, then it is hidden from the app. It is never offered as a file.</span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+<button onClick="{{send}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Send to {{reach.households}}</button>
+<button onClick="{{toStep2}}" style="min-height: 52px; padding: 0 22px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 16px; font-weight: 700;">Back</button>
+</div>
+</sc-if>
+
+<sc-if value="{{onStep4}}" hint-placeholder-val="{{false}}">
+<div role="status" style="background: #e4f2ea; color: #1f7a4d; border-radius: 16px; padding: 12px 14px; font-size: 16px; font-weight: 700;">Sent. {{reach.total}}</div>
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a;">Who has watched it</h2>
+<sc-for list="{{sentRows}}" as="r" hint-placeholder-count="4">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-top: 1px solid #f6eee6; padding-top: 10px;">
+<span style="display: flex; flex-direction: column; gap: 2px;">
+<strong style="font-size: 15.5px;">{{r.name}}</strong>
+<span style="font-size: 14px; color: #555a79;">{{r.card}}</span>
+</span>
+<span style="align-self: center; background: {{r.bg}}; color: {{r.fg}}; border-radius: 9999px; padding: 3px 10px; font-size: 13px; font-weight: 700;">{{r.state}}</span>
+</div>
+</sc-for>
+<span style="font-size: 14px; color: #555a79;">Each household's Care card now shows "Video message: {{title}}" and who watched it.</span>
+<button onClick="{{restart}}" style="align-self: flex-start; min-height: 48px; padding: 0 20px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 15px; font-weight: 700;">Send another</button>
+</sc-if>
+</section>
+
+<aside aria-label="How it works" style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 20px; font-weight: 600; color: #2b2a8a;">How people receive it</h2>
+<ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; color: #33325f;">
+<li>A notification on their phone: "Amira sent you a video message".</li>
+<li>Tapping it opens the app straight to the video.</li>
+<li>It plays in the app with captions. There is no download, save or share button.</li>
+<li>No app? An email with a link that opens the same player after they sign in.</li>
+</ol>
+</div>
+<div style="background: #fff6ee; border: 1px solid #eee3d9; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 20px; font-weight: 600; color: #2b2a8a;">What "not downloadable" means</h2>
+<span style="font-size: 15px; line-height: 1.55; color: #33325f;">The app streams the video and never offers the file. The link behind it works only for the person signed in and expires within minutes. Someone could still film their screen; the app just never hands over the file.</span>
+</div>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showUploadFailure":{"editor":"boolean","default":false,"section":"Prototype"},"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      step: 1, video: false, failedOnce: false, err: '',
+      title: 'A thank-you from Amira',
+      note: 'Thank you for standing with the food pantry this autumn.',
+      captions: 'Hello, it’s Amira from Riverbend. I wanted to say thank you, in person, for your gift to the food pantry...',
+      list: 'first',
+      picked: { okafor: true, mensah: true, nguyen: true, haddad: false, garcia: false, kowalski: false },
+      logTouch: true
+    };
+  }
+
+  data() {
+    return [
+      { id: 'okafor', name: 'Okafor household', card: 'H-1042 · 2 adults · 1 child · owner Sam K.', app: 2, email: 0, lists: ['first', 'thanks', 'mine'] },
+      { id: 'mensah', name: 'Mensah household', card: 'H-1199 · 2 adults · 1 child · owner Priya N.', app: 1, email: 1, lists: ['first', 'thanks'] },
+      { id: 'nguyen', name: 'Nguyen household', card: 'H-1107 · 3 adults · owner Priya N.', app: 3, email: 0, lists: ['first'] },
+      { id: 'garcia', name: 'García Morales household', card: 'H-0988 · 2 adults · 2 children · no owner yet', app: 1, email: 1, lists: ['thanks'] },
+      { id: 'haddad', name: 'Haddad household', card: 'H-1120 · 1 adult · owner Sam K.', app: 0, email: 1, lists: ['mine'] },
+      { id: 'kowalski', name: 'Kowalski household', card: 'H-0765 · 2 adults · owner Sam K.', app: 2, email: 0, lists: ['mine'] }
+    ];
+  }
+
+  renderVals() {
+    const st = this.state;
+    const all = this.data();
+    const stepNames = ['The video', 'Who it goes to', 'Check and send', 'Sent'];
+    const steps = stepNames.map((n, i) => {
+      const on = st.step === i + 1, done = st.step > i + 1;
+      return { n: String(i + 1), label: n, bg: on ? '#2b2a8a' : '#ffffff', fg: on ? '#ffffff' : '#1e1d5c', bd: on ? '#2b2a8a' : '#e3d6ca', dot: done ? '#e4f2ea' : '#ffb82a' };
+    });
+    const listDefs = [['first', 'First-time givers this month'], ['thanks', 'Thank-yous due'], ['mine', 'My households'], ['choose', 'Choose households']];
+    const lists = listDefs.map((l) => {
+      const on = st.list === l[0];
+      return { label: l[1], selected: on ? 'true' : 'false', bg: on ? '#2b2a8a' : '#ffffff', fg: on ? '#ffffff' : '#1e1d5c', bd: on ? '#2b2a8a' : '#e3d6ca',
+        pick: () => {
+          if (l[0] === 'choose') { this.setState({ list: 'choose' }); return; }
+          const picked = {};
+          all.forEach((h) => { picked[h.id] = h.lists.indexOf(l[0]) >= 0; });
+          this.setState({ list: l[0], picked: picked });
+        } };
+    });
+    const households = all.map((h) => ({ name: h.name, card: h.card, checked: !!st.picked[h.id],
+      toggle: (e) => { const p = Object.assign({}, st.picked); p[h.id] = e.target.checked; this.setState({ picked: p, list: 'choose' }); } }));
+    const chosen = all.filter((h) => st.picked[h.id]);
+    const appN = chosen.reduce((a, h) => a + h.app, 0), emailN = chosen.reduce((a, h) => a + h.email, 0);
+    const hh = chosen.length + (chosen.length === 1 ? ' household' : ' households');
+    const reach = {
+      households: hh,
+      total: 'Goes to ' + (appN + emailN) + ' adults in ' + hh + '.',
+      app: appN + ' have the app: they get a notification and watch it there.',
+      email: emailN + ' do not have the app: they get an email with a link to the same player, after they sign in.'
+    };
+    const states = { okafor: ['Watched by Adaeze', '#e4f2ea', '#1f7a4d'], nguyen: ['Watched by Linh and Bao', '#e4f2ea', '#1f7a4d'], mensah: ['Delivered, not watched yet', '#fff1e6', '#a8400d'] };
+    const sentRows = chosen.map((h) => { const s = states[h.id] || ['Delivered, not watched yet', '#fff1e6', '#a8400d']; return { name: h.name, card: h.card, state: s[0], bg: s[1], fg: s[2] }; });
+    return {
+      steps: steps,
+      onStep1: st.step === 1, onStep2: st.step === 2, onStep3: st.step === 3, onStep4: st.step === 4,
+      hasVideo: st.video, noVideo: !st.video, uploadFailed: !!this.props.showUploadFailure && st.failedOnce && !st.video,
+      record: () => this.setState({ video: true, err: '' }),
+      choose: () => {
+        if (this.props.showUploadFailure && !st.failedOnce) { this.setState({ failedOnce: true }); return; }
+        this.setState({ video: true, err: '' });
+      },
+      clearVideo: () => this.setState({ video: false }),
+      title: st.title, note: st.note, captions: st.captions,
+      onTitle: (e) => this.setState({ title: e.target.value }),
+      onNote: (e) => this.setState({ note: e.target.value }),
+      onCaptions: (e) => this.setState({ captions: e.target.value }),
+      step1Err: st.err, hasStep1Err: !!st.err,
+      toStep1: () => this.setState({ step: 1 }),
+      toStep2: () => {
+        if (!st.video) { this.setState({ err: 'Record or choose a video first.' }); return; }
+        if (!st.title.trim()) { this.setState({ err: 'Give it a title: people see it in the notification.' }); return; }
+        this.setState({ step: 2, err: '' });
+      },
+      lists: lists, households: households, reach: reach,
+      toStep3: () => { if (chosen.length) this.setState({ step: 3 }); },
+      logTouch: st.logTouch, onLogTouch: (e) => this.setState({ logTouch: e.target.checked }),
+      send: () => this.setState({ step: 4 }),
+      sentRows: sentRows,
+      restart: () => this.setState({ step: 1, video: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

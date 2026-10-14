@@ -15,6 +15,7 @@ import { can, type PermissionContext } from "@/lib/permissions";
 export type TaskSourceKey =
   | "refund"
   | "payee"
+  | "mapping"
   | "writeoff"
   | "credit"
   | "override"
@@ -53,9 +54,11 @@ export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "refund", tag: "Refund", color: "danger", anyOf: ["giving.approve", "giving.manage"], href: "/giving/payments" },
   // A change to where gifts go (Zelle details, PayPal email) waiting for a second person (migration 0597, docs/PAYMENTS_PLAN.md §2.5).
   { key: "payee", tag: "Payee", color: "danger", anyOf: ["giving.approve"], href: "/settings/payments", module: "giving" },
+  // A change to which QuickBooks account a fund or role posts to, waiting for a second person (migration 0779): Books › Account mapping.
+  { key: "mapping", tag: "Mapping", color: "danger", anyOf: ["giving.approve"], href: "/accounting/qbo/mapping", module: "accounting" },
   { key: "writeoff", tag: "Write-off", color: "brown", anyOf: ["giving.approve", "giving.manage"], href: "/giving/pledges" },
   { key: "credit", tag: "Credit", color: "brown", anyOf: ["giving.manage"], href: "/giving/payments" },
-  { key: "deposits", tag: "Deposits", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/bank" },
+  { key: "deposits", tag: "Deposits", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/bank", module: "giving_bank" },
   { key: "membership", tag: "Membership", color: "navy", anyOf: ["people.approve"], href: "/memberships/applications" },
   { key: "override", tag: "Voting", color: "navy", anyOf: ["people.approve"], href: "/people/voting" },
   { key: "newsletter", tag: "Newsletter", color: "purple", anyOf: ["comms.approve"], alsoNeeds: ["comms.view", "comms.send"], href: "/comms" },
@@ -105,6 +108,40 @@ export type TaskApproval = {
   confirmBody: string;
 };
 
+/**
+ * What Giving's Today needs to act on a Giving task in its own row. Home and Today read the SAME task list
+ * (loadHomeTasks, cached per request), so the two can never disagree about what is waiting; Home shows the title
+ * and meta line, Today builds its row from this.
+ */
+export type GivingTaskDetail = {
+  kind: "refund" | "flagged_refund" | "write_off" | "credit" | "payee" | "bank_lines" | "zelle_unseen";
+  /**
+   * first: a first approval is needed (a treasurer, giving.manage); second: a DIFFERENT person with giving.approve;
+   * complete: both approvals are in and a treasurer finishes it; handle: a treasurer acts, then marks it handled;
+   * open: it is decided on its own screen.
+   */
+  stage: "first" | "second" | "complete" | "handle" | "open";
+  /** The payment, flagged refund, pledge, credit or payee request id ("all" for a count). */
+  id: string;
+  householdId: string | null;
+  amountCents: number | null;
+  /** Receipt or pledge number. */
+  reference: string | null;
+  reason: string | null;
+  /** Who asked (or approved first), by name; never "you". */
+  askedBy: string | null;
+  /** The person looking asked for it (or approved it first), so a different person must act. */
+  mine: boolean;
+  /** When it started waiting (a timestamp or a date), when known. */
+  since: string | null;
+  /** Payment provider ("offline", "bank", "stripe", "paypal") for refunds. */
+  provider: string | null;
+  /** How many things this task stands for (bank lines, Zelle reports); 1 for a single request. */
+  count: number;
+  /** Bank lines only: how many of them are check or cash deposits. */
+  deposits?: number;
+};
+
 export type HomeTask = {
   id: string;
   source: TaskSourceKey;
@@ -114,6 +151,8 @@ export type HomeTask = {
   meta: string;
   links: TaskLink[];
   approve?: TaskApproval;
+  /** Giving tasks only: the facts Giving's Today acts on (Home does not show them). */
+  giving?: GivingTaskDetail;
 };
 
 /** A source that could not be read: shown as a row that says so, never dropped silently. */
@@ -121,10 +160,21 @@ export type TaskFailure = { source: TaskSourceKey; tag: string; message: string 
 
 export type HomeTasks = { tasks: HomeTask[]; failures: TaskFailure[] };
 
-export function makeTask(key: TaskSourceKey, id: string, title: string, meta: string, links: TaskLink[], approve?: TaskApproval): HomeTask {
+export function makeTask(
+  key: TaskSourceKey,
+  id: string,
+  title: string,
+  meta: string,
+  links: TaskLink[],
+  approve?: TaskApproval,
+  giving?: GivingTaskDetail,
+): HomeTask {
   const s = taskSource(key);
-  return { id: `${key}:${id}`, source: key, tag: s.tag, color: s.color, title, meta, links, approve };
+  return { id: `${key}:${id}`, source: key, tag: s.tag, color: s.color, title, meta, links, approve, ...(giving ? { giving } : {}) };
 }
+
+/** The Home task sources that belong to Giving (Today's Approvals and Bank rows, and QuickBooks and the account mapping under Books). */
+export const GIVING_TASK_SOURCES: readonly TaskSourceKey[] = ["refund", "payee", "mapping", "writeoff", "credit", "deposits", "quickbooks"];
 
 /** "{n} thing" / "{n} things". */
 export function plural(n: number, one: string, many = `${one}s`): string {

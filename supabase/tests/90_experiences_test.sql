@@ -302,7 +302,7 @@ select pg_temp.assert(pg_temp.diet(:c_mos) = 'vegetarian:Vegetarian:1,vegan:Vega
 
 -- ══ F. The one read for the member app ══════════════════════════════════════
 select app.member_experience(:jsh) as v_jsh \gset
-select pg_temp.assert(pg_temp.keys(:'v_jsh'::jsonb) = 'access,center,default_path,experience,flags,modules,paths,setup,stamp,topics,unchanged,updated_at'
+select pg_temp.assert(pg_temp.keys(:'v_jsh'::jsonb) = 'access,center,default_path,experience,flags,modules,paths,setup,stamp,template,topics,unchanged,updated_at'
                       and (:'v_jsh'::jsonb)->'experience'->>'key' = 'jain_center' and (:'v_jsh'::jsonb)->'experience'->>'family_key' = 'jain'
                       and (:'v_jsh'::jsonb)->'experience'->>'family_label' = 'Jain' and (:'v_jsh'::jsonb)->'experience'->>'wording_pack' = 'jain'
                       and (:'v_jsh'::jsonb)->'experience'->'wording' = '{}'::jsonb and (:'v_jsh'::jsonb)->'experience'->>'library_pack' = 'jain'
@@ -312,7 +312,7 @@ select pg_temp.assert(pg_temp.keys(:'v_jsh'::jsonb) = 'access,center,default_pat
                       and (:'v_jsh'::jsonb)->'center'->>'slug' = 'jsh' and ((:'v_jsh'::jsonb)->>'unchanged')::boolean = false,
   'F · JSH reads as a Jain Center: its words, its family, its wording pack, nothing extra');
 select pg_temp.assert(not exists (select 1 from jsonb_each((:'v_jsh'::jsonb)->'modules') m
-                                   where m.value->>'availability' <> 'default_on'
+                                   where (m.value->>'availability' <> 'default_on' and m.key <> all (array['ai', 'website', 'channels', 'care', 'matching']))
                                       or (m.value->>'enabled')::boolean is distinct from app.module_enabled(:jsh, m.key))
                       and (select count(*) from jsonb_each((:'v_jsh'::jsonb)->'modules')) = (select count(*) from app.modules)
                       and ((:'v_jsh'::jsonb)->'flags'->>'labh')::boolean and ((:'v_jsh'::jsonb)->'flags'->>'school')::boolean = app.module_enabled(:jsh, 'pathshala')

@@ -1,26 +1,31 @@
 import { CustomDetailsCell } from "@/components/custom-details-cell";
+import { PeriodNote } from "@/components/giving-glance/period-note";
 import { Alert, Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
 import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 import { chunk } from "@/lib/data/fetch-all";
 import { formatDate, todayInTz } from "@/lib/dates";
+import type { TabPeriod } from "@/lib/giving-glance/page";
 import { givingHistoryTotals, OPENING_BALANCE_HINT, OPENING_BALANCE_LABEL, parseYearEndStatement, type YearEndStatement } from "@/lib/giving";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
+import { isModuleEnabled } from "@/lib/modules";
 import { formatCents, sumCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
-export async function PaymentsTab({ session, householdId }: { session: CrmSession; householdId: string }) {
+/** `period`: only the payments received in this year (the year chosen in "Giving at a glance"); all of them when it is left out. */
+export async function PaymentsTab({ session, householdId, period }: { session: CrmSession; householdId: string; period?: TabPeriod }) {
   if (!canAccess(session, "payments")) return <NoAccess area="Payments" access="payments" />;
   const { db, center } = session;
   const tz = center.time_zone;
   const retry = `/households/${householdId}?tab=payments`;
 
-  const pRes = await db
+  let paymentQuery = db
     .from("payments")
     .select("id, receipt_number, received_on, method, amount_cents, status, provider, check_number, envelope_number, memo, refunded_cents, deposit_bank_transaction_id, is_historical, is_opening_balance, crm_external_id, custom")
-    .eq("household_id", householdId)
-    .order("received_on", { ascending: false })
-    .limit(500);
+    .eq("household_id", householdId);
+  if (period?.from) paymentQuery = paymentQuery.gte("received_on", period.from);
+  if (period?.to) paymentQuery = paymentQuery.lte("received_on", period.to);
+  const pRes = await paymentQuery.order("received_on", { ascending: false }).limit(500);
   if (pRes.error) return <QueryError what="payments" error={pRes.error} retryHref={retry} />;
   const defs = await loadCustomFieldDefs(db, center.id, "payments", true);
   // Staff-only custom values are kept apart from the row (0401); read them for "More details".
@@ -60,7 +65,8 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
     .slice(0, 3);
   const statements: YearEndStatement[] = [];
   let statementError: unknown = null;
-  for (const y of years) {
+  // Statements is an add-on of Giving (0741): none are asked for while it is off.
+  for (const y of isModuleEnabled(session, "giving_statements") ? years : []) {
     const r = await db.rpc("year_end_statement", { p_household: householdId, p_year: y });
     if (r.error) {
       statementError = r.error;
@@ -79,12 +85,13 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
     <Card
       padded={false}
       title="Payments"
-      description={`${payments.length} payments · ${formatCents(totals.receivedCents, center.currency)} received${
+      description={`${payments.length} payments${period ? ` in ${period.label}` : ""} · ${formatCents(totals.receivedCents, center.currency)} received${
         totals.openingCount > 0
           ? ` · ${formatCents(totals.openingCents, center.currency)} opening balance${totals.openingCount === 1 ? "" : "s"} (paid before the imported history)`
           : ""
       }`}
     >
+      {period ? <PeriodNote period={period} what="payments" /> : null}
       {!can(session, ["giving.view", "giving.manage"]) ? (
         <div className="p-4">
           <Alert tone="info">With the finance volunteer role you see only the payments you recorded yourself.</Alert>
@@ -122,7 +129,13 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
         </div>
       ) : null}
       {payments.length === 0 ? (
-        <EmptyState title="No payments" />
+        <EmptyState title={period ? `No payments received in ${period.label}` : "No payments"}>
+          {period ? (
+            <a href={period.showAllHref} className="crm-link font-semibold">
+              Show all years
+            </a>
+          ) : null}
+        </EmptyState>
       ) : (
         <TableWrap>
           <table className="crm-table">

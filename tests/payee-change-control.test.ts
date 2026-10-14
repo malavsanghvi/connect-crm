@@ -86,7 +86,7 @@ describe("parsePayeeQueue", () => {
     expect(payeeStatusView(request({ status: "cancelled" })).label).toBe("Withdrawn");
     expect(payeeStatusView(request({ status: "superseded" })).label).toBe("Replaced by a newer request");
     expect(waitingNote(request({ mine: true }), true)).toBe("You asked for this change, so a different person with giving.approve has to confirm it.");
-    expect(waitingNote(request(), true)).toContain("You can confirm it (a fresh 2FA check and a reason) or turn it down.");
+    expect(waitingNote(request(), true)).toContain("You can confirm it (with a reason) or turn it down.");
     expect(waitingNote(request(), false)).toBe("Tanu Treasurer asked for this change. A person with giving.approve confirms it.");
     expect(waitingNote(request({ expired: true }), true)).toBe("This request lapsed on 2026-10-22. Ask for the change again.");
   });

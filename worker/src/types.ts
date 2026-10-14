@@ -41,4 +41,10 @@ export type HandlerModule = {
   maxInFlight?: number;
   /** The job's result (stored in app.jobs.result, never a secret). Throw to fail. */
   run(job: Job, ctx: JobContext): Promise<unknown>;
+  /**
+   * The runner did not run the job because a module its kind needs is off for the community (ai-kinds.ts; iWeaver, 0755):
+   * say so on the handler's own record (niva.answer marks the question). `reason` is the plain sentence the job fails with.
+   * Best effort: a failure here is logged and the job still fails with the reason.
+   */
+  refused?: (job: Job, ctx: JobContext, reason: string) => Promise<void>;
 };

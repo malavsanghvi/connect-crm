@@ -35,6 +35,7 @@ export type FieldType =
   | "number"
   | "boolean"
   | "enum"
+  | "language"
   | "list"
   | "ref";
 
@@ -220,12 +221,6 @@ const GENDERS = [
   { value: "other", label: "Other" },
 ] as const;
 
-const LANGUAGES = [
-  { value: "en", label: "English" },
-  { value: "gu", label: "Gujarati" },
-  { value: "hi", label: "Hindi" },
-] as const;
-
 const CHANNELS = [
   { value: "email", label: "Email" },
   { value: "sms", label: "Text message" },
@@ -348,7 +343,7 @@ export const ENTITIES: readonly EntityDef[] = [
     tier: "setup",
     order: 32,
     table: "bank_accounts",
-    module: "giving",
+    module: "giving_bank",
     writePerms: ["accounting.manage"],
     dependsOn: [],
     description: "The organization's bank accounts and their statement formats. Never account numbers — only the last four digits.",
@@ -427,7 +422,7 @@ export const ENTITIES: readonly EntityDef[] = [
     module: "store",
     writePerms: ["store.manage"],
     dependsOn: [],
-    description: "Satvik Store menu categories.",
+    description: "My Store menu categories.",
     matchNote: "Matched on the category name.",
     sourceKey: ["name"],
     fields: [
@@ -747,7 +742,7 @@ export const ENTITIES: readonly EntityDef[] = [
     tier: "setup",
     order: 70,
     table: "opportunities",
-    module: "giving",
+    module: "giving_opportunities",
     writePerms: ["giving.manage"],
     dependsOn: ["campaigns"],
     description: "Sponsorship menus (tiers, pujans, amounts) within a campaign.",
@@ -787,7 +782,7 @@ export const ENTITIES: readonly EntityDef[] = [
     tier: "setup",
     order: 71,
     table: "labh_options",
-    module: "giving",
+    module: "labh",
     writePerms: ["giving.manage"],
     dependsOn: ["funds", "campaigns"],
     description: "Labh options with amount and fund.",
@@ -812,7 +807,7 @@ export const ENTITIES: readonly EntityDef[] = [
     module: "store",
     writePerms: ["store.manage"],
     dependsOn: [],
-    description: "Satvik Store pickup windows with order cut-off.",
+    description: "My Store pickup windows with order cut-off.",
     matchNote: "Matched on the start time.",
     sourceKey: ["starts_at"],
     fields: [
@@ -957,7 +952,7 @@ export const ENTITIES: readonly EntityDef[] = [
         personal: true,
         synonyms: ["phone", "mobile", "cell", "phone 1", "phone 1 number", "mobile phone", "cell phone"],
       }),
-      col("language", "Language", "enum", "English, Gujarati or Hindi.", "en", { options: LANGUAGES }),
+      col("language", "Language", "language", "Any language, by name or code (English, Spanish, es, pt-BR). Blank means English.", "en"),
       col("profession", "Profession", "text", "Optional.", "Physician", { synonyms: ["occupation", "job title"] }),
       col("employer", "Employer", "text", "Optional.", "Memorial Hermann", { synonyms: ["company", "organization"] }),
       col("is_deceased", "Deceased", "boolean", "Yes when the person has passed away.", "No", { synonyms: ["deceased"] }),
@@ -1366,7 +1361,7 @@ export const ENTITIES: readonly EntityDef[] = [
     tier: "history",
     order: 230,
     table: "recurring_gifts",
-    module: "giving",
+    module: "giving_recurring",
     writePerms: ["giving.manage"],
     dependsOn: ["households", "campaigns", "funds"],
     description: "Active recurring schedules. Card details stay with the old processor: members are asked to re-enter their card once.",

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Routines: a checklist for each role</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+button.role:hover{background:#F3F7FB}
+button.step:hover{background:#F8FAFD}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1100px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A; overflow: hidden">
+  <dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+  <div style="display: flex; flex: 1; min-height: 0">
+    <dc-import name="Rail" active="routine" height="1036" hint-size="88px,1036px"></dc-import>
+
+    <nav aria-label="Roles" style="width: 320px; box-sizing: border-box; padding: 26px 18px; background: #FFFFFF; border-right: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 14px; overflow: hidden">
+      <div style="display: flex; flex-direction: column; gap: 6px; padding: 0 6px">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3D3BB8">Weaver routines</span>
+        <h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 26px; line-height: 1.2">A checklist for every role</h1>
+        <span style="font-size: 13px; line-height: 1.5; color: #4F5D75">Pick a role to see its routine. Anyone who holds the role gets it when they sign in.</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <sc-for list="{{roles}}" as="r" hint-placeholder-count="15">
+          <button type="button" class="role" aria-pressed="{{r.pressed}}" onClick="{{r.pick}}" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 4px 12px; border: 0; border-radius: 12px; background: {{r.bg}}; color: {{r.fg}}; text-align: left; cursor: pointer; font-size: 14px; font-weight: {{r.weight}}">
+            <span>{{r.name}}</span>
+            <span style="font-size: 12px; font-weight: 700; color: {{r.countFg}}">{{r.count}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </nav>
+
+    <main style="flex: 1; min-width: 0; padding: 28px 36px; display: flex; flex-direction: column; gap: 18px; overflow: hidden">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 32px; line-height: 1.15">{{role.name}}</h2>
+          <span style="font-size: 14px; color: #4F5D75">{{role.sub}}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px">
+          <span style="font-size: 13px; font-weight: 700">{{role.progress}}</span>
+          <div style="width: 220px; height: 10px; border-radius: 5px; background: #EAF0F7; overflow: hidden"><div style="width: {{role.pct}}; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #34C4CB, #2F8ED8, #6CC68F)"></div></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 22px; background: #1C56B0; color: #FFFFFF; font-size: 14px; font-weight: 700">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8z"></path></svg>
+          Run it with Niva
+        </a>
+        <span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; background: #FFFFFF; border: 1px solid #CBD7E4; font-size: 14px; font-weight: 700">Edit this routine</span>
+        <span style="display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; color: #4F5D75">Center admins can edit routines. Weaver supplies the starting recipe.</span>
+      </div>
+
+      <section aria-label="Steps" style="flex: 1; min-height: 0; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 18px; padding: 8px 14px 12px; display: flex; flex-direction: column; overflow: hidden">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 10px">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 6px 8px"><span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #3D3BB8">{{g.when}}</span><span style="flex: 1; height: 1px; background: #EAF0F7"></span></div>
+            <sc-for list="{{g.items}}" as="s" hint-placeholder-count="3">
+              <button type="button" class="step" role="checkbox" aria-checked="{{s.checked}}" onClick="{{s.toggle}}" style="display: flex; align-items: flex-start; gap: 12px; text-align: left; min-height: 56px; padding: 8px 8px; border: 0; border-radius: 12px; background: transparent; cursor: pointer; color: #12203A">
+                <span aria-hidden="true" style="flex: none; margin-top: 1px; width: 24px; height: 24px; border-radius: 12px; box-sizing: border-box; border: 2px solid {{s.ring}}; background: {{s.fill}}; display: flex; align-items: center; justify-content: center">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{s.tick}}"><path d="M5 13l4 4 10-10"></path></svg>
+                </span>
+                <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1">
+                  <span style="font-size: 14px; font-weight: 700; line-height: 1.35; color: {{s.ink}}">{{s.title}}</span>
+                  <span style="font-size: 12px; line-height: 1.45; color: #4F5D75">{{s.detail}}</span>
+                </span>
+                <span style="flex: none; font-size: 12px; font-weight: 700; color: #164690; background: #E8F1FC; border-radius: 9px; padding: 3px 9px">{{s.where}}</span>
+                <span style="flex: none; width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: {{s.tagBg}}; color: {{s.tagFg}}">{{s.tag}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-for>
+      </section>
+    </main>
+
+    <aside aria-label="How routines work" style="width: 360px; box-sizing: border-box; padding: 28px 26px; border-left: 1px solid #DDE6F0; background: #F8FAFD; display: flex; flex-direction: column; gap: 18px">
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">How a routine works</span>
+      <div style="display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 1.5">
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">1</span><span><b>It meets you at sign-in.</b> Today shows your routine first, with what is due today.</span></div>
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">2</span><span><b>Each step goes to the exact place</b>, or Niva walks through it with you, one step at a time.</span></div>
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">3</span><span><b>Steps tick themselves</b> when the work is really done, such as an empty approval queue. The rest you tick.</span></div>
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">4</span><span><b>Nothing is lost.</b> A step you skip comes back at your next sign-in. Weekly and month-end steps appear on their day.</span></div>
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">5</span><span><b>You only see what you may do.</b> If you hold two roles, the routines are joined and grouped by role.</span></div>
+      </div>
+      <div style="padding: 14px 16px; background: #E8F1FC; border: 1px solid #BBD3F2; border-radius: 14px; font-size: 13px; line-height: 1.55; color: #164690">
+        <b>A routine never acts on its own.</b> Niva drafts and prepares. Anything that moves money, messages members, changes a role or deletes something waits for your confirmation.
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Tags on each step</span>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+          <div style="display: flex; gap: 10px; align-items: center"><span style="width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: #DFF5F6; color: #0A5D66">Auto-checked</span>Ticks when the data says it is done</div>
+          <div style="display: flex; gap: 10px; align-items: center"><span style="width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: #ECEBFA; color: #2B2A8A">Niva can do it</span>Niva prepares it, you look it over</div>
+          <div style="display: flex; gap: 10px; align-items: center"><span style="width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: #FFF1E6; color: #7A2E08">Needs your OK</span>You confirm before anything changes</div>
+          <div style="display: flex; gap: 10px; align-items: center"><span style="width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: #EAF0F7; color: #2C3A55">You do this</span>Only a person can: secrets, or anything about a child</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { role: 1, over: {} };
+  }
+  renderVals() {
+    const R = [
+      { name: 'Center admin', sub: 'Configuration, roles and integrations', items: [
+        ['Every sign-in', 'Check what Setup still needs', 'Readiness checks that are red or amber', 'Settings', 'auto'],
+        ['Every sign-in', 'Approve role grants waiting for a second person', 'Role grants and payment-detail changes need two people', 'Settings', 'ok'],
+        ['Every sign-in', 'Look at connections that need attention', 'QuickBooks sign-in, email domain, texting registration', 'Settings', 'auto'],
+        ['Weekly, Monday', 'Read last week’s sensitive changes', 'Role grants, exports and payment-detail changes from the history', 'Settings', 'niva'],
+        ['Weekly, Monday', 'Review data quality', 'Possible duplicate households and missing contact details', 'People', 'niva'],
+        ['Monthly, the 1st', 'Review who holds which role', 'End old grants and check anyone with finance access', 'Settings', 'ok']
+      ] },
+      { name: 'Treasurer', sub: 'Giving, payments, refunds, statements, reconciliation, QuickBooks and month close', items: [
+        ['Every sign-in', 'Bank lines imported from Chase', 'New lines since your last sign-in', 'Giving', 'auto'],
+        ['Every sign-in', 'Record the weekend’s checks and envelopes', 'Numbered envelopes become payments, one household at a time', 'Giving', 'niva'],
+        ['Every sign-in', 'Second approval: refunds and write-offs', 'You cannot approve a request you made yourself', 'Giving', 'ok'],
+        ['Every sign-in', 'Match deposits and Zelle payments', 'Exact Zelle matches in one go; check deposits must total to the cent', 'Giving', 'ok'],
+        ['Every sign-in', 'Nothing waiting to post to QuickBooks', 'Failures that will not retry on their own', 'Giving', 'auto'],
+        ['Weekly, Friday', 'Look at pledge aging', 'Households behind on a pledge, oldest first', 'Giving', 'niva'],
+        ['Weekly, Friday', 'Recurring gifts that failed', 'Which households to contact', 'Giving', 'niva'],
+        ['Month-end, from the 25th', 'Close the month', 'Banks matched, QuickBooks queue empty, refunds settled; then lock with a fresh code', 'Giving', 'ok'],
+        ['Year-end, in January', 'Prepare giving statements', 'Niva drafts the run; you check a sample before anything is sent', 'Giving', 'ok']
+      ] },
+      { name: 'Finance volunteer', sub: 'Record offline payments and reconcile bank lines. No refunds.', items: [
+        ['Every sign-in', 'Record checks and cash from numbered envelopes', 'Each one is a payment for a household you pick from its card', 'Giving', 'niva'],
+        ['Every sign-in', 'Match the bank lines you can', 'Pass the rest to the treasurer with a note', 'Giving', 'niva'],
+        ['Every sign-in', 'Check yesterday’s entries', 'Niva lists amounts or dates that look unusual', 'Giving', 'niva'],
+        ['Weekly, Monday', 'Prepare the next deposit', 'Group recorded checks so they total the bank deposit', 'Giving', 'niva']
+      ] },
+      { name: 'Membership coordinator', sub: 'Households, memberships, identifiers, verification and eligibility', items: [
+        ['Every sign-in', 'New membership applications', 'Reference tier, outside-household and duplicate checks shown as answers', 'People', 'ok'],
+        ['Every sign-in', 'Family change requests', 'Handled on the screen. Children’s details stay out of Niva', 'People', 'you'],
+        ['Every sign-in', 'Reference requests waiting', 'People who were asked to vouch for an applicant', 'People', 'auto'],
+        ['Every sign-in', 'Possible duplicate households', 'Compare the two cards side by side, then confirm', 'People', 'ok'],
+        ['Weekly, Monday', 'Memberships ending in 30 days', 'Niva drafts a reminder for you to approve', 'People', 'niva'],
+        ['Weekly, Monday', 'Voting eligibility overrides waiting', 'Needs approval from someone with approve rights', 'People', 'ok']
+      ] },
+      { name: 'Communications officer', sub: 'Announcements, newsletters, templates, the WhatsApp queue and inboxes', items: [
+        ['Every sign-in', 'Inbox threads nobody has answered', 'Niva drafts a reply from approved sources; you send it', 'Messages', 'niva'],
+        ['Every sign-in', 'WhatsApp group requests', 'Approve or decline with a reason', 'Messages', 'ok'],
+        ['Every sign-in', 'Drafts waiting for approval', 'Yours and other people’s', 'Messages', 'ok'],
+        ['Weekly, Monday', 'What is scheduled to go out this week', 'Audience, language and quiet hours for each', 'Messages', 'niva'],
+        ['Weekly, Wednesday', 'Draft this week’s announcement', 'In English, Gujarati and Hindi', 'Messages', 'niva'],
+        ['Before an event', 'Remind households that have not replied', 'Audience count by channel before you schedule', 'Events', 'ok']
+      ] },
+      { name: 'Event lead', sub: 'One event at a time: setup, attendees, lunch and volunteers', items: [
+        ['Every sign-in', 'RSVPs against capacity', 'Compared with the same point last year', 'Events', 'auto'],
+        ['Every sign-in', 'Open volunteer shifts', 'Who could fill them', 'Events', 'niva'],
+        ['Two days before', 'Meal counts to the kitchen', 'Final headcount by meal choice', 'Events', 'ok'],
+        ['Week before', 'Waivers and safety forms', 'Households still to sign', 'Events', 'niva'],
+        ['Event day', 'Open check-in and the kitchen display', 'Scan, walk-ins and stations', 'Events', 'you'],
+        ['After the event', 'Mark it completed', 'Niva shows the feedback survey and notices it will send first', 'Events', 'ok'],
+        ['After the event', 'Thank the volunteers', 'Niva drafts the message', 'Messages', 'niva']
+      ] },
+      { name: 'Pathshala principal', sub: 'Terms, classes, levels, teachers and the committee', items: [
+        ['Every sign-in', 'Registrations waiting to be placed', 'Place them from the registrations screen. Niva does not read learner details', 'Learning', 'you'],
+        ['Every sign-in', 'Held seats about to expire', 'Extend or release, on the screen', 'Learning', 'you'],
+        ['Every sign-in', 'Classes with no teacher', 'Suggest teachers who have taught the level before', 'Learning', 'niva'],
+        ['Class days', 'Attendance not yet taken', 'Remind the teacher', 'Learning', 'auto'],
+        ['Weekly, Monday', 'Homework and sign-offs waiting', 'For teachers and for parents', 'Learning', 'auto'],
+        ['Weekly, Monday', 'Concerns raised by parents', 'Assign an owner, on the screen', 'Learning', 'you'],
+        ['Before a term', 'Open registration checklist', 'Levels, fees, rules and classes in order', 'Learning', 'ok']
+      ] },
+      { name: 'Teacher', sub: 'Attendance, sign-offs and class announcements for your own classes', items: [
+        ['Class days', 'Take attendance', 'On the class sheet. Niva never sees learner names', 'Learning', 'you'],
+        ['Class days', 'Review new homework', 'Read each piece and write your own note. Niva does not read children’s work', 'Learning', 'you'],
+        ['Class days', 'Sign-offs students asked for', 'Approve or ask for more practice, on the screen', 'Learning', 'you'],
+        ['Weekly, Friday', 'Post the class announcement', 'Goes to families, never to children', 'Learning', 'ok'],
+        ['Each term', 'Progress notes due', 'Written by you. Niva does not draft anything about a child', 'Learning', 'you']
+      ] },
+      { name: 'Store lead', sub: 'Menu, pickup slots, orders and inventory', items: [
+        ['Every sign-in', 'Orders for the next pickup window', 'Counts by item for the kitchen', 'Store', 'auto'],
+        ['Every sign-in', 'Items running low', 'Against what is already ordered', 'Store', 'niva'],
+        ['Weekly, before cutoff', 'Open next week’s pickup slots', 'Niva can copy last week’s', 'Store', 'ok'],
+        ['Weekly, at cutoff', 'Send the kitchen summary', 'Final counts after the cutoff', 'Store', 'ok'],
+        ['After pickup', 'Mark no-shows and adjust stock', 'Waste and returns', 'Store', 'you']
+      ] },
+      { name: 'Content editor', sub: 'Guide, pages, photos and translations. Drafts only.', items: [
+        ['Every sign-in', 'Drafts you started', 'Pick up where you left off', 'Content', 'niva'],
+        ['Every sign-in', 'Items sent back for changes', 'With the reviewer’s note', 'Content', 'you'],
+        ['Weekly, Monday', 'Translations missing in Gujarati or Hindi', 'Niva drafts; someone who reads the language checks', 'Content', 'niva'],
+        ['Weekly, Monday', 'Photo albums waiting for approval', 'Photos with children appear only after approval', 'Content', 'auto']
+      ] },
+      { name: 'Religious coordinator', sub: 'Bolis, pujans, the practice catalog, the calendar and religious content', items: [
+        ['Every sign-in', 'Today’s tithi and parva', 'What the calendar says for the week', 'Events', 'auto'],
+        ['Every sign-in', 'Content waiting for your approval', 'Religious content needs your sign-off', 'Content', 'ok'],
+        ['Weekly, Monday', 'Bolis to set up for upcoming events', 'Pledges, never bids', 'Giving', 'niva'],
+        ['Weekly, Monday', 'Practice catalog changes', 'Requests from members and teachers', 'Learning', 'ok'],
+        ['Monthly, the 1st', 'Special-day totals', 'Labh totals only; individual special days stay private', 'Giving', 'auto']
+      ] },
+      { name: 'Volunteer coordinator', sub: 'Volunteer groups, shifts, waivers and background checks', items: [
+        ['Every sign-in', 'Unfilled shifts this week', 'Niva suggests people who volunteered before', 'Events', 'niva'],
+        ['Every sign-in', 'Waivers not yet signed', 'Remind with one message', 'Events', 'ok'],
+        ['Weekly, Monday', 'Background checks expiring in 30 days', 'Who needs a new one', 'People', 'auto'],
+        ['After an event', 'Thank last week’s volunteers', 'Niva drafts the message', 'Messages', 'niva']
+      ] },
+      { name: 'Privacy officer', sub: 'Data export and deletion requests', items: [
+        ['Every sign-in', 'Requests due soon', 'Export or deletion, with the deadline', 'Settings', 'auto'],
+        ['Every sign-in', 'Requests ready to complete', 'Record the outcome; the member is told', 'Settings', 'ok'],
+        ['Monthly, the 1st', 'Who exported data last month', 'From the history', 'Settings', 'niva']
+      ] },
+      { name: 'Kitchen lead', sub: 'Headcounts and store prep lists', items: [
+        ['Every sign-in', 'Headcounts for the next event', 'By meal choice', 'Events', 'auto'],
+        ['Every sign-in', 'Prep lists for pickup windows', 'From the orders so far', 'Store', 'auto'],
+        ['Event day', 'Open the kitchen display', 'Live counts as people check in', 'Events', 'you']
+      ] },
+      { name: 'Executive viewer', sub: 'Dashboards and reports, read-only', items: [
+        ['Every sign-in', 'Center health at a glance', 'Members, giving, attendance', 'Reports', 'auto'],
+        ['Weekly, Monday', 'One-page digest from Niva', 'Giving against plan, memberships, attendance', 'Reports', 'niva'],
+        ['Monthly, after close', 'Month-end summary', 'Once the treasurer has closed the month', 'Reports', 'auto']
+      ] }
+    ];
+    const tags = {
+      auto: { tag: 'Auto-checked', tagBg: '#DFF5F6', tagFg: '#0A5D66' },
+      niva: { tag: 'Niva can do it', tagBg: '#ECEBFA', tagFg: '#2B2A8A' },
+      ok: { tag: 'Needs your OK', tagBg: '#FFF1E6', tagFg: '#7A2E08' },
+      you: { tag: 'You do this', tagBg: '#EAF0F7', tagFg: '#2C3A55' }
+    };
+    const ri = this.state.role;
+    const over = this.state.over;
+    const cur = R[ri];
+    const isDone = (k, kind) => (k in over ? over[k] : kind === 'auto');
+    let doneCount = 0;
+    const order = [];
+    const byWhen = {};
+    cur.items.forEach((it, i) => {
+      const key = ri + ':' + i;
+      const done = isDone(key, it[4]);
+      if (done) doneCount += 1;
+      if (!byWhen[it[0]]) { byWhen[it[0]] = []; order.push(it[0]); }
+      byWhen[it[0]].push({
+        title: it[1], detail: it[2], where: it[3],
+        tag: tags[it[4]].tag, tagBg: tags[it[4]].tagBg, tagFg: tags[it[4]].tagFg,
+        checked: done ? 'true' : 'false',
+        ring: done ? '#17724A' : '#6B778C',
+        fill: done ? '#17724A' : '#FFFFFF',
+        tick: done ? 1 : 0,
+        ink: done ? '#4F5D75' : '#12203A',
+        toggle: () => this.setState({ over: { ...this.state.over, [key]: !isDone(key, it[4]) } })
+      });
+    });
+    const total = cur.items.length;
+    return {
+      roles: R.map((r, i) => ({
+        name: r.name,
+        count: r.items.length + ' steps',
+        pressed: i === ri ? 'true' : 'false',
+        bg: i === ri ? '#E8F1FC' : 'transparent',
+        fg: i === ri ? '#164690' : '#12203A',
+        countFg: i === ri ? '#164690' : '#4F5D75',
+        weight: i === ri ? '800' : '600',
+        pick: () => this.setState({ role: i })
+      })),
+      role: {
+        name: cur.name,
+        sub: cur.sub,
+        progress: doneCount + ' of ' + total + ' done',
+        pct: Math.round((doneCount / total) * 100) + '%'
+      },
+      groups: order.map((w) => ({ when: w, items: byWhen[w] }))
+    };
+  }
+}
+</script>
+</body>
+</html>

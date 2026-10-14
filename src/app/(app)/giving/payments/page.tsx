@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
@@ -21,6 +22,7 @@ import {
   buttonClass,
 } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
+import { readRecordPrefill } from "@/lib/giving-workspace/view";
 import type { Enums } from "@/lib/database.types";
 import { chunk } from "@/lib/data/fetch-all";
 import type { HouseholdCardData } from "@/components/household-card";
@@ -29,9 +31,11 @@ import { formatDate, todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
 import { countingStatusText, monthDay, OPENING_BALANCE_HINT, OPENING_BALANCE_LABEL, refundStatusText } from "@/lib/giving";
 import { ORIGINATOR_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/labels";
+import { isModuleEnabled } from "@/lib/modules";
 import { formatCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { getSession } from "@/lib/session";
 import { word } from "@/lib/wording";
 
@@ -39,6 +43,7 @@ import type { Suggestion } from "./bank/gift-line-matcher";
 import { recordCountingDepositAction } from "./counting-actions";
 import { CountingForm, type CounterOption } from "./counting-form";
 import { DafMatchButton } from "./daf-match-drawer";
+import { PaymentsV2 } from "./payments-v2";
 import { RecordPaymentForm } from "./record-payment-form";
 
 export const metadata: Metadata = { title: "Payments & deposits" };
@@ -47,10 +52,19 @@ const PAGE_SIZE = 50;
 type Method = Enums<"payment_method">;
 const METHODS = Object.keys(PAYMENT_METHOD_LABEL) as Method[];
 
-export default async function PaymentsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+/** The New look draws Payments anew (docs/GIVING_REDESIGN.md slice 3); the classic look is the page below, unchanged. */
+export default async function PaymentsRoute({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") return <PaymentsV2 searchParams={searchParams} />;
+  return <PaymentsPage searchParams={searchParams} />;
+}
+
+async function PaymentsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
-    <PageHeader title="Giving" description={`Offline payments, deposits, ${word(session.kind, "cash_box")} and refunds`} />
+    <PageHeader
+      title="Giving"
+      description={`Offline payments, deposits, ${word(session.kind, "cash_box")} and refunds`}
+    />
   );
   if (!canAccess(session, "payments")) {
     return (
@@ -81,6 +95,9 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     if (cards.error) console.error("[payments] household prefill failed; the form starts empty:", cards.error);
     prefill = cards.map.get(prefillId) ?? null;
   }
+  // "Open in Record payment" on the Giving page (New look) also fills in the amount, method, date and reference. The form is
+  // still checked and recorded by the person here; with none of these in the address it renders exactly as before.
+  const prefillValues = canRecord ? readRecordPrefill(sp, today) : null;
   const canManage = canAccess(session, "givingManage");
   const canApprove = canAccess(session, "givingApprove");
 
@@ -115,9 +132,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   ]);
 
   const labels = { orgMemberLabel: rules.orgMemberLabel, orgHouseholdLabel: rules.orgHouseholdLabel };
-  const seesBank = canAccess(session, "bank");
-  const seesCounting = canAccess(session, "counting");
-  const canCount = canAccess(session, "countingRecord");
+  // Bank reconciliation and Offering counts are add-ons of Giving (0741): their parts of this page go when they are off.
+  const bankOn = isModuleEnabled(session, "giving_bank");
+  const seesBank = bankOn && canAccess(session, "bank");
+  const seesCounting = isModuleEnabled(session, "giving_counts") && canAccess(session, "counting");
+  const canCount = seesCounting && canAccess(session, "countingRecord");
   const seesAll = canAccess(session, "paymentsAll");
 
   // DAF grants and matching gifts (bank lines flagged by known_originators), newest first.
@@ -251,7 +270,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
       />
       <BlockGrid className="mb-4">
         {canRecord ? (
-          <RecordPaymentForm labels={labels} timeZone={tz} currency={center.currency} today={today} canAllocate={canAccess(session, "allocatePayment")} initialHousehold={prefill} />
+          <RecordPaymentForm labels={labels} timeZone={tz} currency={center.currency} today={today} canAllocate={canAccess(session, "allocatePayment")} bankOn={bankOn} initialHousehold={prefill} {...(prefillValues ? { initialValues: prefillValues } : {})} />
         ) : null}
 
         {seesBank ? (
@@ -339,7 +358,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         ) : null}
 
         {seesCounting ? (
-          <Card span={7} title={word(session.kind, "cash_box_counting")} description="Two counters from different households · sealed, numbered bags" padded={false}>
+          <Card id="counting" span={7} title={word(session.kind, "cash_box_counting")} description="Two counters from different households · sealed, numbered bags" padded={false}>
             {counting?.error ? (
               <div className="p-2.5">
                 <QueryError what="counting sessions" error={counting.error} retryHref="/giving/payments" />

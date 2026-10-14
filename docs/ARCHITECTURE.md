@@ -116,6 +116,18 @@ the `qbo-poster` edge function using the center's approved account mapping
 (`app.qbo_account_mappings`). Failures land in the treasurer's exception queue;
 closed months post as current-period adjustments. See `FEATURE_TRACEABILITY.md`.
 
+**Which account (0779, `docs/FUND_ACCOUNT_MAPPING_GAPS.md`).** Every account a posting
+uses comes from one place: `app.account_for_role(center, role)`, `app.account_for_fund(center, fund)`,
+`app.account_for_bank_account(center, bank_account)` and `app.class_for_fund(center, fund)`, over the
+catalog `app.account_roles` (labels in the organization's words). A missing or unusable account raises
+SQLSTATE `CCMAP` with a plain reason; the posting waits in the exception queue
+(`ledger_postings.needs_mapping`) and goes back in the queue when that account is confirmed: never a
+default account. Only a required account stops all posting. Once the mapping has been approved, every
+change is a request that a different person with `giving.approve` confirms
+(`app.request_account_mapping_change` / `decide_account_mapping_change`, a reason each, no fresh 2FA
+code); it applies to postings sent after it, and a posted entry keeps the document it was sent with
+(`ledger_postings.qbo_doc`). Screen: Giving › Books › Account mapping.
+
 ## Conventions for all three apps
 
 - **Supabase client**: `createClient<Database>(url, anonKey, { db: { schema: 'app' } })`.
@@ -139,6 +151,9 @@ closed months post as current-period adjustments. See `FEATURE_TRACEABILITY.md`.
 - **Money is integer cents** everywhere (`*_cents`). Format only at the edge.
 - **Errors are always shown to the user in plain English** with a retry where one
   exists; never console-only, never a silent fallback. Log the technical detail.
+  A page left open across a deploy still holds the old build's Server Action ids; `ActionForm`
+  (via `guardStalePage`, `src/lib/stale-page.ts`) and the page error screen say so plainly with a
+  Reload button instead of "This page could not be shown". Nothing ran, so nothing was saved.
 - **Accessibility and language**: 44px minimum touch targets, large-text mode,
   English / ગુજરાતી / हिन्दी built in; no information by colour alone.
 - **Design tokens** (from the prototype): navy `#1B2C5C` (primary), saffron
@@ -153,10 +168,34 @@ closed months post as current-period adjustments. See `FEATURE_TRACEABILITY.md`.
   toggle, drawer, modal, toast): `src/components/ui.tsx`, `controls.tsx`,
   `drawer.tsx`, `modal.tsx`, `toast.tsx`. Spec: `docs/parity/v-visual-system.md`.
 
+## AI calls: prompt caching
+
+Calls to Anthropic mark the start of a request that is the same every time (`cache_control`), so it is re-read at about a tenth of the
+price (a first write costs a quarter more; an entry lives 5 minutes, each use renews it). Only markers are added; the words never change.
+One module decides where: `src/lib/anthropic-cache.ts`, used by Niva for admins (`src/lib/assistant/anthropic-http.ts`) and the background
+service (`worker/src/anthropic.ts`).
+
+- **Cached:** Niva for admins: the tool list (last tool), who Niva is + the rules (stable system block), and the conversation so far (last block,
+  so each tool step reads the step before). Worker: the `niva.answer` rules. Not cached: the rewrite prompt (under the model's minimum), mapping and
+  matching suggestions (one request, nothing repeats; usage still recorded), the setup test call. A marker is only added when the text up to it
+  reaches the model's minimum (`cacheMinimumTokens`: 512 tokens for the current models, up to 4096 for older ones).
+- **Must stay out of the start:** anything per request: date, person, roles, page, ids, the question, sources, tool results. They go after the
+  marker (`systemPromptParts().perRequest`, the user message). Keep the tool order fixed, and do not vary the model, `effort` or the answer's
+  JSON schema inside one route. A longer life (`ttl: "1h"`) is one constant, `PROMPT_CACHE_TTL`.
+- **Reading the numbers:** each call logs one `ai call` line, never any text: `input` (usage.input_tokens, full price), `cache_write`
+  (cache_creation_input_tokens, 1.25x), `cache_read` (cache_read_input_tokens, about 0.1x), `output`, `cache_marks`. Cache share =
+  `cache_read / (input + cache_write + cache_read)`; healthy is most of the input from step 2 of a chat message. `cache_read` stuck at 0
+  with `cache_marks` above 0 means something varying sits in the start: diff two bodies without markers. A chat's closing event has
+  `tokens` (totals for the message); a job's result has `ai_usage`.
+- **Switch:** `AI_PROMPT_CACHE=off` removes every marker (not yet a repository variable in `deploy.yml`; a value typed on the droplet is
+  overwritten by the next deploy). Open: `niva.answer`'s answer schema lists each question's source ids, and a changed `output_config.format`
+  invalidates the cache; if its `cache_read` stays 0, tell the owner before changing the schema.
+
 ## Working on the schema
 
 ```bash
-# Test the schema on plain Postgres (no Docker needed)
+# Test the schema on plain Postgres (no Docker needed). Migrations and the seed are applied
+# by supabase/scripts/migrate.sh, as on deploy: one transaction per file
 PGURL=postgres://postgres@localhost:5432 supabase/tests/run_local.sh
 
 # Regenerate types after a migration, then copy to connect-admin and connect-mobile
@@ -166,6 +205,11 @@ DATABASE_URL=postgres://postgres@localhost:5432/connect_test \
 # Against a real project
 supabase link --project-ref <ref> && supabase db push
 ```
+
+Each migration file runs in one transaction (locally, in CI and on deploy). So a file cannot use
+`create index concurrently`, `vacuum` or other statements Postgres refuses inside a transaction, and an
+enum value added with `alter type ... add value` cannot be used in the same file: add it in its own
+migration (0014 does this).
 
 A domain is not "done" until it has a data class, a retention rule, audit events
 and backup coverage (Governance tab of the design doc).

@@ -10,7 +10,7 @@ import { InfoBox, buttonClass } from "@/components/ui";
 import { IMPORT_SOURCES, slugify, TIME_ZONES, TRADITIONS } from "@/lib/center-wizard";
 import type { Experience } from "@/lib/experiences";
 
-import { goLiveAction, saveWizardStepAction } from "../actions";
+import { saveWizardStepAction } from "../actions";
 
 export type WizardCenter = {
   id: string;
@@ -75,25 +75,26 @@ export function WizardForm({
   );
 
   if (step === 6) {
+    // This wizard no longer takes a center live (owner decision 2026-10-09, backlog B70). Going live is the owner's
+    // request once every check passes, then two different Weaver admins approve it with a fresh security code.
     return (
-      <ActionForm
-        action={goLiveAction}
-        submitLabel="Go live"
-        pendingLabel="Going live…"
-        confirmKicker="Go live"
-        confirmMessage={`Take ${center?.name ?? "this center"} live?\nIts members can find it and sign in. Checks that are not built yet are the platform team's to confirm.`}
-        buttonsClassName="mt-4 justify-end"
-        submitDisabled={blocked}
-        extraButtons={back}
-      >
-        {hidden}
-        <div className="grid grid-cols-1 gap-3">
-          <Field label="Go-live readiness" wide>
-            {readiness ?? <InfoBox>Start with step 1, where the center is created; its readiness checks appear here.</InfoBox>}
-          </Field>
-        </div>
-        {needsCenter ? <p className="crm-hint mt-3">Start with step 1, where the center is created.</p> : null}
-      </ActionForm>
+      <div className="grid grid-cols-1 gap-3">
+        <Field label="Go-live readiness" wide>
+          {readiness ?? <InfoBox>Start with step 1, where the center is created; its readiness checks appear here.</InfoBox>}
+        </Field>
+        <InfoBox>
+          <p>
+            Going live is not done from this wizard any more. The owner asks for go-live once every check above passes, and two different Weaver admins approve it, each with a fresh
+            security code (Platform › Go-live approvals).
+          </p>
+          <p className="mt-2">
+            That path starts from a sandbox. {center ? `${center.name} was created here without one` : "A center made here has no sandbox"}, so it cannot be taken live from here. Create it again
+            as a sandbox (Platform › New sandbox) and take that live instead.
+          </p>
+        </InfoBox>
+        {needsCenter ? <p className="crm-hint">Start with step 1, where the center is created.</p> : null}
+        <div className="mt-1 flex justify-end">{back}</div>
+      </div>
     );
   }
 

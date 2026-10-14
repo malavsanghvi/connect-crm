@@ -34,6 +34,9 @@ export type PayerInput = {
   /** Row number in the file, 1-based; used to point the owner at the row. */
   rowNo: number;
   name: string;
+  /** The given and family name when the source has them in columns: they are used as they are. */
+  firstName?: string | null;
+  lastName?: string | null;
   email?: string | null;
   phone?: string | null;
   address1?: string | null;
@@ -60,13 +63,13 @@ export type Evidence = "phone" | "email" | "address" | "name";
 
 export type PairVerdict = { verdict: "auto" | "ask" | "separate"; evidence: Evidence[]; note: string };
 
-function prepare(p: PayerInput): Prepared {
-  const a = addressKey(p.address1, p.address2, p.zip);
+function prepare(p: PayerInput, country: string | null): Prepared {
+  const a = addressKey(p.address1, p.address2, p.zip, country);
   return {
     rowNo: p.rowNo,
     name: p.name,
-    parsed: parseName(p.name),
-    phone: phoneKey(p.phone),
+    parsed: parseName(p.name, { first: p.firstName, last: p.lastName }),
+    phone: phoneKey(p.phone, country),
     email: emailKey(p.email),
     addr: a ? { key: a.key, unit: a.unit } : null,
     groupKey: p.groupKey ? String(p.groupKey) : null,
@@ -188,9 +191,13 @@ function anchorOf(g: Group): string {
   return g.existing ? `hh:${g.existing.householdId}` : `r${g.rows[0] ?? 0}`;
 }
 
-/** Group rows into households. Big files stay fast: only rows sharing a phone, email, address or surname are compared. */
-export function matchPayers(input: readonly PayerInput[]): MatchResult {
-  const rows = input.map(prepare);
+/**
+ * Group rows into households. Big files stay fast: only rows sharing a phone, email, address or surname are compared.
+ * `country` is the community's own (an ISO code such as "GB"): it reads phone numbers and postal codes written without a country code.
+ */
+export function matchPayers(input: readonly PayerInput[], opts: { country?: string | null } = {}): MatchResult {
+  const country = opts.country ?? null;
+  const rows = input.map((p) => prepare(p, country));
   const n = rows.length;
   const dsu = new Dsu(n);
   // The existing household each component already is (by root); two different ones never join.

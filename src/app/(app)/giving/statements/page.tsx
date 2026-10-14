@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { BlockGrid, Card, EmptyState, KpiGrid, NoAccess, PageHeader, Pagination, QueryError, Stat, TableWrap, buttonClass } from "@/components/ui";
@@ -7,21 +8,30 @@ import { chunk, fetchAll } from "@/lib/data/fetch-all";
 import { householdsById, userNames } from "@/lib/data/lookups";
 import { formatDateTime, todayInTz } from "@/lib/dates";
 import { OPENING_BALANCE_LABEL, RECEIPT_KINDS } from "@/lib/giving";
+import { isModuleEnabled } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { getSession } from "@/lib/session";
 
 import { approveStatementTemplatesAction } from "../../setup/approval-actions";
 import { ApprovalCard } from "../../setup/_components/approval-card";
 import { parseApprovalStatus } from "@/lib/setup";
 import { ReceiptTemplateEditor, type TemplateValues } from "./template-editor";
+import { StatementsV2 } from "./statements-v2";
 
 export const metadata: Metadata = { title: "Receipts & statements" };
 
 const PAGE_SIZE = 50;
 const KIND_LABEL: Record<string, string> = { tax_year: "Tax-year statement", pledge: "Pledge statement", donation: "Donation receipt", event: "Event statement" };
 
-export default async function StatementsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+/** The New look draws Statements anew (docs/GIVING_REDESIGN.md slice 8); the classic look is the page below, unchanged. */
+export default async function StatementsRoute({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") return <StatementsV2 searchParams={searchParams} />;
+  return <StatementsPage searchParams={searchParams} />;
+}
+
+async function StatementsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = <PageHeader title="Giving" description="Tax, pledge and donation receipts use the standard format with light personalization" />;
   if (!canAccess(session, "statements")) {
@@ -35,6 +45,8 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const { db, center } = session;
   const tz = center.time_zone;
+  // Statements is an add-on of Giving (0741). Receipts, their templates and the treasurer's approval stay here either way.
+  const statementsOn = isModuleEnabled(session, "giving_statements");
   const currentYear = Number(todayInTz(tz).slice(0, 4));
   const yearParam = Number(param(sp, "year"));
   const year = Number.isInteger(yearParam) && yearParam > 1990 ? yearParam : null;
@@ -109,6 +121,7 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
     <>
       {header}
       <BlockGrid className="mb-4">
+        {statementsOn ? (
         <Card
           span={12}
           title={`Year-end statements · ${lastYear}`}
@@ -149,6 +162,14 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
             button stays off until it is.
           </p>
         </Card>
+        ) : (
+          <Card span={12} title="Statements">
+            <p role="status" className="text-[13px] text-muted" data-testid="statements-switched-off">
+              Statements are switched off for {center.short_name || center.name}. Receipts, their templates and the treasurer&apos;s approval keep
+              working here.
+            </p>
+          </Card>
+        )}
         {templates.error ? (
           <div className="col-span-12">
             <QueryError what="receipt templates" error={templates.error} retryHref="/giving/statements" />
@@ -182,6 +203,8 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
           />
         ) : null}
       </BlockGrid>
+      {statementsOn ? (
+      <>
       <h2 className="cc-card-title mb-2">Issued statements</h2>
       <form method="get" action="/giving/statements" className="mb-4 flex flex-wrap items-end gap-3">
         <div>
@@ -260,6 +283,8 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
           <Pagination page={page} pageSize={PAGE_SIZE} total={res.count ?? null} hrefFor={(n) => hrefWith("/giving/statements", sp, { page: n })} />
         </Card>
       )}
+      </>
+      ) : null}
     </>
   );
 }

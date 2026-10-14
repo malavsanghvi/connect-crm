@@ -74,7 +74,7 @@ export type QboStatus = {
   jobs: { id: number; kind: string; status: string; last_error: string | null; created_at: string; finished_at: string | null }[];
 };
 
-/** Account types each purpose accepts (mirrors app.qbo_purposes()). */
+/** Account types each purpose accepts (mirrors app.qbo_purposes(), read from app.account_roles since 0779). */
 export const PURPOSE_TYPES: Record<string, string[]> = {
   "income.general": ["Income", "Other Income"],
   "income.boli": ["Income", "Other Income"],
@@ -88,6 +88,7 @@ export const PURPOSE_TYPES: Record<string, string[]> = {
   "income.other": ["Income", "Other Income"],
   "store.sales": ["Income", "Other Income"],
   "store.gift_packing": ["Income", "Other Income"],
+  "store.cost": ["Cost of Goods Sold", "Expense"],
   sales_tax_payable: ["Other Current Liability"],
   merchant_fees: ["Expense", "Other Expense", "Cost of Goods Sold"],
   payment_clearing: ["Bank", "Other Current Asset"],
@@ -96,6 +97,7 @@ export const PURPOSE_TYPES: Record<string, string[]> = {
   pledges_receivable: ["Accounts Receivable", "Other Current Asset"],
   stock_clearing: ["Other Current Asset", "Bank", "Other Asset"],
   pledge_writeoffs: ["Expense", "Other Expense", "Income", "Other Income"],
+  refunds: ["Income", "Other Income", "Expense", "Other Expense"],
 };
 
 export type PulledAccount = { qbo_id: string; name: string; fully_qualified_name: string | null; account_type: string | null; active: boolean };
@@ -157,6 +159,12 @@ export function connectionSummary(c: NonNullable<QboStatus["connection"]>): stri
   if (c.status === "disconnected") return "Not connected";
   const mode = c.read_only ? "read-only (nothing is posted)" : c.provider === "intuit_sandbox" ? "Intuit sandbox company, test mode" : c.mode === "live" ? "live" : "test mode";
   return `${what} · ${mode}`;
+}
+
+/** A typed reason when there is one, otherwise the action's own plain description: nobody is made to explain an obvious step. */
+export function reasonOrDefault(reason: string, fallback: string): string {
+  const r = reason.trim();
+  return r || fallback;
 }
 
 export function reasonProblem(reason: string, doing: string): string | null {

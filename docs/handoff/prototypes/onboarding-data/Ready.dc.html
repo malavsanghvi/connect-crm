@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ready, and what is next</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; min-height: 2300px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A;">
+<div style="display: flex; justify-content: center; padding: 5px 0 4px; background: #FFFFFF;"><span style="background: #B3261E; color: #FFFFFF; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;">PROTOTYPE · SAMPLE DATA</span></div>
+<dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+<div style="display: flex; flex: 1; min-height: 0;">
+<dc-import name="Rail" active="settings" height="2230" hint-size="88px,2230px"></dc-import>
+
+<nav aria-label="Steps to bring your data in" style="width: 320px; flex: none; box-sizing: border-box; padding: 28px 22px; background: #FFFFFF; border-right: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 13px; color: #4F5D75;">Settings › Setup</span>
+<h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 26px; line-height: 1.2; color: #12203A;">Bring your data in</h1>
+<span style="font-size: 13px; color: #4F5D75;">Step {{cur}} of 4</span>
+<div style="height: 8px; border-radius: 4px; background: #EAF0F7; overflow: hidden;"><div style="height: 8px; background: linear-gradient(90deg, #34C4CB, #2F8ED8, #6CC68F); width: {{pct}};"></div></div>
+</div>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{navSteps}}" as="s" hint-placeholder-count="4">
+<li aria-current="{{s.now}}" style="display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: {{s.bg}}; border: 1px solid {{s.bd}};">
+<sc-if value="{{s.done}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #17724A; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+<sc-if value="{{s.now}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<sc-if value="{{s.todo}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; border: 2px solid #9FB0C6; box-sizing: border-box; color: #4F5D75; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 14px; font-weight: {{s.tw}}; color: {{s.tfg}};">{{s.title}}</span><span style="font-size: 12px; line-height: 1.4; color: #4F5D75;">{{s.sub}}</span></span>
+</li>
+</sc-for>
+</ol>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Back to all ways in</a>
+<div style="padding: 14px; border-radius: 14px; background: #F8FAFD; border: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1C56B0;">What I would do next</div>
+<ol style="margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: #2C3A55;">
+<li>Ask your board and volunteers first (24 households, about 10 minutes).</li>
+<li>Match the 38 gifts with no family (about 15 minutes).</li>
+<li>Send the email records to your IT person today.</li>
+</ol>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+<div style="padding: 12px 14px; background: #FFF1E6; border-radius: 14px; font-size: 12px; line-height: 1.55; color: #5C2A0B;"><b>Children.</b> Invitations go to adults. Nothing about anyone under 18 is ever sent to an AI service.</div>
+</div>
+</nav>
+
+<main style="flex: 1; min-width: 0; padding: 26px 36px 22px; display: flex; flex-direction: column; gap: 18px;">
+
+<div style="align-self: flex-end; max-width: 520px; padding: 12px 16px; background: #1C56B0; color: #FFFFFF; border-radius: 18px 18px 4px 18px; font-size: 15px; line-height: 1.5;">The data is in. What now?</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">Good news: it is all in, and you can undo it for 30 days. The fastest way to make it good is to ask the families. Here is how complete things are, and the one thing that would improve each area most.</div>
+<section aria-labelledby="health-title" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<h2 id="health-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">How complete your data is</h2>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px;">
+<sc-for list="{{health}}" as="h" hint-placeholder-count="5">
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px;">
+<div style="flex: 0 0 190px; font-size: 15px; font-weight: 700;">{{h.name}}</div>
+<div style="flex: 1 1 200px; min-width: 120px; display: flex; align-items: center; gap: 10px;">
+<div style="flex-grow: 1; height: 10px; border-radius: 5px; background: #EAF0F7;"><div style="height: 10px; border-radius: 5px; background: {{h.bar}}; width: {{h.pct}};"></div></div>
+<span style="width: 44px; font-size: 14px; font-weight: 800; text-align: right;">{{h.val}}</span>
+</div>
+<div style="flex: 2 1 320px; min-width: 0; font-size: 14px; line-height: 1.5; color: #2C3A55;">{{h.fix}}</div>
+</li>
+</sc-for>
+</ul>
+</section>
+</div>
+</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">Let each family check their own details. They see their record already filled in, correct it, add birthdays, and choose how you may contact them. It is also the only way to collect email and text permission, which an old system rarely has. I drafted the message.</div>
+<section aria-labelledby="invite-title" style="background: #FFFFFF; border: 2px solid #1C56B0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+<h2 id="invite-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">Ask the families</h2>
+<div style="display: flex; gap: 24px;">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+<div id="aud-label" style="font-size: 13px; font-weight: 700; color: #4F5D75;">Who to ask first</div>
+<div role="radiogroup" aria-labelledby="aud-label" style="display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{auds}}" as="a" hint-placeholder-count="2">
+<button type="button" role="radio" aria-checked="{{a.on}}" onClick="{{a.pick}}" style="text-align: left; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; font-size: 15px; background: {{a.bg}}; border: 2px solid {{a.bd}}; color: #12203A;">
+<span aria-hidden="true" style="flex: none; width: 20px; height: 20px; margin-top: 2px; border-radius: 10px; border: 2px solid #1C56B0; background: {{a.dot}};"></span>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-weight: 700;">{{a.title}}</span><span style="font-size: 14px; line-height: 1.45; color: #2C3A55;">{{a.body}}</span></span>
+</button>
+</sc-for>
+</div>
+<div id="ch-label" style="font-size: 13px; font-weight: 700; color: #4F5D75; margin-top: 6px;">How</div>
+<div role="group" aria-labelledby="ch-label" style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{chans}}" as="c" hint-placeholder-count="3">
+<button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 14px; font-weight: 600; background: {{c.bg}}; color: {{c.fg}};">{{c.label}}</button>
+</sc-for>
+</div>
+<div style="font-size: 13px; line-height: 1.5; color: #4F5D75;">Texts and WhatsApp go only to people who have already agreed to them. Everyone else gets email, or a printed QR code for the notice board. Invitations go to adults.</div>
+</div>
+
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;">
+<span style="padding: 3px 10px; border-radius: 12px; background: #FFF1E6; color: #A8400D; font-size: 12px; font-weight: 700;">Drafted by Niva. Edit freely.</span>
+<div role="group" aria-label="Language of the message" style="display: flex; gap: 6px;">
+<sc-for list="{{langs}}" as="g" hint-placeholder-count="3">
+<button type="button" onClick="{{g.pick}}" aria-pressed="{{g.on}}" style="min-height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 14px; font-weight: 600; background: {{g.bg}}; color: {{g.fg}};">{{g.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="padding: 16px; border-radius: 12px; background: #F8FAFD; border: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; color: #4F5D75;">From: Greenfield Jain Center · Subject: Please check your family's details</div>
+<div style="font-size: 15px; line-height: 1.6;">{{message}}</div>
+<div><span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 20px; background: #1C56B0; color: #FFFFFF; font-size: 14px; font-weight: 600;">Check my family</span></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+<sc-if value="{{notSent}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{send}}" style="min-height: 44px; padding: 0 22px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 600;">{{sendLabel}}</button></sc-if>
+<sc-if value="{{sent}}" hint-placeholder-val="{{ false }}"><div role="status" style="padding: 10px 14px; border-radius: 12px; background: #E3F5EA; border: 1px solid #17724A; color: #0F4F33; font-size: 14px; font-weight: 600;">{{sentText}}</div></sc-if>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">You do not have to stop using Neon today. I can keep it in step until you are ready, and I will tell you when it is safe to switch.</div>
+<section aria-labelledby="par-title" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 420px;">
+<h2 id="par-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">Keep Neon running until you switch</h2>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #2C3A55;">{{parText}}</p>
+</div>
+<button type="button" role="switch" aria-checked="{{parallel}}" onClick="{{toggleParallel}}" style="display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px 0 8px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; font-size: 14px; font-weight: 600; color: #12203A;">
+<span aria-hidden="true" style="width: 40px; height: 24px; border-radius: 12px; position: relative; background: {{swBg}};"><span style="position: absolute; top: 2px; left: {{swLeft}}; width: 20px; height: 20px; border-radius: 10px; background: #FFFFFF;"></span></span>
+{{parLabel}}
+</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 13px; font-weight: 700; color: #4F5D75;">Before you switch</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{checklist}}" as="k" hint-placeholder-count="5">
+<li style="display: flex; gap: 10px; align-items: baseline; font-size: 14px; line-height: 1.5;"><span style="flex: none; min-width: 62px; padding: 1px 8px; border-radius: 10px; text-align: center; font-size: 12px; font-weight: 800; background: {{k.bg}}; color: {{k.fg}};">{{k.state}}</span><span style="color: #2C3A55;">{{k.text}}</span></li>
+</sc-for>
+</ul>
+</div>
+</section>
+</div>
+</div>
+
+<div style="display: flex; gap: 14px; margin-left: 46px;">
+<section aria-labelledby="wait-title" style="flex: 1; min-width: 0; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="wait-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">Things that take days, started for you</h2>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{waits}}" as="w" hint-placeholder-count="4">
+<li style="display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 12px; background: #F8FAFD; border: 1px solid #DDE6F0;"><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;"><span style="font-size: 15px; font-weight: 700;">{{w.name}}</span><span style="padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; background: {{w.bg}}; color: {{w.fg}};">{{w.state}}</span></div><span style="font-size: 14px; line-height: 1.5; color: #2C3A55;">{{w.body}}</span></li>
+</sc-for>
+</ul>
+</section>
+<section aria-labelledby="help-title" style="flex: 1; min-width: 0; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="help-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">People helping you</h2>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{helpers}}" as="p" hint-placeholder-count="3">
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; border-radius: 12px; background: #F8FAFD; border: 1px solid #DDE6F0;">
+<div style="flex: 1 1 200px; min-width: 0;"><div style="font-size: 15px; font-weight: 700;">{{p.name}}</div><div style="font-size: 14px; line-height: 1.5; color: #2C3A55;">{{p.body}}</div></div>
+<sc-if value="{{p.canNudge}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{p.nudge}}" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">{{p.nudgeLabel}}</button></sc-if>
+</li>
+</sc-for>
+</ul>
+<div style="padding: 12px 14px; border-radius: 12px; background: #E8F1FC; font-size: 13px; line-height: 1.55; color: #12203A;">Stuck? Ask me, or book 20 minutes with the Weaver onboarding team. You choose whether they can see your screen, and they cannot read your keys.</div>
+</section>
+</div>
+
+<div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 18px; background: #FFFFFF; border: 1px solid #CBD7E4; border-radius: 28px;">
+<input type="text" aria-label="Ask Niva what to do next" placeholder="Ask Niva, for example: who has not answered yet?" style="flex: 1; min-height: 44px; border: 0; outline: 0; background: transparent; font-size: 15px; color: #12203A;">
+<button type="button" aria-label="Send" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: #1C56B0; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+</div>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { aud: 'pilot', ch: { email: true, text: false, wa: false }, lang: 'en', sent: false, parallel: true, nudged: false, dns: false };
+  }
+  renderVals() {
+    const s = this.state;
+    const cur = 4;
+    const sdefs = [
+      ['Choose how', 'Drop it, connect it or use a template'],
+      ['Bring it in', 'Niva reads it and asks only what it must'],
+      ['Review', 'See exactly what will happen'],
+      ['Ready', 'Make it good, then switch over']
+    ];
+    const navSteps = sdefs.map((d, i) => {
+      const n = i + 1;
+      const st = n < cur ? 'done' : n === cur ? 'now' : 'todo';
+      return {
+        n, title: d[0], sub: d[1], done: st === 'done', now: st === 'now', todo: st === 'todo',
+        bg: st === 'now' ? '#E8F1FC' : 'transparent', bd: st === 'now' ? '#BBD3F2' : 'transparent',
+        tfg: st === 'todo' ? '#4F5D75' : st === 'now' ? '#164690' : '#12203A', tw: st === 'now' ? '800' : '700'
+      };
+    });
+    const bar = (p) => (p >= 90 ? '#17724A' : p >= 60 ? '#1C56B0' : '#FF7640');
+    const healthDefs = [
+      { name: 'Households', p: 96, fix: '24 households have no address. Families can add it themselves.' },
+      { name: 'People', p: 92, fix: '4 children have no birth date, so Weaver cannot tell who is a minor. Ask their families.' },
+      { name: 'Contact details', p: 71, fix: '212 households have no email. 17 emails bounced in Neon and will be skipped.' },
+      { name: 'Giving history', p: 99, fix: '38 gifts ($4,120.00) still need a family. Match them by hand in about 15 minutes.' },
+      { name: 'Permission to contact', p: 12, fix: 'Neon recorded no email permission, so nobody is opted in yet. Families can say yes when they check their details.' }
+    ];
+    const health = healthDefs.map((h) => ({ name: h.name, val: h.p + '%', pct: h.p + '%', bar: bar(h.p), fix: h.fix }));
+    const audDefs = [
+      { id: 'pilot', title: 'The board and volunteers (24 households)', body: 'A small first round to catch problems early.' },
+      { id: 'all', title: 'Everyone with an email or mobile (588 households)', body: 'Sent in batches over two days so replies are easy to follow.' }
+    ];
+    const auds = audDefs.map((a) => ({
+      title: a.title, body: a.body, on: s.aud === a.id,
+      bg: s.aud === a.id ? '#E8F1FC' : '#FFFFFF', bd: s.aud === a.id ? '#1C56B0' : '#DDE6F0', dot: s.aud === a.id ? '#1C56B0' : '#FFFFFF',
+      pick: () => this.setState({ aud: a.id, sent: false })
+    }));
+    const chanDefs = [{ k: 'email', label: 'Email' }, { k: 'text', label: 'Text message' }, { k: 'wa', label: 'WhatsApp' }];
+    const chans = chanDefs.map((c) => ({
+      label: c.label, on: !!s.ch[c.k],
+      bg: s.ch[c.k] ? '#1C56B0' : '#FFFFFF', fg: s.ch[c.k] ? '#FFFFFF' : '#1C56B0',
+      pick: () => { const m = Object.assign({}, s.ch); m[c.k] = !s.ch[c.k]; this.setState({ ch: m, sent: false }); }
+    }));
+    const msgs = {
+      en: 'Hello Anita, Greenfield Jain Center is moving to Weaver. Please take two minutes to check your family\'s details and choose how we may contact you. Your record is already filled in, so you only need to fix what is wrong.',
+      gu: 'નમસ્તે અનિતા, ગ્રીનફિલ્ડ જૈન સેન્ટર હવે વીવર પર આવી રહ્યું છે. કૃપા કરીને બે મિનિટ કાઢીને તમારા પરિવારની વિગતો તપાસો અને અમે તમારો કેવી રીતે સંપર્ક કરી શકીએ તે પસંદ કરો. તમારી વિગતો પહેલેથી ભરેલી છે, એટલે જે ખોટું હોય તે જ સુધારવાનું છે.',
+      hi: 'नमस्ते अनिता, ग्रीनफील्ड जैन सेंटर अब वीवर पर आ रहा है। कृपया दो मिनट निकालकर अपने परिवार का विवरण जाँचें और बताइए कि हम आपसे किस तरह संपर्क कर सकते हैं। आपका विवरण पहले से भरा हुआ है, बस जो गलत हो उसे ठीक करना है।'
+    };
+    const langs = [{ k: 'en', label: 'English' }, { k: 'gu', label: 'ગુજરાતી' }, { k: 'hi', label: 'हिन्दी' }].map((g) => ({
+      label: g.label, on: s.lang === g.k,
+      bg: s.lang === g.k ? '#1C56B0' : '#FFFFFF', fg: s.lang === g.k ? '#FFFFFF' : '#1C56B0',
+      pick: () => this.setState({ lang: g.k })
+    }));
+    const n = s.aud === 'pilot' ? 24 : 588;
+    const chosen = chanDefs.filter((c) => s.ch[c.k]).map((c) => c.label.toLowerCase());
+    const who = chosen.length ? chosen.join(', ') : 'no channel chosen';
+    const checklist = [
+      { state: 'Done', text: 'The last nightly pull from Neon finished without errors.', bg: '#E3F5EA', fg: '#0F4F33' },
+      { state: 'Done', text: 'Giving totals match your file to the cent.', bg: '#E3F5EA', fg: '#0F4F33' },
+      { state: 'Open', text: 'At least 80% of households have checked their details, or you accept the rest as they are.', bg: '#FFF1E6', fg: '#A8400D' },
+      { state: 'Open', text: 'Online payments are tested with a one-dollar charge and refund.', bg: '#FFF1E6', fg: '#A8400D' },
+      { state: 'Open', text: 'A second administrator has signed in, because money actions need two people.', bg: '#FFF1E6', fg: '#A8400D' }
+    ];
+    const waits = [
+      { name: 'Online payments', state: 'In review', bg: '#E8F1FC', fg: '#164690', body: 'Stripe is verifying your organization and bank. This can take several days, so it was started when you signed up.' },
+      { name: 'Text-message registration', state: 'Submitted', bg: '#E8F1FC', fg: '#164690', body: 'US carriers approve who may text. It can take days to weeks, and it is already with them.' },
+      { name: 'Sending email from your own address', state: s.dns ? 'Sent to your IT person' : 'Waiting for you', bg: s.dns ? '#E8F1FC' : '#FFF1E6', fg: s.dns ? '#164690' : '#A8400D', body: 'Four DNS records need adding at your domain host. I have written exactly what to paste and where.' },
+      { name: 'WhatsApp Business', state: 'Optional', bg: '#EAF0F7', fg: '#2C3A55', body: 'Needs Meta to verify your organization. Worth starting if your community already uses WhatsApp groups.' }
+    ];
+    const helpers = [
+      { name: 'Maya, Treasurer', body: 'Uploaded the giving workbook and connected QuickBooks. Nothing waiting on her.', canNudge: false, nudge: () => {}, nudgeLabel: '' },
+      { name: 'Kiran, Membership coordinator', body: s.nudged ? 'Reminder sent. The link opens only the member list.' : 'Invited three days ago and has not opened the link yet.', canNudge: !s.nudged, nudgeLabel: 'Send a reminder', nudge: () => this.setState({ nudged: true }) },
+      { name: 'Your IT person', body: s.dns ? 'Has the four records to add. I will check the domain every hour and tell you when it verifies.' : 'Not invited yet. The email records are waiting for someone with access to your domain.', canNudge: !s.dns, nudgeLabel: 'Send the records', nudge: () => this.setState({ dns: true }) }
+    ];
+    return {
+      cur, pct: (cur * 25) + '%', navSteps, health, auds, chans, langs, message: msgs[s.lang],
+      notSent: !s.sent, sent: s.sent,
+      sendLabel: 'Schedule for ' + n + ' households',
+      send: () => this.setState({ sent: true }),
+      sentText: 'Scheduled for tomorrow at 9:00 AM Central, to ' + n + ' households by ' + who + '. Replies will show up here.',
+      parallel: s.parallel,
+      parLabel: s.parallel ? 'On: check Neon every night' : 'Off',
+      swBg: s.parallel ? '#17724A' : '#6B778C', swLeft: s.parallel ? '18px' : '2px',
+      toggleParallel: () => this.setState({ parallel: !s.parallel }),
+      parText: s.parallel ? 'Every night at 2:00 AM, Weaver checks Neon for new gifts and sign-ups and updates records that changed. Nothing is deleted and nothing is written back to Neon. On the day you switch, it pulls once more and stops.' : 'Weaver will not check Neon again. Anything entered there from now on will have to be added by hand, or you can pull again whenever you like.',
+      checklist, waits, helpers
+    };
+  }
+}
+</script>
+</body>
+</html>

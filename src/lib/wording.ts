@@ -49,6 +49,27 @@ export function word(kind: KindLike, key: WordKey): string {
   return kindTerm(kind, key, kindHas(kind, "tradition") ? tradition : neutral);
 }
 
+type CountsKind = Pick<KindProfile, "key" | "terms" | "modules" | "usesTradition" | "faithBased">;
+
+/**
+ * Giving's counts tile and tab (owner, 2026-10-12): the kind's own term first; then the name the kind gives the Offering counts
+ * module (category_modules.label for giving_counts, 0741: Bhandar, Collection, Offering or Cash counts); then, for a database
+ * or a kind that has none, the same rule written out: the tradition pack's "Bhandar counts", a church's "Collection counts",
+ * any other faith's "Offering counts", and "Cash counts" for an organization that is not a faith.
+ */
+export function countsWord(kind: CountsKind): string {
+  const named = kind.modules.giving_counts?.label;
+  if (named) return kindTerm(kind, "offering_counts", named);
+  const fallback = kindHas(kind, "tradition")
+    ? "Bhandar counts"
+    : kind.key === "church"
+      ? "Collection counts"
+      : kind.faithBased
+        ? "Offering counts"
+        : "Cash counts";
+  return kindTerm(kind, "offering_counts", fallback);
+}
+
 /** Every word for a kind, for a test or a screen that needs several. */
 export function wordsFor(kind: KindLike): Record<WordKey, string> {
   return Object.fromEntries((Object.keys(WORDS) as WordKey[]).map((k) => [k, word(kind, k)])) as Record<WordKey, string>;

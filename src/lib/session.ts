@@ -17,11 +17,12 @@ import {
   type ScopedGrant,
 } from "@/lib/permissions";
 import { resolveCenterChoice, type CenterChoice } from "@/lib/center-resolve";
-import { kindFallbackProblem, kindFromProfileResult, type KindProfile } from "@/lib/kind";
+import { isDemoClaims } from "@/lib/demo-signin/rules";
+import { kindFallbackProblem, kindFromProfileResult, shouldReportKindFallback, type KindProfile } from "@/lib/kind";
 import { loadMyModules, modulesOffFrom } from "@/lib/modules-db";
 import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
-import { PATHNAME_HEADER, newRequestId } from "@/lib/supabase/trace";
+import { PATHNAME_HEADER, newRequestId, type PortalClientApp } from "@/lib/supabase/trace";
 
 export type CenterInfo = {
   id: string;
@@ -29,6 +30,9 @@ export type CenterInfo = {
   name: string;
   short_name: string | null;
   time_zone: string;
+  /** The community's country (ISO 3166 alpha-2, centers.country). Optional: older callers and tests may not carry it. It also decides the age of majority the assistant uses. */
+  country?: string | null;
+  state_region?: string | null;
   currency: string;
   branding: Json;
   feature_flags: Json;
@@ -53,6 +57,8 @@ export type CrmSession = PermissionContext & {
   db: AppSupabase;
   userId: string;
   email: string | null;
+  /** True for a demo person's sign-in ("Try the demo"): an address on the demo domain, or the app_metadata.demo flag the database sets. */
+  demo?: boolean;
   center: CenterInfo;
   person: { id: string; name: string; memberNumber: string | null } | null;
   /** Active grants, for display (includes scoped grants). */
@@ -66,6 +72,8 @@ export type CrmSession = PermissionContext & {
   isOwner: boolean;
   /** x-request-id of this server request / action: every change it makes shares it in the audit log. */
   requestId: string;
+  /** Set only on the session a command run by Niva works with (src/lib/commands/context.ts): its audit rows say "assistant", not "portal". */
+  clientApp?: PortalClientApp;
   /** Module keys switched off for the center (app.my_modules); empty when all are on or unknown. */
   modulesOff: string[];
   /** "missing" before the s-core migrations land, "error" when my_modules failed: both mean "treat everything as on". */
@@ -73,7 +81,7 @@ export type CrmSession = PermissionContext & {
   /**
    * The organization's kind (an experience: Jain Temple, Church, Chamber of commerce, Neutral …) from
    * app.category_profile: its name, its wording terms and which modules it offers. Never null: when the database
-   * cannot answer (kindStatus "missing" / "error") it is the legacy Jain Center the portal always showed.
+   * cannot answer (kindStatus "missing" / "error") it is the neutral kind, with no tradition words (src/lib/kind.ts NEUTRAL_KIND).
    */
   kind: KindProfile;
   kindStatus: "ok" | "missing" | "error";
@@ -116,7 +124,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   const slug = choice.slug;
   const centerRes = await db
     .from("centers")
-    .select("id, slug, name, short_name, time_zone, currency, branding, feature_flags, rules, status, environment")
+    .select("id, slug, name, short_name, time_zone, country, state_region, currency, branding, feature_flags, rules, status, environment")
     .eq("slug", slug)
     .maybeSingle();
   if (centerRes.error) {
@@ -164,11 +172,11 @@ export const loadSession = cache(async (): Promise<SessionState> => {
     db.rpc("category_profile", { p_center: center.id }),
   ]);
   // The kind is a convenience for wording and for explaining a module the kind does not offer: the database
-  // enforces the modules either way. If it cannot be read the portal shows what it showed before kinds existed.
+  // enforces the modules either way. If it cannot be read the portal shows the neutral kind (no faith's words), never a guessed one.
   const loadedKind = kindFromProfileResult(kindRes);
   // Every fallback is logged, never silent: the function missing, the call failing, and an answer the portal cannot read.
   const kindProblem = kindFallbackProblem(loadedKind, kindRes);
-  if (kindProblem) failure(kindProblem.context, kindProblem.error);
+  if (kindProblem && shouldReportKindFallback(`${slug}:${loadedKind.status}`)) failure(kindProblem.context, kindProblem.error);
   // The switcher is a convenience: without it the user still works in this organization.
   if (switchRes.error) console.error("[session] could not list the organizations for the switcher (showing none):", switchRes.error);
   const firstError = grantsRes.error ?? rolesRes.error ?? accountRes.error ?? linkRes.error ?? ownerRes.error;
@@ -208,6 +216,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
       db,
       userId,
       email,
+      demo: isDemoClaims(claims),
       center: { ...center, slug: String(center.slug) },
       isPlatformAdmin: accountRes.data?.is_platform_admin ?? false,
       isOwner,
@@ -246,8 +255,8 @@ export const loadSession = cache(async (): Promise<SessionState> => {
  * user and request id, plus x-audit-reason, so the audit rows of this change
  * carry the reason. Use it only for the write(s) the reason explains.
  */
-export async function dbWithReason(session: Pick<CrmSession, "requestId">, reason: string): Promise<AppSupabase> {
-  return createSupabaseServerClient({ requestId: session.requestId, reason });
+export async function dbWithReason(session: Pick<CrmSession, "requestId" | "clientApp">, reason: string): Promise<AppSupabase> {
+  return createSupabaseServerClient({ requestId: session.requestId, reason, clientApp: session.clientApp });
 }
 
 /** What to check when the organization named by the request does not exist. */

@@ -66,25 +66,14 @@ select pg_temp.assert_raises('select * from vault.decrypted_secrets', 'permissio
 rollback;
 
 -- ── Setting a secret ─────────────────────────────────────────────────────────
-begin;
-select pg_temp.claims('10000000-0000-4000-8000-000000000011', false);
-set local role authenticated;
-select pg_temp.assert_state($s$select app.set_integration_secret('c0170000-0000-4000-8000-000000000001', 'api_key', 'sk_test_ABCDEFGH1234', 'Initial key')$s$,
-  'CCSTP', 'without a fresh 2FA check the admin gets CCSTP');
-rollback;
-begin;
-select pg_temp.claims('10000000-0000-4000-8000-000000000011', true, 30);
-set local role authenticated;
-select pg_temp.assert_state($s$select app.set_integration_secret('c0170000-0000-4000-8000-000000000001', 'api_key', 'sk_test_ABCDEFGH1234', 'Initial key')$s$,
-  'CCSTP', 'a 2FA check from 30 minutes ago is not fresh');
-rollback;
+-- Setting or revoking a secret asks for no fresh 2FA check (0787); the session below carries no authenticator check (aal1).
 
 begin;
-select pg_temp.claims('10000000-0000-4000-8000-000000000011', true);
+select pg_temp.claims('10000000-0000-4000-8000-000000000011', false);
 set local request.headers = '{"x-client-app":"portal","x-client-screen":"/settings/integrations"}';
 set local role authenticated;
 select pg_temp.assert((app.set_integration_secret('c0170000-0000-4000-8000-000000000001', 'api_key', 'sk_test_ABCDEFGH1234', 'Initial key')
-                       ->>'fingerprint') = '1234', 'an admin with integrations.manage and a fresh 2FA check sets a secret; the fingerprint is the last 4');
+                       ->>'fingerprint') = '1234', 'an admin with integrations.manage sets a secret without a fresh 2FA check; the fingerprint is the last 4');
 select pg_temp.assert_raises($s$select app.set_integration_secret('c0170000-0000-4000-8000-000000000001', 'api_key', 'sk_test_ABCDEFGH1234', '  ')$s$,
   'say why', 'a reason is required');
 select pg_temp.assert_raises($s$select app.set_integration_secret('c0170000-0000-4000-8000-000000000001', 'api_key', 'short', 'x')$s$,
@@ -166,7 +155,7 @@ select pg_temp.claims('10000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 select pg_temp.assert(app.is_center_owner('00000000-0000-4000-8000-000000000001'), 'is_center_owner is true for the owner');
 select pg_temp.assert((app.set_integration_secret('c0170000-0000-4000-8000-000000000001', 'webhook_secret', 'whsec_test_OWNER4242', 'Owner adds the webhook secret')
-                       ->>'fingerprint') = '4242', 'the owner (without integrations.manage) sets a secret with step-up');
+                       ->>'fingerprint') = '4242', 'the owner (without integrations.manage) sets a secret');
 rollback;
 
 -- ── The one reader ───────────────────────────────────────────────────────────
@@ -204,14 +193,9 @@ select pg_temp.assert((select client_app = 'job' and actor_user_id is null from 
 select pg_temp.assert_raises('update app.secret_access_log set purpose = ''x''', 'cannot be changed', 'the access log is append-only');
 
 -- ── Revoking ─────────────────────────────────────────────────────────────────
+-- Revoking asks for no fresh 2FA check either (0787).
 begin;
 select pg_temp.claims('10000000-0000-4000-8000-000000000011', false);
-set local role authenticated;
-select pg_temp.assert_state($s$select app.revoke_integration_secret('c0170000-0000-4000-8000-000000000001', 'api_key', 'Disconnecting')$s$,
-  'CCSTP', 'revoking needs a fresh 2FA check');
-rollback;
-begin;
-select pg_temp.claims('10000000-0000-4000-8000-000000000011', true);
 set local role authenticated;
 select app.revoke_integration_secret('c0170000-0000-4000-8000-000000000001', 'api_key', 'Disconnecting Stripe');
 commit;

@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Templates, step by step</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; min-height: 2200px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A;">
+<div style="display: flex; justify-content: center; padding: 5px 0 4px; background: #FFFFFF;"><span style="background: #B3261E; color: #FFFFFF; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;">PROTOTYPE · SAMPLE DATA</span></div>
+<dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+<div style="display: flex; flex: 1; min-height: 0;">
+<dc-import name="Rail" active="settings" height="2130" hint-size="88px,2130px"></dc-import>
+
+<nav aria-label="Steps to bring your data in" style="width: 320px; flex: none; box-sizing: border-box; padding: 28px 22px; background: #FFFFFF; border-right: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 13px; color: #4F5D75;">Settings › Setup</span>
+<h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 26px; line-height: 1.2; color: #12203A;">Bring your data in</h1>
+<span style="font-size: 13px; color: #4F5D75;">Step {{cur}} of 4</span>
+<div style="height: 8px; border-radius: 4px; background: #EAF0F7; overflow: hidden;"><div style="height: 8px; background: linear-gradient(90deg, #34C4CB, #2F8ED8, #6CC68F); width: {{pct}};"></div></div>
+</div>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{navSteps}}" as="s" hint-placeholder-count="4">
+<li aria-current="{{s.now}}" style="display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: {{s.bg}}; border: 1px solid {{s.bd}};">
+<sc-if value="{{s.done}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #17724A; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+<sc-if value="{{s.now}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<sc-if value="{{s.todo}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; border: 2px solid #9FB0C6; box-sizing: border-box; color: #4F5D75; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 14px; font-weight: {{s.tw}}; color: {{s.tfg}};">{{s.title}}</span><span style="font-size: 12px; line-height: 1.4; color: #4F5D75;">{{s.sub}}</span></span>
+</li>
+</sc-for>
+</ol>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Back to all ways in</a>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+<div style="padding: 12px 14px; background: #F8FAFD; border: 1px solid #DDE6F0; border-radius: 14px; font-size: 12px; line-height: 1.55; color: #2C3A55;">Nothing is saved until you confirm. A load can be undone for 30 days.</div>
+<div style="padding: 12px 14px; background: #FFF1E6; border-radius: 14px; font-size: 12px; line-height: 1.55; color: #5C2A0B;"><b>Children.</b> Nothing about anyone under 18 is ever sent to an AI service.</div>
+</div>
+</nav>
+
+<main style="flex: 1; min-width: 0; padding: 26px 36px 22px; display: flex; flex-direction: column; gap: 18px;">
+
+<div style="align-self: flex-end; max-width: 520px; padding: 12px 16px; background: #1C56B0; color: #FFFFFF; border-radius: 18px 18px 4px 18px; font-size: 15px; line-height: 1.5;">Give me the templates, one step at a time.</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">I made one workbook with a tab for each thing you will load, in the order Weaver needs it. Pathshala is off in your plan, so its tabs are left out. Each tab has an example row, a dictionary and dropdowns, and I part-filled what I already know. Upload tabs as they are ready.</div>
+
+<section aria-label="Choose your download" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+<div style="display: flex; flex-wrap: wrap; gap: 28px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div id="fmt-label" style="font-size: 13px; font-weight: 700; color: #4F5D75;">Format</div>
+<div role="group" aria-labelledby="fmt-label" style="display: flex; flex-wrap: wrap; gap: 8px;">
+<button type="button" onClick="{{pickWorkbook}}" aria-pressed="{{isWorkbook}}" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 14px; font-weight: 600; background: {{wbBg}}; color: {{wbFg}};">One workbook (recommended)</button>
+<button type="button" onClick="{{pickCsv}}" aria-pressed="{{isCsv}}" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 14px; font-weight: 600; background: {{csvBg}}; color: {{csvFg}};">Separate CSV files</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div id="pre-label" style="font-size: 13px; font-weight: 700; color: #4F5D75;">Part-fill with what Weaver already knows</div>
+<button type="button" role="switch" aria-checked="{{prefill}}" aria-labelledby="pre-label" onClick="{{togglePrefill}}" style="display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px 0 8px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; font-size: 14px; font-weight: 600; color: #12203A;">
+<span aria-hidden="true" style="width: 40px; height: 24px; border-radius: 12px; position: relative; background: {{swBg}};"><span style="position: absolute; top: 2px; left: {{swLeft}}; width: 20px; height: 20px; border-radius: 10px; background: #FFFFFF;"></span></span>
+{{prefillLabel}}
+</button>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+<span style="font-size: 13px; font-weight: 700; color: #4F5D75;">Tabs included</span>
+<sc-for list="{{mods}}" as="m" hint-placeholder-count="6">
+<span style="padding: 4px 12px; border-radius: 14px; font-size: 13px; font-weight: 600; background: {{m.bg}}; color: {{m.fg}}; border: 1px solid {{m.bd}};">{{m.label}}</span>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+<button type="button" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 22px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 600;">
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"></path><path d="M7 11l5 5 5-5"></path><path d="M4 20h16"></path></svg>
+{{downloadLabel}}
+</button>
+<button type="button" style="min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 15px; font-weight: 600;">Open as a Google Sheet</button>
+</div>
+</section>
+</div>
+</div>
+
+<section aria-label="Load in this order" style="margin-left: 46px; display: flex; flex-direction: column; gap: 10px;">
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{items}}" as="r" hint-placeholder-count="13">
+<li>
+<sc-if value="{{r.isHead}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding-top: 10px;">
+<h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">{{r.title}}</h2>
+<span style="font-size: 14px; color: #4F5D75;">{{r.sub}}</span>
+</div>
+</sc-if>
+<sc-if value="{{r.isRow}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px 16px; border: 1px solid {{r.border}}; border-radius: 14px; background: #FFFFFF;">
+<span aria-hidden="true" style="flex: none; width: 36px; height: 36px; border-radius: 18px; background: #E8F1FC; color: #1C56B0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;">{{r.code}}</span>
+<div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+<span style="font-size: 16px; font-weight: 700;">{{r.name}}</span>
+<span style="padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; background: {{r.stBg}}; color: {{r.stFg}};">{{r.status}}</span>
+<sc-if value="{{r.warn}}" hint-placeholder-val="{{ false }}">
+<span style="padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; background: #FFF1E6; color: #A8400D;">Needs {{r.needs}} first</span>
+</sc-if>
+</div>
+<div style="font-size: 14px; line-height: 1.5; color: #2C3A55;">{{r.what}}</div>
+<div style="font-size: 13px; line-height: 1.5; color: #4F5D75;">{{r.note}}</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-if value="{{r.csv}}" hint-placeholder-val="{{ false }}">
+<button type="button" aria-label="Download CSV for {{r.name}}" style="min-height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">CSV</button>
+</sc-if>
+<button type="button" onClick="{{r.showGuide}}" aria-label="Column guide for {{r.name}}" style="min-height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Columns</button>
+<button type="button" onClick="{{r.upload}}" aria-label="{{r.upLabel}} {{r.name}}" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 14px; font-weight: 600;">{{r.upLabel}}</button>
+</div>
+</div>
+</sc-if>
+</li>
+</sc-for>
+</ul>
+</section>
+
+<section aria-label="Column guide" style="margin-left: 46px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;">
+<h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">Columns in "{{guideName}}"</h2>
+<span style="font-size: 14px; color: #4F5D75;">Also in the workbook as a Dictionary tab. Columns marked Choice have a dropdown.</span>
+</div>
+<div style="overflow-x: auto;">
+<table style="width: 100%; min-width: 620px; border-collapse: collapse; font-size: 14px;">
+<thead><tr style="text-align: left; color: #4F5D75; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;"><th style="padding: 8px 10px; border-bottom: 1px solid #DDE6F0;">Column</th><th style="padding: 8px 10px; border-bottom: 1px solid #DDE6F0;">Needed?</th><th style="padding: 8px 10px; border-bottom: 1px solid #DDE6F0;">Example</th><th style="padding: 8px 10px; border-bottom: 1px solid #DDE6F0;">What Weaver does with it</th></tr></thead>
+<tbody>
+<sc-for list="{{guideRows}}" as="c" hint-placeholder-count="7">
+<tr><td style="padding: 10px; border-bottom: 1px solid #EAF0F7; font-weight: 700;">{{c.col}}</td><td style="padding: 10px; border-bottom: 1px solid #EAF0F7;">{{c.need}}</td><td style="padding: 10px; border-bottom: 1px solid #EAF0F7; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;">{{c.ex}}</td><td style="padding: 10px; border-bottom: 1px solid #EAF0F7; color: #2C3A55;">{{c.rule}}</td></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</section>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">When a tab has a mistake I say so in plain words, with the row, and I only ask once. Here is what that looks like.</div>
+<div style="display: flex; gap: 14px;">
+<section style="flex: 3; min-width: 0; padding: 18px; border-radius: 16px; background: #FFFFFF; border: 2px solid #1C56B0; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #164690;">A check, in plain words</div>
+<div style="font-size: 15px; line-height: 1.6;"><strong>People, row 31, Date of birth: "03/04/21".</strong> This could be March 4 or April 3, and the year could be 2021 or 1921. Which does your community use?</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<button type="button" onClick="{{pickMonth}}" aria-pressed="{{isMonth}}" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 14px; font-weight: 600; background: {{moBg}}; color: {{moFg}};">Month first</button>
+<button type="button" onClick="{{pickDay}}" aria-pressed="{{isDay}}" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 14px; font-weight: 600; background: {{dyBg}}; color: {{dyFg}};">Day first</button>
+</div>
+<sc-if value="{{dateChosen}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="padding: 10px 14px; border-radius: 12px; background: #E3F5EA; color: #0F4F33; font-size: 14px; line-height: 1.55;">{{dateAnswer}}</div>
+</sc-if>
+</section>
+<section style="flex: 2; min-width: 0; padding: 18px; border-radius: 16px; background: #FFFFFF; border: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #4F5D75;">Share a tab</div>
+<div style="font-size: 14px; line-height: 1.6; color: #2C3A55;">Give your treasurer a link that opens only Payments and Pledges. They fill it in and upload it; you approve the result.</div>
+<div><button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Create a link for one tab</button></div>
+</section>
+</div>
+<a href="Files.dc.html" style="font-size: 14px; font-weight: 700; color: #1C56B0;">Your data is not in this shape? Drop it as it is, and I will do the reshaping.</a>
+</div>
+</div>
+
+<div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 18px; background: #FFFFFF; border: 1px solid #CBD7E4; border-radius: 28px;">
+<input type="text" aria-label="Ask Niva about the templates" placeholder="Ask Niva, for example: which tabs can my treasurer fill in?" style="flex: 1; min-height: 44px; border: 0; outline: 0; background: transparent; font-size: 15px; color: #12203A;">
+<button type="button" aria-label="Send" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: #1C56B0; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+</div>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { fmt: 'workbook', prefill: true, up: {}, guide: 'b2', date: '' };
+  }
+  renderVals() {
+    const s = this.state;
+    const cur = 2;
+    const sdefs = [
+      ['Choose how', 'Drop it, connect it or use a template'],
+      ['Bring it in', 'Niva reads it and asks only what it must'],
+      ['Review', 'See exactly what will happen'],
+      ['Ready', 'Make it good, then switch over']
+    ];
+    const navSteps = sdefs.map((d, i) => {
+      const n = i + 1;
+      const st = n < cur ? 'done' : n === cur ? 'now' : 'todo';
+      return {
+        n, title: d[0], sub: d[1], done: st === 'done', now: st === 'now', todo: st === 'todo',
+        bg: st === 'now' ? '#E8F1FC' : 'transparent', bd: st === 'now' ? '#BBD3F2' : 'transparent',
+        tfg: st === 'todo' ? '#4F5D75' : st === 'now' ? '#164690' : '#12203A', tw: st === 'now' ? '800' : '700'
+      };
+    });
+    const defs = [
+      { head: true, title: 'A. Your lists', sub: 'About 10 minutes. These are the words the rest of the workbook uses.' },
+      { key: 'a1', code: 'A1', name: 'Membership types', what: 'Community, yearly, life, and any types of your own.', pre: '3 types added from your sign-up answers', n: 3 },
+      { key: 'a2', code: 'A2', name: 'Funds and campaigns', what: 'Where gifts go. These become the funds donors see.', pre: '14 funds drafted from your QuickBooks chart of accounts', n: 14 },
+      { key: 'a3', code: 'A3', name: 'Zones and groups', what: 'Optional. Neighbourhood zones for volunteers and notices.', pre: '4 zones found on your website', n: 4 },
+      { head: true, title: 'B. Your people', sub: 'Families first, then the people in them, then what they belong to.' },
+      { key: 'b1', code: 'B1', name: 'Households', what: 'One row per family: your own family ID, address, and any old IDs.', pre: 'Nothing known yet', n: 588 },
+      { key: 'b2', code: 'B2', name: 'People', what: 'One row per person, linked to a family by the family ID.', pre: 'Nothing known yet', n: 1402, req: ['b1'], reqName: 'Households' },
+      { key: 'b3', code: 'B3', name: 'Memberships', what: 'Who holds which membership, and from when.', pre: 'Nothing known yet', n: 611, req: ['b1', 'b2'], reqName: 'Households and People' },
+      { key: 'b4', code: 'B4', name: 'Satvik Store items', what: 'Optional. Items, prices and stock, if you want the store from day one.', pre: '9 categories read from your website menu', n: 38 },
+      { head: true, title: 'C. Your giving history', sub: 'Marked as history, so nothing here is ever sent to QuickBooks again.' },
+      { key: 'c1', code: 'C1', name: 'Pledges', what: 'What people promised to give, and for what.', pre: 'Nothing known yet', n: 1190, req: ['b1'], reqName: 'Households' },
+      { key: 'c2', code: 'C2', name: 'Payments', what: 'What was paid, when and how, with check and receipt numbers.', pre: 'Nothing known yet', n: 6214, req: ['b1'], reqName: 'Households' },
+      { key: 'c3', code: 'C3', name: 'Allocations', what: 'Optional. Which payment paid which pledge. Leave it empty and Weaver proposes it for you to approve.', pre: 'Nothing known yet', n: 0, req: ['c1', 'c2'], reqName: 'Pledges and Payments' }
+    ];
+    const items = defs.map((d) => {
+      if (d.head) return { isHead: true, isRow: false, title: d.title, sub: d.sub };
+      const up = !!s.up[d.key];
+      const miss = (d.req || []).some((k) => !s.up[k]);
+      const filled = s.prefill && d.pre !== 'Nothing known yet';
+      return {
+        isHead: false, isRow: true, code: d.code, name: d.name, what: d.what, csv: s.fmt === 'csv',
+        note: up ? (miss ? 'I will hold these rows until the tab they refer to is loaded.' : 'No problems found. Nothing is saved yet.') : (filled ? d.pre : 'Download, fill in, upload.'),
+        status: up ? 'Checked · ' + d.n.toLocaleString('en-US') + ' rows' : filled ? 'Part-filled' : 'Empty template',
+        stBg: up ? '#E3F5EA' : filled ? '#E8F1FC' : '#EAF0F7',
+        stFg: up ? '#0F4F33' : filled ? '#164690' : '#2C3A55',
+        border: s.guide === d.key ? '#1C56B0' : '#DDE6F0',
+        warn: up && miss, needs: d.reqName || '',
+        upLabel: up ? 'Replace' : 'Upload',
+        upload: () => { const u = Object.assign({}, s.up); u[d.key] = !up; this.setState({ up: u }); },
+        showGuide: () => this.setState({ guide: d.key })
+      };
+    });
+    const guides = {
+      b1: { name: 'Households', rows: [
+        { col: 'Family ID', need: 'Required', ex: 'F-1042', rule: 'Your own ID. Leading zeros are kept. This is how People and Payments find the family.' },
+        { col: 'Household name', need: 'Optional', ex: 'Mehta family', rule: 'For display only. Weaver never matches on a name.' },
+        { col: 'Address line 1', need: 'Optional', ex: '12 Oak Street', rule: 'Standardised, and used as one signal when looking for duplicates.' },
+        { col: 'City, State, ZIP', need: 'Optional', ex: 'Austin, TX, 78701', rule: 'ZIP+4 and abbreviations are tidied for you.' },
+        { col: 'Zone', need: 'Choice', ex: 'North', rule: 'Dropdown filled from your Zones tab.' },
+        { col: 'Old system IDs', need: 'Optional', ex: 'Neon 4374; QuickBooks 88', rule: 'Kept as identifiers so a later pull finds the same family.' }
+      ] },
+      b2: { name: 'People', rows: [
+        { col: 'Family ID', need: 'Required', ex: 'F-1042', rule: 'Must exist in Households. If not, I tell you which rows and why.' },
+        { col: 'First name, Last name', need: 'Required', ex: 'Anita, Mehta', rule: 'Titles and "Mr. & Mrs." are split out for you.' },
+        { col: 'Role in family', need: 'Choice', ex: 'Spouse', rule: 'Self, spouse, child, parent or sibling.' },
+        { col: 'Date of birth', need: 'Optional', ex: '03/14/1985', rule: 'Decides who is a minor. Minors without one are listed for a follow-up. Weaver\'s own code reads it; no AI service does.' },
+        { col: 'Mobile', need: 'Optional', ex: '(512) 555-0142', rule: 'Any format. Stored in one standard form and used to find duplicates.' },
+        { col: 'Email', need: 'Optional', ex: 'anita@example.org', rule: 'Lower-cased. Gmail dots and plus tags are ignored when matching.' },
+        { col: 'Email permission', need: 'Choice', ex: 'Yes, 2024-03-02, website form', rule: 'Needs a date and a source. No answer means no permission.' }
+      ] },
+      c2: { name: 'Payments', rows: [
+        { col: 'Payment ID', need: 'Optional', ex: 'P-77310', rule: 'Your own ID. Loading the file again updates the payment instead of adding a second one.' },
+        { col: 'Family ID', need: 'Required', ex: 'F-1042', rule: 'Links the payment to a household.' },
+        { col: 'Date', need: 'Required', ex: '11/02/2024', rule: 'Read the way you chose in the check below.' },
+        { col: 'Amount', need: 'Required', ex: '1,250.00', rule: 'In dollars. Weaver stores whole cents, and totals must match your file to the cent.' },
+        { col: 'Method', need: 'Choice', ex: 'Check', rule: 'Check, cash, Zelle, card, bank transfer or stock.' },
+        { col: 'Check or reference number', need: 'Optional', ex: '004512', rule: 'Kept as text, so leading zeros survive.' },
+        { col: 'Fund', need: 'Choice', ex: 'Temple construction', rule: 'Dropdown filled from your Funds tab.' }
+      ] }
+    };
+    const g = guides[s.guide] || { name: 'this tab', rows: [{ col: 'Every column', need: 'See workbook', ex: '', rule: 'The workbook has a Dictionary tab for every tab, with an example row.' }] };
+    const dateAnswer = s.date === 'month' ? 'Got it: month first. I will read all 1,402 dates that way, and I checked that none of them is impossible.' : s.date === 'day' ? 'Got it: day first. I will read all 1,402 dates that way. 38 of them would be impossible, so I will list those for you to fix.' : '';
+    return {
+      cur, pct: (cur * 25) + '%', navSteps,
+      isWorkbook: s.fmt === 'workbook', isCsv: s.fmt === 'csv',
+      wbBg: s.fmt === 'workbook' ? '#1C56B0' : '#FFFFFF', wbFg: s.fmt === 'workbook' ? '#FFFFFF' : '#1C56B0',
+      csvBg: s.fmt === 'csv' ? '#1C56B0' : '#FFFFFF', csvFg: s.fmt === 'csv' ? '#FFFFFF' : '#1C56B0',
+      pickWorkbook: () => this.setState({ fmt: 'workbook' }), pickCsv: () => this.setState({ fmt: 'csv' }),
+      downloadLabel: s.fmt === 'workbook' ? 'Download the workbook (Excel)' : 'Download all CSV files (zip)',
+      prefill: s.prefill, prefillLabel: s.prefill ? 'On: I fill in what I know' : 'Off: empty templates',
+      swBg: s.prefill ? '#17724A' : '#6B778C', swLeft: s.prefill ? '18px' : '2px',
+      togglePrefill: () => this.setState({ prefill: !s.prefill }),
+      mods: [
+        { label: 'People and households', bg: '#E8F1FC', fg: '#164690', bd: '#BBD3F2' },
+        { label: 'Giving', bg: '#E8F1FC', fg: '#164690', bd: '#BBD3F2' },
+        { label: 'Memberships', bg: '#E8F1FC', fg: '#164690', bd: '#BBD3F2' },
+        { label: 'Satvik Store', bg: '#E8F1FC', fg: '#164690', bd: '#BBD3F2' },
+        { label: 'Events', bg: '#E8F1FC', fg: '#164690', bd: '#BBD3F2' },
+        { label: 'Pathshala: off, not included', bg: '#FFFFFF', fg: '#4F5D75', bd: '#CBD7E4' }
+      ],
+      items, guideName: g.name, guideRows: g.rows,
+      isMonth: s.date === 'month', isDay: s.date === 'day',
+      moBg: s.date === 'month' ? '#1C56B0' : '#FFFFFF', moFg: s.date === 'month' ? '#FFFFFF' : '#1C56B0',
+      dyBg: s.date === 'day' ? '#1C56B0' : '#FFFFFF', dyFg: s.date === 'day' ? '#FFFFFF' : '#1C56B0',
+      pickMonth: () => this.setState({ date: 'month' }), pickDay: () => this.setState({ date: 'day' }),
+      dateChosen: s.date !== '', dateAnswer
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { DEFAULT_FLYER_ART_MODEL, FLYER_LAYER_ASPECT, FLYER_LAYER_PROMPTS, FLYER_OCCASIONS, NO_GEMINI_KEY } from "../../src/lib/events/flyer-art";
+import { artFactsFor, buildLayerPrompt, encodeArtFacts } from "../../src/lib/events/flyer-art-prompt";
 import { NotConfiguredError, PermanentError, isRetryable } from "../src/errors";
 import { FLYER_ART_GUARDRAIL, FLYER_LAYER_GUARDRAIL, findBlockedArtTerm, withArtGuardrail, withLayerGuardrail } from "../src/flyer-guard";
 import { configured, geminiRequests, imagesIn, info, isNoQuota, pictureFrom, readPayload, run } from "../src/handlers/events.generate_flyer";
@@ -158,6 +159,36 @@ describe("events.generate_flyer: the payload", () => {
         }
       }
     }
+  });
+
+  it("builds a layer's description from the portal's checked facts (B96): the kind, season and brand reach the picture, nothing else", () => {
+    const facts = artFactsFor({
+      occasion: "christmas_eve",
+      layer: "scene",
+      kind: { key: "church", faithBased: true },
+      brand: { primary: "#14213D", accent: "#FCA311", background: "#FFFFFF" },
+      startsAt: "2026-12-20T18:00:00Z",
+      country: "US",
+      style: "classic",
+    });
+    const p = readPayload({ prompt: encodeArtFacts(facts), layer: "scene", occasion: "christmas_eve", seed: 3 });
+    expect(p.prompt).toBe(withLayerGuardrail(buildLayerPrompt({ ...facts, layer: "scene" }), 2000));
+    expect(p.prompt).toMatch(/Christian church community/);
+    expect(p.prompt).toMatch(/deep navy and marigold gold/);
+    // Facts for another occasion or layer than the request's are not used: the base description is.
+    expect(readPayload({ prompt: encodeArtFacts(facts), layer: "frame", occasion: "christmas_eve", seed: 3 }).prompt).toBe(withLayerGuardrail(FLYER_LAYER_PROMPTS.christmas_eve.frame, 2000));
+    // Anything malformed in the facts is dropped, never passed on.
+    const tampered = JSON.stringify({ flyer_art_facts: 1, occasion: "garba", layer: "frame", kind: "A swami giving a blessing", style: "Lord Rama", colours: { primary: "gold; a crowd", secondary: "#000000", paper: "#FFFFFF" } });
+    const t = readPayload({ prompt: tampered, layer: "frame", occasion: "garba", seed: 1 }).prompt;
+    expect(t).not.toMatch(/swami|rama|crowd/i);
+    expect(findBlockedArtTerm(t)).toBeNull();
+  });
+
+  it("holds the Other occasion description to the background rules (English, no blocked word)", () => {
+    const facts = (note: string) => encodeArtFacts(artFactsFor({ occasion: "other", layer: "frame", kind: { key: "nonprofit_secular", faithBased: false }, note }));
+    expect(readPayload({ prompt: facts("A lantern walk by the river"), layer: "frame", occasion: "other", seed: 2 }).prompt).toMatch(/as the organizer describes it: A lantern walk by the river\./);
+    expect(() => readPayload({ prompt: facts("A walk with the children"), layer: "frame", occasion: "other", seed: 2 })).toThrow(/mentioned "children"/);
+    expect(() => readPayload({ prompt: facts("ફાનસ યાત્રા"), layer: "frame", occasion: "other", seed: 2 })).toThrow(/described in English/);
   });
 
   it("never cuts a guardrail off a long background description", () => {

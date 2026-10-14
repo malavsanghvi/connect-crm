@@ -25,6 +25,7 @@ import { contrastRatio, parseHexColor, textOn } from "@/lib/setup";
 import { FLYER_SIZES, defaultPoster, fitFontSize, flyerTextRoom, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "./flyer";
 import type { FlyerBrand } from "./flyer-brand";
 import { getFlyerFonts } from "./flyer-fonts";
+import { layoutElement, layoutNotes } from "./flyer-layout-render";
 import { posterElement, posterNotes, posterText, type PosterAssets } from "./flyer-poster";
 
 export type FlyerImage = { dataUri: string; w: number; h: number };
@@ -45,7 +46,8 @@ export type FlyerRenderInput = {
 };
 
 export type FlyerDims = { w: number; h: number };
-type Fonts = { display: string; body: string };
+/** `script` is the brush-script family a layout uses for accents; without one the display family stands in. */
+type Fonts = { display: string; body: string; script?: string };
 
 /** Too many renders at once: the route answers 503 and the panel offers to try again. */
 export class FlyerBusyError extends Error {
@@ -186,7 +188,9 @@ function Ornament({ u, color, compact = false }: { u: number; color: string; com
 export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fonts, qrDataUri: string | null): ReactElement {
   const { design, brand } = input;
   const { w, h } = dims;
-  const u = w / 1080;
+  // The Square size (1080 × 1080) has a fifth less height than Post: the older templates draw everything at 80% there, so a long
+  // headline and the other lines still fit without anything being cut off.
+  const u = (w / 1080) * (h / w < 1.15 ? 0.8 : 1);
   const px = (n: number) => Math.round(n * u * 10) / 10;
   const primary = brand.primary;
   const accent = brand.accent;
@@ -199,6 +203,15 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
   if (design.template === "poster") {
     // A design always carries its poster content when the Poster is chosen (parseFlyerDesign); this fallback only guards the type.
     const poster = design.poster ?? defaultPoster({ name: design.headline, description: design.tagline, startsAt: null, endsAt: null, tz: "UTC" });
+    // Flyers v3: a poster with a layout is drawn from its blocks; one without is the original stacked poster, exactly as before.
+    if (poster.layout) {
+      return layoutElement(
+        { design, poster, brand, centerName: input.centerName, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } },
+        dims,
+        { display: fonts.display, body: fonts.body, script: fonts.script ?? fonts.display },
+        qrDataUri,
+      );
+    }
     return posterElement(
       { design, poster, brand, centerName: input.centerName, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } },
       dims,
@@ -272,23 +285,23 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
     const box = backgroundBox("minimal", dims);
     const head = readable(primary, paper);
     const pad = px(96);
-    // A photo or AI art is part of the layout (the words start below it, so they never run over a busy picture);
-    // a pattern is drawn faintly, so it stays a corner behind the words.
+    // A photo or AI art is part of the layout (the words start below it, so they never run over a busy picture). A pattern
+    // is drawn faintly in the same corner and keeps the same room: the words used to start beside it and a long headline ran
+    // under it (fixed 2026-10-11). The corner gives way to the words down to pictureMinHeight; a pattern then shrinks whole,
+    // kept in the top-right corner, and a photo is cropped (never squashed).
     const picture = bg !== null && design.background.source !== "pattern";
+    const corner = bg !== null;
     const size = lineSizes(design, { date: 40, venue: 32, tagline: 30 });
     const spacer = <div style={{ display: "flex", flexGrow: 1, flexShrink: 1 }} />;
     return (
       <div style={{ ...root, position: "relative", flexDirection: "column", backgroundColor: paper, color: onPaper }}>
-        {bg && !picture ? (
-          <div style={{ position: "absolute", top: 0, right: 0, display: "flex", width: box.w, height: box.h, overflow: "hidden" }}>{bgImg(box.w, box.h)}</div>
-        ) : null}
         <div
           style={{
             display: "flex",
             flexDirection: "row",
             justifyContent: "space-between",
             flexGrow: 0,
-            ...(picture ? { flexBasis: box.h, flexShrink: 1, minHeight: pictureMinHeight("minimal", dims) } : { flexShrink: 0 }),
+            ...(corner ? { flexBasis: box.h, flexShrink: 1, minHeight: pictureMinHeight("minimal", dims) } : { flexShrink: 0 }),
           }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", padding: `${pad}px ${px(48)}px 0 ${pad}px`, minHeight: pad + px(84) }}>
@@ -296,13 +309,18 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
           </div>
           {picture ? (
             <div style={{ position: "relative", display: "flex", width: box.w, flexShrink: 0, overflow: "hidden", borderBottomLeftRadius: px(48) }}>{coverImg(box.w, box.h)}</div>
+          ) : corner && bg ? (
+            <div style={{ position: "relative", display: "flex", width: box.w, flexShrink: 0, overflow: "hidden" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="" src={bg.dataUri} width={box.w} height={box.h} style={{ position: "absolute", top: 0, right: 0, width: box.w, height: "100%", objectFit: "contain", objectPosition: "right top" }} />
+            </div>
           ) : null}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 0, padding: `${picture ? px(48) : 0}px ${pad}px ${pad}px` }}>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 0, padding: `${corner ? px(48) : 0}px ${pad}px ${pad}px` }}>
           {spacer}
           <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
             <div style={{ display: "flex", width: px(96), height: px(6), backgroundColor: accent, marginBottom: px(36) }} />
-            {headline(picture ? 112 : 124, 26, head)}
+            {headline(corner ? 112 : 124, 26, head)}
             {design.date_line ? <Line style={{ marginTop: px(36), fontSize: px(size.date), fontWeight: 700, color: head }}>{design.date_line}</Line> : null}
             {design.venue_line ? <Line style={{ marginTop: px(12), fontSize: px(size.venue) }}>{design.venue_line}</Line> : null}
             {design.tagline ? <Line style={{ marginTop: px(28), fontSize: px(size.tagline), lineHeight: 1.4, maxWidth: px(820) }}>{design.tagline}</Line> : null}
@@ -422,13 +440,12 @@ export async function renderFlyerPng(
   try {
     const dims = dimsOverride ?? flyerDims(input.design.size, scale);
     const notes: string[] = [];
-    const set = await getFlyerFonts(input.brand, flyerText(input), { poster: input.design.template === "poster" });
+    const set = await getFlyerFonts(input.brand, flyerText(input), { poster: input.design.template === "poster", script: input.design.template === "poster" && Boolean(input.design.poster?.layout) });
     notes.push(...set.notes);
     // The Poster says so when it is too full for its size: a section left out, or the words set small.
     if (input.design.template === "poster" && input.design.poster) {
-      notes.push(
-        ...posterNotes({ design: input.design, poster: input.design.poster, brand: input.brand, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } }, dims),
-      );
+      const planInput = { design: input.design, poster: input.design.poster, brand: input.brand, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } };
+      notes.push(...(input.design.poster.layout ? layoutNotes({ ...planInput, centerName: input.centerName }, dims) : posterNotes(planInput, dims)));
     }
     let qr: string | null = null;
     if (input.design.show_qr) {
@@ -438,7 +455,7 @@ export async function renderFlyerPng(
         notes.push("The flyer has no QR code: the member web app's address is not set, so there is no RSVP link to put in it.");
       }
     }
-    const el = flyerElement(input, dims, { display: set.display, body: set.body }, qr);
+    const el = flyerElement(input, dims, { display: set.display, body: set.body, script: set.script }, qr);
     const res = new ImageResponse(el, { width: dims.w, height: dims.h, fonts: set.fonts });
     const png = new Uint8Array(await res.arrayBuffer());
     if (!isPng(png)) throw new Error("the image renderer returned no picture");

@@ -40,8 +40,12 @@ const C = "11111111-1111-4111-8111-111111111111";
 const OTHER = "99999999-9999-4999-8999-999999999999";
 
 describe("occasions", () => {
-  it("are the eight packs of the brief", () => {
-    expect([...FLYER_OCCASIONS]).toEqual(["garba", "paryushan", "diwali", "mahavir", "convention", "pathshala", "bhakti", "general"]);
+  it("keep the eight Flyers v2 keys first and add the occasions of every kind (B96)", () => {
+    expect(FLYER_OCCASIONS.slice(0, 7)).toEqual(["garba", "paryushan", "diwali", "mahavir", "convention", "pathshala", "bhakti"]);
+    expect(FLYER_OCCASIONS).toContain("general");
+    for (const k of ["christmas_eve", "easter", "eid", "hanukkah", "thanksgiving", "new_year", "worship", "mixer", "ribbon_cutting", "gala", "workshop", "volunteer_day", "picnic", "annual_meeting", "other"]) {
+      expect(FLYER_OCCASIONS).toContain(k);
+    }
     expect(isFlyerOccasion("garba")).toBe(true);
     expect(isFlyerOccasion("birthday")).toBe(false);
     expect(isFlyerOccasion(null)).toBe(false);
@@ -58,7 +62,8 @@ describe("occasions", () => {
     expect(occasionFor("Youth Convention")).toBe("convention");
     expect(occasionFor("Sunday Pathshala term starts")).toBe("pathshala");
     expect(occasionFor("Bhakti Sandhya")).toBe("bhakti");
-    expect(occasionFor("Annual picnic")).toBe("general");
+    // A picnic was "general" before B96; it has its own occasion now.
+    expect(occasionFor("Annual picnic")).toBe("picnic");
     expect(occasionFor("")).toBe("general");
   });
 

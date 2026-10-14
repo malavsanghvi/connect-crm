@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/database.types";
+import { givingRuleProblems } from "@/lib/giving-glance/levels";
 import { HOME_SHORTCUT_KEYS } from "@/lib/home-shortcuts";
 
 // centers.rules is a per-center rule bag (0001 comment + seed). Helpers here
@@ -203,7 +204,10 @@ export function validateRulesJson(text: string): RulesValidation {
       if (typeof v !== "boolean") errors.push(`"notifications.triggers.${k}" must be true or false.`);
     }
   }
+  // rules.giving.show_by: whether "Giving at a glance" reads giving by household or by person.
+  errors.push(...givingRuleProblems(get(parsed, ["giving"])));
   errors.push(...storeRuleProblems(get(parsed, ["store"])));
+  errors.push(...assistantRuleProblems(get(parsed, ["assistant"])));
   const basis = get(parsed, ["accounting", "basis"]);
   if (basis !== undefined && basis !== "cash" && basis !== "accrual") {
     errors.push(`"accounting.basis" must be "cash" or "accrual".`);
@@ -233,7 +237,7 @@ export function validateFlags(value: unknown): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Satvik Store settings (Satvik Store → Menu & pickup → "Order and pickup
+// My Store settings (My Store → Menu & pickup → "Order and pickup
 // settings"). Keys live under rules.store; defaults apply when a key is unset.
 // ---------------------------------------------------------------------------
 export const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
@@ -296,6 +300,35 @@ function storeRuleProblems(store: Json | undefined): string[] {
   const visible = store.visible_to;
   if (visible !== undefined && visible !== null && visible !== "everyone" && visible !== "members") {
     errors.push(`"store.visible_to" must be "everyone" or "members".`);
+  }
+  return errors;
+}
+
+// Niva for admins (src/lib/assistant, docs/DEPLOY.md): rules.assistant.enabled switches it on for the community (default: off);
+// rules.assistant.tools["events.set_field"] switches one write action on for Niva (default: off; src/lib/commands/enabled.ts).
+/** Is Niva for admins switched on for this community? Off unless someone switched it on. */
+export function assistantEnabled(rules: Json | undefined): boolean {
+  if (!isPlainObject(rules)) return false;
+  const assistant = rules.assistant;
+  return isPlainObject(assistant) && assistant.enabled === true;
+}
+
+/**
+ * Problems with the assistant keys of a rules bag (Niva for admins, src/lib/assistant/settings.ts): the community switch and each
+ * tool switch must be true or false (a nested form, area then verb, is read too).
+ */
+export function assistantRuleProblems(assistant: Json | undefined): string[] {
+  if (assistant === undefined || assistant === null) return [];
+  if (!isPlainObject(assistant)) return [`"assistant" must be an object.`];
+  const errors: string[] = [];
+  if (assistant.enabled !== undefined && assistant.enabled !== null && typeof assistant.enabled !== "boolean") errors.push(`"assistant.enabled" must be true or false.`);
+  const tools = assistant.tools;
+  if (tools === undefined || tools === null) return errors;
+  if (!isPlainObject(tools)) return [...errors, `"assistant.tools" must be an object.`];
+  for (const [key, value] of Object.entries(tools)) {
+    if (typeof value === "boolean") continue;
+    if (isPlainObject(value) && Object.values(value).every((v) => typeof v === "boolean")) continue;
+    errors.push(`"assistant.tools.${key}" must be true or false.`);
   }
   return errors;
 }

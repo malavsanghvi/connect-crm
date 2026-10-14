@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { householdsById, peopleById, userNames } from "@/lib/data/lookups";
+import { mappingTaskTitle, parseMappingWaiting, waitingRequests as waitingMappingRequests } from "@/lib/books/mapping";
 import { addDays, daysBetween, dateInTz, formatDate, todayInTz } from "@/lib/dates";
 import { explainError, type DbErrorLike } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
@@ -18,6 +19,7 @@ import {
   plural,
   taskSource,
   visibleTaskSources,
+  type GivingTaskDetail,
   type HomeTask,
   type HomeTasks,
   type TaskFailure,
@@ -44,6 +46,11 @@ function count(res: { count: number | null; error: DbErrorLike | null }): number
 }
 
 type Loader = (session: CrmSession) => Promise<HomeTask[]>;
+
+/** The bank counts Today's Bank tile reads, so it says the same number as Home. */
+function bankDetail(kind: "bank_lines" | "zelle_unseen", n: number, deposits: number): GivingTaskDetail {
+  return { kind, stage: "open", id: "all", householdId: null, amountCents: null, reference: null, reason: null, askedBy: null, mine: false, since: null, provider: null, count: n, deposits };
+}
 
 /** Zelle reports past their window with no bank line (0 before migration 0582 is applied). */
 async function zelleUnmatchedCount(session: CrmSession): Promise<number> {
@@ -80,6 +87,46 @@ const loaders: Record<TaskSourceKey, Loader> = {
           `Confirm a change to ${r.plugin_key === "paypal" ? "PayPal" : "Zelle"}: ${r.fields.map((f) => f.label).join(" and ")}`,
           `Asked by ${r.requested_by_name} · ${r.request_reason} · nothing changes until a different person confirms it`,
           [{ label: "Review", href: "/settings/payments" }],
+          undefined,
+          {
+            kind: "payee",
+            stage: "open",
+            id: r.id,
+            householdId: null,
+            amountCents: null,
+            reference: r.plugin_key === "paypal" ? "PayPal" : "Zelle",
+            reason: r.request_reason,
+            askedBy: r.requested_by_name,
+            mine: false,
+            since: r.requested_at,
+            provider: r.plugin_key,
+            count: 1,
+          },
+        ),
+      );
+  },
+
+  // Changes to which QuickBooks account a fund or role posts to that someone else asked for (migration 0779), for the second
+  // person (giving.approve). Nothing changes until a different person confirms it.
+  async mapping(session) {
+    const res = await untypedRpc(session.db)("account_mapping_waiting", { p_center: session.center.id });
+    if (res.error) {
+      // Only a database without the function yet is skipped silently; anything else is this source's failure.
+      if (res.error.code === "PGRST202" || res.error.code === "42883") return [];
+      throw new SourceError(res.error);
+    }
+    const parsed = parseMappingWaiting(res.data);
+    if (!parsed.ok) throw new SourceError({ message: parsed.error });
+    if (!parsed.value.can_approve) return [];
+    return waitingMappingRequests(parsed.value.requests)
+      .filter((r) => !r.mine)
+      .map((r) =>
+        makeTask(
+          "mapping",
+          r.id,
+          mappingTaskTitle(r),
+          `Asked by ${r.requested_by_name} · ${r.request_reason} · nothing changes until a different person confirms it`,
+          [{ label: "Review", href: "/accounting/qbo/mapping#waiting" }],
         ),
       );
   },
@@ -89,7 +136,9 @@ const loaders: Record<TaskSourceKey, Loader> = {
     const rows = must(
       await db
         .from("payments")
-        .select("id, receipt_number, household_id, amount_cents, refund_requested_cents, refund_reason, refund_approved_by, refund_second_approver")
+        .select(
+          "id, receipt_number, household_id, amount_cents, refund_requested_cents, refund_reason, refund_approved_by, refund_second_approver, provider, updated_at",
+        )
         .eq("center_id", center.id)
         .not("refund_approved_by", "is", null)
         .eq("refunded_cents", 0)
@@ -99,7 +148,7 @@ const loaders: Record<TaskSourceKey, Loader> = {
     // Refunds made in the Stripe / PayPal dashboard wait for two approvals (owner decision 2026-09-25 #6).
     const flagged = must(await db.rpc("flagged_refunds", { p_center: center.id })) as unknown as {
       id: string; provider: string; amount_cents: number; household_id: string; receipt_number: string | null;
-      first_approver: string | null; first_approver_name: string | null;
+      first_approver: string | null; first_approver_name: string | null; refunded_on?: string | null;
     }[];
     if (rows.length === 0 && flagged.length === 0) return [];
     const flaggedHh = await householdsById(db, flagged.map((f) => f.household_id));
@@ -113,6 +162,21 @@ const loaders: Record<TaskSourceKey, Loader> = {
           ? `Approved first by ${f.first_approver === session.userId ? "you" : (f.first_approver_name ?? "a colleague")} · a second, different person approves`
           : `Refunded outside Weaver on ${f.receipt_number ?? "a payment"} · nothing changes until two people approve`,
         [{ label: "Review", href: "/giving/payments" }],
+        undefined,
+        {
+          kind: "flagged_refund",
+          stage: f.first_approver ? "second" : "first",
+          id: f.id,
+          householdId: f.household_id,
+          amountCents: f.amount_cents,
+          reference: f.receipt_number,
+          reason: null,
+          askedBy: f.first_approver ? (f.first_approver_name ?? null) : null,
+          mine: f.first_approver === session.userId,
+          since: f.refunded_on ?? null,
+          provider: f.provider,
+          count: 1,
+        },
       ),
     );
     if (rows.length === 0) return flaggedTasks;
@@ -128,10 +192,30 @@ const loaders: Record<TaskSourceKey, Loader> = {
       const who = mine ? "you" : (names.get(r.refund_approved_by ?? "")?.name ?? "a colleague");
       const ref = r.receipt_number ?? "payment";
       const href = `/households/${r.household_id}?tab=payments`;
+      const detail = (stage: "second" | "complete") => ({
+        kind: "refund" as const,
+        stage,
+        id: r.id,
+        householdId: r.household_id,
+        amountCents: r.refund_requested_cents ?? r.amount_cents,
+        reference: r.receipt_number,
+        reason: r.refund_reason,
+        askedBy: names.get(r.refund_approved_by ?? "")?.name ?? null,
+        mine,
+        since: r.updated_at,
+        provider: r.provider,
+        count: 1,
+      });
       if (r.refund_second_approver) {
-        return makeTask("refund", r.id, `Record refund ${ref} · ${amount} · ${household}`, `Both approvals are in · ${who} record${mine ? "" : "s"} the refund`, [
-          { label: "Open", href },
-        ]);
+        return makeTask(
+          "refund",
+          r.id,
+          `Record refund ${ref} · ${amount} · ${household}`,
+          `Both approvals are in · ${who} record${mine ? "" : "s"} the refund`,
+          [{ label: "Open", href }],
+          undefined,
+          detail("complete"),
+        );
       }
       const meta = `${r.refund_reason ? `${r.refund_reason} · ` : ""}requested by ${who}${mine ? " (you, so another approver is needed)" : ""}`;
       return makeTask(
@@ -149,6 +233,7 @@ const loaders: Record<TaskSourceKey, Loader> = {
               confirmBody: `${amount} to ${household}.${r.refund_reason ? ` ${r.refund_reason}.` : ""} You are the second approver; ${who} records the refund afterwards.`,
             }
           : undefined,
+        detail("second"),
       );
     })];
   },
@@ -158,7 +243,7 @@ const loaders: Record<TaskSourceKey, Loader> = {
     const rows = must(
       await db
         .from("pledges")
-        .select("id, pledge_number, household_id, amount_cents, paid_cents, written_off_by, written_off_second_approver, write_off_reason")
+        .select("id, pledge_number, household_id, amount_cents, paid_cents, written_off_by, written_off_second_approver, write_off_reason, updated_at")
         .eq("center_id", center.id)
         .not("written_off_by", "is", null)
         .in("status", ["open", "partially_paid"])
@@ -178,10 +263,30 @@ const loaders: Record<TaskSourceKey, Loader> = {
       const who = mine ? "you" : (names.get(r.written_off_by ?? "")?.name ?? "a colleague");
       const ref = r.pledge_number ?? "pledge";
       const href = `/households/${r.household_id}?tab=pledges`;
+      const detail = (stage: "second" | "complete") => ({
+        kind: "write_off" as const,
+        stage,
+        id: r.id,
+        householdId: r.household_id,
+        amountCents: r.amount_cents - r.paid_cents,
+        reference: r.pledge_number,
+        reason: r.write_off_reason,
+        askedBy: names.get(r.written_off_by ?? "")?.name ?? null,
+        mine,
+        since: r.updated_at,
+        provider: null,
+        count: 1,
+      });
       if (r.written_off_second_approver) {
-        return makeTask("writeoff", r.id, `Complete write-off ${ref} · ${amount} · ${household}`, `Both approvals are in · ${who} complete${mine ? "" : "s"} the write-off`, [
-          { label: "Open", href },
-        ]);
+        return makeTask(
+          "writeoff",
+          r.id,
+          `Complete write-off ${ref} · ${amount} · ${household}`,
+          `Both approvals are in · ${who} complete${mine ? "" : "s"} the write-off`,
+          [{ label: "Open", href }],
+          undefined,
+          detail("complete"),
+        );
       }
       return makeTask(
         "writeoff",
@@ -198,6 +303,7 @@ const loaders: Record<TaskSourceKey, Loader> = {
               confirmBody: `${amount} still open on ${household}.${r.write_off_reason ? ` ${r.write_off_reason}.` : ""} You are the second approver.`,
             }
           : undefined,
+        detail("second"),
       );
     });
   },
@@ -229,6 +335,20 @@ const loaders: Record<TaskSourceKey, Loader> = {
               confirmBody: `${amount} for ${household}. Only confirm once you have applied it as the family asked.`,
             }
           : undefined,
+        {
+          kind: "credit",
+          stage: "handle",
+          id: r.id,
+          householdId: r.household_id,
+          amountCents: r.released_cents,
+          reference: null,
+          reason: null,
+          askedBy: null,
+          mine: false,
+          since: r.created_at,
+          provider: null,
+          count: 1,
+        },
       );
     });
   },
@@ -300,9 +420,15 @@ const loaders: Record<TaskSourceKey, Loader> = {
     const tasks =
       n > 0
         ? [
-            makeTask("deposits", "all", `${plural(n, "bank line")} to match`, `Money in without a matched gift${k ? ` · ${plural(k, "check or cash deposit")}` : ""}`, [
-              { label: "Open", href: "/giving/bank" },
-            ]),
+            makeTask(
+              "deposits",
+              "all",
+              `${plural(n, "bank line")} to match`,
+              `Money in without a matched gift${k ? ` · ${plural(k, "check or cash deposit")}` : ""}`,
+              [{ label: "Open", href: "/giving/bank" }],
+              undefined,
+              bankDetail("bank_lines", n, k),
+            ),
           ]
         : [];
     // Zelle reports members made that the bank statement has not shown within the window (0582).
@@ -314,6 +440,8 @@ const loaders: Record<TaskSourceKey, Loader> = {
           `${plural(unmatched, "Zelle report")} not seen at the bank`,
           `Reported by members more than ${plural(zelleWindowDays(center.rules), "day")} ago`,
           [{ label: "Open", href: "/giving/payments/bank?view=zelle" }],
+          undefined,
+          bankDetail("zelle_unseen", unmatched, 0),
         ),
       );
     }
