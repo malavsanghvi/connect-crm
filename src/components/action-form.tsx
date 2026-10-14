@@ -8,6 +8,7 @@ import { useToast } from "@/components/toast";
 import { buttonClass, type ButtonSize, type ButtonVariant } from "@/components/ui";
 import { splitConfirmMessage } from "@/lib/confirm";
 import type { ActionResult } from "@/lib/errors";
+import { guardStalePage } from "@/lib/stale-page";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type FormAction = (prev: ActionResult<any> | null, formData: FormData) => Promise<ActionResult<any>>;
@@ -24,6 +25,11 @@ export function ActionMessage({ state, showSuccess = true }: { state: ActionResu
     return (
       <p role="alert" className="mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
         {state.error}
+        {state.stale ? (
+          <button type="button" onClick={() => window.location.reload()} className={`${buttonClass("secondary", "xs")} ml-2 align-middle`}>
+            Reload page
+          </button>
+        ) : null}
       </p>
     );
   }
@@ -90,7 +96,8 @@ export function ActionForm({
   /** Called once per successful submission, after the toast (e.g. to close the drawer the form is in). */
   onSuccess?: () => void;
 }) {
-  const [state, formAction, pending] = useActionState(action, null);
+  // A page left open across a deploy calls an action that no longer exists: say so in words instead of an error page.
+  const [state, formAction, pending] = useActionState(guardStalePage(action), null);
   const formRef = useRef<HTMLFormElement>(null);
   const toast = useToast();
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
