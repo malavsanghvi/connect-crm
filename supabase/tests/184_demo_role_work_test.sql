@@ -236,16 +236,16 @@ begin
       end if;
       reset role;
       if n < (r.x ->> 'min_n')::bigint then
-        v_fail := v_fail || format(E'\n  %s: %s: found %s, expected at least %s', r.x ->> 'role_key', r.x ->> 'what', n, r.x ->> 'min_n');
+        v_fail := v_fail || format(' | %s: %s: found %s, expected at least %s', r.x ->> 'role_key', r.x ->> 'what', n, r.x ->> 'min_n');
       elsif not coalesce(v_ok, false) then
-        v_fail := v_fail || format(E'\n  %s: %s: the door (%s) is not open to them', r.x ->> 'role_key', r.x ->> 'what', r.x ->> 'door');
+        v_fail := v_fail || format(' | %s: %s: the door (%s) is not open to them', r.x ->> 'role_key', r.x ->> 'what', r.x ->> 'door');
       else
         v_roles := v_roles || (r.x ->> 'role_key');
         raise notice 'PASS: % · % · % (%)', p_when, r.x ->> 'role_key', r.x ->> 'what', n;
       end if;
     exception when others then
       if sqlerrm like 'FAIL:%' then raise; end if;
-      v_fail := v_fail || format(E'\n  %s: %s: %s', r.x ->> 'role_key', r.x ->> 'what', sqlerrm);
+      v_fail := v_fail || format(' | %s: %s: %s', r.x ->> 'role_key', r.x ->> 'what', replace(sqlerrm, E'\n', ' '));
     end;
   end loop;
   reset role;
@@ -288,8 +288,20 @@ select pg_temp.as_none();
 
 -- ══ G. The other demo community (a club that is not faith-based, 21 roles) has the same ══════════════════
 -- The questions are the faith community's, minus what a club does not have (bolis, Pathshala). Its event is the spring clean-up day, five days away.
-select app.demo_id(:'nc', 'ev:cleanup') as ev_cu, app.demo_id(:'nc', 'zone:north') as zone_nn \gset
+-- A community that is not faith-based has the Store module off until Weaver's team grants it (0594: default_off; 0740: a grant). The club's shop is in
+-- the pack, but nobody can see it, and so its store lead, pickup volunteer and kitchen lead have nothing, until the module is granted to the club demo
+-- (Platform > Centers > the club demo > Modules). The grant is kept across resets (a clear leaves center_module_grants alone), so it is one step
+-- for the owner, once. This test takes it, as the owner will.
 select set_config('t.center', :'nc', false);
+select app.module_enabled(:'nc', 'store') as store_on_before \gset
+select pg_temp.as_role('store_lead');
+select pg_temp.assert((select count(*) = 0 from app.store_orders where center_id = :'nc') and :'store_on_before' = 'f',
+  'G · before the grant the club''s shop is switched off, so its store lead sees no order');
+select pg_temp.as_none();
+select pg_temp.claims(:admin, true);
+select app.set_module_grant(:'nc', 'store', true, 'The club demo has a shop to show') as grant_store \gset
+select pg_temp.assert(app.module_enabled(:'nc', 'store'), 'G · with the grant the club has its shop');
+select app.demo_id(:'nc', 'ev:cleanup') as ev_cu, app.demo_id(:'nc', 'zone:north') as zone_nn \gset
 truncate pg_temp.work;
 insert into pg_temp.work (role_key, what, door, q, min_n)
 select v.role_key, v.what, v.door, format(v.q, :'nc', :'ev_cu', :'ev_cu', :'zone_nn'), v.min_n

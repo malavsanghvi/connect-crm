@@ -28,7 +28,7 @@ from Home in the navigation. A queue row's wording is the portal's own.
 
 | Role | Person | Before (v2) | Now: what is waiting | Provided by | How they reach it |
 | --- | --- | --- | --- | --- | --- |
-| Center admin (owner) | Asha Varma | One row: the 6 volunteers of the Tapasvi event with no signed waiver | 13 rows: the same waiver row, the treasurer's write-off and bank lines, 2 membership applications, a message to approve, 5 member questions, 2 WhatsApp requests, a text to approve, items under their reorder level, a boli closing, a waitlisted learner, 2 data requests | everything below; she is the owner so every queue is hers | Home |
+| Center admin (owner) | Asha Varma | One row: the 6 volunteers of the Tapasvi event with no signed waiver | 13 rows: the waiver row (now 8 volunteers), the treasurer's write-off and bank lines, 2 membership applications, a message to approve, 5 member questions, 2 WhatsApp requests, a text to approve, items under their reorder level, a boli closing, a waitlisted learner, 2 data requests | everything below; she is the owner so every queue is hers | Home |
 | Executive committee | Rohit Varma | Nothing waiting | 2 membership applications, one of them a **life membership waiting for the executive committee** | `membership_applications` (Lalit's life application, Tarun's yearly one) | Home; People › Membership applications |
 | Executive viewer | Kavita Rathore | Home "At a glance": next event RSVPs | Same, read only (by design this role changes nothing): the Tapasvi RSVPs, the open bolis, Reports › Center health | events, RSVPs, bolis | Home "At a glance"; Reports; Events; Bolis |
 | Treasurer | Meera Doshiwal | Nothing waiting | A **write-off** a colleague asked for, to confirm as the second approver; **4 bank lines** to match (one is a check deposit); a month still to close (its checklist is blocked until the lines are matched) | pledge `w1` with `written_off_by`; `bank_accounts` + 4 `bank_transactions` | Home; Giving › Payments & deposits › Bank; Accounting › Month-end close |
@@ -39,7 +39,7 @@ from Home in the navigation. A queue row's wording is the portal's own.
 | Content editor | Nikhil Salecha | Home: "Nothing here for your role"; no drafts | 2 drafts to write and send for approval (an audio lesson to record, a pachchakhan to write) | `content_items` (draft) | Content › Library |
 | Privacy officer | Falguni Singhvi | Nothing waiting | 2 data requests (an export, a deletion in progress) | `data_requests` | Home; Settings › Privacy |
 | Volunteer coordinator | Dipak Singhvi | Home: "Nothing here"; interests to answer and free shifts existed | 3 people who asked to volunteer, a **background check** that was asked for and has not come back, and 3 shifts with free places | `volunteer_interests`, `background_checks`, `volunteer_shifts` | Events › Volunteers (also from any event's Volunteers tab) |
-| Event lead | Sanjay Lunawat | Nothing in the portal; the Tapasvi event 9 days away | The Tapasvi event is **5 days away** with 24 people to check in, an 7-item checklist of actions (one overdue, one yours, two nobody owns) and live numbers | `events`, RSVPs + attendees, `actions` | **No portal screen.** The event page (`/events/<id>`) opens by its link; in the New look, Today lists "Check RSVPs against capacity" while the event is within 7 days |
+| Event lead | Sanjay Lunawat | Nothing in the portal; the Tapasvi event 9 days away | The Tapasvi event is **5 days away** with 24 people to check in (12 confirmed, 12 who have RSVPd), a checklist of 5 actions (one overdue, one due tomorrow and his own, one in 3 days, one nobody owns) and live numbers | `events`, RSVPs + attendees, `actions` | **No portal screen.** The event page (`/events/<id>`) opens by its link; in the New look, Today lists "Check RSVPs against capacity" while the event is within 7 days |
 | Check-in volunteer | Riya Lunawat | Nothing in the portal | The same 24 people to check in; her own confirmed shift at the door | RSVPs + attendees, `volunteer_assignments` | **No portal screen.** The event-day app (connect-admin) and the member app's volunteer mode |
 | Kitchen lead | Vijay Bhandari | Nothing in the portal | The prep list (3 lines of 2 store orders waiting) and the Tapasvi headcount (12 confirmed people) | store orders, attendees | **No portal screen.** The kitchen display of the event-day app |
 | Store lead | Sunil Nahar | Home: "All clear" (the grant was scoped to 'store', which the portal ignores: see below) | **2 items at or under their reorder level** (Farsi puri, Chakri) and 2 orders to prepare and hand out | `store_items` with stock and a reorder level; orders `o3`, `o4` | Home; My Store |
@@ -70,6 +70,20 @@ them sees "Nothing here for your role" on Home and a navigation with only Home i
 | Zone lead | The member app and the zone inbox by its link | The same "My assignments" card, linking to `/comms/inbox` |
 
 Nothing in the list was built here: they are either a new portal screen or a change to what a permission opens, which the owner decides.
+
+## The club demo (Lakeside Neighbors Club, 21 roles) has the same
+
+Migration **0798** gives `demo_neutral_club_v1` version 2 the same kinds of waiting work, role by role: applications at three stages (Mateo Reyes's
+waits for Emeka Okonkwo, the reference), a family change request, a bank account with four lines (generic statement), a write-off, the clean-up
+day's checklist, inboxes with member and zone questions, WhatsApp requests, a message and a text to approve, two audio-lesson drafts, two data
+requests, a background check, a shift for Mateo to confirm, and the clean-up day moved to five days away. It has no bolis, no Pathshala and no
+religious coordinator, so its roles with no portal screen are nine (the same, minus the boli recorder).
+
+**One step for the owner: the club's shop is off.** A community that is not faith-based has the Store module off until Weaver's team grants it
+(0594 `default_off`, 0740 grants), so the club's shop, its orders and its low stock are in the pack but nobody can see them, and its store lead,
+pickup volunteer and kitchen lead have nothing until the grant is made. Grant **Store** to the club demo once (Platform › Centers › the club demo
+› Modules); a reset keeps it. The faith demo is a Jain Center, where Store is on. `supabase/tests/184_demo_role_work_test.sql` section G
+checks both halves: the store lead sees no order before the grant and finds the work after it.
 
 ## Things found on the way
 
