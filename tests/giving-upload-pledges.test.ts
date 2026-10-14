@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { Family } from "@/lib/giving-today/queue";
 import { hitsFrom, matchHousehold, nameDisagrees, type HouseholdHit } from "@/lib/giving-upload/households";
 import {
+  emailPlan,
+  emailPlanSentence,
   findAdult,
   lookupValues,
   pledgeColumns,
@@ -191,6 +193,27 @@ describe("the review", () => {
     expect(r.tickedCents).toBe(50_000 + 125_050 + 20_000);
     expect(recordButtonLabel(r, "USD", "en-US")).toBe("Record 3 pledges, $1,950.50");
     expect(reviewSummary(r)).toBe("3 ready");
+  });
+
+  it("says what the email tick will do: how many families, and which ticked rows are old pledge cards (they are emailed too, 0794)", () => {
+    const r = reviewPledges(
+      read([
+        ["0127", "500", "", "", "", "", "", ""],
+        ["0127", "600", "", "10/01/2026", "", "", "", ""],
+        ["NEON-55", "700", "", "01/05/2024", "", "", "", ""],
+        ["M-0417", "200", "", "10/05/2026", "", "", "", ""],
+      ]),
+      lookups(),
+    );
+    const plan = emailPlan(r, TODAY);
+    expect(plan).toEqual({ rows: 4, families: 3, old: 1 });
+    expect(emailPlanSentence(plan)).toBe("The ticked rows email 3 families, 1 of them is dated more than 30 days ago and gets the email too.");
+    expect(emailPlanSentence({ rows: 5, families: 4, old: 3 })).toBe("The ticked rows email 4 families, 3 of them are dated more than 30 days ago and get the email too.");
+    expect(emailPlanSentence({ rows: 1, families: 1, old: 0 })).toBe("The ticked rows email 1 family.");
+    expect(emailPlanSentence({ rows: 0, families: 0, old: 0 })).toBe("");
+    // An unticked row is not counted.
+    const unticked = reviewPledges(read([["0127", "500", "", "01/05/2024", "", "", "", ""]]), lookups(), { picks: {}, ticks: { 2: false } });
+    expect(emailPlan(unticked, TODAY)).toEqual({ rows: 0, families: 0, old: 0 });
   });
 
   it("counts the due date from the community's own rule", () => {
