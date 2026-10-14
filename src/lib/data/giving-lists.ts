@@ -88,6 +88,7 @@ function listContext(session: CrmSession, paypalEmailOnly: boolean): ListContext
       record: canAccess(session, "recordPayment"),
       allocate: canAccess(session, "allocatePayment"),
       bankConfirm: canAccess(session, "bankConfirm"),
+      print: canAccess(session, "pledgeCopy"),
     },
     currency: fmt.currency,
     locale: fmt.locale,

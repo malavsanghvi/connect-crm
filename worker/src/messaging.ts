@@ -10,6 +10,7 @@ import { MissingConfigError, ProviderError, sendEmail, emailKey, sendExpoPush, s
 import { unsubscribeUrl } from "../../src/lib/messaging/signatures";
 import { smsLength } from "../../src/lib/messaging/sms";
 import { NotConfiguredError, PermanentError, messageOf } from "./errors";
+import { buildAttachments } from "./message-attachments";
 import type { Env } from "./config";
 import type { Http } from "./http";
 import { portalPublicUrl } from "./portal-url";
@@ -117,10 +118,12 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
       if (m.route.unsubscribe === true && !unsub) ctx.log.warn("no unsubscribe link: PORTAL_PUBLIC_URL or MESSAGING_LINK_SECRET is not set", { message: m.id });
       const footer = (m.route.footer ?? null) as { postal_address: string | null; note: string | null } | null;
       const email = renderEmail({ subject: m.subject ?? "", body: m.body, brand, footer, sandbox: m.sandbox, unsubscribeUrl: unsub });
+      // Files that go with the email (a pledge's PDF): drawn here from the ids in the payload, after every check above has passed.
+      const attachments = await buildAttachments(ctx, { id: m.id, payload: m.payload ?? {} });
       const res = await sendEmail(req, env, p, emailKey(env, p, null), {
         from: fromHeader(sender, brand, { address: str(env.MESSAGING_FROM_ADDRESS) ?? "", name: str(env.MESSAGING_FROM_NAME) ?? "Weaver" }),
         to: m.to, subject: email.subject, html: email.html, text: email.text,
-        replyTo: sender?.reply_to ?? (sender ? null : m.brand?.public_email ?? null), unsubscribeUrl: unsub,
+        replyTo: sender?.reply_to ?? (sender ? null : m.brand?.public_email ?? null), unsubscribeUrl: unsub, attachments,
       });
       await record(ctx, m.id, "sent", p, res.id, null, null);
       return { message_id: m.id, status: "sent", provider: p, provider_ref: res.id };

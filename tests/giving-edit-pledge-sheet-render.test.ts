@@ -12,6 +12,7 @@ vi.mock("@/app/(app)/giving/payments/actions", () => ({ applyPaymentAction: vi.f
 vi.mock("@/app/(app)/giving/sheet-actions", () => ({ sheetHouseholdAction: vi.fn(), familyGivingAction: vi.fn() }));
 vi.mock("@/app/(app)/giving/pledges/record-pledge-actions", () => ({ pledgeSheetOptionsAction: vi.fn(), recordPledgeAction: vi.fn() }));
 vi.mock("@/app/(app)/giving/pledges/edit-pledge-actions", () => ({ pledgeEditSheetAction: vi.fn(() => new Promise(() => {})), editPledgeAction: vi.fn(), deletePledgeAction: vi.fn() }));
+vi.mock("@/app/(app)/giving/pledges/email-pledge-actions", () => ({ pledgeEmailSheetAction: vi.fn(), emailPledgeAction: vi.fn(), pledgeEmailStatusAction: vi.fn() }));
 
 import { EditPledgeSheet } from "@/components/giving-actions/edit-pledge-sheet";
 import type { GivingSheetContext } from "@/lib/giving-actions/record-sheet";

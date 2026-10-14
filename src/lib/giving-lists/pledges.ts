@@ -247,6 +247,9 @@ export function pledgeRow(p: PledgeIn, family: Family | null, ctx: ListContext, 
       note = "Approved by two people. A treasurer completes the write-off.";
     }
   }
+  // Print and Email (0791, 0792): the pledge as an invoice-style PDF, on paper or by email to the primary member (or any typed address). A deleted pledge has neither.
+  if (ctx.can.print === true && p.status !== "cancelled") menu.push({ kind: "print_pledge", id: p.id, reference: ref, label: "Print…" });
+  if (ctx.can.manage && p.status !== "cancelled") menu.push({ kind: "email_pledge", id: p.id, reference: ref, label: "Email…" });
   menu.push({ kind: "link", href: familyHref(p.householdId, "pledges"), label: "Open family" });
 
   return {

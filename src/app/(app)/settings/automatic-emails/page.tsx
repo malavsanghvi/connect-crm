@@ -82,8 +82,10 @@ export default async function AutomaticEmailsPage() {
       <BlockGrid>
         <Card span={12} title="How automatic emails work">
           <InfoBox>
-            Each email is <strong>off</strong> until someone who manages it switches it on, and then goes for each new record only. It goes to adults:
-            the person who paid, pledged or registered, else the household&apos;s adults with an email address; a child&apos;s name is never in it.
+            Receipts and registration confirmations are <strong>off</strong> until someone who manages them switches them on, and then go for each new record only; the
+            <strong> pledge confirmation is on by default</strong> for every community and goes for each new pledge only (a member&apos;s own, one recorded by staff, or one from a
+            bulk upload), to the household&apos;s primary member, with the pledge attached as a PDF in your branding. Switch it off below if you do not want it. Receipts go to
+            adults: the person who paid or registered, else the household&apos;s adults with an email address; a child&apos;s name is never in any of them.
             Placeholders such as {"{{payment_amount}}"} are filled from the record, in {center.currency} and your community&apos;s way of writing dates.
             Receipts and pledge confirmations go only while the treasurer&apos;s approval of the receipt templates is current. Members who unsubscribed
             from newsletters still get receipts; a member who switched off event or giving emails in the app gets no registration or scheduled email.

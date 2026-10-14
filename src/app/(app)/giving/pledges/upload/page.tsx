@@ -13,6 +13,7 @@ import { dateExample, type EarlierUpload } from "@/lib/giving-upload/sheet";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
+import { pledgeEmailsStatusAction } from "../email-pledge-actions";
 import { cancelPledgeUploadAction, preparePledgeUploadAction, recordPledgeUploadAction } from "./actions";
 
 export const metadata: Metadata = { title: "Upload pledges" };
@@ -71,7 +72,7 @@ export default async function PledgeUploadPage() {
           templateCsv: "/giving/pledges/upload/template",
           templateXlsx: "/giving/pledges/upload/template?format=xlsx",
         }}
-        backend={{ prepare: preparePledgeUploadAction, record: recordPledgeUploadAction, cancel: cancelPledgeUploadAction }}
+        backend={{ prepare: preparePledgeUploadAction, record: recordPledgeUploadAction, cancel: cancelPledgeUploadAction, emailStatus: pledgeEmailsStatusAction }}
         earlier={earlier}
       />
     </>

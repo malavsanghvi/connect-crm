@@ -1,5 +1,7 @@
 -- 0770: automatic emails with mail merge.
---   A. Off until switched on: a payment, a pledge and a registration queue nothing; the standard wording is there.
+--   A. Receipts and registration confirmations are off until switched on (a payment and a registration queue nothing); the pledge
+--      confirmation is on by default (0790: every community has its row, switched on), so a pledge queues its confirmation; the
+--      standard wording is there.
 --   B. Who may read, switch and word each email; another community refused; no 2FA step anywhere.
 --   C. Receipts need the treasurer's current approval; saving receipt wording asks for it again (the evidence), a community
 --      without its own wording keeps exactly the evidence it had.
@@ -110,12 +112,15 @@ insert into app.pledges (id, center_id, household_id, pledged_by_person_id, amou
 values ('17000000-0000-4000-8000-000000000201', :jc, :h1, :mira, 10000, 'general');
 insert into app.rsvps (id, center_id, event_id, household_id, submitted_by_person_id, status, source)
 values ('17000000-0000-4000-8000-000000000301', :jc, :ev1, :h1, :mira, 'rsvpd', 'app');
-select pg_temp.assert(pg_temp.jobs('17000000-0000-4000-8000-000000000101') + pg_temp.jobs('17000000-0000-4000-8000-000000000201')
-                      + pg_temp.jobs('17000000-0000-4000-8000-000000000301') = 0
-                      and not exists (select 1 from app.email_automations where center_id = :jc),
-  'A · with no switch on, a payment, a pledge and a registration queue no email');
-select pg_temp.assert((select count(*) from app.message_templates where center_id is null and channel = 'email' and language = 'en'
+select pg_temp.assert(pg_temp.jobs('17000000-0000-4000-8000-000000000101') + pg_temp.jobs('17000000-0000-4000-8000-000000000301') = 0
+                      and pg_temp.jobs('17000000-0000-4000-8000-000000000201') = 1
+                      and (select array_agg(trigger_key::text) = array['pledge_recorded'] and bool_and(enabled)
+                             from app.email_automations where center_id = :jc),
+  'A · a payment and a registration queue no email while their switch is off; a pledge queues its confirmation, which is on by default (the community''s own row, made when the community was)');
+select pg_temp.assert((select count(distinct key) from app.message_templates where center_id is null and channel = 'email' and language = 'en'
                          and key in ('payment_receipt', 'pledge_recorded', 'registration_confirmed')) = 3
+                      and (select body from app.message_templates where center_id is null and key = 'pledge_recorded' and channel = 'email'
+                            and language = 'en' order by version desc limit 1) like '%attached as a PDF%'
                       and (select body from app.message_templates where center_id is null and key = 'payment_receipt' and channel = 'email')
                           like '%{{payment_amount}}%'
                       and (select max(version) from app.message_templates where center_id is null and key = 'receipt' and channel = 'email') = 1,
@@ -123,9 +128,9 @@ select pg_temp.assert((select count(*) from app.message_templates where center_i
 
 set role authenticated;
 select pg_temp.claims(:exec);
-select pg_temp.assert((select bool_and(not (e->>'enabled')::boolean) and count(*) = 3
+select pg_temp.assert((select count(*) = 3 and bool_and((e->>'enabled')::boolean = (e->>'key' = 'pledge_recorded'))
                          from jsonb_array_elements(app.email_automations_state(:jc, 18)->'emails') e),
-  'A · Settings › Automatic emails lists the three emails, all off');
+  'A · Settings › Automatic emails lists the three emails: receipts and registrations off, the pledge confirmation on by default');
 
 -- ══ B. Who may do what ═══════════════════════════════════════════════════════
 select pg_temp.assert((select (e->>'can_view')::boolean and not (e->>'can_edit')::boolean

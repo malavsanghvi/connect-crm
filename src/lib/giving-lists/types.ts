@@ -7,7 +7,15 @@ import type { Act, Family } from "@/lib/giving-today/queue";
 export type Tone = "ok" | "warn" | "bad" | "info" | "muted";
 
 /** What the person may do (UI convenience: the database refuses the rest anyway). */
-export type ListCan = { manage: boolean; approve: boolean; record: boolean; allocate: boolean; bankConfirm: boolean };
+export type ListCan = {
+  manage: boolean;
+  approve: boolean;
+  record: boolean;
+  allocate: boolean;
+  bankConfirm: boolean;
+  /** Print a pledge as a PDF (giving.view or giving.manage). Left out: no. */
+  print?: boolean;
+};
 
 export type ListContext = {
   /** The person looking: a request they made is approved by someone else. */
