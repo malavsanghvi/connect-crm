@@ -51,7 +51,11 @@ export function MyTasksCard({
 
 function TaskRow({ task }: { task: HomeTask }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-line-soft py-3 last:border-b-0">
+    // data-spotlight: the guided tours light the real row (src/lib/spotlight/tours); it changes nothing about the row.
+    <div
+      data-spotlight={task.giving?.kind === "bank_lines" ? "home-bank-task" : undefined}
+      className="flex flex-wrap items-center gap-3 border-b border-line-soft py-3 last:border-b-0"
+    >
       <Tag color={task.color}>{task.tag}</Tag>
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-bold leading-snug text-ink">{task.title}</p>

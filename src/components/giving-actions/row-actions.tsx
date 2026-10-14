@@ -55,6 +55,8 @@ export type ActContext = {
   trigger?: "button" | "menu";
   /** The community's today (YYYY-MM-DD), the default date of a refund made in PayPal. */
   today?: string;
+  /** The guided tour (src/lib/spotlight/tours) is lighting this row: its line, household and confirm button carry data-spotlight keys. */
+  spotlight?: boolean;
 };
 
 /** What an act repeats from its row in its sheet: the household card, then the evidence (a Today row or a list row). */

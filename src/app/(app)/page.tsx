@@ -6,6 +6,7 @@ import { AssignmentsCard } from "@/components/home/assignments-card";
 import { MemberAppCard } from "@/components/home/member-app-card";
 import { MyTasksCard } from "@/components/home/my-tasks-card";
 import { StartHereCard } from "@/components/home/start-here-card";
+import { TourInvite } from "@/components/spotlight/tour-invite";
 import { BlockGrid, Card, KpiGrid, PageHeader, Stat, capitalize } from "@/components/ui";
 import { loadHomeCards } from "@/lib/data/home-cards";
 import { loadHomeKpis } from "@/lib/data/home-kpis";
@@ -45,6 +46,8 @@ export default async function HomePage() {
   return (
     <>
       <PageHeader title={first ? `${greeting}, ${first}` : greeting} description={showTasks ? "My tasks across every module you can act on" : "What is waiting for you"} />
+      {/* An invitation to a guided tour, only for a person who has one they have not started (src/lib/spotlight). */}
+      <TourInvite />
       <BlockGrid>
         {cards.assignments ? <AssignmentsCard card={cards.assignments} /> : null}
         {cards.memberWork ? <MemberAppCard work={cards.memberWork} /> : null}

@@ -1,4 +1,5 @@
 import { DemoLeaveButton } from "@/components/demo-leave";
+import { TourBannerLink } from "@/components/spotlight/tour-banner-link";
 import { timeLeftText, type DemoBannerInfo } from "@/lib/demo-signin/rules";
 
 /**
@@ -19,6 +20,8 @@ export function DemoBanner({ info }: { info: DemoBannerInfo | null }) {
       <a href="/demo" className="font-bold underline underline-offset-2">
         Switch role
       </a>
+      {/* "Take the tour": only for a demo person who has a tour. */}
+      <TourBannerLink />
       <span aria-hidden>·</span>
       <DemoLeaveButton />
       {info ? <span className="font-normal text-muted">({timeLeftText(info.secondsLeft)})</span> : null}

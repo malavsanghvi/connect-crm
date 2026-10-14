@@ -156,7 +156,7 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
 
       {canSeeLedger ? (
         <>
-          <div className="mb-4">
+          <div className="mb-4" data-spotlight="qbo-sync-status">
             <KpiGrid cols={4}>
               <Stat label="Posted today" value={postedToday?.error ? "—" : (postedToday?.count ?? 0).toLocaleString()} hint="sales receipts, deposits, refunds" tone="success" />
               <Stat label="Pending" value={pendingCount.toLocaleString()} hint="waiting for the QuickBooks poster" tone="brown" />

@@ -76,13 +76,17 @@ export function Row({ row, ctx, done }: { row: QueueRow; ctx: ActContext; done: 
     );
   }
   return (
-    <div className="flex flex-col gap-2.5 border-t border-line py-3.5 first:border-t-0 md:flex-row md:items-start md:gap-3.5" data-row={row.id}>
+    <div
+      className="flex flex-col gap-2.5 border-t border-line py-3.5 first:border-t-0 md:flex-row md:items-start md:gap-3.5"
+      data-row={row.id}
+      data-spotlight={ctx.spotlight ? "bank-line" : undefined}
+    >
       <div className="flex min-w-0 flex-1 gap-3.5">
         <Icon name={row.icon} tone={row.tone} />
         <div className="min-w-0 flex-1">
           <p className={`m-0 text-[15px] leading-snug ${row.info ? "font-semibold text-ink-2" : "font-bold text-ink"}`}>{row.title}</p>
           {row.family ? (
-            <p className="m-0 mt-0.5 text-[13px] leading-[1.4] text-muted">
+            <p className="m-0 mt-0.5 text-[13px] leading-[1.4] text-muted" data-spotlight={ctx.spotlight ? "bank-household" : undefined}>
               <span className="font-bold text-ink">{row.family.name}</span> · {familyLine(row.family, ctx.labels)}
             </p>
           ) : null}

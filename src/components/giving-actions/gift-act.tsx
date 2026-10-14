@@ -139,6 +139,7 @@ export function GiftAct({ act, ctx }: { act: Extract<Act, { kind: "gift" }>; ctx
           type="button"
           className={`${buttonClass("primary", "sm")} ${SMALL}`}
           disabled={pending}
+          data-spotlight={ctx.spotlight ? "bank-confirm" : undefined}
           onClick={() => {
             setDuplicate(null);
             confirm(fromSuggestion(act.best!), null, null);

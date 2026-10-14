@@ -35,6 +35,7 @@ export function HouseholdCard({
   href,
   children,
   tone = "plain",
+  spotlight,
 }: {
   card: HouseholdCardData;
   labels: CardLabels;
@@ -47,6 +48,8 @@ export function HouseholdCard({
   href?: string;
   children?: ReactNode;
   tone?: "plain" | "selected" | "warning";
+  /** A `data-spotlight` key, so a guided tour (src/lib/spotlight) can light this card. It changes nothing about the card. */
+  spotlight?: string;
 }) {
   const border =
     tone === "selected" ? "border-navy ring-2 ring-navy/20" : tone === "warning" ? "border-saffron/60" : "border-line";
@@ -57,7 +60,7 @@ export function HouseholdCard({
     if (showBalance && card.open_pledge_cents !== null) facts.push(`Open pledges ${formatCents(card.open_pledge_cents, currency)}`);
   }
   return (
-    <div className={`rounded-lg border ${border} bg-white px-4 py-3`}>
+    <div className={`rounded-lg border ${border} bg-white px-4 py-3`} data-spotlight={spotlight}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="font-semibold text-ink">
           {href ? (

@@ -18,7 +18,7 @@ export function useActiveWorkspaceKey(workspaces: RailWorkspace[]): string | und
 
 function RailLink({ w, active, badge, badgeLabel }: { w: RailWorkspace; active: boolean; badge?: string | null; badgeLabel?: string }) {
   return (
-    <Link href={w.href} aria-current={active ? "page" : undefined} className="v2-nav-item">
+    <Link href={w.href} aria-current={active ? "page" : undefined} className="v2-nav-item" data-spotlight={`nav-${w.key}`}>
       <span className="relative">
         <WorkspaceIcon path={w.icon} />
         {badge ? (

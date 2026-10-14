@@ -1,6 +1,7 @@
 import { AssignmentsCard } from "@/components/home/assignments-card";
 import { MemberAppCard } from "@/components/home/member-app-card";
 import { MyTasksCard } from "@/components/home/my-tasks-card";
+import { TourInvite } from "@/components/spotlight/tour-invite";
 import { StartHereCard } from "@/components/home/start-here-card";
 import { Alert, BlockGrid, PageHeader } from "@/components/ui";
 import { NO_HOME_CARDS, showsTasksCard, type HomeCards } from "@/lib/home/cards";
@@ -35,6 +36,8 @@ export function TodayView(props: TodayViewProps) {
     <>
       <PageHeader title={props.firstName ? `${props.greeting}, ${props.firstName}` : props.greeting} description={props.dateLabel} tabs={false} />
       <AskBox />
+      {/* An invitation to a guided tour, only for a person who has one they have not started (src/lib/spotlight). */}
+      <TourInvite />
       <BlockGrid>
         {props.problem ? (
           <div className="col-span-12">

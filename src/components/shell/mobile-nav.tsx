@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { LookSwitch } from "@/components/shell/look-switch";
 import { ModuleNav } from "@/components/shell/nav-link";
+import { TourMenuItem } from "@/components/spotlight/tour-menu";
 import type { VisibleModule } from "@/lib/permissions";
 
 /** Below the lg breakpoint the sidebar folds into this "Menu" button. */
@@ -31,6 +32,7 @@ export function MobileNav({
           {/* Where a phone user can try the redesigned portal (the top bar has no room for the button there). */}
           <div className="mt-1 sm:hidden">
             <LookSwitch look="classic" block />
+            <TourMenuItem variant="block" onStarted={() => setOpen(false)} />
           </div>
         </div>
       ) : null}
