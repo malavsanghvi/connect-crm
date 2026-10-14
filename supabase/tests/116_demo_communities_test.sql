@@ -80,7 +80,7 @@ select (select count(*) from app.people where center_id = :jsh) as jp, (select c
        (select count(*) from auth.users) as users_before \gset
 
 -- ── A. The packs ─────────────────────────────────────────────────────────────
-select pg_temp.assert((select count(*) = 2 and bool_and(not active) and bool_and(content is not null) and bool_and(version = case key when 'demo_faith_jain_v1' then 2 else 1 end)
+select pg_temp.assert((select count(*) = 2 and bool_and(not active) and bool_and(content is not null) and bool_and(version = case key when 'demo_faith_jain_v1' then 3 else 2 end)
                          from app.demo_packs where key in ('demo_faith_jain_v1', 'demo_neutral_club_v1')),
   'both packs are in the catalog as data, and are not offered on Setup > Demo');
 select pg_temp.assert((select content->'center'->>'kind' = 'faith' and content->'center'->>'category_key' = 'jain_center'
@@ -161,9 +161,11 @@ select pg_temp.assert((select bool_and(d.email like '%@demo.weaverams.org' and d
 select pg_temp.assert((select d.scope_kind = 'event' and d.scope_id in (select id from app.events where center_id = :'fc') from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'event_lead')
                       and (select d.scope_kind = 'class' and d.scope_id in (select id from app.pathshala_classes where center_id = :'fc') from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'teacher')
                       and (select d.scope_kind = 'zone' and d.scope_id in (select id from app.zones where center_id = :'fc') from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'zone_lead')
-                      and (select d.scope_kind = 'pathshala' from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'pathshala_principal')
-                      and (select d.scope_kind = 'center' from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'treasurer'),
-  'the role assignment is data: the scope a later sign-in will grant (an event, a class, a zone, the Pathshala, the whole community)');
+                      and (select d.scope_kind = 'center' from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'pathshala_principal')
+                      and (select d.scope_kind = 'center' from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'store_lead')
+                      and (select d.scope_kind = 'center' from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'treasurer')
+                      and not exists (select 1 from app.demo_personas d where d.center_id = :'fc' and d.scope_kind not in ('center', 'event', 'class', 'zone')),
+  'the role assignment is data: the scope a later sign-in will grant, the one the Roles screen would choose (an event, a class, a zone, or the whole community; 0796)');
 select pg_temp.assert((select count(*) = 0 from app.role_grants where center_id = :'fc') and (select count(*) = 0 from app.center_users where center_id = :'fc')
                       and (select count(*) = 0 from app.center_owners where center_id = :'fc')
                       and (select count(*) = :users_before from auth.users) and not exists (select 1 from auth.users where email like '%@demo.weaverams.org'),

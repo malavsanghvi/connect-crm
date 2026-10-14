@@ -97,10 +97,31 @@ function people(spec) {
 }
 
 function membershipOps(spec) {
-  return [rows("memberships", spec.memberships.map(([hk, pk, tier, since, ends]) => ({
+  const ops = [rows("memberships", spec.memberships.map(([hk, pk, tier, since, ends]) => ({
     household_id: `@h:${hk}`, person_id: `@p:${hk}.${pk}`, membership_type_id: `@mt:${tier}`, tier, status: "active",
     starts_on: d(since), ends_on: ends === undefined ? null : d(ends), granted_by: "@actor", notes: "Demo data",
   })))];
+  // Applications at each stage: waiting for the named reference, waiting for the membership team, waiting for the executive committee.
+  if (spec.applications) {
+    const fees = Object.fromEntries(spec.membershipTypes.map((m) => [m.k, m.fee]));
+    ops.push(rows("membership_applications", spec.applications.map((a) => {
+      const decided = a.status !== "awaiting_reference";
+      return {
+        id: `@appl:${a.k}`, applicant_person_id: `@p:${a.who}`, household_id: `@h:${a.who.split(".")[0]}`, membership_type_id: `@mt:${a.tier}`, tier: a.tier,
+        reference_person_id: `@p:${a.ref}`, reference_note: a.note, reference_requested_at: at(-a.ago, "09:00"), reference_expires_at: at(14 - a.ago, "09:00"),
+        ...(decided ? { reference_decision: "approved", reference_decided_at: at(-a.ago + 2, "17:00") } : {}),
+        fee_cents: fees[a.tier], status: a.status, created_at: at(-a.ago, "09:00"),
+        ...(a.status === "awaiting_ec" ? { center_decided_by: "@actor", center_decided_at: at(-1, "11:00"), center_reason: a.centerReason } : {}),
+      };
+    })));
+  }
+  // Requests a family sent from the member app that the membership team decides.
+  if (spec.changeRequests) {
+    ops.push(rows("household_change_requests", spec.changeRequests.map((c) => ({
+      id: `@hcr:${c.k}`, household_id: `@h:${c.hh}`, requested_by: "@actor", kind: c.kind, details: c.details, status: "open", created_at: at(-c.ago, "16:00"),
+    }))));
+  }
+  return ops;
 }
 
 function givingOps(spec) {
@@ -111,6 +132,8 @@ function givingOps(spec) {
     ...(p.fund && p.camp ? { fund_id: `@fund:${p.fund}` } : {}),
     source: p.source, ...(p.srcRef ? { source_ref_id: `@${p.srcRef}` } : {}), amount_cents: p.cents, pledged_at: d(-p.ago),
     ...(p.due !== undefined ? { due_on: d(p.due) } : {}), created_by: "@actor",
+    // A write-off one person (the community's administrator-of-record, "@actor") has asked for and a different person with giving.approve confirms.
+    ...(p.writeOff ? { written_off_by: "@actor", write_off_reason: p.writeOff } : {}),
   }))));
   for (const p of spec.payments) {
     ops.push({
@@ -119,6 +142,14 @@ function givingOps(spec) {
       // A card payment is a TEST-mode Stripe payment (a demo community never takes a live one).
       ...(p.method === "card" ? { provider: "stripe", provider_ref: `pi_test_demo_${spec.tag}_${p.ref}` } : {}),
     });
+  }
+  // One bank account and a few statement lines waiting to be matched to gifts. Nothing is posted anywhere until a person confirms a match, and
+  // a single bank account with no QuickBooks account of its own uses the community's main bank account, so the QuickBooks mapping is untouched.
+  if (spec.bank) {
+    ops.push(t("bank_accounts", { id: "@bank:main", name: spec.bank.name, institution: spec.bank.institution, last4: spec.bank.last4, statement_format: spec.bank.format, active: true }));
+    ops.push(rows("bank_transactions", spec.bank.lines.map(([desc, type, cents, ago]) => ({
+      bank_account_id: "@bank:main", posted_on: d(-ago), amount_cents: cents, description: desc, ...(type ? { bank_type: type, bank_details: "CREDIT" } : {}), status: "unmatched",
+    }))));
   }
   return ops;
 }
@@ -135,6 +166,25 @@ function eventOps(spec) {
     id: `@shift:${s.k}`, event_id: `@ev:${s.ev}`, station: s.station, starts_at: at(s.day, s.from), ends_at: at(s.day, s.to), capacity: s.cap, notes: s.notes ?? null,
   }))));
   ops.push(rows("volunteer_assignments", spec.assignments.map(([shift, who, status]) => ({ shift_id: `@shift:${shift}`, person_id: `@p:${who}`, status }))));
+  // The checklist of each event (the committee's "next two weeks" and an event lead's own actions): a mix of overdue, due soon and unassigned.
+  if (spec.actions) {
+    ops.push(rows("actions", spec.actions.map((a) => ({
+      id: `@action:${a.k}`, event_id: `@ev:${a.ev}`, phase: a.phase, name: a.name, description: a.descr ?? null,
+      owner_person_id: a.owner ? `@p:${a.owner}` : null, due_on: d(a.due), priority: a.priority, state: a.state, action_type: "task", created_by: "@actor",
+    }))));
+  }
+  // Bolis: a digital one open for pledges that closes soon, and an in-person one the boli recorder fills in at the event.
+  if (spec.bolis) {
+    ops.push(rows("bolis", spec.bolis.map((b) => ({
+      id: `@boli:${b.k}`, event_id: `@ev:${b.ev}`, campaign_id: `@camp:${b.camp}`, name: b.name, description: b.descr, kind: b.kind, floor_cents: b.floor,
+      step_cents: b.step, opens_at: at(b.opens, "09:00"), closes_at: b.closes === null ? null : at(b.closes, "20:00"), soft_close_minutes: b.kind === "digital" ? 5 : 0,
+      status: "open", explainer_md: b.explainer ?? null, keep_all_entries: true, created_by: "@actor",
+    }))));
+    ops.push(rows("boli_entries", (spec.boliEntries ?? []).map((e) => ({
+      boli_id: `@boli:${e.boli}`, household_id: `@h:${e.hh}`, person_id: `@p:${e.hh}.${e.who}`, amount_cents: e.cents, is_in_person: false,
+      display_name: e.label, anonymous: false, entered_at: at(-e.ago, e.time ?? "19:00"),
+    }))));
+  }
   return ops;
 }
 
@@ -143,7 +193,9 @@ function storeOps(spec) {
   ops.push(rows("store_categories", spec.store.categories.map(([k, name], i) => ({ id: `@cat:${k}`, name, sort_order: i + 1 }))));
   ops.push(rows("store_items", spec.store.items.map((i) => ({
     id: `@item:${i.sku}`, category_id: `@cat:${i.cat}`, sku: `DEMO-${i.sku}`, name: i.name, description: i.descr, price_cents: i.cents, pack_size: i.pack,
-    taxable: i.taxable, track_inventory: false, low_stock_threshold: null, status: "active", gift_pack: !!i.gift,
+    taxable: i.taxable, track_inventory: i.stock !== undefined, low_stock_threshold: i.low ?? null, status: "active", gift_pack: !!i.gift,
+    // A tracked item starts with this much on the shelf; the orders below then take theirs out (so it ends at or under its reorder level).
+    ...(i.stock !== undefined ? { stock_on_hand: i.stock } : {}),
   }))));
   ops.push(rows("pickup_windows", [
     { id: "@pickup:past", starts_at: at(-13, "11:00"), ends_at: at(-13, "13:00"), order_cutoff_at: at(-15, "20:00"), capacity: 40, orders_count: 0, location: spec.store.where, status: "fulfilled" },
@@ -162,9 +214,53 @@ function noticeOps(spec) {
       id: `@comms:${c.k}`, kind: c.kind, name: c.name, title: c.title, body_md: c.body, channels: c.channels, audience: { all_members: true },
       sent_at: c.sentDay === null ? null : at(c.sentDay, "09:00"), status: c.status, approved_by: c.status === "sent" ? "@actor" : null,
       recipients_count: null, opened_count: null, created_by: "@actor", created_at: at(c.createdDay, "09:00"),
+      ...(c.second ? { requires_second_approver: true } : {}),
     }))),
     rows("volunteer_interests", spec.interests.map(([who, group, status]) => ({ person_id: `@p:${who}`, group_id: `@vg:${group}`, status }))),
+    ...queueOps(spec),
   ];
+}
+
+/**
+ * What is waiting for people in the shared queues (B88 "every role has something to do"): the inboxes and the questions in them, WhatsApp join
+ * requests, pages and lessons to write or approve, data requests, background checks. Every row is invented; every date is relative.
+ */
+function queueOps(spec) {
+  const ops = [];
+  if (spec.inboxes) {
+    ops.push(rows("inboxes", spec.inboxes.map(([k, name, hours, zone]) => ({ id: `@inbox:${k}`, key: k, name, ...(zone ? { zone_id: `@zone:${zone}` } : {}), response_target_hours: hours }))));
+    ops.push(rows("threads", spec.threads.map((t) => ({
+      id: `@thread:${t.k}`, inbox_id: `@inbox:${t.inbox}`, from_person_id: `@p:${t.from}`, subject: t.subject, status: "open", created_at: at(-t.ago, t.time),
+    }))));
+    ops.push(rows("thread_messages", spec.threads.map((t) => ({
+      thread_id: `@thread:${t.k}`, from_role: false, body: t.body, created_at: at(-t.ago, t.time),
+    }))));
+  }
+  if (spec.whatsapp) {
+    ops.push(rows("whatsapp_groups", spec.whatsapp.groups.map(([k, name, descr, audience, zone]) => ({
+      id: `@wag:${k}`, name, description: descr, audience, ...(zone ? { zone_id: `@zone:${zone}` } : {}), active: true,
+    }))));
+    ops.push(rows("whatsapp_join_requests", spec.whatsapp.requests.map(([group, who, phone, ago]) => ({
+      group_id: `@wag:${group}`, person_id: `@p:${who}`, phone_e164: phone, status: "pending", created_at: at(-ago, "12:00"),
+    }))));
+  }
+  if (spec.content) {
+    ops.push(rows("content_items", spec.content.map((c) => ({
+      id: `@content:${c.k}`, kind: c.kind, slug: c.slug, title: c.title, body_md: c.body ?? null, language: "en", metadata: c.meta ?? {}, status: c.status,
+      created_by: "@actor", created_at: at(-c.ago, "10:00"),
+    }))));
+  }
+  if (spec.dataRequests) {
+    ops.push(rows("data_requests", spec.dataRequests.map(([who, kind, status, ago, due]) => ({
+      person_id: `@p:${who}`, kind, status, due_on: d(due), created_at: at(-ago, "10:00"),
+    }))));
+  }
+  if (spec.checks) {
+    ops.push(rows("background_checks", spec.checks.map(([who, status, ago]) => ({
+      person_id: `@p:${who}`, provider: "Demo checks", status, created_at: at(-ago, "10:00"),
+    }))));
+  }
+  return ops;
 }
 
 function setupOps(spec) {
@@ -177,7 +273,7 @@ function setupOps(spec) {
   }))));
   ops.push(rows("membership_types", spec.membershipTypes.map((m) => ({
     id: `@mt:${m.k}`, key: m.k, tier: m.k, name: m.name, fee_cents: m.fee, period_months: m.months ?? null, includes_spouse: m.spouse,
-    reference_required: m.ref, reference_tier_min: m.ref ? m.k : null, ec_approval_required: false, voting_wait_days: 0,
+    reference_required: m.ref, reference_tier_min: m.ref ? m.k : null, ec_approval_required: !!m.ec, voting_wait_days: 0,
   }))));
   ops.push(rows("volunteer_groups", spec.groups.map(([k, name, bg]) => ({ id: `@vg:${k}`, name, requires_background_check: bg }))));
   ops.push(rows("guide_sections", spec.guide.map(([slug, title, body, checklist], i) => ({ slug, title, body_md: body, sort_order: i + 1, is_checklist: checklist }))));
@@ -208,6 +304,14 @@ function pathshalaPeopleOps(spec) {
     class_id: `@class:${e.cls}`, status: "active", fee_pledge_id: `@pledge:pfee.${e.child}`, registered_by: "@actor", registered_at: "-70d", placed_at: "-50d",
   }))));
   ops.push(t("pathshala_teachers", { class_id: `@class:${P.teachClass}`, person_id: `@p:${P.teacher}`, role: "teacher", background_check_id: `@bgc:${P.teacher}` }));
+  // Registrations the principal still has to deal with: one asks for a level that has no class yet (to place), one is on the waitlist of a full class.
+  if (P.waiting) {
+    ops.push(rows("pathshala_enrollments", P.waiting.map((e) => ({
+      id: `@enroll:${e.child}`, term_id: "@term:current", student_person_id: `@p:${e.hh}.${e.child}`, household_id: `@h:${e.hh}`, requested_level_id: `@level:jainism${e.level}`,
+      status: e.status, registered_by: "@actor", registered_at: at(-e.ago, "10:00"), channel: "app",
+      ...(e.status === "waitlisted" ? { waitlisted_at: at(-e.ago, "10:00") } : {}),
+    }))));
+  }
   return ops;
 }
 
@@ -282,7 +386,17 @@ const faith = {
   membershipTypes: [
     { k: "community", name: "Community member", fee: 0, spouse: false, ref: false },
     { k: "yearly", name: "Yearly membership", fee: 15100, months: 12, spouse: true, ref: true },
-    { k: "life", name: "Life membership", fee: 110100, spouse: true, ref: true },
+    { k: "life", name: "Life membership", fee: 110100, spouse: true, ref: true, ec: true },
+  ],
+  // Applications at each stage: Priya's waits for her reference to answer, Tarun's waits for the membership team, Lalit's life membership for the executive committee.
+  applications: [
+    { k: "priya", who: "wadhwa.priya", tier: "yearly", ref: "parmar.kusum", status: "awaiting_reference", ago: 2, note: "Kusum and I help at the Sunday satsang." },
+    { k: "tarun", who: "patni.tarun", tier: "yearly", ref: "doshiwal.meera", status: "awaiting_center", ago: 6, note: "Meera is our neighbor and has been a member for years." },
+    { k: "lalit", who: "rathore.lalit", tier: "life", ref: "kataria.bharat", status: "awaiting_ec", ago: 9, note: "Bharat has known our family since we joined.",
+      centerReason: "Reference confirmed; sent to the executive committee for the life membership." },
+  ],
+  changeRequests: [
+    { k: "wadhwa", hh: "wadhwa", kind: "add_member", ago: 1, details: { first_name: "Leela", last_name: "Wadhwa", relationship: "parent", dob: "1958-04-12" } },
   ],
   memberships: [
     ["varma", "asha", "life", -4000], ["doshiwal", "meera", "yearly", -200, 165], ["parmar", "hemant", "yearly", -150, 215], ["lunawat", "sanjay", "yearly", -120, 245],
@@ -301,6 +415,9 @@ const faith = {
     { ref: "b2", hh: "nahar", who: "sunil", camp: "building", source: "construction", cents: 250000, ago: 300 },
     { ref: "g1", hh: "rathore", who: "lalit", fund: "general", source: "general", cents: 5100, ago: 70 },
     { ref: "g2", hh: "patni", who: "tarun", fund: "general", source: "general", cents: 5100, ago: 40 },
+    { ref: "g3", hh: "wadhwa", who: "priya", fund: "general", source: "general", cents: 2500, ago: 12 },
+    // A write-off the community's record-keeper asked for: the treasurer is the second, different person who confirms or turns it down.
+    { ref: "w1", hh: "nahar", who: "sunil", camp: "annual", source: "general", cents: 10100, ago: 240, writeOff: "The family moved out of the area and asked to be released (demo)." },
     ...[["anaya", "varma", "asha"], ["ved", "doshiwal", "meera"], ["tia", "lunawat", "sanjay"], ["neel", "lunawat", "sanjay"], ["jay", "salecha", "pooja"], ["ishaan", "chopda", "deepa"], ["mira", "bhandari", "anita"]]
       .map(([child, hh, who]) => ({
         ref: `pfee.${child}`, hh, who, camp: "pathshala", fund: "pathshala", source: "pathshala_fee", srcRef: `enroll:${child}`,
@@ -325,7 +442,8 @@ const faith = {
   ],
   events: [
     { k: "satsang", name: "Sunday satsang and lunch", descr: "Morning aarti, a short talk and a shared lunch.", venue: "Main hall", day: -12, from: "10:00", to: "13:00", cap: 120, audience: "members_and_guests", opens: -30, closes: -13, owner: "lunawat.sanjay", status: "completed" },
-    { k: "tapasvi", name: "Tapasvi Bahuman and Swamivatsalya", descr: "Honoring this year's tapasvis, followed by a shared meal.", venue: "Main hall", day: 9, from: "10:00", to: "14:00", cap: 200, audience: "members_and_guests", opens: -14, closes: 8, owner: "lunawat.sanjay", status: "published", waitlist: true },
+    // Five days away: close enough that the event lead's routine and the check-in list are due, far enough that the volunteers' waivers still matter.
+    { k: "tapasvi", name: "Tapasvi Bahuman and Swamivatsalya", descr: "Honoring this year's tapasvis, followed by a shared meal.", venue: "Main hall", day: 5, from: "10:00", to: "14:00", cap: 200, audience: "members_and_guests", opens: -14, closes: 4, owner: "lunawat.sanjay", status: "published", waitlist: true },
     { k: "diwali", name: "Diwali puja and new year", descr: "Diwali puja at the derasar, then the new year's darshan and aarti.", venue: "Derasar", day: 40, from: "18:00", to: "21:00", cap: null, audience: "public", opens: -5, closes: 39, owner: "kataria.bharat", status: "published" },
     { k: "picnic", name: "Youth picnic", descr: "A picnic for the youth group (being planned).", venue: "Lakeview park", day: 60, from: "11:00", to: "16:00", cap: 60, audience: "members_only", opens: null, closes: null, owner: "salecha.pooja", status: "draft" },
   ],
@@ -337,11 +455,34 @@ const faith = {
     ["diwali", "varma", "rsvpd"], ["diwali", "rathore", "rsvpd"], ["diwali", "patni", "rsvpd"],
   ],
   shifts: [
-    { k: "tb_entry", ev: "tapasvi", station: "entry", day: 9, from: "09:00", to: "12:00", cap: 4, notes: "Scan tickets at the door" },
-    { k: "tb_food", ev: "tapasvi", station: "food", day: 9, from: "11:30", to: "14:00", cap: 6 },
-    { k: "tb_parking", ev: "tapasvi", station: "parking", day: 9, from: "09:00", to: "11:00", cap: 3 },
+    { k: "tb_entry", ev: "tapasvi", station: "entry", day: 5, from: "09:00", to: "12:00", cap: 4, notes: "Scan tickets at the door" },
+    { k: "tb_food", ev: "tapasvi", station: "food", day: 5, from: "11:30", to: "14:00", cap: 6 },
+    { k: "tb_parking", ev: "tapasvi", station: "parking", day: 5, from: "09:00", to: "11:00", cap: 4 },
   ],
-  assignments: [["tb_entry", "lunawat.riya", "confirmed"], ["tb_entry", "varma.rohit", "assigned"], ["tb_food", "bhandari.vijay", "confirmed"], ["tb_food", "salecha.nikhil", "assigned"], ["tb_food", "kataria.sarla", "assigned"], ["tb_parking", "nahar.rekha", "assigned"]],
+  assignments: [["tb_entry", "lunawat.riya", "confirmed"], ["tb_entry", "varma.rohit", "assigned"], ["tb_food", "bhandari.vijay", "confirmed"], ["tb_food", "salecha.nikhil", "assigned"], ["tb_food", "kataria.sarla", "assigned"], ["tb_parking", "nahar.rekha", "assigned"],
+                // Two people asked to take a parking shift: each has it waiting for them to confirm in the member app.
+                ["tb_parking", "patni.nisha", "assigned"], ["tb_parking", "wadhwa.priya", "assigned"]],
+  // The checklist for the two coming events: one overdue, some due soon, two nobody owns yet.
+  actions: [
+    { k: "sound", ev: "tapasvi", phase: "pre", name: "Confirm the sound system and microphones", owner: "lunawat.sanjay", due: 1, priority: "high", state: "in_progress" },
+    { k: "schedule", ev: "tapasvi", phase: "pre", name: "Print the volunteer schedule for the door", owner: "salecha.pooja", due: -1, priority: "medium", state: "not_started" },
+    { k: "parking", ev: "tapasvi", phase: "pre", name: "Arrange parking marshals and the overflow lot", owner: "nahar.sunil", due: 3, priority: "high", state: "not_started" },
+    { k: "flowers", ev: "tapasvi", phase: "pre", name: "Order flowers and decorations", owner: null, due: 2, priority: "medium", state: "not_started" },
+    { k: "thanks", ev: "tapasvi", phase: "after", name: "Write thank-you notes to the tapasvis", owner: "kataria.bharat", due: 8, priority: "low", state: "not_started" },
+    { k: "pandit", ev: "diwali", phase: "pre", name: "Invite the pandit for the Diwali puja", owner: "kataria.bharat", due: 12, priority: "high", state: "not_started" },
+    { k: "diyas", ev: "diwali", phase: "pre", name: "Order the diyas and rangoli colors", owner: null, due: 20, priority: "medium", state: "not_started" },
+  ],
+  // A digital boli open for pledges that closes in four days, and the in-person one the boli recorder fills in at the Tapasvi event.
+  bolis: [
+    { k: "diwali", ev: "diwali", camp: "building", name: "Diwali puja: lighting of the first lamp", descr: "Pledge to have your family light the first lamp at the Diwali puja.", kind: "digital", floor: 5100, step: 1100, opens: -3, closes: 4,
+      explainer: "The highest pledge lights the first lamp; every family that pledges is welcome to take part. (Demo.)" },
+    { k: "tapasvi", ev: "tapasvi", camp: "building", name: "Tapasvi Bahuman: the first aarti", descr: "Called in the hall on the day; the recorder enters each pledge as it is called.", kind: "in_person", floor: 11100, step: 5100, opens: 5, closes: null },
+  ],
+  boliEntries: [
+    { boli: "diwali", hh: "varma", who: "asha", cents: 11100, label: "Asha V.", ago: 2 },
+    { boli: "diwali", hh: "doshiwal", who: "meera", cents: 15100, label: "Meera D.", ago: 2, time: "21:10" },
+    { boli: "diwali", hh: "kataria", who: "bharat", cents: 25100, label: "Bharat K.", ago: 1, time: "08:40" },
+  ],
   groups: [["kitchen", "Bhojanshala and kitchen", false], ["teaching", "Pathshala teaching", true], ["events", "Events and decoration", false], ["parking", "Parking and welcome", false]],
   interests: [["lunawat.riya", "events", "active"], ["bhandari.vijay", "kitchen", "active"], ["salecha.nikhil", "events", "interested"], ["nahar.rekha", "parking", "active"],
              ["rathore.kavita", "kitchen", "interested"], ["varma.rohit", "events", "active"], ["doshiwal.kiran", "teaching", "interested"], ["patni.nisha", "kitchen", "active"]],
@@ -356,8 +497,9 @@ const faith = {
     items: [
       { sku: "101", cat: "mithai", name: "Mohanthal", descr: "Gram-flour fudge with ghee and cardamom", cents: 899, pack: "250 g", taxable: true, gift: true },
       { sku: "102", cat: "mithai", name: "Kaju katli", descr: "Cashew fudge", cents: 999, pack: "250 g", taxable: true, gift: true },
-      { sku: "201", cat: "namkeen", name: "Farsi puri", descr: "Crisp, flaky puris", cents: 599, pack: "200 g", taxable: true, gift: true },
-      { sku: "202", cat: "namkeen", name: "Chakri", descr: "Rice-flour spirals", cents: 599, pack: "200 g", taxable: true, gift: true },
+      // Counted on the shelf: the orders below take 3 Farsi puri and 2 Chakri out, which leaves both at or under their reorder level.
+      { sku: "201", cat: "namkeen", name: "Farsi puri", descr: "Crisp, flaky puris", cents: 599, pack: "200 g", taxable: true, gift: true, stock: 4, low: 6 },
+      { sku: "202", cat: "namkeen", name: "Chakri", descr: "Rice-flour spirals", cents: 599, pack: "200 g", taxable: true, gift: true, stock: 5, low: 6 },
       { sku: "301", cat: "meals", name: "Dal dhokli", descr: "Jain dal dhokli, no root vegetables", cents: 899, pack: "one meal", taxable: false },
     ],
     orders: [
@@ -368,14 +510,48 @@ const faith = {
     ],
   },
   alerts: [
-    { sev: "important", title: "Parking for the Tapasvi Bahuman", body: "Please use the overflow lot; volunteers will guide you. (Demo notice.)", from: -1, to: 10 },
+    { sev: "important", title: "Parking for the Tapasvi Bahuman", body: "Please use the overflow lot; volunteers will guide you. (Demo notice.)", from: -1, to: 6 },
     { sev: "info", title: "Derasar closes early on Friday", body: "For maintenance. (Demo notice.)", from: -40, to: -35 },
   ],
   campaigns: [
     { k: "news", kind: "newsletter", name: "Monthly newsletter", title: "Sunrise Worship Center newsletter", body: "## This month\n\n- Thank you to every tapasvi\n- The Pathshala term is under way\n- Building fund update\n\n(Demo newsletter.)", channels: ["email"], status: "sent", sentDay: -20, createdDay: -22 },
     { k: "invite", kind: "event", name: "Tapasvi Bahuman invitation", title: "You're invited: Tapasvi Bahuman and Swamivatsalya", body: "Join us to honor this year's tapasvis. RSVP in the app. (Demo.)", channels: ["push", "email"], status: "sent", sentDay: -5, createdDay: -6 },
     { k: "draft", kind: "pathshala_update", name: "Pathshala annual day", title: "Save the date: Pathshala annual day", body: "Students will perform; families bring a dish to share. (Demo draft.)", channels: ["push"], status: "draft", sentDay: null, createdDay: 0 },
+    // Written by a colleague and waiting for the communications officer's approval; an all-member send needs two different approvers.
+    { k: "diwali", kind: "announcement", name: "Diwali greetings", title: "Happy Diwali from Sunrise Worship Center", body: "Wishing every family a bright Diwali. The puja is on the evening of the festival; the first-lamp boli is open in the app. (Demo.)", channels: ["push", "email"], status: "pending_approval", sentDay: null, createdDay: -1, second: true },
   ],
+  // The shared inboxes (the front office, membership, the school, one for each zone) and what members have asked in them.
+  inboxes: [["office", "Front office", 48, null], ["membership", "Membership", 72, null], ["pathshala", "Pathshala", 72, null], ["zone-north", "North zone", 48, "north"], ["zone-south", "South zone", 48, "south"]],
+  threads: [
+    { k: "member", inbox: "membership", from: "wadhwa.priya", ago: 2, time: "11:00", subject: "How do I become a member?", body: "Hello, I have been coming to the Sunday satsang for two months. How do I apply for a yearly membership, and who can vouch for me?" },
+    { k: "rsvp", inbox: "office", from: "patni.tarun", ago: 1, time: "19:30", subject: "Can we add a guest to our Diwali RSVP?", body: "My brother is visiting from out of town. Can he come to the Diwali puja with us, and do I change our RSVP in the app?" },
+    { k: "school", inbox: "pathshala", from: "varma.asha", ago: 1, time: "08:15", subject: "Is there Pathshala on the Sunday after Diwali?", body: "Anaya asked whether class meets the Sunday after Diwali or whether there is a break." },
+    { k: "carpool", inbox: "zone-north", from: "wadhwa.priya", ago: 1, time: "15:00", subject: "Is anyone driving from the north zone to the Tapasvi event?", body: "I do not drive on the highway. Is there a carpool from the north zone on the morning of the Tapasvi Bahuman?" },
+    { k: "gathering", inbox: "zone-north", from: "parmar.hemant", ago: 3, time: "10:20", subject: "Who is hosting this month's north zone family gathering?", body: "Nobody has written yet about this month's gathering. Can the zone lead confirm the host and the day?" },
+  ],
+  whatsapp: {
+    groups: [["north", "North zone families", "Updates for the families of the north zone.", "zone", "north"], ["seva", "Seva volunteers", "Shift reminders for people who volunteer.", "volunteers", null]],
+    requests: [["north", "wadhwa.priya", "+13125550148", 2], ["seva", "patni.nisha", "+13125550149", 1]],
+  },
+  // Texts waiting on people: one for the religious coordinator to approve, two drafts for the content editor to finish.
+  content: [
+    { k: "porisi", kind: "pachchakhan", slug: "porisi-demo", title: "Porisi pachchakhan (demo)", body: "The pachchakhan text, checked by the editor and waiting for the religious coordinator to approve. (Demo.)", meta: { when: "Sunrise + 3 h" }, status: "in_review", ago: 2 },
+    { k: "navkar", kind: "audio_lesson", slug: "navkar-intro-demo", title: "Introduction to the Navkar Mantra (demo)", body: "Notes for the lesson. The recording is still to be made. (Demo.)", meta: { series: "Basics", length_minutes: 12 }, status: "draft", ago: 1 },
+    { k: "navkarsi", kind: "pachchakhan", slug: "navkarsi-demo", title: "Navkarsi pachchakhan (demo)", body: null, meta: { when: "Sunrise + 48 min" }, status: "draft", ago: 3 },
+  ],
+  // [person, kind, status, days since asked, days until due]
+  dataRequests: [["wadhwa.priya", "export", "open", 9, 21], ["patni.nisha", "deletion", "in_progress", 22, 8]],
+  // [person, status, days ago]: a volunteer for the teaching group, which needs a background check, whose check has been asked for.
+  checks: [["doshiwal.kiran", "requested", 3]],
+  bank: {
+    name: "Chase operating ··4608", institution: "Chase", last4: "4608", format: "chase_csv",
+    lines: [
+      ["Zelle Payment From Anita Bhandari WFCT0XQ4H2N8", "QUICKPAY_CREDIT", 15100, 1],
+      ["Zelle Payment From Tarun Patni JPM99BXK2Q1V", "QUICKPAY_CREDIT", 5100, 2],
+      ["DEPOSIT  ID NUMBER 4471", "DEPOSIT", 33000, 3],
+      ["Zelle Payment From Mahesh Gandhi BAC77PQ3R8W2", "QUICKPAY_CREDIT", 10100, 4],
+    ],
+  },
   pathshala: {
     term: "Fall term (demo)",
     levels: [[1, "Jainism 1", 5, 7], [2, "Jainism 2", 8, 10], [3, "Jainism 3", 11, 14], [4, "Jainism 4", 15, 18]],
@@ -386,6 +562,8 @@ const faith = {
       { child: "ishaan", hh: "chopda", level: 2, cls: "j2" }, { child: "ved", hh: "doshiwal", level: 3, cls: "j3" }, { child: "mira", hh: "bhandari", level: 3, cls: "j3" },
       { child: "neel", hh: "lunawat", level: 3, cls: "j3" },
     ],
+    // Two late registrations (the term's window closed 45 days ago): Aarav is on the waitlist, Zara asks for a level that has no class yet.
+    waiting: [{ child: "aarav", hh: "patni", level: 1, status: "waitlisted", ago: 3 }, { child: "zara", hh: "singhvi", level: 4, status: "requested", ago: 2 }],
   },
 };
 
@@ -436,6 +614,16 @@ const club = {
     { k: "community", name: "Neighbor (free)", fee: 0, spouse: false, ref: false },
     { k: "yearly", name: "Member (yearly)", fee: 5000, months: 12, spouse: true, ref: true },
   ],
+  // Mateo's waits for his reference to answer, Patrick's for the membership team, Camille's for the executive committee.
+  applications: [
+    { k: "mateo", who: "reyes.mateo", tier: "yearly", ref: "okonkwo.emeka", status: "awaiting_reference", ago: 2, note: "Emeka and I are in the garden crew together." },
+    { k: "patrick", who: "sullivan.patrick", tier: "yearly", ref: "nakamura.hana", status: "awaiting_center", ago: 6, note: "Hana has been my neighbor for twenty years." },
+    { k: "camille", who: "moreau.camille", tier: "yearly", ref: "brightwater.dana", status: "awaiting_ec", ago: 9, note: "Dana and I run the book swap together.",
+      centerReason: "Reference confirmed; sent to the executive committee." },
+  ],
+  changeRequests: [
+    { k: "osei", hh: "osei", kind: "add_member", ago: 1, details: { first_name: "Femi", last_name: "Osei", relationship: "child", dob: "2019-06-03" } },
+  ],
   memberships: [
     ["alvarez", "marisol", "yearly", -200, 165], ["brightwater", "dana", "yearly", -180, 185], ["okonkwo", "ngozi", "yearly", -150, 215], ["petrov", "irina", "yearly", -120, 245],
     ["lindqvist", "sofia", "yearly", -100, 265], ["nakamura", "hana", "yearly", -400, 100], ["haddad", "layla", "community", -90], ["whitfield", "grace", "community", -500],
@@ -452,6 +640,8 @@ const club = {
     { ref: "g3", hh: "osei", who: "kwame", camp: "garden", source: "sponsorship", cents: 12500, ago: 60 },
     { ref: "g4", hh: "sullivan", who: "patrick", fund: "general", source: "general", cents: 5000, ago: 40 },
     { ref: "g5", hh: "reyes", who: "mateo", fund: "general", source: "general", cents: 2500, ago: 20 },
+    // A write-off the record-keeper asked for: the treasurer is the second, different person who confirms or turns it down.
+    { ref: "w1", hh: "whitfield", who: "grace", camp: "annual", source: "general", cents: 10000, ago: 230, writeOff: "The family moved away and asked to be released (demo)." },
   ],
   payments: [
     { ref: "a1", hh: "alvarez", who: "marisol", cents: 30000, method: "card", ago: 195, pledges: ["a1"] },
@@ -465,7 +655,7 @@ const club = {
   ],
   events: [
     { k: "potluck", name: "Neighbors potluck", descr: "Bring a dish to share and meet the neighbors.", venue: "Lakeside hall", day: -10, from: "17:00", to: "20:00", cap: 80, audience: "members_and_guests", opens: -30, closes: -11, owner: "petrov.irina", status: "completed" },
-    { k: "cleanup", name: "Spring clean-up day", descr: "Gloves, bags and lunch provided; we tidy the shoreline and the garden.", venue: "Lakeside park", day: 12, from: "09:00", to: "13:00", cap: 60, audience: "members_and_guests", opens: -14, closes: 11, owner: "petrov.irina", status: "published", waitlist: true },
+    { k: "cleanup", name: "Spring clean-up day", descr: "Gloves, bags and lunch provided; we tidy the shoreline and the garden.", venue: "Lakeside park", day: 5, from: "09:00", to: "13:00", cap: 60, audience: "members_and_guests", opens: -14, closes: 4, owner: "petrov.irina", status: "published", waitlist: true },
     { k: "concert", name: "Summer concert in the park", descr: "An evening of local bands on the lawn.", venue: "Lakeside park", day: 45, from: "18:00", to: "21:00", cap: null, audience: "public", opens: -5, closes: 44, owner: "lindqvist.sofia", status: "published" },
     { k: "bookswap", name: "Book swap", descr: "Bring a book, take a book (being planned).", venue: "Lakeside hall", day: 60, from: "10:00", to: "12:00", cap: 40, audience: "members_only", opens: null, closes: null, owner: "okonkwo.ngozi", status: "draft" },
   ],
@@ -477,14 +667,56 @@ const club = {
     ["concert", "alvarez", "rsvpd"], ["concert", "lindqvist", "rsvpd"], ["concert", "sullivan", "rsvpd"],
   ],
   shifts: [
-    { k: "cu_welcome", ev: "cleanup", station: "welcome", day: 12, from: "08:30", to: "11:00", cap: 4, notes: "Greet people and hand out gloves" },
-    { k: "cu_refresh", ev: "cleanup", station: "refreshments", day: 12, from: "10:30", to: "13:00", cap: 4 },
-    { k: "cu_tools", ev: "cleanup", station: "tools", day: 12, from: "08:30", to: "10:30", cap: 3 },
+    { k: "cu_welcome", ev: "cleanup", station: "welcome", day: 5, from: "08:30", to: "11:00", cap: 4, notes: "Greet people and hand out gloves" },
+    { k: "cu_refresh", ev: "cleanup", station: "refreshments", day: 5, from: "10:30", to: "13:00", cap: 4 },
+    { k: "cu_tools", ev: "cleanup", station: "tools", day: 5, from: "08:30", to: "10:30", cap: 4 },
   ],
-  assignments: [["cu_welcome", "petrov.nikolai", "confirmed"], ["cu_welcome", "moreau.jules", "assigned"], ["cu_refresh", "nakamura.ken", "confirmed"], ["cu_refresh", "haddad.omar", "assigned"], ["cu_tools", "osei.kwame", "assigned"], ["cu_tools", "whitfield.henry", "assigned"]],
+  assignments: [["cu_welcome", "petrov.nikolai", "confirmed"], ["cu_welcome", "moreau.jules", "assigned"], ["cu_refresh", "nakamura.ken", "confirmed"], ["cu_refresh", "haddad.omar", "assigned"], ["cu_tools", "osei.kwame", "assigned"], ["cu_tools", "whitfield.henry", "assigned"],
+                // Mateo asked to help with the tools: the shift waits for him to confirm it in the member app.
+                ["cu_tools", "reyes.mateo", "assigned"]],
+  // The checklist for the two coming events: one overdue, some due soon, two nobody owns.
+  actions: [
+    { k: "gloves", ev: "cleanup", phase: "pre", name: "Collect gloves, bags and tools from the shed", owner: "petrov.irina", due: 1, priority: "high", state: "in_progress" },
+    { k: "signs", ev: "cleanup", phase: "pre", name: "Print the sign-in sheet and the route map", owner: "lindqvist.sofia", due: -1, priority: "medium", state: "not_started" },
+    { k: "lunch", ev: "cleanup", phase: "pre", name: "Order lunch for the volunteers", owner: "nakamura.ken", due: 3, priority: "high", state: "not_started" },
+    { k: "permit", ev: "cleanup", phase: "pre", name: "Confirm the park permit", owner: null, due: 2, priority: "medium", state: "not_started" },
+    { k: "thanks", ev: "cleanup", phase: "after", name: "Send thank-you notes to the volunteers", owner: "alvarez.marisol", due: 8, priority: "low", state: "not_started" },
+    { k: "stage", ev: "concert", phase: "pre", name: "Book the stage and the sound", owner: "lindqvist.sofia", due: 12, priority: "high", state: "not_started" },
+    { k: "bands", ev: "concert", phase: "pre", name: "Confirm the local bands", owner: null, due: 20, priority: "medium", state: "not_started" },
+  ],
+  // Texts waiting on people, and the shared inboxes with what members have asked in them.
+  inboxes: [["office", "Front office", 48, null], ["membership", "Membership", 72, null], ["zone-north", "North shore", 48, "north"], ["zone-south", "South shore", 48, "south"]],
+  threads: [
+    { k: "member", inbox: "membership", from: "reyes.mateo", ago: 2, time: "11:00", subject: "How do I become a member?", body: "Hello, I have been coming to the potluck for two months. How do I apply for a yearly membership, and who can vouch for me?" },
+    { k: "rsvp", inbox: "office", from: "osei.kwame", ago: 1, time: "19:30", subject: "Can we bring a guest to the clean-up day?", body: "My cousin is visiting and would like to help. Does she need to sign up, and do I change our RSVP in the app?" },
+    { k: "garden", inbox: "office", from: "haddad.layla", ago: 1, time: "08:15", subject: "Who has the key to the garden shed?", body: "I would like to start on the raised beds before the clean-up day. Who can open the shed for me?" },
+    { k: "carpool", inbox: "zone-north", from: "reyes.mateo", ago: 1, time: "15:00", subject: "Is anyone driving from the north shore to the clean-up day?", body: "I do not have a car. Is there a carpool from the north shore on the morning of the clean-up day?" },
+    { k: "gathering", inbox: "zone-north", from: "okonkwo.ngozi", ago: 3, time: "10:20", subject: "Who is hosting this month's north shore get-together?", body: "Nobody has written yet about this month's get-together. Can the zone lead confirm the host and the day?" },
+  ],
+  whatsapp: {
+    groups: [["north", "North shore neighbors", "Updates for the neighbors of the north shore.", "zone", "north"], ["crew", "Volunteer crews", "Shift reminders for people who volunteer.", "volunteers", null]],
+    requests: [["north", "reyes.mateo", "+13125550148", 2], ["crew", "moreau.jules", "+13125550149", 1]],
+  },
+  content: [
+    { k: "welcome", kind: "faq", slug: "who-can-vote-demo", title: "Who can vote at the annual meeting? (demo)", body: "Every yearly member can vote. The text is waiting for the administrator to approve. (Demo.)", status: "in_review", ago: 2 },
+    { k: "talk", kind: "audio_lesson", slug: "welcome-talk-demo", title: "Welcome talk for new members (demo)", body: "Notes for the talk. The recording is still to be made. (Demo.)", meta: { series: "Getting started", length_minutes: 8 }, status: "draft", ago: 1 },
+    { k: "tour", kind: "audio_lesson", slug: "hall-tour-demo", title: "A tour of the hall (demo)", body: null, meta: { series: "Getting started", length_minutes: 5 }, status: "draft", ago: 3 },
+  ],
+  dataRequests: [["reyes.mateo", "export", "open", 9, 21], ["moreau.jules", "deletion", "in_progress", 22, 8]],
+  checks: [["lindqvist.erik", "requested", 3]],
+  bank: {
+    name: "Lakeside operating ··2210", institution: "Lakeside Savings", last4: "2210", format: "generic_csv",
+    lines: [
+      ["ZELLE FROM GRACE WHITFIELD REF # PP7QX21LMN", "", 25000, 1],
+      ["ZELLE FROM KWAME OSEI REF # PP3TT90KQW", "", 12500, 2],
+      ["DEPOSIT ID NUMBER 2208", "", 18000, 3],
+      ["ZELLE FROM PAULO ANDRADE REF # PP9ZK44ABC", "", 7500, 4],
+    ],
+  },
   groups: [["garden", "Garden crew", false], ["events", "Events crew", false], ["welcome", "Welcome team", false], ["youth", "Youth helpers", true]],
   interests: [["petrov.nikolai", "events", "active"], ["nakamura.ken", "events", "active"], ["moreau.jules", "garden", "active"], ["osei.kwame", "garden", "active"],
-             ["haddad.omar", "welcome", "interested"], ["whitfield.henry", "garden", "interested"], ["lindqvist.erik", "events", "interested"], ["okonkwo.emeka", "welcome", "active"]],
+             ["haddad.omar", "welcome", "interested"], ["whitfield.henry", "garden", "interested"], ["lindqvist.erik", "events", "interested"], ["okonkwo.emeka", "welcome", "active"],
+             ["lindqvist.erik", "youth", "interested"]],
   guide: [
     ["welcome", "Welcome to the club", "We are neighbors who like to do things together: meals, clean-ups, concerts and the garden.\n\n(Demo content.)", false],
     ["how-to-join", "How to join", "Say hello at any event, then apply for a yearly membership in the app. Two members vouch for you.\n\n(Demo content.)", false],
@@ -494,11 +726,12 @@ const club = {
     where: "Lakeside hall office",
     categories: [["shop", "Club shop"], ["treats", "Treats"]],
     items: [
-      { sku: "101", cat: "shop", name: "Club T-shirt", descr: "Soft cotton, in the club's lake blue", cents: 1800, pack: "one shirt", taxable: true, gift: true },
+      // Counted on the shelf: the orders below take 2 shirts and 3 boxes of lemon bars out, which leaves both at or under their reorder level.
+      { sku: "101", cat: "shop", name: "Club T-shirt", descr: "Soft cotton, in the club's lake blue", cents: 1800, pack: "one shirt", taxable: true, gift: true, stock: 4, low: 5 },
       { sku: "102", cat: "shop", name: "Canvas tote bag", descr: "Sturdy bag with the club's lighthouse", cents: 1200, pack: "one bag", taxable: true, gift: true },
       { sku: "103", cat: "shop", name: "Enamel mug", descr: "Holds a full cup of coffee", cents: 1000, pack: "one mug", taxable: true, gift: true },
       { sku: "104", cat: "shop", name: "Neighborhood cookbook", descr: "Recipes from the potlucks", cents: 2200, pack: "one book", taxable: false },
-      { sku: "201", cat: "treats", name: "Lemon bars", descr: "A box of six, baked by the garden crew", cents: 900, pack: "box of 6", taxable: false },
+      { sku: "201", cat: "treats", name: "Lemon bars", descr: "A box of six, baked by the garden crew", cents: 900, pack: "box of 6", taxable: false, stock: 5, low: 6 },
     ],
     orders: [
       { ref: "o1", hh: "alvarez", who: "marisol", win: "past", status: "picked_up", lines: [["101", 2], ["201", 1]] },
@@ -508,13 +741,15 @@ const club = {
     ],
   },
   alerts: [
-    { sev: "important", title: "Parking for the clean-up day", body: "Please use the lakeside lot and carpool if you can. (Demo notice.)", from: -1, to: 14 },
+    { sev: "important", title: "Parking for the clean-up day", body: "Please use the lakeside lot and carpool if you can. (Demo notice.)", from: -1, to: 6 },
     { sev: "info", title: "Garden gate code has changed", body: "Ask any garden crew member for the new code. (Demo notice.)", from: -40, to: -35 },
   ],
   campaigns: [
     { k: "news", kind: "newsletter", name: "Monthly newsletter", title: "Lakeside Neighbors Club newsletter", body: "## This month\n\n- Thank you to everyone who came to the potluck\n- Clean-up day is coming\n- Garden fund update\n\n(Demo newsletter.)", channels: ["email"], status: "sent", sentDay: -20, createdDay: -22 },
     { k: "invite", kind: "event", name: "Clean-up day invitation", title: "You're invited: spring clean-up day", body: "Join us at the shoreline. RSVP in the app. (Demo.)", channels: ["push", "email"], status: "sent", sentDay: -5, createdDay: -6 },
     { k: "draft", kind: "event", name: "Summer concert", title: "Save the date: summer concert in the park", body: "Local bands on the lawn; bring a blanket. (Demo draft.)", channels: ["push"], status: "draft", sentDay: null, createdDay: 0 },
+    // Written by a colleague and waiting for the communications officer's approval; an all-member send needs two different approvers.
+    { k: "welcome", kind: "announcement", name: "Welcome, new neighbors", title: "Welcome to Lakeside Neighbors Club", body: "A warm welcome to everyone who joined this season. The clean-up day is next week; bring gloves if you have them. (Demo.)", channels: ["push", "email"], status: "pending_approval", sentDay: null, createdDay: -1, second: true },
   ],
 };
 
@@ -555,9 +790,9 @@ function check(name, content, expect) {
 
 const packs = [
   { key: "demo_faith_jain_v1", spec: faith, title: "Sunrise Worship Center (Demo)", expect: { households: 13, people: 34, personas: 26 },
-    descr: "A small worship center of invented people (in a Jain Center's words: Pathshala, bolis, tapasvis): 13 households, 34 people, pledges and test-mode payments, events with RSVPs, a small store, notices, volunteer groups and a Pathshala term. One demo person for every role." },
+    descr: "A small worship center of invented people (in a Jain Center's words: Pathshala, bolis, tapasvis): 13 households, 34 people, pledges and test-mode payments, events with RSVPs, a small store, notices, volunteer groups and a Pathshala term. One demo person for every role, and something waiting for each of them to do (applications, bank lines, a write-off, questions in the inboxes, texts to approve, an event checklist)." },
   { key: "demo_neutral_club_v1", spec: club, title: "Lakeside Neighbors Club (Demo)", expect: { households: 12, people: 29, personas: 21 },
-    descr: "A neighborhood club that is not faith-based, of invented people: 12 households, 29 people, pledges and test-mode payments, events with RSVPs, a small shop, notices and volunteer groups. One demo person for every role." },
+    descr: "A neighborhood club that is not faith-based, of invented people: 12 households, 29 people, pledges and test-mode payments, events with RSVPs, a small shop, notices and volunteer groups. One demo person for every role, and something waiting for each of them to do (applications, bank lines, a write-off, questions in the inboxes, texts to approve, an event checklist)." },
 ];
 
 const built = packs.map((p) => {

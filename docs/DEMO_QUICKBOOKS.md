@@ -19,10 +19,10 @@ migrations 0627-0629, 0678-0679); this page adds the QuickBooks half and the ord
 
 | | |
 | --- | --- |
-| Built | The pack `demo_faith_jain_v1` (13 households, 34 people, 18 pledges, 14 test-mode payments, 4 events with 20 RSVPs, a store with 5 items and 4 orders, 2 alerts and 3 campaigns, 4 volunteer groups, a Pathshala term with 7 enrolments); the 26 demo people; the sign-in at `/demo`; the nightly reset; QuickBooks in a sandbox community (connect, pull, map, test post, poster). |
+| Built | The pack `demo_faith_jain_v1` (13 households, 34 people, 20 pledges, 14 test-mode payments, 4 events with 20 RSVPs, 2 bolis, a store with 5 items and 4 orders, 2 alerts and 4 campaigns, 4 volunteer groups, a Pathshala term with 9 enrolments, one bank account with 4 statement lines, and something waiting for each of the 26 roles: [DEMO_ROLE_WORK.md](DEMO_ROLE_WORK.md)); the 26 demo people; the sign-in at `/demo`; the nightly reset; QuickBooks in a sandbox community (connect, pull, map, test post, poster). |
 | Built in this change (0785) | The reset keeps the QuickBooks account mapping and its approvals, and puts each fund's QuickBooks class (and each bank account's QuickBooks account) back on the freshly loaded rows. Before it, the connection survived but the mapping did not, so the poster stopped after the first night. |
 | Not done by anyone yet | The demo community has not been created (Platform › Setup says *Demo communities: 0*), the sign-ins are not set up, the switch is off, and no QuickBooks company is connected to it. These need you (a reason and a fresh 2FA check each; a person I cannot be). |
-| Not built | Books sample data in the pack: no bank account, bank lines, bolis or recurring gifts. The 14 payments are history ("already in your books") and are never posted to QuickBooks. See "More sample data" below. |
+| Not built | Recurring gifts, matched bank lines and posted entries in the pack. The one bank account has no QuickBooks account of its own, so it uses the main bank account of the mapping. The 14 payments are history ("already in your books") and are never posted to QuickBooks. See "More sample data" below. |
 
 ## The sequence
 
@@ -140,14 +140,15 @@ example `center-admin.sunrise@demo.weaverams.org` (nobody receives mail there; t
 
 ## More sample data (not built; say what you want)
 
-The pack covers people, memberships, events, the store, Pathshala, notices and volunteers well, and giving thinly. If the demo
-should also show, say, **bolis, recurring gifts, a bank statement to match, Zelle and check deposits, pledges due this month,
-Gyan Path, WeCare or CatchTheMatch**, they are added to the pack builder (`supabase/scripts/build-demo-packs.mjs`, then a new
+The pack covers people, memberships, events, the store, Pathshala, notices, volunteers, a statement to match and the work waiting for
+each role. If the demo should also show, say, **recurring gifts, matched bank lines, pledges due this month, Gyan Path, WeCare or
+CatchTheMatch**, they are added to the pack builder (`supabase/scripts/build-demo-packs.mjs`, then a new
 migration, the pack version bumped). Two rules to keep it honest and the QuickBooks story simple:
 - History stays history: pack payments are `is_historical` and never post. A demo that wants *posted* entries on first view needs
   real postings, and a real posting creates a real receipt in the sandbox company every night. Prefer "the treasurer records a gift
   live" (step 6) over seeded postings.
-- Sample bank lines are fine (a statement imported, some matched, some waiting); nothing posts until a line is confirmed.
+- Sample bank lines are fine (a statement imported, some matched, some waiting); nothing posts until a line is confirmed. The pack has four
+  waiting lines now (0797); confirming one in the demo posts a real gift to the sandbox company, like step 6.
 
 ## Housekeeping
 
