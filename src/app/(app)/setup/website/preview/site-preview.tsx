@@ -105,7 +105,7 @@ function Hero({ c, href }: { c: HeroContent; href: (slug: string) => string }) {
       </div>
       {c.image ? (
         // eslint-disable-next-line @next/next/no-img-element -- a picture from the organization's old website, shown as it is
-        <img src={c.image.src} alt={c.image.alt} referrerPolicy="no-referrer" loading="lazy" className="max-h-[260px] w-full rounded-[10px] object-cover" />
+        <img src={c.image.src} alt={c.image.alt} referrerPolicy="no-referrer" loading="lazy" className="max-h-[260px] w-full rounded-field object-cover" />
       ) : null}
     </div>
   );
@@ -139,7 +139,7 @@ function Events({ c, locale }: { c: EventsContent; locale: string }) {
       ) : (
         <ul className="flex flex-col gap-3">
           {c.events.map((e, i) => (
-            <li key={i} className="rounded-[10px] border px-4 py-3" style={{ borderColor: "var(--sd-secondary)" }}>
+            <li key={i} className="rounded-field border px-4 py-3" style={{ borderColor: "var(--sd-secondary)" }}>
               <p className="text-[17px] font-semibold" style={ink}>
                 {e.title}
               </p>
@@ -211,7 +211,7 @@ function Gallery({ c }: { c: GalleryContent }) {
             {c.images.map((img, i) => (
               <li key={i}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- a picture from the organization's old website, shown as it is */}
-                <img src={img.src} alt={img.alt} referrerPolicy="no-referrer" loading="lazy" className="h-32 w-full rounded-[8px] object-cover" />
+                <img src={img.src} alt={img.alt} referrerPolicy="no-referrer" loading="lazy" className="h-32 w-full rounded-tag object-cover" />
               </li>
             ))}
           </ul>
@@ -286,7 +286,7 @@ function MapBlock({ c }: { c: MapContent }) {
         {c.heading}
       </h2>
       {c.address ? <p style={ink}>{c.address}</p> : null}
-      <p className="rounded-[10px] border border-dashed px-4 py-6 text-center text-[14px]" style={{ borderColor: "var(--sd-secondary)", ...ink }}>
+      <p className="rounded-field border border-dashed px-4 py-6 text-center text-[14px]" style={{ borderColor: "var(--sd-secondary)", ...ink }}>
         A map will appear here when the website is published.
       </p>
     </div>
@@ -315,7 +315,7 @@ function Faq({ c }: { c: FaqContent }) {
 
 function Footer({ c, href }: { c: FooterContent; href: (slug: string) => string }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[10px] px-6 py-5" style={{ background: "var(--sd-primary)", color: "var(--sd-on-primary)" }}>
+    <div className="flex flex-col gap-2 rounded-field px-6 py-5" style={{ background: "var(--sd-primary)", color: "var(--sd-on-primary)" }}>
       <p className="text-[17px] font-semibold">{c.name}</p>
       {c.lines.map((l) => (
         <p key={l} className="text-[14px]">

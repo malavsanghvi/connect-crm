@@ -350,7 +350,7 @@ export function AccountMappingView({ data, timeZone: tz }: { data: AccountMappin
                   return (
                     <tr key={f.id} id={`fund-${f.id}`}>
                       <td>
-                        <span className="font-semibold">{f.name}</span> {f.restricted ? <Badge tone="purple">restricted</Badge> : null}
+                        <span className="font-semibold">{f.name}</span> {f.restricted ? <Badge tone="navy">restricted</Badge> : null}
                       </td>
                       <td>{f.class_name ?? (f.mapped_class_id ? `id ${f.mapped_class_id}` : "No class")}</td>
                       <td className="max-w-sm">

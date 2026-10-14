@@ -21,7 +21,7 @@ export function IconPicker({ label, value, onChange, disabled }: { label: string
             title={POSTER_ICON_LABEL[icon]}
             disabled={disabled}
             onClick={() => onChange(icon)}
-            className={`flex h-11 w-11 items-center justify-center rounded-[10px] border bg-white disabled:opacity-60 ${on ? "border-navy ring-2 ring-navy/30" : "border-line"}`}
+            className={`flex h-11 w-11 items-center justify-center rounded-field border bg-white disabled:opacity-60 ${on ? "border-navy ring-2 ring-navy/30" : "border-line"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={posterIconUri(icon, INK)} alt="" width={26} height={26} />

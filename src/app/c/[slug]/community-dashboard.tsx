@@ -116,7 +116,7 @@ export function CommunityDashboard({
               role="radio"
               aria-checked={p.key === key}
               onClick={() => setKey(p.key)}
-              className={`min-h-10 rounded-[10px] px-3.5 text-[13px] font-bold ${p.key === key ? "bg-navy text-white" : "bg-transparent text-muted"}`}
+              className={`min-h-10 rounded-field px-3.5 text-[13px] font-bold ${p.key === key ? "bg-navy text-white" : "bg-transparent text-muted"}`}
             >
               {p.label}
             </button>
@@ -133,7 +133,7 @@ export function CommunityDashboard({
         </div>
 
         {state.status === "error" ? (
-          <div role="alert" className="rounded-[20px] border border-danger/30 bg-danger-50 p-5 text-[14px] text-danger">
+          <div role="alert" className="rounded-window border border-danger/30 bg-danger-50 p-5 text-[14px] text-danger">
             <p className="font-bold">The dashboard could not load</p>
             <p className="mt-1">{state.message}</p>
             <button type="button" onClick={retry} className="cc-btn cc-btn-bad mt-3">
@@ -143,7 +143,7 @@ export function CommunityDashboard({
         ) : null}
 
         {v?.empty ? (
-          <div className="rounded-[20px] border border-line bg-white p-6 text-center text-[14px] text-muted">
+          <div className="rounded-window border border-line bg-white p-6 text-center text-[14px] text-muted">
             {shortName} has not published any numbers yet.
           </div>
         ) : null}
@@ -163,7 +163,7 @@ export function CommunityDashboard({
         {loading || (v && (v.practice.length > 0 || v.campaign)) ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
             {loading || (v && v.practice.length > 0) ? (
-              <section className="flex flex-col gap-3.5 rounded-[20px] border border-line bg-white p-5">
+              <section className="flex flex-col gap-3.5 rounded-window border border-line bg-white p-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="text-[17px] font-bold">{titles.practice}</h3>
                   <p className="text-xs text-muted">{titles.practiceSub}</p>
@@ -185,7 +185,7 @@ export function CommunityDashboard({
               </section>
             ) : null}
             {loading || v?.campaign ? (
-              <section className="flex flex-col gap-3.5 rounded-[20px] border border-line bg-white p-5">
+              <section className="flex flex-col gap-3.5 rounded-window border border-line bg-white p-5">
                 <h3 className="text-[17px] font-bold">{v?.campaign?.name ?? "Campaign"}</h3>
                 <p className={`font-display text-[34px] font-semibold text-brown ${loading ? "cd-shimmer" : ""}`}>
                   {v?.campaign?.raised ?? "—"}{" "}
@@ -210,7 +210,7 @@ export function CommunityDashboard({
         {loading || (v && (v.months || v.zones)) ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
             {loading || v?.months ? (
-              <section className="flex flex-col gap-3 rounded-[20px] border border-line bg-white p-5">
+              <section className="flex flex-col gap-3 rounded-window border border-line bg-white p-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="text-[17px] font-bold">Attendance by month</h3>
                   <p className="text-xs text-muted">{titles.attendanceSub}</p>
@@ -240,7 +240,7 @@ export function CommunityDashboard({
               </section>
             ) : null}
             {loading || v?.zones ? (
-              <section className="flex flex-col gap-2.5 rounded-[20px] border border-line bg-white p-5">
+              <section className="flex flex-col gap-2.5 rounded-window border border-line bg-white p-5">
                 <h3 className="text-[17px] font-bold">Families by zone</h3>
                 {(v?.zones ?? Array.from({ length: 7 }, () => null)).map((z, i) => (
                   <div key={i} className="flex items-center gap-2.5 text-[13px]">
@@ -264,7 +264,7 @@ export function CommunityDashboard({
             ]
               .filter((c) => loading || (c.rows && c.rows.length > 0))
               .map((c) => (
-                <section key={c.title} className="flex flex-col gap-2.5 rounded-[20px] border border-line bg-white p-5">
+                <section key={c.title} className="flex flex-col gap-2.5 rounded-window border border-line bg-white p-5">
                   <h3 className="text-[17px] font-bold">{c.title}</h3>
                   {(c.rows ?? Array.from({ length: 3 }, () => null)).map((r, i) => (
                     <div key={i} className="flex justify-between border-b border-track pb-2 text-[14px]">
@@ -277,7 +277,7 @@ export function CommunityDashboard({
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-4 rounded-[20px] bg-navy px-[22px] py-[18px] text-white">
+        <div className="flex flex-wrap items-center gap-4 rounded-window bg-navy px-[22px] py-[18px] text-white">
           <div className="min-w-0 flex-1">
             <p className="text-base font-bold">Be part of these numbers</p>
             <p className="text-[13px] text-navy-200">Everything here is aggregated. Groups smaller than 10 are hidden, and no individual is ever shown.</p>

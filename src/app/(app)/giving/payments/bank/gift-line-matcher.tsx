@@ -161,7 +161,7 @@ export function GiftLineMatcher({
   if (duplicate && canConfirm) {
     const sepId = `sep-${txnId.slice(0, 8)}`;
     return (
-      <div className="space-y-3 rounded-lg border border-saffron/60 bg-saffron-50 p-3" role="region" aria-label="Possible double count">
+      <div className="space-y-3 rounded-lg border border-warning-200 bg-warning-50 p-3" role="region" aria-label="Possible double count">
         <p className="text-sm font-semibold text-brown" role="alert">
           {error ?? "This family already has this Zelle recorded by hand."}
         </p>
@@ -243,13 +243,13 @@ export function GiftLineMatcher({
     return (
       <div className="space-y-3 rounded-lg border border-navy/30 bg-navy-50/40 p-3">
         {choice.ambiguous ? (
-          <p className="rounded-md border border-saffron/50 bg-saffron-50 px-3 py-2 text-sm font-semibold text-brown" role="alert">
+          <p className="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-sm font-semibold text-warning-ink" role="alert">
             Several households match this name — check the details before confirming.
           </p>
         ) : null}
         <HouseholdCard card={choice.card} labels={labels} timeZone={timeZone} currency={currency} tone="selected" href={`/households/${choice.card.household_id}`} />
         {isPlatformGift ? (
-          <div className="rounded-[10px] bg-subtle px-3 py-2 text-[13px]">
+          <div className="rounded-field bg-subtle px-3 py-2 text-[13px]">
             <p className="cc-section">RECEIPT</p>
             <p>
               <span className="text-muted">Tax receipt:</span>{" "}
@@ -437,7 +437,7 @@ function SuggestionList({
   return (
     <div className="space-y-2">
       {anyAmbiguous ? (
-        <p className="rounded-md border border-saffron/50 bg-saffron-50 px-3 py-2 text-sm font-semibold text-brown">
+        <p className="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-sm font-semibold text-warning-ink">
           Several households match this name — check the details and choose explicitly.
         </p>
       ) : null}
@@ -459,7 +459,7 @@ function SuggestionList({
             </Badge>{" "}
             {s.reportId ? (
               <>
-                <Badge tone="purple" title="A member of this household reported sending this Zelle; confirming matches the report">
+                <Badge tone="navy" title="A member of this household reported sending this Zelle; confirming matches the report">
                   Member reported
                 </Badge>{" "}
               </>

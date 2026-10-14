@@ -61,9 +61,9 @@ type Loaded = { fileName: string; sha256: string | null; prepared: PreparedPledg
 
 const STATUS_WORD: Record<RowStatus, { label: string; tone: string }> = {
   ready: { label: "Ready", tone: "bg-success-50 text-success-900" },
-  pick: { label: "Pick the household", tone: "bg-saffron-50 text-brown-900" },
-  check: { label: "Check it", tone: "bg-saffron-50 text-brown-900" },
-  repeat: { label: "Possible repeat", tone: "bg-saffron-50 text-brown-900" },
+  pick: { label: "Pick the household", tone: "bg-warning-50 text-warning-ink" },
+  check: { label: "Check it", tone: "bg-warning-50 text-warning-ink" },
+  repeat: { label: "Possible repeat", tone: "bg-warning-50 text-warning-ink" },
   problem: { label: "Problem", tone: "bg-danger-50 text-danger" },
 };
 
@@ -271,7 +271,7 @@ export function PledgeUpload({
                 onPick={(id) => setChoices((c) => ({ picks: { ...c.picks, [r.line]: id }, ticks: { ...c.ticks, [r.line]: true } }))}
               />
             ))}
-            {visible.length === 0 ? <li className="rounded-[12px] bg-ground px-3 py-3 text-center text-[14px] text-muted">Nothing here.</li> : null}
+            {visible.length === 0 ? <li className="rounded-field bg-ground px-3 py-3 text-center text-[14px] text-muted">Nothing here.</li> : null}
           </ul>
           <ReasonInput
             value={reason}
@@ -280,7 +280,7 @@ export function PledgeUpload({
             hint={`Each ${setting.household}'s History shows it, with the row's note.`}
             quick={UPLOAD_REASONS}
           />
-          <label className="flex cursor-pointer items-start gap-3 rounded-[12px] border border-line bg-white px-3 py-2.5" htmlFor="pledge-upload-email">
+          <label className="flex cursor-pointer items-start gap-3 rounded-field border border-line bg-white px-3 py-2.5" htmlFor="pledge-upload-email">
             <input
               id="pledge-upload-email"
               type="checkbox"
@@ -338,7 +338,7 @@ function PledgeRowCard({
   const word = STATUS_WORD[row.status];
   const tickId = `pledge-row-${row.line}`;
   return (
-    <li className={`rounded-[12px] border px-3 py-2.5 ${row.ticked ? "border-navy-300 bg-white" : "border-line bg-ground"}`}>
+    <li className={`rounded-field border px-3 py-2.5 ${row.ticked ? "border-navy-300 bg-white" : "border-line bg-ground"}`}>
       <div className="flex items-start gap-3">
         {tickable ? (
           <input

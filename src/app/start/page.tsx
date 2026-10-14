@@ -70,7 +70,7 @@ export default async function StartPage() {
       }
     >
       {problem ? (
-        <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {problem}
         </p>
       ) : null}

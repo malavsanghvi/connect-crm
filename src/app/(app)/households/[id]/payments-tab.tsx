@@ -161,7 +161,7 @@ export async function PaymentsTab({ session, householdId, period }: { session: C
                       {p.receipt_number ?? "—"}
                       {p.is_opening_balance ? (
                         <div className="font-sans">
-                          <Badge tone="purple">{OPENING_BALANCE_LABEL}</Badge>
+                          <Badge tone="navy">{OPENING_BALANCE_LABEL}</Badge>
                           <div className="text-xs text-muted">Not a gift receipt · left out of year-end statements</div>
                         </div>
                       ) : null}

@@ -39,16 +39,14 @@ export function PathshalaHeader({
 }
 
 /** connect-admin badge tones → the portal's coloured status text. */
-export type PTone = Tone | "muted" | "maroon" | "caution" | "ok";
+export type PTone = Tone | "muted" | "caution" | "ok";
 const TONE: Record<PTone, Tone> = {
   neutral: "neutral",
   navy: "navy",
   success: "success",
   warning: "warning",
   danger: "danger",
-  purple: "purple",
   muted: "neutral",
-  maroon: "danger",
   caution: "warning",
   ok: "success",
 };
@@ -59,8 +57,6 @@ export function PBadge({ tone = "neutral", children }: { tone?: PTone; children:
 
 const STAT_TONE: Record<string, StatTone> = {
   navy: "navy",
-  purple: "purple",
-  maroon: "maroon",
   success: "success",
   danger: "danger",
   warning: "brown",
@@ -140,7 +136,7 @@ export function Select({
 /** A collapsible section (a secondary form under a row). */
 export function Details({ summary, children, open }: { summary: ReactNode; children: ReactNode; open?: boolean }) {
   return (
-    <details open={open} className="group rounded-[10px] border border-line bg-white">
+    <details open={open} className="group rounded-field border border-line bg-white">
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[13px] font-bold text-navy">
         <span>{summary}</span>
         <span aria-hidden className="text-muted transition-transform group-open:rotate-90">

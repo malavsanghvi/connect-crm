@@ -60,7 +60,7 @@ export function HomeworkCell({
         const editable = canAdd && mayEditAssignment(a, canChooseEveryone, ownClasses);
         const reminder = reminderText(a.remind_hours_before, a.due_rule);
         return (
-          <div key={a.id} className="rounded-[10px] border border-line-soft bg-ground px-2.5 py-2">
+          <div key={a.id} className="rounded-field border border-line-soft bg-ground px-2.5 py-2">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="font-bold text-ink">{a.title}</span>
               <Badge tone={assignmentStatusTone(a.status)}>{assignmentStatusLabel(a.status)}</Badge>

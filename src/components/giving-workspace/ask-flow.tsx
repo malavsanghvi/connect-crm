@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { findHouseholdsAction } from "@/app/(app)/giving/actions";
 import { draftPaymentAction } from "@/app/(app)/giving/ask-actions";
 import type { CardLabels, HouseholdCardData } from "@/components/household-card";
@@ -121,7 +122,7 @@ function Problem({ children, onRetry, extra }: { children: ReactNode; onRetry?: 
     <div role="alert" className="flex max-w-[760px] flex-wrap items-center gap-3 rounded-[14px] border border-danger/30 bg-danger-50 px-4 py-3 text-[14px] leading-[1.45] text-danger">
       <span className="min-w-[240px] flex-1">{children}</span>
       {onRetry ? (
-        <button type="button" onClick={onRetry} className="inline-flex min-h-[40px] items-center rounded-[20px] bg-danger px-4 text-[13px] font-bold text-white">
+        <button type="button" onClick={onRetry} className="inline-flex min-h-[40px] items-center rounded-window bg-danger px-4 text-[13px] font-bold text-white">
           Try again
         </button>
       ) : null}
@@ -158,10 +159,10 @@ function HouseholdChoice({
   return (
     <label
       htmlFor={id}
-      className={`flex cursor-pointer gap-3 rounded-[16px] border-2 px-4 py-[14px] text-left text-ink focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-navy ${checked ? "border-navy bg-navy-50" : "border-line bg-white hover:border-line-input"}`}
+      className={`flex cursor-pointer gap-3 rounded-tile border-2 px-4 py-[14px] text-left text-ink focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-navy ${checked ? "border-navy bg-navy-50" : "border-line bg-white hover:border-line-control"}`}
     >
       <input id={id} type="radio" name={name} checked={checked} onChange={onPick} className="sr-only" />
-      <span aria-hidden="true" className={`mt-0.5 flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border-2 bg-white ${checked ? "border-navy" : "border-line-input"}`}>
+      <span aria-hidden="true" className={`mt-0.5 flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border-2 bg-white ${checked ? "border-navy" : "border-line-control"}`}>
         <span className={`h-[10px] w-[10px] rounded-full ${checked ? "bg-navy" : "bg-transparent"}`} />
       </span>
       <span className="flex min-w-0 flex-col gap-[3px]">
@@ -193,15 +194,11 @@ function HouseholdChoice({
 function CheckMark({ status }: { status: "ok" | "look" | "unknown" }) {
   if (status === "ok") {
     return (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--v2-green)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mt-px flex-none">
-        <path d="M5 13l4 4 10-10" />
-      </svg>
+      <Icon name="check" size={18} className="mt-px flex-none text-success" />
     );
   }
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={status === "look" ? "var(--v2-sun-ink)" : "var(--v2-muted)"} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mt-px flex-none">
-      {status === "look" ? <path d="M12 7v6 M12 17h.01" /> : <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7 M12 17h.01" />}
-    </svg>
+    <Icon name={status === "look" ? "alert" : "help"} size={18} className={`mt-px flex-none ${status === "look" ? "text-warning" : "text-muted"}`} />
   );
 }
 
@@ -362,7 +359,7 @@ export function AskFlow(props: AskFlowProps) {
                 </button>
               </div>
             ) : (
-              <p className="m-0 max-w-[640px] rounded-[12px] border border-line bg-white px-4 py-3 text-[14px] text-ink-2">
+              <p className="m-0 max-w-[640px] rounded-field border border-line bg-white px-4 py-3 text-[14px] text-ink-2">
                 You can look at Giving, but recording payments needs the permission to record them (giving.record_offline or giving.manage). Ask an owner if you need it.
               </p>
             )}
@@ -457,17 +454,9 @@ export function AskFlow(props: AskFlowProps) {
       </section>
 
       <form onSubmit={submit} aria-label="Tell Niva about the payment" className="sticky bottom-[84px] z-10 md:bottom-4">
-        <div className="flex min-h-[56px] items-center gap-3 rounded-[28px] border border-line-input bg-white py-1.5 pl-[18px] pr-2.5 shadow-sm">
-          <span aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24">
-              <defs>
-                <linearGradient id="gv-spark" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#FFB82A" />
-                  <stop offset="1" stopColor="#FF7640" />
-                </linearGradient>
-              </defs>
-              <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="url(#gv-spark)" />
-            </svg>
+        <div className="flex min-h-[56px] items-center gap-3 rounded-[28px] border border-line-control bg-white py-1.5 pl-[18px] pr-2.5 shadow-sm">
+          <span aria-hidden="true" className="text-navy">
+            <Icon name="sparkle" size={22} />
           </span>
           <label htmlFor={inputId} className="sr-only">
             {conversation && !flow.closed ? "Say what to change" : "Say the payment"}
@@ -487,12 +476,9 @@ export function AskFlow(props: AskFlowProps) {
             type="submit"
             disabled={!canRecord || text.trim() === ""}
             aria-label="Send"
-            className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-ink disabled:opacity-60"
-            style={{ background: "var(--v2-sun)" }}
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-navy text-white hover:bg-navy-hover disabled:opacity-60"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M3 11l18-8-8 18-2-8z" />
-            </svg>
+            <Icon name="send" size={20} />
           </button>
         </div>
         <p id={noteId} className="sr-only">
@@ -545,11 +531,9 @@ function DraftCard({
 
   return (
     <div className="flex max-w-[760px] flex-col gap-3">
-      <section aria-labelledby={titleId} className="overflow-hidden rounded-[16px] border border-line bg-white">
-        <h2 id={titleId} className="m-0 flex items-center gap-2.5 border-b border-saffron-200 bg-saffron-50 px-[18px] py-2.5 text-[12px] font-bold uppercase tracking-[0.04em] text-brown-900">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z" />
-          </svg>
+      <section aria-labelledby={titleId} className="overflow-hidden rounded-tile border border-line bg-white">
+        <h2 id={titleId} className="m-0 flex items-center gap-2.5 border-b border-warning-200 bg-warning-50 px-[18px] py-2.5 text-[12px] font-bold uppercase tracking-[0.04em] text-warning-ink">
+          <Icon name="shield" size={16} />
           Money action · needs your confirmation
         </h2>
         <dl className="m-0 grid grid-cols-[110px_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-[18px] py-4 text-[14px] leading-[1.45] sm:grid-cols-[150px_minmax(0,1fr)]">
@@ -563,7 +547,7 @@ function DraftCard({
         {view.notes.map((n, i) => (
           <p
             key={i}
-            className={`mx-[18px] mb-3.5 mt-0 rounded-[12px] border px-3.5 py-2.5 text-[13px] leading-[1.5] ${n.tone === "danger" ? "border-danger/30 bg-danger-50 text-danger" : "border-saffron-200 bg-saffron-50 text-brown-900"}`}
+            className={`mx-[18px] mb-3.5 mt-0 rounded-field border px-3.5 py-2.5 text-[13px] leading-[1.5] ${n.tone === "danger" ? "border-danger/30 bg-danger-50 text-danger" : "border-warning-200 bg-warning-50 text-warning-ink"}`}
           >
             {n.text}
           </p>
@@ -589,7 +573,7 @@ function DraftCard({
         <details
           open={flow.evidenceOpen}
           onToggle={(e) => onEvidence((e.currentTarget as HTMLDetailsElement).open)}
-          className="mx-[18px] mb-3.5 rounded-[12px] border border-line bg-ground px-3.5 py-2.5 text-[13px]"
+          className="mx-[18px] mb-3.5 rounded-field border border-line bg-ground px-3.5 py-2.5 text-[13px]"
         >
           <summary className="cursor-pointer font-bold text-ink-2">
             What a second person would check ({view.checks.length}){view.needsALook > 0 ? ` · ${view.needsALook} to look at` : ""}
@@ -629,7 +613,7 @@ function DraftCard({
               type="button"
               onClick={onEdit}
               aria-expanded={flow.editing}
-              className="min-h-[44px] rounded-[22px] border border-line-input bg-white px-[18px] text-[14px] font-bold text-ink hover:bg-navy-50"
+              className="min-h-[44px] rounded-[22px] border border-line-control bg-white px-[18px] text-[14px] font-bold text-ink hover:bg-navy-50"
             >
               Change something
             </button>
@@ -651,7 +635,7 @@ function DraftCard({
         <Problem
           onRetry={onPropose}
           extra={
-            <Link href={recordPaymentHref(request)} className="inline-flex min-h-[40px] items-center rounded-[20px] border border-danger px-4 text-[13px] font-bold text-danger no-underline">
+            <Link href={recordPaymentHref(request)} className="inline-flex min-h-[40px] items-center rounded-window border border-danger px-4 text-[13px] font-bold text-danger no-underline">
               Open in Record payment
             </Link>
           }
@@ -687,11 +671,11 @@ function ChangeForm({
   const [received, setReceived] = useState(request.received_on ?? today);
   const [reference, setReference] = useState(request.reference ?? "");
   const [apply, setApply] = useState<"auto" | "none">(allocation);
-  const field = "mt-1 block min-h-[44px] w-full rounded-[12px] border border-line-input bg-white px-3 text-[15px] text-ink";
+  const field = "mt-1 block min-h-[44px] w-full rounded-field border border-line-control bg-white px-3 text-[15px] text-ink";
   const label = "text-[13px] font-semibold text-ink-2";
   return (
     <form
-      className="mx-[18px] mb-3.5 grid grid-cols-1 gap-3 rounded-[12px] border border-line bg-white p-3.5 sm:grid-cols-2"
+      className="mx-[18px] mb-3.5 grid grid-cols-1 gap-3 rounded-field border border-line bg-white p-3.5 sm:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
         onSave({ ...ask, amount: amount.trim() || null, method, receivedOn: received || null, reference: reference.trim() || null }, apply);

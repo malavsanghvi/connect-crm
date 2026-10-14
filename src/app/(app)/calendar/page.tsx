@@ -238,7 +238,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       {manage ? (
                         <td>
                           {e.event_id ? (
-                            <span className="text-xs text-muted">From Events</span>
+                            <span className="text-xs text-muted">From events</span>
                           ) : e.source_uid ? (
                             <span className="text-xs text-muted">From the calendar link</span>
                           ) : (

@@ -50,10 +50,10 @@ export function MoreMenu({ model }: { model: BankModel }) {
   return (
     <details className="relative">
       <summary className={`${buttonClass("ghost", "sm")} min-h-[40px] cursor-pointer list-none`}>More</summary>
-      <div className="absolute right-0 z-20 mt-1 w-64 rounded-[12px] border border-line bg-white p-1 shadow-lg">
+      <div className="absolute right-0 z-20 mt-1 w-64 rounded-field border border-line bg-white p-1 shadow-lg">
         <button
           type="button"
-          className="flex min-h-[44px] w-full items-center rounded-[10px] px-3 py-2 text-left text-[14px] font-semibold text-ink hover:bg-canvas"
+          className="flex min-h-[44px] w-full items-center rounded-field px-3 py-2 text-left text-[14px] font-semibold text-ink hover:bg-canvas"
           onClick={() => setOpen(true)}
         >
           Recently learned payer names
@@ -68,7 +68,7 @@ export function MoreMenu({ model }: { model: BankModel }) {
           onClose={() => setOpen(false)}
         >
           {model.learned.state === "error" ? (
-            <p role="alert" className="m-0 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+            <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {model.learned.error}
             </p>
           ) : model.learned.rows.length === 0 ? (
@@ -76,7 +76,7 @@ export function MoreMenu({ model }: { model: BankModel }) {
           ) : (
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {model.learned.rows.map((l) => (
-                <li key={l.id} className="rounded-[12px] border border-line px-3 py-2 text-[13.5px]">
+                <li key={l.id} className="rounded-field border border-line px-3 py-2 text-[13.5px]">
                   <p className="m-0 font-mono font-bold text-ink">{l.value}</p>
                   <p className="m-0 text-muted">
                     {l.family ? `${l.family.name} · ${familyLine(l.family, model.labels)}` : "Family not shown"}
@@ -97,7 +97,7 @@ export function MoreMenu({ model }: { model: BankModel }) {
 
 const DIFF_TONE: Record<PayoutRowView["difference"]["tone"], string> = {
   ok: "bg-success-50 text-success",
-  warn: "bg-saffron-50 text-brown",
+  warn: "bg-warning-50 text-warning-ink",
   muted: "bg-ground text-muted",
 };
 

@@ -353,7 +353,7 @@ export function EmailPledgeFields({
           <p
             role={outcome.tone === "bad" ? "alert" : "status"}
             data-testid="email-outcome"
-            className={`m-0 rounded-[12px] border px-3 py-2 text-[14px] ${
+            className={`m-0 rounded-field border px-3 py-2 text-[14px] ${
               outcome.tone === "ok" ? "border-success/30 bg-success-50 font-bold text-success-900" : outcome.tone === "bad" ? "border-danger/30 bg-danger-50 text-danger" : "border-line bg-ground text-ink-2"
             }`}
           >

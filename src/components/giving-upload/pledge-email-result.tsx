@@ -136,7 +136,7 @@ export function PledgeEmailResult({
       </Alert>
       {error ? <p role="alert" className="m-0 text-[13px] text-danger">{error}</p> : null}
       {problems.length > 0 ? (
-        <ul className="m-0 flex list-none flex-col gap-1 rounded-[12px] border border-line bg-white p-3 text-[13.5px] text-ink-2" data-testid="pledge-email-problems">
+        <ul className="m-0 flex list-none flex-col gap-1 rounded-field border border-line bg-white p-3 text-[13.5px] text-ink-2" data-testid="pledge-email-problems">
           {problems.map((p, i) => (
             <li key={`${i}-${p.text}`} className={p.state === "failed" ? "font-semibold text-danger" : undefined}>
               {p.text}

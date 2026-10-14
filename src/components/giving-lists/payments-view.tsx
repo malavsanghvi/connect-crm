@@ -64,7 +64,7 @@ export function PaymentsView({ model, recordSlot }: { model: PaymentsModel; reco
             </div>
           ) : null}
           {body.rows.length === 0 ? (
-            <p className="m-0 rounded-[12px] bg-ground px-3 py-4 text-center text-[14px] text-muted">{body.empty}</p>
+            <p className="m-0 rounded-field bg-ground px-3 py-4 text-center text-[14px] text-muted">{body.empty}</p>
           ) : (
             <ListRows rows={body.rows} ctx={ctx} columns={COLUMNS[model.view]} expandSingle={model.expandSingle} label={LIST_LABEL[model.view]} />
           )}

@@ -76,7 +76,7 @@ export function InboxRow({ row, roles }: { row: Row; roles: InboxModel["roles"] 
       )}
 
       {flow.phase === "done" ? (
-        <p role="status" className="m-0 rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
+        <p role="status" className="m-0 rounded-field border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
           {flow.message}
         </p>
       ) : (
@@ -125,7 +125,7 @@ export function InboxRow({ row, roles }: { row: Row; roles: InboxModel["roles"] 
                   value={flow.reason}
                   disabled={sending}
                   onChange={(e) => dispatch({ type: "reason", text: e.target.value })}
-                  className="w-full rounded-[10px] border border-line-input bg-white px-3 py-2 text-[14px] font-normal text-ink outline-none focus:border-navy focus:ring-2 focus:ring-navy/30"
+                  className="w-full rounded-field border border-line-control bg-white px-3 py-2 text-[14px] font-normal text-ink outline-none focus:border-navy focus:ring-2 focus:ring-navy/30"
                 />
               </label>
               <div className="flex flex-wrap items-center gap-2">
@@ -153,7 +153,7 @@ export function InboxRow({ row, roles }: { row: Row; roles: InboxModel["roles"] 
           )}
 
           {flow.error ? (
-            <p role="alert" className="m-0 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+            <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {flow.error}
             </p>
           ) : null}

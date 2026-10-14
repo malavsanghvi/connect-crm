@@ -73,7 +73,7 @@ function Shell({ title, aside, children }: { title: string; aside?: ReactNode; c
 
 function Failure({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div role="alert" className="mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <div role="alert" className="mt-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       <p className="m-0">{message}</p>
       {onRetry ? (
         <button type="button" onClick={onRetry} className={`${buttonClass("bad", "xs")} mt-2`}>
@@ -133,7 +133,7 @@ export function CareCard({ load, householdId, timeZone, retryHref }: { load: Car
   if (card.status === "error") {
     return (
       <Shell title="Care">
-        <div role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <div role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           <p className="m-0">Could not load the care record — {card.error.replace(/\.?$/, ".")}</p>
           <a href={retryHref} className={`${buttonClass("bad", "xs")} mt-2`}>
             Try again
@@ -169,7 +169,7 @@ function CareCardBody({
       }
     >
       {rest ? (
-        <p role="status" className="m-0 mb-3 rounded-[10px] border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] px-3 py-2 text-[13.5px] font-semibold text-[var(--v2-sun-ink)]">
+        <p role="status" className="m-0 mb-3 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13.5px] font-semibold text-warning-ink">
           {rest}. Thank and care for them as usual; no asks.
         </p>
       ) : null}
@@ -555,7 +555,7 @@ function TouchForm({ data, householdId, onDone }: { data: CardData; householdId:
     w.run(() => logCareTouchAction(call), onDone);
   };
   return (
-    <div className="mt-2 grid gap-2 rounded-[12px] border border-line bg-[var(--v2-ground)] p-3 sm:grid-cols-2">
+    <div className="mt-2 grid gap-2 rounded-field border border-line bg-[var(--v2-ground)] p-3 sm:grid-cols-2">
       <Select id={ids.kind} label="What" value={t.kind} onChange={(v) => setT({ ...t, kind: v })} options={TOUCH_KINDS.map((k) => [k, TOUCH_KIND_LABEL[k]])} empty="Choose" />
       <Select id={ids.channel} label="How" value={t.channel} onChange={(v) => setT({ ...t, channel: v })} options={TOUCH_CHANNELS.map((k) => [k, CHANNEL_LABEL[k]])} empty="Choose" />
       <Select id={ids.outcome} label="How it went" value={t.outcome} onChange={(v) => setT({ ...t, outcome: v })} options={TOUCH_OUTCOMES.map((k) => [k, OUTCOME_LABEL[k]])} empty="Choose" />
@@ -666,7 +666,7 @@ function NoteRow({ note, canManage, householdId, timeZone }: { note: CareNote; c
   const w = useWrite();
   const id = useId();
   return (
-    <li className="rounded-[10px] bg-[var(--v2-ground)] px-3 py-2 text-[13.5px]">
+    <li className="rounded-field bg-[var(--v2-ground)] px-3 py-2 text-[13.5px]">
       {editing ? (
         <div>
           <label htmlFor={id} className="sr-only">
@@ -728,14 +728,14 @@ function PeopleFields({ data }: { data: CardData }) {
   if (!data.people) {
     return (
       <div className="border-t border-line pt-3">
-        <h3 className={H3}>From People</h3>
+        <h3 className={H3}>From people</h3>
         <p className="m-0 text-[13px] text-muted">Interests, best call time, special days and dietary needs show here for roles that can also see People.</p>
       </div>
     );
   }
   return (
     <div className="border-t border-line pt-3">
-      <h3 className={H3}>From People</h3>
+      <h3 className={H3}>From people</h3>
       {data.people.length === 0 ? <p className="m-0 text-[13px] text-muted">No adults are recorded in this household.</p> : null}
       <ul className="m-0 list-none space-y-2 p-0">
         {data.people.map((p) => {

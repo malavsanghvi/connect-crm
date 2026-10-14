@@ -347,7 +347,7 @@ describe("the icon library", () => {
   it("draws the ribbon's own icons and refuses a colour that is not hex (no markup can be injected)", () => {
     expect(posterIconSvg("calendar", "#C9A227")).toContain("#C9A227");
     expect(posterIconSvg("pin", '"/><script>')).not.toContain("<script");
-    expect(posterIconSvg("pin", '"/><script>')).toContain("#1B2C5C");
+    expect(posterIconSvg("pin", '"/><script>')).toContain("#2B2A8A");
     expect(posterIconUri("clock", "#112233").startsWith("data:image/svg+xml;base64,")).toBe(true);
   });
 

@@ -143,7 +143,7 @@ function RecentFamilies({ recents }: { recents: RecentFamily[] }) {
     <section aria-label="Recent families" className="flex flex-col gap-3">
       <SectionHeading title="Recent families" note="Remembered in this browser; not shared between your devices" />
       {recents.length === 0 ? (
-        <p className="m-0 rounded-[14px] border border-dashed border-line-input px-4 py-5 text-[13px] text-muted">Families you open show up here, so you can get back to them in one click.</p>
+        <p className="m-0 rounded-[14px] border border-dashed border-line-control px-4 py-5 text-[13px] text-muted">Families you open show up here, so you can get back to them in one click.</p>
       ) : (
         <ul className="m-0 grid list-none grid-flow-col auto-cols-[minmax(240px,80%)] gap-3 overflow-x-auto p-0 pb-1 md:grid-flow-row md:auto-cols-auto md:grid-cols-2 md:overflow-visible xl:grid-cols-3">
           {recents.map((r) => (

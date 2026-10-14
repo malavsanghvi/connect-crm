@@ -125,10 +125,10 @@ export function GivingSheet({
           </button>
         </div>
         {family ? <FamilyCard family={family} labels={labels} /> : null}
-        {what ? <div className="m-0 rounded-[12px] bg-ground px-3 py-2 text-[14px] leading-[1.5] text-ink-2">{what}</div> : null}
+        {what ? <div className="m-0 rounded-field bg-ground px-3 py-2 text-[14px] leading-[1.5] text-ink-2">{what}</div> : null}
         {children}
         {error ? (
-          <p role="alert" className="m-0 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
+          <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
             {error}
           </p>
         ) : null}

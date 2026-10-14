@@ -71,7 +71,7 @@ export function SaveViewControl({
           <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center rounded-[22px] bg-navy px-5 text-[14px] font-bold text-white hover:bg-navy-hover disabled:opacity-60">
             {busy ? "Saving…" : "Save view"}
           </button>
-          <button type="button" onClick={() => setOpen(false)} disabled={busy} className="inline-flex min-h-11 items-center rounded-[22px] border border-line-input bg-white px-4 text-[14px] font-bold text-ink">
+          <button type="button" onClick={() => setOpen(false)} disabled={busy} className="inline-flex min-h-11 items-center rounded-[22px] border border-line-control bg-white px-4 text-[14px] font-bold text-ink">
             Cancel
           </button>
         </div>
@@ -96,7 +96,7 @@ export function SaveViewControl({
           setDone(null);
           setOpen(true);
         }}
-        className="inline-flex min-h-11 items-center rounded-[22px] border border-line-input bg-white px-[18px] text-[14px] font-bold text-ink hover:border-navy disabled:cursor-not-allowed disabled:text-faint disabled:hover:border-line-input"
+        className="inline-flex min-h-11 items-center rounded-[22px] border border-line-control bg-white px-[18px] text-[14px] font-bold text-ink hover:border-navy disabled:cursor-not-allowed disabled:text-faint disabled:hover:border-line-control"
       >
         Save this view
       </button>

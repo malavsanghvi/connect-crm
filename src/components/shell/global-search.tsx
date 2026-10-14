@@ -150,10 +150,10 @@ export function GlobalSearch() {
                 href={r.href}
                 onClick={() => setOpen(false)}
                 onMouseEnter={() => setActive(i)}
-                className={`flex items-start gap-3 rounded-[10px] px-3 py-2 text-left no-underline ${i === active ? "bg-navy-50" : ""}`}
+                className={`flex items-start gap-3 rounded-field px-3 py-2 text-left no-underline ${i === active ? "bg-navy-50" : ""}`}
               >
                 <span
-                  className={`mt-0.5 w-[74px] shrink-0 rounded-lg py-[3px] text-center text-[11px] font-bold text-white ${r.kind === "household" ? "bg-navy" : "bg-purple"}`}
+                  className={`mt-0.5 w-[74px] shrink-0 rounded-lg py-[3px] text-center text-[11px] font-bold text-white ${r.kind === "household" ? "bg-navy" : "bg-navy"}`}
                 >
                   {r.kind === "household" ? "Household" : "Person"}
                 </span>

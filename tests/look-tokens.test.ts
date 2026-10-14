@@ -91,17 +91,16 @@ describe("the portal's colours are the brand kit's", () => {
     expect(value("--v2-green")).toBe(value("--color-success"));
     // Written as references, never as a second copy of a value.
     for (const [name, v] of declared) {
-      if (name.startsWith("--v2-") && name !== "--v2-sun") expect(v, name).toMatch(/^var\(--color-[a-z0-9-]+\)$/);
+      if (name.startsWith("--v2-")) expect(v, name).toMatch(/^var\(--color-[a-z0-9-]+\)$/);
     }
   });
 
-  it("has no dark mode and uses the sun gradient for Niva's button only", () => {
+  it("has no dark mode, and Niva has no colour of its own: its button is a navy-50 tile and the AI tag marks it", () => {
     expect(v2Section).not.toMatch(/prefers-color-scheme/);
-    expect(v2Section.match(/var\(--v2-sun\)/g) ?? []).toHaveLength(1);
-    expect(v2Section).toMatch(/\.v2-niva-orb \{[^}]*background: var\(--v2-sun\)/);
-    // The gradient is gold to saffron, named once, in the token list.
-    expect(declared.get("--v2-sun")).toBe("linear-gradient(135deg, var(--color-gold), var(--color-saffron))");
-    expect(v2Section.match(/var\(--v2-sun-(from|to)\)/g) ?? []).toHaveLength(0);
+    // The sun gradient is gone from the look (the kit allows a gradient on the AI tag, the headline underline and the picture wash only).
+    for (const name of ["--v2-sun", "--v2-sun-from", "--v2-sun-to"]) expect(declared.has(name), name).toBe(false);
+    expect(v2Section).not.toMatch(/var\(--v2-sun(-from|-to)?\)/);
+    expect(v2Section).toMatch(/\.v2-niva-orb \{[^}]*background: var\(--color-navy-50\)/);
   });
 });
 
@@ -156,8 +155,7 @@ describe("text contrast is at least 4.5:1 on the surface it sits on", () => {
     }
   });
 
-  it("Niva's icon is readable on both ends of the sun gradient", () => {
-    expect(ratio(color("--v2-ink"), color("--v2-sun-from"))).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(color("--v2-ink"), color("--v2-sun-to"))).toBeGreaterThanOrEqual(4.5);
+  it("Niva's ink sparkle is readable on its tile, at rest and on hover", () => {
+    for (const tile of ["--color-navy-50", "--color-navy-100"]) expect(ratio(color("--v2-ink"), color(tile))).toBeGreaterThanOrEqual(4.5);
   });
 });

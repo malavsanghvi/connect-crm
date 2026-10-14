@@ -239,7 +239,7 @@ export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = 
             <h1 className="m-0 font-display text-[30px] font-semibold leading-[1.15] text-ink">{draft.id ? draft.name.trim() || "Untitled event" : "Create an event"}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span role="status" className={`rounded-[12px] px-2.5 py-1 text-[13px] font-semibold ${statusTone}`}>
+            <span role="status" className={`rounded-field px-2.5 py-1 text-[13px] font-semibold ${statusTone}`}>
               {status}
             </span>
             <Link href={draft.id ? `/events/builder?event=${draft.id}` : "/events/builder"} className={softButton}>
@@ -297,7 +297,7 @@ export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = 
 
             {step !== "review"
               ? asked.slice(0, Math.max(0, index)).map((c) => (
-                  <div key={c} className="flex items-baseline justify-between gap-3 rounded-[12px] border border-line bg-white px-3 py-2 text-[14px]">
+                  <div key={c} className="flex items-baseline justify-between gap-3 rounded-field border border-line bg-white px-3 py-2 text-[14px]">
                     <span className="min-w-0">
                       <span className="block text-[11px] font-bold uppercase tracking-[0.06em] text-muted">{cardDef(c).label}</span>
                       <span className="text-ink">{summaryOf(c, draft, ctx, existing)}</span>
@@ -309,7 +309,7 @@ export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = 
                 ))
               : null}
 
-            <section aria-labelledby="creator-question" className="rounded-[16px] border border-line bg-white p-4 sm:p-5">
+            <section aria-labelledby="creator-question" className="rounded-tile border border-line bg-white p-4 sm:p-5">
               <p className="m-0 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
                 Step {index + 1} of {total}
               </p>

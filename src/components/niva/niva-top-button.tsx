@@ -20,7 +20,7 @@ export function NivaTopButton() {
       title={`Ask Niva (${modKey}+J)`}
       className={`${buttonClass("ghost", "sm")} shrink-0`}
     >
-      <span className="text-brown">
+      <span className="text-navy">
         <Sparkle />
       </span>
       <span className="hidden sm:inline">Niva</span>

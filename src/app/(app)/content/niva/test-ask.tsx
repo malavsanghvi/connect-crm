@@ -146,7 +146,7 @@ export function NivaTestBox({ initialTests }: { initialTests: NivaTestsToday | n
           maxLength={1000}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder={`When is the ${kindTerm(kind, "place", "derasar")} open on Sunday?`}
+          placeholder={`When is the ${kindTerm(kind, "place", "office")} open on Sunday?`}
           className="crm-input"
         />
         <label className="flex items-start gap-2 text-[13px]">
@@ -172,7 +172,7 @@ export function NivaTestBox({ initialTests }: { initialTests: NivaTestsToday | n
           {tests ? <span className={`text-[12px] ${tests.full ? "font-semibold text-danger" : "text-muted"}`}>{tests.label}</span> : null}
         </div>
         {askError ? (
-          <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+          <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             {askError}
           </p>
         ) : null}
@@ -190,7 +190,7 @@ function TestRun({ run, onCheckAgain }: { run: Run; onCheckAgain: () => void }) 
     </button>
   );
   return (
-    <div className="rounded-[10px] border border-line-soft px-3 py-3" aria-live="polite">
+    <div className="rounded-field border border-line-soft px-3 py-3" aria-live="polite">
       <p className="text-[12px] text-muted">You asked{run.includeInReview ? ", including sources waiting for approval" : ""}:</p>
       <p className="font-bold">{run.question}</p>
       {run.phase === "waiting" ? <p className="mt-2 text-[13px] text-muted">{nivaTestWaitingLine(r, run.elapsed)}</p> : null}

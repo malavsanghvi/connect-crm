@@ -151,7 +151,7 @@ function IdChip({ id, detail, onGone }: { id: DetailId; detail: PersonDetailMode
         )}
       </span>
       {confirming ? (
-        <div role="group" aria-label={`Retire ${id.label} ${id.value}`} className="mt-1.5 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-ink">
+        <div role="group" aria-label={`Retire ${id.label} ${id.value}`} className="mt-1.5 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-ink">
           <p className="m-0">
             Retire {id.label} <span className="font-mono font-semibold">{id.value}</span>? It stops matching from today but stays in the history.
           </p>
@@ -173,7 +173,7 @@ function IdChip({ id, detail, onGone }: { id: DetailId; detail: PersonDetailMode
                   void retire();
                 }
               }}
-              className="min-h-10 w-full rounded-[10px] border border-[var(--v2-line-input)] bg-white px-3 text-[14px] font-normal text-ink outline-none focus:border-[var(--v2-blue)]"
+              className="min-h-10 w-full rounded-field border border-[var(--v2-line-input)] bg-white px-3 text-[14px] font-normal text-ink outline-none focus:border-[var(--v2-blue)]"
             />
           </label>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -339,7 +339,7 @@ function AddIdPanel({ detail, facts, onClose }: { detail: PersonDetailModel; fac
       </div>
       {problem ? <Problem id={`${uid}-problem`}>{problem}</Problem> : null}
       {failure ? (
-        <div role="alert" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <div role="alert" className="mt-3 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {failure}
         </div>
       ) : null}

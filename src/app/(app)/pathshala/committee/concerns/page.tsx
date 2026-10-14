@@ -86,7 +86,7 @@ export default async function ConcernsPage({ searchParams }: { searchParams: Pro
                     <Card>
                       <div className="flex flex-wrap items-center gap-2">
                         <PBadge tone={c.status === "closed" ? "success" : c.status === "in_progress" ? "navy" : "warning"}>{humanize(c.status)}</PBadge>
-                        <PBadge tone="purple">{humanize(c.source)}</PBadge>
+                        <PBadge tone="navy">{humanize(c.source)}</PBadge>
                         {c.class_id && <PBadge tone="muted">{classes.find((x) => x.id === c.class_id)?.name ?? "Class"}</PBadge>}
                       </div>
                       <h3 className="mt-2 font-display text-lg font-semibold">{c.title}</h3>

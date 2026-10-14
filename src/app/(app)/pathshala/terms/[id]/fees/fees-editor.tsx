@@ -132,7 +132,7 @@ export function FeesEditor({
   const waiting = suggestionsToUse(groups, values);
   return (
     <ActionForm action={action} submitLabel="Save fees" pendingLabel="Saving fees…" buttonsClassName="mt-3">
-      <div className="mb-3 rounded-[12px] border border-line bg-ground p-3">
+      <div className="mb-3 rounded-field border border-line bg-ground p-3">
         <p className="text-[13px] font-bold text-ink">Copy one fee to many levels</p>
         <p className="text-xs text-muted">Tick the levels below, type the fee, then copy. {FEE_RULE}</p>
         <div className="mt-2 flex flex-wrap items-end gap-2">

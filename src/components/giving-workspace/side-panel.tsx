@@ -5,6 +5,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import type { GivingWorkspaceModel } from "@/lib/data/giving-workspace";
 import { moneyIn } from "@/lib/community-format";
 import { householdLine, paidPercent, type Part, type WaitingRow } from "@/lib/giving-workspace/view";
@@ -28,7 +29,7 @@ function NoAccessLine() {
 
 function ErrorLine({ error }: { error: string }) {
   return (
-    <p role="alert" className="m-0 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
+    <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
       {error}{" "}
       <a href="/giving" className="font-bold text-danger underline">
         Reload to try again
@@ -46,13 +47,9 @@ function PartView<T>({ part, children }: { part: Part<T>; children: (data: T) =>
 
 function Tick({ done }: { done: boolean }) {
   return done ? (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--v2-green)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mt-px flex-none">
-      <path d="M5 13l4 4 10-10" />
-    </svg>
+    <Icon name="check" size={18} className="mt-px flex-none text-success" />
   ) : (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--v2-sun-ink)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mt-px flex-none">
-      <path d="M12 7v6 M12 17h.01" />
-    </svg>
+    <Icon name="alert" size={18} className="mt-px flex-none text-warning" />
   );
 }
 

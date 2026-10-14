@@ -35,7 +35,7 @@ export function PledgesView({ model }: { model: PledgesModel }) {
             {model.summary ? <p className="m-0 text-[13px] text-muted">{model.summary}</p> : null}
           </div>
           {body.rows.length === 0 ? (
-            <p className="m-0 rounded-[12px] bg-ground px-3 py-4 text-center text-[14px] text-muted">{body.empty}</p>
+            <p className="m-0 rounded-field bg-ground px-3 py-4 text-center text-[14px] text-muted">{body.empty}</p>
           ) : (
             <ListRows
               rows={body.rows}

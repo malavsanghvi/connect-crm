@@ -40,10 +40,13 @@ export function logoTypeNote(kind: string | null): string | null {
   return kind === "image/webp" ? LOGO_WEBP_NOTE : LOGO_NOTE;
 }
 
+// The colours are the Weaver brand kit's navy, gold and canvas (brand/tokens.json; this file is shared with the background service, so it
+// cannot import the kit: tests/brand-conformance.test.ts checks the three values). The flyer's "accent" is its gold highlight, so it is the
+// kit's gold: navy with one gold highlight, as on the website's footer.
 export const FLYER_BRAND_DEFAULTS = {
-  primary: "#1B2C5C",
-  accent: "#C9731C",
-  background: "#FBF7F0",
+  primary: "#2B2A8A",
+  accent: "#FFB82A",
+  background: "#FFFAF5",
   displayFont: "Fraunces",
   bodyFont: "DM Sans",
 } as const;
@@ -90,7 +93,7 @@ export function readFlyerBrand(branding: Json | null | undefined, supabaseUrl: s
   };
 }
 
-/** "Using your brand kit: #1B2C5C / #C9731C · Fraunces + DM Sans · logo" */
+/** "Using your brand kit: #2B2A8A / #FFB82A · Fraunces + DM Sans · logo" */
 export function flyerBrandSummary(brand: FlyerBrand): string {
   const fonts = brand.displayFont === brand.bodyFont ? brand.displayFont : `${brand.displayFont} + ${brand.bodyFont}`;
   return `Using your brand kit: ${brand.primary} / ${brand.accent} · ${fonts} · ${brand.logoUrl ? "logo" : "no logo yet"}`;

@@ -87,7 +87,7 @@ function DateProblem({ uid, problem }: { uid: string; problem: Issue }) {
 
 function Failure({ children }: { children: ReactNode }) {
   return (
-    <div role="alert" data-testid="membership-failure" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <div role="alert" data-testid="membership-failure" className="mt-3 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       {children}
     </div>
   );
@@ -246,7 +246,7 @@ export function EditPanel({
         </div>
       </div>
       {changes.length > 0 ? (
-        <ul data-testid="membership-changes" className="m-0 mt-3 list-none rounded-[10px] bg-[var(--v2-ground)] px-3 py-2 text-[13px] text-ink-2">
+        <ul data-testid="membership-changes" className="m-0 mt-3 list-none rounded-field bg-[var(--v2-ground)] px-3 py-2 text-[13px] text-ink-2">
           {changes.map((c) => (
             <li key={c} dir="auto">
               {c}
@@ -340,7 +340,7 @@ export function TierPanel({
   if (step === "confirm" && checked.ok) {
     return (
       <Shell label="Change tier" testId="membership-tier">
-        <div role="group" aria-label="Confirm the tier change" data-testid="membership-confirm" className="rounded-[10px] bg-[var(--v2-ground)] px-3 py-2.5 text-[14px] leading-relaxed text-ink" dir="auto">
+        <div role="group" aria-label="Confirm the tier change" data-testid="membership-confirm" className="rounded-field bg-[var(--v2-ground)] px-3 py-2.5 text-[14px] leading-relaxed text-ink" dir="auto">
           <p className="m-0">{tierSentence({ household: ctx.household, from: live.tier, to: checked.input.tier })}</p>
           <p className="m-0 mt-1.5 text-[13px] text-ink-2">Reason: {checked.input.reason}</p>
           <p data-testid="membership-note-line" className="m-0 mt-1 text-[12.5px] text-muted">
@@ -483,7 +483,7 @@ export function AssignPanel({
   if (step === "confirm" && checked.ok) {
     return (
       <Shell label="Assign a membership" testId="membership-assign">
-        <div role="group" aria-label="Confirm the new membership" data-testid="membership-confirm" className="rounded-[10px] bg-[var(--v2-ground)] px-3 py-2.5 text-[14px] leading-relaxed text-ink" dir="auto">
+        <div role="group" aria-label="Confirm the new membership" data-testid="membership-confirm" className="rounded-field bg-[var(--v2-ground)] px-3 py-2.5 text-[14px] leading-relaxed text-ink" dir="auto">
           <p className="m-0">{assignSentence(ctx, checked.input, timeZone)}</p>
           <p className="m-0 mt-1.5 text-[13px] text-ink-2">Reason: {checked.input.request.reason}</p>
           <p data-testid="membership-note-line" className="m-0 mt-1 text-[12.5px] text-muted">

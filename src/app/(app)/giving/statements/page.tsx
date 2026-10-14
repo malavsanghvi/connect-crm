@@ -150,7 +150,7 @@ async function StatementsPage({ searchParams }: { searchParams: Promise<RawSearc
                 hint={paper === null ? "needs people.view" : "opted in to physical mail"}
                 tone="brown"
               />
-              <Stat label="Reissued on request" value={Math.max(0, reissued).toLocaleString()} hint="more than one statement for a household" tone="purple" />
+              <Stat label="Reissued on request" value={Math.max(0, reissued).toLocaleString()} hint="more than one statement for a household" tone="navy" />
             </KpiGrid>
           )}
           <p className="mt-2 text-xs text-muted" data-testid="statements-opening-balance-rule">

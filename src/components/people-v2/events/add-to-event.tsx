@@ -186,7 +186,7 @@ export function AddToEventView({ props, state, on, yesRef }: { props: AddToEvent
                 {NO_ACCESS_TEXT}
               </p>
             ) : (
-              <div role="alert" data-testid="add-to-event-load-error" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+              <div role="alert" data-testid="add-to-event-load-error" className="mt-3 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
                 {load.error}{" "}
                 <button type="button" onClick={on.retry} className="font-bold underline">
                   Try again
@@ -284,12 +284,12 @@ export function AddToEventView({ props, state, on, yesRef }: { props: AddToEvent
               ) : null}
 
               {plan?.kind === "refuse" && plan.why !== "nobody" ? (
-                <p role="status" data-testid="add-to-event-refusal" className="m-0 mt-3 rounded-[10px] bg-[var(--v2-sun-tint)] px-3 py-2 text-[13.5px] text-[var(--v2-sun-ink)]">
+                <p role="status" data-testid="add-to-event-refusal" className="m-0 mt-3 rounded-field bg-[var(--v2-sun-tint)] px-3 py-2 text-[13.5px] text-[var(--v2-sun-ink)]">
                   {plan.text}
                 </p>
               ) : null}
               {failure ? (
-                <div role="alert" data-testid="add-to-event-error" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+                <div role="alert" data-testid="add-to-event-error" className="mt-3 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
                   {failure.kind === "access" ? NO_ACCESS_TEXT : failure.error}
                 </div>
               ) : null}

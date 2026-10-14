@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import type { CustomFieldsPayload } from "@/lib/people-v2/custom-fields";
 import type { FamilyModel, HeaderChip } from "@/lib/people-v2/family-model";
 import { suggestedLastName } from "@/lib/people-v2/slideover";
@@ -83,7 +84,7 @@ export function FamilyView({
             {problems.length > 0 ? (
               <div
                 role="status"
-                className="mt-3 rounded-xl border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] px-4 py-2.5 text-[13.5px] text-[var(--v2-sun-ink)]"
+                className="mt-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-2.5 text-[13.5px] text-warning-ink"
               >
                 {problems.map((p) => (
                   <p key={p} className="m-0">
@@ -122,20 +123,7 @@ export function FamilyView({
                   {model.children.length > 0 || model.hiddenPeople > 0 ? (
                     <section aria-label="Children" className="order-3 overflow-hidden rounded-2xl border border-line bg-white">
                       <h2 className="m-0 flex items-center gap-2 px-4 pb-1 pt-3.5 text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="14"
-                          height="14"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <rect x="5" y="11" width="14" height="9" rx="2" />
-                          <path d="M8 11V8a4 4 0 018 0v3" />
-                        </svg>
+                        <Icon name="lock" size={14} />
                         Children ({model.children.length}) · Staff only · Never shown to Niva
                       </h2>
                       <ul className="m-0 list-none divide-y divide-line p-0">

@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useId } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import type { FrontModel, FrontStep } from "@/lib/onboarding-front/front-door";
 import type { RecogniseContext } from "@/lib/onboarding-front/recognise";
 
@@ -42,9 +43,7 @@ function StepMark({ step }: { step: FrontStep }) {
   if (step.state === "done") {
     return (
       <span aria-hidden="true" className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-success">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 13l4 4 10-10" />
-        </svg>
+        <Icon name="check" size={14} strokeWidth={3} className="text-white" />
       </span>
     );
   }
@@ -148,7 +147,7 @@ export function PlanCard({ model, retryHref }: { model: FrontModel; retryHref: s
         ))}
       </ul>
       {model.importsError ? (
-        <p role="alert" className="m-0 rounded-[12px] bg-danger-50 px-3 py-2 text-[14px] leading-[1.5] text-danger">
+        <p role="alert" className="m-0 rounded-field bg-danger-50 px-3 py-2 text-[14px] leading-[1.5] text-danger">
           {model.importsError}{" "}
           <a href={retryHref} className="font-semibold text-danger underline">
             Try again
@@ -284,9 +283,7 @@ export function NivaSees({ model }: { model: FrontModel }) {
   const nowId = useId();
   return (
     <section aria-labelledby={id} className={`${card} flex gap-[14px] @md:ml-[46px]`}>
-      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 flex-none text-success">
-        <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" />
-      </svg>
+      <Icon name="shield" size={24} className="mt-0.5 flex-none text-success" />
       <div className="flex min-w-0 flex-col gap-2">
         <h2 id={id} className={h2}>
           What Niva sees, and what it never does

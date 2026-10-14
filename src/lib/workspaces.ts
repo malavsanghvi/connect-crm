@@ -5,6 +5,7 @@
 // and that is decided by visibleNav / canOpenTab in permissions.ts, exactly as for the classic sidebar (modules switched off,
 // sandbox-only and platform-only tabs, kind features, roles in any scope all behave as they do today).
 
+import type { IconName } from "@/components/brand/icons";
 import { kindName, kindTerm, type KindProfile } from "@/lib/kind";
 import { schoolWord } from "@/lib/kind-samples";
 import {
@@ -35,8 +36,8 @@ export type WorkspaceDef = {
   label: string;
   /** NAV module keys that belong here, in the order the workspace opens them (the first one the person can use wins). */
   modules: readonly string[];
-  /** SVG path data for a 24x24 outline icon (stroke, no fill), drawn in the current text colour. */
-  icon: string;
+  /** One of the kit's icons (brand/icons), drawn in the current text colour. */
+  icon: IconName;
   /** "end" workspaces sit at the bottom of the rail, apart from the rest. */
   placement: "start" | "end";
   /**
@@ -47,12 +48,12 @@ export type WorkspaceDef = {
 };
 
 export const WORKSPACES: readonly WorkspaceDef[] = [
-  { key: "today", label: "Today", modules: ["home"], icon: "M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z", placement: "start" },
+  { key: "today", label: "Today", modules: ["home"], icon: "home", placement: "start" },
   {
     key: "people",
     label: "People",
     modules: ["people", "care"],
-    icon: "M15.5 8a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z M4.5 21c0-3.9 3.4-6 7.5-6s7.5 2.1 7.5 6",
+    icon: "person",
     placement: "start",
   },
   {
@@ -60,23 +61,23 @@ export const WORKSPACES: readonly WorkspaceDef[] = [
     label: "Giving",
     modules: ["giving", "bolis", "accounting"],
     home: { module: "giving", href: "/giving" },
-    icon: "M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z",
+    icon: "heart",
     placement: "start",
   },
-  { key: "events", label: "Events", modules: ["events", "calendar"], icon: "M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4", placement: "start" },
-  { key: "messages", label: "Messages", modules: ["comms"], icon: "M3 5h18v14H3z M3 6l9 7 9-7", placement: "start" },
-  { key: "learning", label: "Learning", modules: ["pathshala"], icon: "M4 5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2z M4 5v15 M8 7h7", placement: "start" },
-  { key: "store", label: "Store", modules: ["store"], icon: "M5 8h14l-1 12H6z M9 8a3 3 0 0 1 6 0", placement: "start" },
-  { key: "content", label: "Content", modules: ["content"], icon: "M6 3h9l4 4v14H6z M14 3v5h5 M9 13h6 M9 17h6", placement: "start" },
-  { key: "reports", label: "Reports", modules: ["reports"], icon: "M4 20h16 M7 20v-9 M12 20V5 M17 20v-6", placement: "start" },
+  { key: "events", label: "Events", modules: ["events", "calendar"], icon: "calendar", placement: "start" },
+  { key: "messages", label: "Messages", modules: ["comms"], icon: "mail", placement: "start" },
+  { key: "learning", label: "Learning", modules: ["pathshala"], icon: "book", placement: "start" },
+  { key: "store", label: "Store", modules: ["store"], icon: "bag", placement: "start" },
+  { key: "content", label: "Content", modules: ["content"], icon: "file", placement: "start" },
+  { key: "reports", label: "Reports", modules: ["reports"], icon: "chart", placement: "start" },
   {
     key: "settings",
     label: "Settings",
     modules: ["setup", "settings"],
-    icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M19 5l-2 2 M7 17l-2 2",
+    icon: "settings",
     placement: "end",
   },
-  { key: "platform", label: "Platform", modules: ["platform"], icon: "M4 5h16v6H4z M4 13h16v6H4z M8 8h.01 M8 16h.01", placement: "end" },
+  { key: "platform", label: "Platform", modules: ["platform"], icon: "server", placement: "end" },
 ];
 
 export type VisibleWorkspace = {
@@ -84,7 +85,7 @@ export type VisibleWorkspace = {
   label: string;
   /** Where the rail link goes: the first page the person can open in the workspace (a module's own landing page when it has one). */
   href: string;
-  icon: string;
+  icon: IconName;
   placement: "start" | "end";
   /** URL prefixes of every module here, so the rail can tell which workspace a page belongs to. */
   paths: string[];

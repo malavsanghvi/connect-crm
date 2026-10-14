@@ -117,15 +117,15 @@ function ReviewSection({ model, exportSlot }: { model: StatementsModel; exportSl
     body = (
       <>
         <ul className="m-0 mb-3 grid list-none grid-cols-2 gap-2 p-0 md:grid-cols-4" data-testid="statements-review-summary">
-          <li className="rounded-[12px] border border-line px-3 py-2">
+          <li className="rounded-field border border-line px-3 py-2">
             <span className="block text-[20px] font-bold tabular-nums text-ink">{s.households.toLocaleString("en-US")}</span>
             <span className="text-[13px] text-muted">households gave</span>
           </li>
-          <li className="rounded-[12px] border border-line px-3 py-2">
+          <li className="rounded-field border border-line px-3 py-2">
             <span className="block text-[20px] font-bold tabular-nums text-ink">{s.total}</span>
             <span className="text-[13px] text-muted">given{soFar}</span>
           </li>
-          <li className="col-span-2 rounded-[12px] border border-line px-3 py-2">
+          <li className="col-span-2 rounded-field border border-line px-3 py-2">
             <span className="block text-[15px] font-bold text-ink">{s.sentence}</span>
             <span className="text-[13px] text-muted">how the statements would reach them</span>
           </li>
@@ -185,7 +185,7 @@ function ReceiptSection({ model }: { model: StatementsModel }) {
   let body: ReactNode = null;
   if (r.state === "not_found" || r.state === "refused") {
     body = (
-      <p role="alert" className="m-0 rounded-[12px] border border-saffron-200 bg-saffron-50 px-3 py-2 text-[14px] text-ink" data-testid="receipt-copy-problem">
+      <p role="alert" className="m-0 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[14px] text-ink" data-testid="receipt-copy-problem">
         {r.message}
       </p>
     );
@@ -203,7 +203,7 @@ function ReceiptSection({ model }: { model: StatementsModel }) {
           <p className="m-0 text-[13px] text-muted">The name on this receipt is not shown: the copy is addressed to the household&apos;s adults.</p>
         ) : null}
         {v.printBlocked ? (
-          <p role="status" className="m-0 rounded-[12px] border border-line bg-canvas px-3 py-2 text-[13px] text-ink-2" data-testid="receipt-print-off">
+          <p role="status" className="m-0 rounded-field border border-line bg-canvas px-3 py-2 text-[13px] text-ink-2" data-testid="receipt-print-off">
             {v.printBlocked}
           </p>
         ) : model.printBase ? (

@@ -65,7 +65,7 @@ export function KindPicker({
   const top = topChoices(model);
   if (top.length === 0) {
     return (
-      <div role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+      <div role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
         No kinds of organization are available to choose. Reload the page; if this stays, the kind catalog in the database is empty.
       </div>
     );

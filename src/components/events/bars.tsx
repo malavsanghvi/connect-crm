@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-export type BarItem = { label: string; value: ReactNode; ratio: number; tone?: "navy" | "purple" | "danger" | "success" };
+export type BarItem = { label: string; value: ReactNode; ratio: number; tone?: "navy" | "danger" | "success" };
 
-const FILL = { navy: "bg-navy", purple: "bg-purple", danger: "bg-danger", success: "bg-success" } as const;
+const FILL = { navy: "bg-navy", danger: "bg-danger", success: "bg-success" } as const;
 
 /**
  * Horizontal bars, as the prototype's "bars" block: label, a 12px rounded

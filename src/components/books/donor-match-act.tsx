@@ -71,7 +71,7 @@ export function DonorMatchApprove({ matchId, label, onDone }: { matchId: string;
         </button>
       </div>
       {error ? (
-        <p role="alert" className="m-0 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
+        <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
           {error}
         </p>
       ) : null}

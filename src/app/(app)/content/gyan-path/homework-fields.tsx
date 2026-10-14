@@ -61,7 +61,7 @@ export function HomeworkFields({
       <input type="hidden" name="level_id" value={levelId} />
       {assignment ? <input type="hidden" name="id" value={assignment.id} /> : null}
       {shared ? (
-        <p className="rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">
+        <p className="rounded-field border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">
           Homework is yours even though the lesson is shared: it belongs to your community and only your learners see it. The shared lesson itself
           does not change.
         </p>

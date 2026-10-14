@@ -125,7 +125,7 @@ function UndoBar({ entry, windowMs, onUndo, onDismiss }: { entry: Entry | null; 
           {entry.status === "offered" ? (
             <span
               aria-hidden="true"
-              className="block h-[3px] bg-[var(--v2-sun-from)]"
+              className="block h-[3px] bg-gold"
               style={{ width: shrunk === entry.id ? "0%" : "100%", transition: `width ${windowMs}ms linear` }}
             />
           ) : null}

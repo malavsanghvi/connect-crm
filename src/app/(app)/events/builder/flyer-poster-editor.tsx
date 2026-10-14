@@ -178,7 +178,7 @@ export function FlyerPosterEditor({
         />
         <Toggle label="Show a partner logo" checked={poster.partner.on} onChange={(on) => patchPoster((p) => ({ ...p, partner: { ...p.partner, on } }))} onNote="A partner's logo or badge" offNote="No partner" disabled={disabled} />
         {poster.partner.on ? (
-          <div className="flex flex-col gap-3 rounded-[10px] border border-line-soft bg-ground p-3">
+          <div className="flex flex-col gap-3 rounded-field border border-line-soft bg-ground p-3">
             <div>
               <label htmlFor="poster-partner-file" className="crm-label">
                 Upload the partner&apos;s logo (PNG or JPEG, up to 3 MB)
@@ -190,7 +190,7 @@ export function FlyerPosterEditor({
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   {logo.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={logo.url} alt="The partner's uploaded logo" className="h-[56px] w-auto max-w-[160px] rounded-[6px] border border-line bg-white p-1" />
+                    <img src={logo.url} alt="The partner's uploaded logo" className="h-[56px] w-auto max-w-[160px] rounded-chip border border-line bg-white p-1" />
                   ) : (
                     <p className="crm-hint">A partner logo is uploaded; it shows in the preview.</p>
                   )}
@@ -345,7 +345,7 @@ export function FlyerPosterEditor({
         {rows.length ? (
           <ol ref={agendaList} className="flex flex-col gap-3">
             {rows.map((row, i) => (
-              <li key={i} className="rounded-[10px] border border-line-soft bg-ground p-2">
+              <li key={i} className="rounded-field border border-line-soft bg-ground p-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-[12px] font-bold">Row {i + 1}</p>
                   <div className="flex gap-1">

@@ -308,7 +308,7 @@ export function EventBuilder({
           </Card>
 
           <Card span={7} title="Preview with these settings" description="Computed by the slot engine">
-            <div className="rounded-[12px] bg-success-50 px-3.5 py-3">
+            <div className="rounded-field bg-success-50 px-3.5 py-3">
               {lunchOn ? (
                 <ul className="flex flex-col gap-1.5 text-[13px]">
                   {preview.map((l) => (

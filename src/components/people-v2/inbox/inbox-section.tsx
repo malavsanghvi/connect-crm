@@ -106,7 +106,7 @@ export function InboxError({ message }: { message: string }) {
   return (
     <section aria-label="Inbox" className={`${CARD} flex flex-col gap-2 p-4`}>
       <h2 className="m-0 font-display text-[20px] font-semibold text-ink">Inbox</h2>
-      <p role="alert" className="m-0 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+      <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
         Could not load what is waiting for a decision. {message}
       </p>
       <Link href="/people" className="self-start text-[13.5px] font-bold text-navy hover:underline">

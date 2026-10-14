@@ -110,7 +110,7 @@ export function BankTab({ model, importer, noAccount, exportSlot }: { model: Ban
               ? model.historyRows.map((h) => <HistoryRow key={h.id} row={h} ctx={ctxFor(h.id)} done={done[h.id]} labels={model.labels} />)
               : null}
 
-            {isEmpty(model) ? <p className="m-0 rounded-[12px] bg-ground px-3 py-4 text-center text-[14px] text-muted">{model.empty}</p> : null}
+            {isEmpty(model) ? <p className="m-0 rounded-field bg-ground px-3 py-4 text-center text-[14px] text-muted">{model.empty}</p> : null}
 
             {model.view === "zelle" && model.zelle ? (
               <div className="mt-4 border-t border-line pt-4">

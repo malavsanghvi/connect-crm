@@ -94,7 +94,7 @@ export default async function PublicDashboardPage({ params }: { params: Params }
 function Problem({ title, body, retry = false }: { title: string; body: string; retry?: boolean }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-ground px-4">
-      <div role="alert" className="max-w-md rounded-[20px] border border-line bg-white p-6 text-center">
+      <div role="alert" className="max-w-md rounded-window border border-line bg-white p-6 text-center">
         <h1 className="font-display text-[22px] font-semibold text-ink">{title}</h1>
         <p className="mt-2 text-[14px] text-muted">{body}</p>
         {retry ? (

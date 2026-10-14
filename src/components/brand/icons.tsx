@@ -8,14 +8,17 @@ export type { IconName };
 // meaning. `filled` fills the shape with the text colour (a pinned star). `strokeWidth` is 2 unless a tiny tick needs a heavier line.
 export function Icon({
   name,
-  className = "h-5 w-5",
+  className,
   strokeWidth = 2,
   filled = false,
+  size,
 }: {
   name: IconName;
   className?: string;
   strokeWidth?: number;
   filled?: boolean;
+  /** Pixels: sets width and height (use it, or a size in className). */
+  size?: number;
 }) {
   return (
     <svg
@@ -27,7 +30,9 @@ export function Icon({
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={className}
+      className={className ?? (size ? undefined : "h-5 w-5")}
+      width={size}
+      height={size}
       // The markup is generated from the repository's own brand/icons files, never from user input.
       dangerouslySetInnerHTML={{ __html: ICON_MARKUP[name] }}
     />

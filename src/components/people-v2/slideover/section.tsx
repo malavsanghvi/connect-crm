@@ -2,6 +2,7 @@
 
 import { useId, useState, type ReactNode } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { NO_ACCESS_TEXT, type DetailLine, type Part } from "@/lib/people-v2/slideover";
 
 // The slide-over's parts: a section you can open and close, the read-only rows, and the one sentence a section says when this role may
@@ -10,20 +11,7 @@ import { NO_ACCESS_TEXT, type DetailLine, type Part } from "@/lib/people-v2/slid
 
 export function Chevron({ open }: { open: boolean }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
-    >
-      <path d="M6 9l6 6 6-6" />
-    </svg>
+    <Icon name="chevron" size={18} className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
   );
 }
 
@@ -106,7 +94,7 @@ export function Lines({ lines }: { lines: readonly DetailLine[] }) {
 export function PartNote({ part, what }: { part: Exclude<Part<unknown>, { state: "ok" }>; what: string }) {
   if (part.state === "no-access") return <p className="m-0 py-1 text-[14px] text-muted">{NO_ACCESS_TEXT}</p>;
   return (
-    <p role="alert" className="m-0 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       {part.message || `Could not load ${what}.`} Reload the page to try again.
     </p>
   );
@@ -114,9 +102,6 @@ export function PartNote({ part, what }: { part: Exclude<Part<unknown>, { state:
 
 export function LockIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="5" y="11" width="14" height="9" rx="2" />
-      <path d="M8 11V8a4 4 0 018 0v3" />
-    </svg>
+    <Icon name="lock" size={13} />
   );
 }

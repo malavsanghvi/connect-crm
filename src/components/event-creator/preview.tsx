@@ -30,7 +30,7 @@ function Page({ draft, ctx, existing, phone }: { draft: EventDraft; ctx: Creator
           {draft.confidential ? <span className="rounded-full border border-line px-2.5 py-0.5 text-[12px] text-ink-2">Committee only</span> : null}
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="inline-block rounded-[10px] bg-navy px-4 py-2 text-[14px] font-semibold text-white" aria-hidden="true">
+          <span className="inline-block rounded-field bg-navy px-4 py-2 text-[14px] font-semibold text-white" aria-hidden="true">
             RSVP
           </span>
           <span className="text-[13px] text-ink-2">
@@ -81,7 +81,7 @@ export function EventPreview({ draft, ctx, existing, mode, onMode }: { draft: Ev
           <Page draft={draft} ctx={ctx} existing={existing} phone />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-[16px] border border-line">
+        <div className="overflow-hidden rounded-tile border border-line">
           <Page draft={draft} ctx={ctx} existing={existing} phone={false} />
         </div>
       )}

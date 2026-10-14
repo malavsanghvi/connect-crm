@@ -28,7 +28,7 @@ export function QuestionResultCard({ result, responses }: { result: QuestionResu
             label: `${d.value} ${d.value === 1 ? "star" : "stars"}`,
             value: d.count,
             ratio: d.count / top,
-            tone: d.value <= 2 ? "danger" : "purple",
+            tone: d.value <= 2 ? "danger" : "navy",
           }))}
         />
       </Card>

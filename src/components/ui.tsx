@@ -32,7 +32,7 @@ export function PageHeader({
           <h1 className="cc-page-title">{title}</h1>
           {description ? <p className="cc-page-sub mt-0.5 max-w-4xl">{description}</p> : null}
         </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="cc-page-actions flex flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
       {tabs ? <ModuleTabs /> : null}
     </header>
@@ -107,15 +107,14 @@ export function TableWrap({ children }: { children: ReactNode }) {
   return <div className="overflow-x-auto">{children}</div>;
 }
 
-export type Tone = "neutral" | "navy" | "success" | "warning" | "danger" | "purple";
+export type Tone = "neutral" | "navy" | "success" | "warning" | "danger";
 
 const toneText: Record<Tone, string> = {
   neutral: "text-muted font-semibold",
   navy: "text-navy font-bold",
   success: "text-success font-bold",
-  warning: "text-brown font-bold",
+  warning: "text-warning font-bold",
   danger: "text-danger font-bold",
-  purple: "text-purple font-bold",
 };
 
 /**
@@ -136,14 +135,11 @@ export function StatusText({ tone, children }: { tone: "ok" | "warn" | "bad"; ch
   return <span className={`cc-status-${tone} whitespace-nowrap`}>{children}</span>;
 }
 
-/** Module colours for solid tags (Home task rows and the like). */
+/** Solid tags (Home task rows and the like). One hue for the parts of a product, navy: the words and the icon say which part (brand/README.md, Colour). */
 export const TAG_COLOR = {
   danger: "bg-danger",
   brown: "bg-brown",
   navy: "bg-navy",
-  purple: "bg-purple",
-  store: "bg-store",
-  maroon: "bg-maroon",
   muted: "bg-muted",
   success: "bg-success",
 } as const;
@@ -167,12 +163,12 @@ export function Alert({
 }) {
   const styles = {
     danger: "border-danger/30 bg-danger-50 text-danger",
-    warning: "border-saffron-200 bg-saffron-50 text-brown-900",
+    warning: "border-warning-200 bg-warning-50 text-warning-ink",
     success: "border-success/30 bg-success-50 text-success-900",
     info: "border-navy/20 bg-navy-50 text-navy",
   }[tone];
   return (
-    <div role={tone === "danger" ? "alert" : "status"} className={`rounded-[10px] border px-4 py-3 text-[13px] ${styles}`}>
+    <div role={tone === "danger" ? "alert" : "status"} className={`rounded-field border px-4 py-3 text-[13px] ${styles}`}>
       {title ? <p className="font-bold">{title}</p> : null}
       {children ? <div className={title ? "mt-1" : ""}>{children}</div> : null}
       {action ? <div className="mt-2">{action}</div> : null}
@@ -228,7 +224,7 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
   );
 }
 
-export type StatTone = "navy" | "saffron" | "brown" | "success" | "danger" | "maroon" | "purple" | "store" | "ink";
+export type StatTone = "navy" | "saffron" | "brown" | "success" | "danger" | "ink";
 
 const statValue: Record<StatTone, string> = {
   navy: "text-navy",
@@ -236,9 +232,6 @@ const statValue: Record<StatTone, string> = {
   brown: "text-brown",
   success: "text-success",
   danger: "text-danger",
-  maroon: "text-maroon",
-  purple: "text-purple",
-  store: "text-store",
   ink: "text-ink",
 };
 
@@ -485,7 +478,7 @@ export function KeyValueRow({
   const valueClass = {
     ink: "text-ink",
     ok: "text-success",
-    warn: "text-brown",
+    warn: "text-warning",
     bad: "text-danger",
     navy: "text-navy",
   }[tone];

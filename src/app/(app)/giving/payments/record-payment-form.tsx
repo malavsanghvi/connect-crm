@@ -313,7 +313,7 @@ export function RecordPaymentForm({
       <>
         <Card span={7} title="Payment recorded" description={`Receipt ${result.receiptNumber ?? "pending"}`}>
           <div className="space-y-3">
-            <p role="status" className="rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-[13px] font-semibold text-success-900">
+            <p role="status" className="rounded-field border border-success/30 bg-success-50 px-3 py-2 text-[13px] font-semibold text-success-900">
               Recorded {formatCents(result.amountCents, currency)} for {household.household_name} · {result.applied.length} pledge
               {result.applied.length === 1 ? "" : "s"} updated ·{" "}
               {result.qboQueued === true
@@ -347,7 +347,7 @@ export function RecordPaymentForm({
               <p className="text-[13px] text-muted">{formatCents(result.unallocatedCents, currency)} stays unapplied as a general gift.</p>
             ) : null}
             {result.allocationProblem ? (
-              <div role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+              <div role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
                 <p>{result.allocationProblem[0].toUpperCase() + result.allocationProblem.slice(1)}.</p>
                 {canAllocate ? (
                   <button type="button" onClick={retryApply} disabled={pending} className={`${buttonClass("bad", "sm")} mt-2`}>
@@ -377,7 +377,7 @@ export function RecordPaymentForm({
       <Card span={7} title="Record an offline payment" description="Check, cash, ACH or stock received at the office or an event">
         <div className="flex flex-col gap-3">
           {initialValues ? (
-            <p role="status" className="rounded-[10px] border border-navy-300 bg-navy-50 px-3 py-2 text-[13px] font-semibold text-navy">
+            <p role="status" className="rounded-field border border-navy-300 bg-navy-50 px-3 py-2 text-[13px] font-semibold text-navy">
               Filled in from your request on the Giving page. Check each detail, then press Record. Nothing is saved until you do.
             </p>
           ) : null}
@@ -401,7 +401,7 @@ export function RecordPaymentForm({
             ) : null}
           </div>
           {dupText ? (
-            <p role="status" className="rounded-[10px] border border-saffron/60 bg-saffron-50 px-3 py-2 text-[13px] font-semibold text-brown">
+            <p role="status" className="rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] font-semibold text-warning-ink">
               {dupText}
               {bankOn ? (
                 <>
@@ -471,7 +471,7 @@ export function RecordPaymentForm({
             </div>
           </div>
           {error ? (
-            <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+            <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {error}
             </p>
           ) : null}

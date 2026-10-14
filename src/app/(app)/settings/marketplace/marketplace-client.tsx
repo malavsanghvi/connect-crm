@@ -25,7 +25,7 @@ const CHIP_CLASS: Record<ChipTone, string> = {
   included: "border-navy-50 bg-navy-50 text-navy",
   on: "border-success-50 bg-success-50 text-success",
   paused: "border-line bg-highlight text-ink-2",
-  requested: "border-saffron-200 bg-saffron-50 text-brown",
+  requested: "border-warning-200 bg-warning-50 text-warning-ink",
   available: "border-line bg-white text-navy",
   coming: "border-line-soft bg-highlight text-muted",
 };
@@ -43,7 +43,7 @@ function Mark({ text, large = false }: { text: string; large?: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex shrink-0 items-center justify-center rounded-[10px] bg-navy font-bold text-white ${large ? "h-11 w-11 text-[15px]" : "h-9 w-9 text-[13px]"}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-field bg-navy font-bold text-white ${large ? "h-11 w-11 text-[15px]" : "h-9 w-9 text-[13px]"}`}
     >
       {text}
     </span>
@@ -88,7 +88,7 @@ export function MarketplaceClient({
     <div className="space-y-4">
       <ol aria-label="How it works" className="grid gap-2 sm:grid-cols-3">
         {HOW.map((text, i) => (
-          <li key={text} className="flex items-start gap-2.5 rounded-[12px] border border-line bg-white px-3 py-2.5 text-[13px] text-ink-2">
+          <li key={text} className="flex items-start gap-2.5 rounded-field border border-line bg-white px-3 py-2.5 text-[13px] text-ink-2">
             <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-navy-50 text-[12px] font-bold text-navy">{i + 1}</span>
             <span>{text}</span>
           </li>
@@ -254,7 +254,7 @@ function ProductDetail({ product: p, timeZone }: { product: Product; timeZone: s
       ) : null}
 
       {p.dataLine ? (
-        <div className="rounded-[10px] border border-line bg-highlight px-3 py-2 text-[13px]">
+        <div className="rounded-field border border-line bg-highlight px-3 py-2 text-[13px]">
           <strong className="block text-ink">Who can see its data</strong>
           <span className="text-ink-2">{p.dataLine}</span>
         </div>
@@ -281,7 +281,7 @@ function ProductDetail({ product: p, timeZone }: { product: Product; timeZone: s
                 Pause {p.name}
               </button>
             ) : (
-              <div className="space-y-2 rounded-[10px] border border-line bg-highlight p-3">
+              <div className="space-y-2 rounded-field border border-line bg-highlight p-3">
                 <p className="text-[13px] text-ink-2">
                   Pausing hides {p.name} for everyone in your community. Nothing is deleted, and you can resume it at any time.
                 </p>

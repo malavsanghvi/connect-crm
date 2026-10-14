@@ -99,7 +99,7 @@ export function BooksView({ state, months, closerName, labels, timeZone: tz, can
                 {donors.data.canApprove ? (
                   <ul className="m-0 mt-3 flex list-none flex-col gap-3 p-0">
                     {donors.data.shown.map((m) => (
-                      <li key={m.matchId} className="rounded-[12px] border border-line bg-ground px-3 py-2.5">
+                      <li key={m.matchId} className="rounded-field border border-line bg-ground px-3 py-2.5">
                         <p className="m-0 text-[13.5px] font-bold text-ink">QuickBooks: “{m.qboName}”</p>
                         <p className="m-0 mb-2 text-[12.5px] text-muted">{m.how}</p>
                         <FamilyCard family={m.family} labels={labels} />
@@ -124,7 +124,7 @@ export function BooksView({ state, months, closerName, labels, timeZone: tz, can
 
 function CheckLine({ item, month, canMark }: { item: CloseItem; month: string; canMark: boolean }) {
   return (
-    <li className="flex flex-wrap items-start gap-2 rounded-[10px] border border-line bg-white px-2.5 py-2 text-[13.5px]">
+    <li className="flex flex-wrap items-start gap-2 rounded-field border border-line bg-white px-2.5 py-2 text-[13.5px]">
       <span
         aria-hidden
         className={`mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-[5px] border-2 border-success text-xs font-bold text-white ${item.done ? "bg-success" : "bg-white"}`}

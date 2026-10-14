@@ -41,7 +41,7 @@ export function Swatches({ swatches }: { swatches: Swatch[] }) {
     <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" aria-label="Colours found">
       {swatches.map((s) => (
         <li key={`${s.role}-${s.hex}`} className="flex items-center gap-2.5 text-[13px]" data-swatch={s.hex}>
-          <span aria-hidden className="h-9 w-9 shrink-0 rounded-[8px] border border-line" style={{ background: s.hex }} />
+          <span aria-hidden className="h-9 w-9 shrink-0 rounded-tag border border-line" style={{ background: s.hex }} />
           <span className="min-w-0">
             <span className="block font-semibold text-ink">{s.roleLabel}</span>
             <span className="block font-mono text-[12px] text-muted">
@@ -61,7 +61,7 @@ function ContrastList({ lines }: { lines: ContrastLine[] }) {
     <ul className="mt-3 flex flex-col gap-1.5" aria-label="Can the colours be read?">
       {lines.map((c) => (
         <li key={`${c.foreground}-${c.background}`} className="flex flex-wrap items-center gap-2 text-[13px]">
-          <span aria-hidden className="inline-flex h-7 w-10 items-center justify-center rounded-[6px] border border-line text-[13px] font-bold" style={{ color: c.foreground, background: c.background }}>
+          <span aria-hidden className="inline-flex h-7 w-10 items-center justify-center rounded-chip border border-line text-[13px] font-bold" style={{ color: c.foreground, background: c.background }}>
             Aa
           </span>
           <StatusText tone={c.ok ? "ok" : "warn"}>{c.ok ? "Easy to read" : "Hard to read"}</StatusText>
@@ -170,7 +170,7 @@ export function OwnReport({ view }: { view: OwnView }) {
           <div className="flex flex-col gap-1.5">
             {view.notSure > 0 ? <p className="text-[13px] text-muted">{plural(view.notSure, "page")} could not be sorted with confidence. They are marked below.</p> : null}
             {view.groups.map((g) => (
-              <details key={g.kind} className="rounded-[10px] border border-line-soft px-3 py-2" data-kind={g.kind}>
+              <details key={g.kind} className="rounded-field border border-line-soft px-3 py-2" data-kind={g.kind}>
                 <summary className="cursor-pointer text-[13px] font-semibold text-ink">
                   {g.label} <span className="font-normal text-muted">· {plural(g.count, "page")}</span>
                 </summary>
@@ -190,7 +190,7 @@ export function OwnReport({ view }: { view: OwnView }) {
           </div>
         )}
         {view.scriptPages.length > 0 ? (
-          <div className="mt-3 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900" data-found-section="scripts">
+          <div className="mt-3 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-ink" data-found-section="scripts">
             <p className="font-bold">{plural(view.scriptPages.length, "page")} built by scripts</p>
             <p>Little text could be read from {view.scriptPages.length === 1 ? "this page" : "these pages"}, because {view.scriptPages.length === 1 ? "it is" : "they are"} drawn by the browser. A person should look at {view.scriptPages.length === 1 ? "it" : "them"}.</p>
             <ul className="mt-1 list-disc pl-5">
@@ -223,7 +223,7 @@ export function OwnReport({ view }: { view: OwnView }) {
           <ul className="flex flex-wrap gap-3" aria-label="Logo candidates">
             {shownLogos.map((l) => (
               <li key={l.url} className="flex w-44 flex-col gap-1 text-[12px] text-muted">
-                <span className="flex h-24 items-center justify-center rounded-[10px] border border-line bg-white p-2">
+                <span className="flex h-24 items-center justify-center rounded-field border border-line bg-white p-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={l.url} alt={l.alt || "Possible logo"} loading="lazy" referrerPolicy="no-referrer" className="max-h-20 max-w-full object-contain" />
                 </span>

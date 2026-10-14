@@ -47,7 +47,7 @@ export function CustomSegmentPicker({
   }
 
   return (
-    <div className="mt-2 rounded-[10px] border border-line p-2.5">
+    <div className="mt-2 rounded-field border border-line p-2.5">
       <p className="text-[12px] font-bold text-muted">Custom field segment</p>
       <div className="mt-1 flex flex-wrap items-center gap-2">
         <select aria-label="Custom field" className="crm-input w-auto" value={field} onChange={(e) => setField(e.target.value)}>

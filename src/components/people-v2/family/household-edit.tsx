@@ -73,7 +73,7 @@ export function HouseholdTitle({ model, canEdit }: Common) {
             {name}
           </span>
           {edit.busy ? (
-            <span aria-hidden="true" className="size-2.5 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
+            <span aria-hidden="true" className="size-2.5 animate-pulse rounded-full bg-gold" />
           ) : (
             <Pencil className="size-4 shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
           )}
@@ -202,7 +202,7 @@ export function AddressCard({ model, canEdit }: Common) {
       >
         {text ?? <span className="text-[var(--v2-blue)]">Add an address</span>}
         {edit.busy ? (
-          <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
+          <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 animate-pulse rounded-full bg-gold" />
         ) : (
           <Pencil className="mt-1 shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
         )}

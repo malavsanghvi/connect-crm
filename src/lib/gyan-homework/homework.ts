@@ -541,10 +541,10 @@ export function submissionStatusLabel(status: SubmissionStatus): string {
   }
 }
 
-export function submissionStatusTone(status: SubmissionStatus): "neutral" | "navy" | "success" | "warning" | "purple" {
+export function submissionStatusTone(status: SubmissionStatus): "neutral" | "navy" | "success" | "warning" {
   switch (status) {
     case "awaiting_parent":
-      return "purple";
+      return "navy";
     case "submitted":
       return "navy";
     case "accepted":

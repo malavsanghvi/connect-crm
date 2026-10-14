@@ -44,7 +44,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Pr
             <Stat label="Families in directory" value={fmt(d.families)} hint="opted in at onboarding or profile" tone="navy" />
             <Stat label="Open to new members" value={fmt(d.openToNew)} hint="can be contacted by members who joined in the last 12 months" tone="success" />
             <Stat label="Expertise listings" value={fmt(d.listingsTotal)} hint="live as soon as a verified member opts in" tone="brown" />
-            <Stat label="New-member contacts this month" value="—" hint="not recorded yet" tone="purple" />
+            <Stat label="New-member contacts this month" value="—" hint="not recorded yet" tone="navy" />
           </KpiGrid>
         </Card>
         <Card span={12} title="Expertise listings" description="There is no review step for listings yet: a verified member's listing shows as soon as they opt in" padded={false}>

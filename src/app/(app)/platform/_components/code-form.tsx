@@ -34,7 +34,7 @@ export function CodeForm({ action, children, buttons }: { action: Action; childr
       </div>
       <ActionMessage state={state} />
       {code ? (
-        <div className="rounded-[10px] border border-line bg-canvas px-3 py-3" data-testid="issued-code">
+        <div className="rounded-field border border-line bg-canvas px-3 py-3" data-testid="issued-code">
           <p className="crm-label">Sandbox code (shown once)</p>
           <p className="select-all font-mono text-[20px] font-semibold tracking-[0.08em] text-ink" data-code={code}>
             {code}

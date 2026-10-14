@@ -19,7 +19,7 @@ export function WordsCard({ draft, set, ctx }: CardProps) {
         <div className="flex flex-col gap-2">
           <p className={sectionLabel}>Other languages your community uses</p>
           {others.map((code) => (
-            <div key={code} className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-line bg-white px-3.5 py-2.5">
+            <div key={code} className="flex flex-wrap items-center justify-between gap-2 rounded-field border border-line bg-white px-3.5 py-2.5">
               <span className="text-[15px] font-semibold text-ink">{languageName(code)}</span>
               <span className="flex items-center gap-2 text-[13px] text-ink-2">
                 A translation of the description, reviewed by a person <ComingNext />

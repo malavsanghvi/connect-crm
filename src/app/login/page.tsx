@@ -108,7 +108,7 @@ export default async function LoginPage({
       <section className="px-6 py-10 sm:px-[72px] lg:py-14">
         <div className="flex w-full max-w-[400px] flex-col gap-4">
           {problem ? (
-            <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+            <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {problem}
             </p>
           ) : null}

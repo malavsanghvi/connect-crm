@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { ICON_MARKUP } from "@/components/brand/icons.generated";
 import { NAV, visibleNav, type ScopedContext } from "@/lib/permissions";
 import {
   PHONE_BAR_KEYS,
@@ -48,7 +49,7 @@ describe("the eleven workspaces cover every NAV tab exactly once", () => {
   it("every workspace has a label that fits a rail, and an icon", () => {
     for (const w of WORKSPACES) {
       expect(w.label.length, w.key).toBeLessThanOrEqual(10);
-      expect(w.icon.length, w.key).toBeGreaterThan(10);
+      expect(Object.keys(ICON_MARKUP), w.key).toContain(w.icon);
     }
   });
 

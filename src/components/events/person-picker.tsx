@@ -144,7 +144,7 @@ export function PersonPicker({
         </p>
       ) : null}
       {showResults && state === "idle" ? (
-        <ul className="mt-1 max-h-64 overflow-y-auto rounded-[10px] border border-line bg-white">
+        <ul className="mt-1 max-h-64 overflow-y-auto rounded-field border border-line bg-white">
           {results.length === 0 ? <li className="px-3 py-2 text-[13px] text-muted">No one found that you&apos;re allowed to see.</li> : null}
           {results.map((r) => (
             <li key={r.id}>

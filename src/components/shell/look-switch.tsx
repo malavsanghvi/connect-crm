@@ -50,7 +50,7 @@ export function LookSwitch({ look, className = "", block = false, item = false }
       {error ? (
         <span
           role="alert"
-          className={`${block ? "mt-2 block" : "absolute right-0 top-[calc(100%+8px)] z-50 w-72"} rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-left text-[13px] font-normal text-danger`}
+          className={`${block ? "mt-2 block" : "absolute right-0 top-[calc(100%+8px)] z-50 w-72"} rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-left text-[13px] font-normal text-danger`}
         >
           {error}
         </span>

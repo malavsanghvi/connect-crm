@@ -512,7 +512,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                     {(fundsRes?.data ?? []).map((f) => (
                       <tr key={f.id}>
                         <td>
-                          <span className="font-semibold">{f.name}</span> {f.restricted ? <Badge tone="purple">restricted</Badge> : null}
+                          <span className="font-semibold">{f.name}</span> {f.restricted ? <Badge tone="navy">restricted</Badge> : null}
                           {fundWarn.get(f.id) ? <div className="text-xs text-danger">{fundWarn.get(f.id)!.text}</div> : null}
                         </td>
                         <td className="min-w-72">

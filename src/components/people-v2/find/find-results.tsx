@@ -36,7 +36,7 @@ export function initialsOf(name: string): string {
   return letters.join("").toUpperCase();
 }
 
-const ROW = "flex min-h-[58px] w-full items-center gap-3 rounded-[12px] px-3 py-2 text-left no-underline";
+const ROW = "flex min-h-[58px] w-full items-center gap-3 rounded-field px-3 py-2 text-left no-underline";
 const PILL = "ml-2 max-w-[42%] shrink-0 truncate rounded-lg border border-line bg-white px-2 py-0.5 text-[11px] font-bold text-ink-2";
 
 function Heading({ children }: { children: ReactNode }) {

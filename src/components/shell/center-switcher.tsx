@@ -78,7 +78,7 @@ export function CenterSwitcher({
         Center: {current.name} ▾
       </button>
       {open ? (
-        <div role="menu" aria-label="Switch community" className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-[70vh] w-80 overflow-y-auto rounded-[12px] border border-line bg-white p-1.5 shadow-lg">
+        <div role="menu" aria-label="Switch community" className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-[70vh] w-80 overflow-y-auto rounded-field border border-line bg-white p-1.5 shadow-lg">
           <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Switch community</p>
           {centers.map((c) => {
             const isCurrent = c.slug === current.slug;
@@ -90,7 +90,7 @@ export function CenterSwitcher({
                 aria-checked={isCurrent}
                 disabled={isCurrent || pending}
                 onClick={() => choose(c.slug, c.name)}
-                className="flex min-h-11 w-full items-center gap-2 rounded-[8px] px-2.5 py-2 text-left text-[13px] hover:bg-subtle disabled:cursor-default disabled:hover:bg-transparent"
+                className="flex min-h-11 w-full items-center gap-2 rounded-tag px-2.5 py-2 text-left text-[13px] hover:bg-subtle disabled:cursor-default disabled:hover:bg-transparent"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold text-ink">{c.name}</span>
@@ -105,12 +105,12 @@ export function CenterSwitcher({
             );
           })}
           {platformLink ? (
-            <Link href="/platform" className="mt-1 block rounded-[8px] border-t border-line px-2.5 py-2 text-[13px] font-semibold text-navy no-underline hover:bg-subtle">
+            <Link href="/platform" className="mt-1 block rounded-tag border-t border-line px-2.5 py-2 text-[13px] font-semibold text-navy no-underline hover:bg-subtle">
               All centers (Platform)
             </Link>
           ) : null}
           {error ? (
-            <p role="alert" className="m-1 rounded-[8px] border border-danger/30 bg-danger-50 px-2.5 py-2 text-[13px] text-danger">
+            <p role="alert" className="m-1 rounded-tag border border-danger/30 bg-danger-50 px-2.5 py-2 text-[13px] text-danger">
               {error}
             </p>
           ) : null}
@@ -124,10 +124,10 @@ export function CenterSwitcher({
 export function SandboxWatermark({ name }: { name: string }) {
   return (
     <>
-      <div role="note" data-testid="sandbox-watermark" className="border-b border-saffron/40 bg-saffron-50 px-4 py-1.5 text-center text-[12px] font-semibold text-brown-900">
+      <div role="note" data-testid="sandbox-watermark" className="border-b border-warning-200 bg-warning-50 px-4 py-1.5 text-center text-[12px] font-semibold text-warning-ink">
         Sandbox · test data — {name} is a sandbox: messages reach only verified test recipients and payments run in test mode.
       </div>
-      <div aria-hidden className="pointer-events-none fixed bottom-3 right-3 z-40 rounded-full border border-saffron/50 bg-saffron-50/95 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-brown-900 shadow-sm">
+      <div aria-hidden className="pointer-events-none fixed bottom-3 right-3 z-40 rounded-full border border-warning-200 bg-warning-50/95 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-warning-ink shadow-sm">
         Sandbox · test data
       </div>
     </>

@@ -41,7 +41,7 @@ export function WhoCard({ draft, set, ctx }: CardProps) {
               role="radio"
               aria-checked={on}
               onClick={() => set({ audience: c.value })}
-              className={`flex w-full flex-col items-start gap-0.5 rounded-[12px] border px-3.5 py-2.5 text-left ${on ? "border-navy bg-navy-50" : "border-line bg-white hover:border-navy-300"}`}
+              className={`flex w-full flex-col items-start gap-0.5 rounded-field border px-3.5 py-2.5 text-left ${on ? "border-navy bg-navy-50" : "border-line bg-white hover:border-navy-300"}`}
             >
               <span className="text-[15px] font-semibold text-ink">{c.label}</span>
               <span className="text-[13px] text-ink-2">{audienceNote(c.value, ctx.school)}</span>

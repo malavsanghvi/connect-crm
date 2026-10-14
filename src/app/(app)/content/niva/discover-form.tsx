@@ -28,8 +28,8 @@ function NoteLine({ note, onRetry }: { note: Note | null; onRetry?: () => void }
   if (!note) return null;
   const cls =
     note.tone === "bad"
-      ? "mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger"
-      : "mt-2 rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900";
+      ? "mt-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger"
+      : "mt-2 rounded-field border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900";
   return (
     <p role={note.tone === "bad" ? "alert" : "status"} className={cls}>
       {note.text}

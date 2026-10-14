@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 
+import { Icon } from "@/components/brand/icons";
 import { ActionForm } from "@/components/action-form";
 import { buttonClass } from "@/components/ui";
 import { channelsLine, TEMPLATE_NOTE, templateChannelNote, type MenuItem, type MenuKey } from "@/lib/comms-templates";
@@ -54,7 +55,7 @@ export function CampaignActions({ campaign, items, layout }: { campaign: MenuCam
             ))}
           </div>
           {draft.error ? (
-            <p role="alert" className="mt-2 w-full rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+            <p role="alert" className="mt-2 w-full rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {draft.error}{" "}
               <button type="button" onClick={copy} className={`${buttonClass("bad", "xs")} align-middle`}>
                 Try again
@@ -160,11 +161,7 @@ function RowMenu({
         onClick={toggle}
         className="grid size-11 place-items-center rounded-full text-ink-2 hover:bg-canvas focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy md:size-9"
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-          <circle cx="5" cy="12" r="1.8" />
-          <circle cx="12" cy="12" r="1.8" />
-          <circle cx="19" cy="12" r="1.8" />
-        </svg>
+        <Icon name="more" size={20} />
       </button>
       {open && at
         ? createPortal(
@@ -186,7 +183,7 @@ function RowMenu({
               ))}
               {error ? (
                 <li role="none" className="px-2 pb-1 pt-2">
-                  <p role="alert" className="m-0 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] font-normal text-danger">
+                  <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] font-normal text-danger">
                     {error}
                   </p>
                   <button type="button" onClick={onRetry} className={`${buttonClass("bad", "xs")} mt-2`}>
@@ -239,7 +236,7 @@ function SaveTemplateDialog({ campaign, onClose }: { campaign: MenuCampaign; onC
           From &ldquo;{campaign.label}&rdquo; · {channelsLine(campaign.channels)}. {TEMPLATE_NOTE}
         </p>
         {caveat ? (
-          <p role="note" className="m-0 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900">
+          <p role="note" className="m-0 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-ink">
             {caveat}
           </p>
         ) : null}

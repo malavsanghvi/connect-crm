@@ -306,7 +306,7 @@ function OpenSheet({ onClose, onAdded, onOpenFamily, initialName, canAdd = true,
             <div className="mt-4" aria-live="polite" data-testid="add-family-matches">
               {shown.state === "checking" ? <p className="m-0 text-[13px] text-muted">Looking for a family already here…</p> : null}
               {shown.state === "error" ? (
-                <div role="alert" className="rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+                <div role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
                   {shown.error}{" "}
                   <button type="button" onClick={() => void runCheck(draft)} className="font-bold underline">
                     Try again
@@ -317,7 +317,7 @@ function OpenSheet({ onClose, onAdded, onOpenFamily, initialName, canAdd = true,
             </div>
 
             {problem ? (
-              <p role="alert" className="m-0 mt-3 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+              <p role="alert" className="m-0 mt-3 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
                 {problem}
               </p>
             ) : null}
@@ -341,7 +341,7 @@ function OpenSheet({ onClose, onAdded, onOpenFamily, initialName, canAdd = true,
 export function MatchesPanel({ view, onOpen, confirming }: { view: FamilyMatchesView; onOpen: (householdId: string) => void; confirming: boolean }) {
   if (view.matches.length === 0) {
     return view.total > 0 ? (
-      <p className="m-0 rounded-[12px] border border-line bg-canvas px-3 py-2 text-[13px] text-muted">
+      <p className="m-0 rounded-field border border-line bg-canvas px-3 py-2 text-[13px] text-muted">
         {matchesHeading(view.total)} You do not have access to open {view.total === 1 ? "it" : "them"}, so check with someone who does before adding.
       </p>
     ) : (
@@ -357,7 +357,7 @@ export function MatchesPanel({ view, onOpen, confirming }: { view: FamilyMatches
       <p className="m-0 mt-0.5 text-[13px] text-muted">{matchesHeading(view.total)} Open it, or carry on if none of these is the family.</p>
       <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
         {ordered.map((m) => (
-          <li key={m.householdId} className="flex flex-wrap items-center gap-2 rounded-[12px] border border-line bg-white px-3 py-2">
+          <li key={m.householdId} className="flex flex-wrap items-center gap-2 rounded-field border border-line bg-white px-3 py-2">
             <MatchCard m={m} />
             <button type="button" onClick={() => onOpen(m.householdId)} className={`${buttonClass("ghost", "sm")} ml-auto`} aria-label={`Open ${m.adults.slice(0, 2).join(" and ") || "this family"}${m.householdNumber ? `, household ${m.householdNumber}` : ""}`}>
               Open it

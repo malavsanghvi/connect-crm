@@ -127,7 +127,7 @@ export function FamilyGivingPanel({
 
         {!now ? <p className="m-0 text-[14px] text-muted">Opening the family&apos;s giving…</p> : null}
         {now?.error ? (
-          <div role="alert" className="flex flex-wrap items-center gap-2 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+          <div role="alert" className="flex flex-wrap items-center gap-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             <span className="flex-1">{now.error}</span>
             <button type="button" onClick={() => setAttempt((n) => n + 1)} className={`${buttonClass("ghost", "sm")} min-h-[44px]`}>
               Try again
@@ -141,7 +141,7 @@ export function FamilyGivingPanel({
               <p className="m-0 text-[15px] font-bold text-ink">{fam.name}</p>
               <p className="m-0 text-[13px] leading-[1.4] text-muted">{familyLine(fam, ctx.labels)}</p>
             </div>
-            <p className="m-0 rounded-[12px] bg-ground px-3 py-2 text-[15px] font-bold text-ink" data-testid="family-owes">
+            <p className="m-0 rounded-field bg-ground px-3 py-2 text-[15px] font-bold text-ink" data-testid="family-owes">
               {owesLine(g, ctx.currency, ctx.locale)}
             </p>
             {g.problems.map((p) => (
@@ -179,7 +179,7 @@ export function FamilyGivingPanel({
               ) : (
                 <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                   {g.pledges.map((p) => (
-                    <li key={p.id} className={`rounded-[12px] border px-3 py-2 text-[14px] ${p.id === focusId ? "border-navy bg-navy-50" : "border-line"}`}>
+                    <li key={p.id} className={`rounded-field border px-3 py-2 text-[14px] ${p.id === focusId ? "border-navy bg-navy-50" : "border-line"}`}>
                       <span className="block font-bold text-ink">
                         {pledgeTitle(p)}
                         {p.id === focusId ? <span className="ml-2 text-[12px] font-bold text-navy">Found</span> : null}
@@ -200,7 +200,7 @@ export function FamilyGivingPanel({
               ) : (
                 <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                   {g.payments.map((p) => (
-                    <li key={p.id} className={`rounded-[12px] border px-3 py-2 text-[14px] ${p.id === focusId ? "border-navy bg-navy-50" : "border-line"}`}>
+                    <li key={p.id} className={`rounded-field border px-3 py-2 text-[14px] ${p.id === focusId ? "border-navy bg-navy-50" : "border-line"}`}>
                       <span className="block font-bold tabular-nums text-ink">
                         {paymentTitle(p, ctx.currency, ctx.locale)}
                         {p.id === focusId ? <span className="ml-2 text-[12px] font-bold text-navy">Found</span> : null}

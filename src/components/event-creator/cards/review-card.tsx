@@ -17,7 +17,7 @@ export function ReviewCard({ draft, ctx, existing, goTo, readiness, dirty, savin
   return (
     <div className="flex flex-col gap-4">
       {dirty ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-[10px] bg-saffron-50 px-3 py-2 text-[14px] text-brown-900">
+        <div className="flex flex-wrap items-center gap-3 rounded-field bg-saffron-50 px-3 py-2 text-[14px] text-brown-900">
           <span className="min-w-0 flex-1">Some changes are not saved yet.</span>
           <button type="button" className={softButton} disabled={saving} onClick={onSave}>
             {saving ? "Saving…" : "Save the draft"}
@@ -28,7 +28,7 @@ export function ReviewCard({ draft, ctx, existing, goTo, readiness, dirty, savin
       ) : null}
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {cards.map((c) => (
-          <li key={c} className="flex items-start justify-between gap-3 rounded-[12px] border border-line bg-white px-3.5 py-2.5">
+          <li key={c} className="flex items-start justify-between gap-3 rounded-field border border-line bg-white px-3.5 py-2.5">
             <span className="min-w-0">
               <span className="block text-[12px] font-bold uppercase tracking-[0.06em] text-muted">{cardDef(c).label}</span>
               <span className="block text-[14px] text-ink">{summaryOf(c, draft, ctx, existing)}</span>

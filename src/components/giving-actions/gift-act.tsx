@@ -177,7 +177,7 @@ export function GiftAct({ act, ctx }: { act: Extract<Act, { kind: "gift" }>; ctx
               <p className="m-0 text-[13px] text-muted">The payment recorded by hand could not be read. Open the family&apos;s payments to find it, then reload this page.</p>
             ) : (
               duplicate.payments.map((p) => (
-                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-line px-2.5 py-2 text-[13.5px]">
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-field border border-line px-2.5 py-2 text-[13.5px]">
                   <span>
                     Receipt <span className="font-mono">{p.receipt_number ?? "not numbered yet"}</span> · {money(p.amount_cents ?? 0)} recorded{" "}
                     {p.received_on ? formatDate(p.received_on, ctx.timeZone) : ""}
@@ -263,7 +263,7 @@ export function GiftAct({ act, ctx }: { act: Extract<Act, { kind: "gift" }>; ctx
             </button>
           )}
           {pick && pledges ? (
-            <div className="flex flex-col gap-1.5 rounded-[12px] border border-line px-3 py-2 text-[13.5px]">
+            <div className="flex flex-col gap-1.5 rounded-field border border-line px-3 py-2 text-[13.5px]">
               <p className="m-0 font-bold text-ink">Where it goes</p>
               {pledges.length === 0 ? <p className="m-0 text-muted">No open pledge: it is recorded as a general gift.</p> : null}
               {pledges.length > 0 ? (

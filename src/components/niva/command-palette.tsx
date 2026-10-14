@@ -29,7 +29,7 @@ const LEVEL_BADGE: Record<CommandLevel, string> = {
   read: "bg-success-50 text-success-900",
   draft: "bg-navy-50 text-navy",
   confirm: "bg-saffron-50 text-brown",
-  only_you: "bg-purple-50 text-purple-900",
+  only_you: "bg-navy-50 text-navy-hover",
 };
 
 const RUN_LABEL: Record<CommandLevel, string> = {
@@ -215,7 +215,7 @@ function PaletteDialog({ niva }: { niva: NivaApi }) {
         {mode.name === "list" ? (
           <>
             <div className="flex items-center gap-2 border-b border-line-soft px-4 py-3">
-              <span className="text-brown">
+              <span className="text-navy">
                 <Sparkle className="h-5 w-5" />
               </span>
               <label htmlFor={inputId} className="sr-only">
@@ -265,7 +265,7 @@ function PaletteDialog({ niva }: { niva: NivaApi }) {
                         aria-selected={i === activeIndex}
                         onMouseEnter={() => setActive(i)}
                         onClick={() => choose(item)}
-                        className={`flex cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 ${i === activeIndex ? "bg-navy-50" : ""}`}
+                        className={`flex cursor-pointer items-center gap-3 rounded-field px-3 py-2 ${i === activeIndex ? "bg-navy-50" : ""}`}
                       >
                         {item.kind === "command" ? (
                           <>
@@ -298,9 +298,9 @@ function PaletteDialog({ niva }: { niva: NivaApi }) {
                         aria-selected={i === activeIndex}
                         onMouseEnter={() => setActive(i)}
                         onClick={() => choose(row)}
-                        className={`flex cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 ${i === activeIndex ? "bg-navy-50" : ""}`}
+                        className={`flex cursor-pointer items-center gap-3 rounded-field px-3 py-2 ${i === activeIndex ? "bg-navy-50" : ""}`}
                       >
-                        <span className="text-brown">
+                        <span className="text-navy">
                           <Sparkle />
                         </span>
                         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">Ask Niva: {row.text}</span>
@@ -344,7 +344,7 @@ function PaletteDialog({ niva }: { niva: NivaApi }) {
                 value: mode.values[f.name] ?? "",
                 "aria-invalid": err ? true : undefined,
                 "aria-describedby": err ? `${id}-err` : undefined,
-                className: "min-h-[40px] w-full rounded-[10px] border border-line-input bg-white px-3 text-[13px] text-ink",
+                className: "min-h-[40px] w-full rounded-field border border-line-control bg-white px-3 text-[13px] text-ink",
               };
               const set = (v: string) => setMode({ ...mode, values: { ...mode.values, [f.name]: v }, errors: { ...mode.errors, [f.name]: "" } });
               return (
@@ -425,7 +425,7 @@ function PaletteDialog({ niva }: { niva: NivaApi }) {
             <div ref={resultRef} tabIndex={-1} className="outline-none">
               <h3 className="font-display text-[20px] font-semibold leading-tight text-ink">{mode.command.title}</h3>
             </div>
-            <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+            <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {mode.error}
             </p>
             <div className="flex flex-wrap justify-end gap-2">

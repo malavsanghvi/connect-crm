@@ -384,7 +384,7 @@ export function BrandingForm({ branding, flags, readOnly, hiddenFlags = [], flag
                     value={/^#[0-9a-f]{6}$/i.test(value) ? value : brandColor("navy")}
                     onChange={(e) => setBrand({ ...brand, [f.key]: e.target.value.toUpperCase() })}
                     disabled={readOnly}
-                    className="h-[42px] w-14 cursor-pointer rounded-[10px] border border-line-strong bg-white"
+                    className="h-[42px] w-14 cursor-pointer rounded-field border border-line-strong bg-white"
                   />
                 ) : null}
                 <input

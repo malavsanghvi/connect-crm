@@ -78,7 +78,7 @@ export function ManageSheet({ entity, payload, onClose, onAdd }: { entity: Custo
                   </button>
                 </div>
                 {problem?.id === r.id ? (
-                  <p role="alert" className="m-0 mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+                  <p role="alert" className="m-0 mt-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
                     {problem.text}
                   </p>
                 ) : null}

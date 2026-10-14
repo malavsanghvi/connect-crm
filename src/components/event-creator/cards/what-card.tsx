@@ -85,7 +85,7 @@ export function WhatCard({ draft, set, ctx, api, demo, onTemplateCreated }: Card
       ))}
 
       {!draft.id && ctx.templates.length ? (
-        <details className="rounded-[12px] border border-line bg-ground px-3.5 py-2.5">
+        <details className="rounded-field border border-line bg-ground px-3.5 py-2.5">
           <summary className="cursor-pointer text-[14px] font-semibold text-ink">Start from a template instead</summary>
           <div className="mt-3 flex flex-col gap-2">
             <p className="crm-hint m-0">Copies the template&apos;s description, event lead and checklist into a new draft with the name and start above.</p>

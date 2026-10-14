@@ -12,30 +12,29 @@ function WindowFrame({ title, children, className = "" }: { title: string; child
         <span className="h-2.5 w-2.5 rounded-full bg-saffron" />
         <span className="h-2.5 w-2.5 rounded-full bg-gold" />
         <span className="h-2.5 w-2.5 rounded-full bg-success" />
-        <span className="ml-3 truncate text-[12px] font-semibold text-muted">{title}</span>
+        <span className="ml-3 min-w-0 flex-1 truncate text-[12px] font-semibold text-muted">{title}</span>
+        <span className="flex-none rounded-tag border border-line bg-white px-2 py-0.5 text-[11px] font-bold text-muted">Sample data</span>
       </div>
       {children}
     </div>
   );
 }
 
-function Pill({ children, tone }: { children: ReactNode; tone: "navy" | "saffron" | "success" | "purple" | "maroon" }) {
+function Pill({ children, tone }: { children: ReactNode; tone: "navy" | "saffron" | "success" }) {
   const tones = {
     navy: "bg-navy-50 text-navy",
     saffron: "bg-saffron-50 text-brown",
     success: "bg-success-50 text-success-900",
-    purple: "bg-purple-50 text-purple-900",
-    maroon: "bg-danger-50 text-maroon",
   } as const;
   return <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${tones[tone]}`}>{children}</span>;
 }
 
 /** The admin portal's home: tasks and numbers at a glance. */
 export function DashboardMock({ className = "" }: { className?: string }) {
-  const tasks: { tag: string; tone: "navy" | "saffron" | "success" | "purple" | "maroon"; title: string; meta: string }[] = [
+  const tasks: { tag: string; tone: "navy" | "saffron" | "success"; title: string; meta: string }[] = [
     { tag: "Membership", tone: "navy", title: "3 new family applications", meta: "Waiting for a reference to approve" },
     { tag: "Deposit", tone: "saffron", title: "Match this week's Zelle payments", meta: "11 exact matches ready to confirm" },
-    { tag: "Event", tone: "maroon", title: "Annual dinner: lunch slots are 90% full", meta: "Open 2 more tables?" },
+    { tag: "Event", tone: "navy", title: "Annual dinner: lunch slots are 90% full", meta: "Open 2 more tables?" },
   ];
   return (
     <WindowFrame title="Sample Community · Home" className={className}>
@@ -83,12 +82,15 @@ export function PhoneMock({ className = "" }: { className?: string }) {
     <div className={`mx-auto w-[270px] rounded-[38px] border-[7px] border-navy bg-navy shadow-window ${className}`}>
       <div className="overflow-hidden rounded-[30px] bg-canvas">
         <div className="bg-navy px-4 pb-4 pt-5 text-white">
-          <p className="text-[11px] font-semibold text-navy-200">Sample Community</p>
+          <p className="flex items-center justify-between gap-2 text-[11px] font-semibold text-navy-200">
+            Sample Community
+            <span className="rounded-tag bg-navy-hover px-2 py-0.5 text-[11px] font-bold text-navy-200">Sample data</span>
+          </p>
           <p className="font-display text-[19px] font-semibold">Welcome, the Rivera family</p>
         </div>
         <div className="flex flex-col gap-2.5 p-3.5">
           <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-            <Pill tone="maroon">Event</Pill>
+            <Pill tone="navy">Event</Pill>
             <p className="mt-1.5 text-[14px] font-bold text-ink">Spring celebration</p>
             <p className="text-[12px] text-muted">Saturday, 6:30 PM · Main hall</p>
             <div className="mt-2.5 flex gap-2">
@@ -105,7 +107,7 @@ export function PhoneMock({ className = "" }: { className?: string }) {
             <p className="mt-1.5 text-[12px] text-muted">$310 of $501 paid</p>
           </div>
           <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-            <Pill tone="purple">Learning</Pill>
+            <Pill tone="navy">Learning</Pill>
             <p className="mt-1.5 text-[14px] font-bold text-ink">Level 2 · this week&apos;s lesson</p>
           </div>
         </div>
@@ -235,7 +237,7 @@ export function LearningMock({ className = "" }: { className?: string }) {
             <p className="font-display text-[20px] font-semibold text-navy">Level 2 · Fall term</p>
             <p className="text-[12px] text-muted">Sunday 10:00 AM · Room 4</p>
           </div>
-          <Pill tone="purple">Class</Pill>
+          <Pill tone="navy">Class</Pill>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           <div className="rounded-xl bg-ground p-3">

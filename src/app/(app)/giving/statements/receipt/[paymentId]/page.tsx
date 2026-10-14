@@ -70,7 +70,7 @@ export default async function ReceiptCopyPage({ params }: { params: Promise<{ pa
         <FamilyCard family={v.family} labels={{ orgMemberLabel: rules.orgMemberLabel, orgHouseholdLabel: rules.orgHouseholdLabel }} />
       </div>
       {v.printBlocked ? (
-        <p role="status" className="m-0 rounded-[12px] border border-line bg-canvas px-3 py-2 text-[14px] text-ink-2" data-testid="receipt-print-off">
+        <p role="status" className="m-0 rounded-field border border-line bg-canvas px-3 py-2 text-[14px] text-ink-2" data-testid="receipt-print-off">
           {v.printBlocked}
         </p>
       ) : (

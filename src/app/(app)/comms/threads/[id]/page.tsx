@@ -82,7 +82,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         {messages.error ? <QueryError what="the messages" error={messages.error} retryHref={`/comms/threads/${id}`} /> : null}
         <ol className="flex flex-col gap-3">
           {list.map((m) => (
-            <li key={m.id} className={`max-w-[85%] rounded-[12px] p-3 text-sm ${m.from_role ? "ml-auto bg-navy-50" : "bg-canvas"}`}>
+            <li key={m.id} className={`max-w-[85%] rounded-field p-3 text-sm ${m.from_role ? "ml-auto bg-navy-50" : "bg-canvas"}`}>
               <p className="whitespace-pre-line">{m.body}</p>
               <p className="mt-1 text-xs text-muted">
                 {m.from_role ? `${inboxName}${m.author_user ? ` (${m.author_user === session.userId ? "you" : (users.get(m.author_user)?.name ?? "staff")})` : ""}` : from} ·{" "}

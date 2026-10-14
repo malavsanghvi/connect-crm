@@ -163,14 +163,14 @@ export function BoliUpload({ canUpload, currency, templateExample }: { canUpload
         ) : null}
         {error ? (
           <div className="px-2.5 pb-2">
-            <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+            <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {error}
             </p>
           </div>
         ) : null}
         {outcome ? (
           <div className="px-2.5 pb-2" role="status">
-            <p className="rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
+            <p className="rounded-field border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
               {outcome.created} {outcome.created === 1 ? "pledge" : "pledges"} created · {outcome.skipped} {outcome.skipped === 1 ? "row" : "rows"} skipped.
               Each winner is now a pledge on the household (Giving → Pledges).
             </p>

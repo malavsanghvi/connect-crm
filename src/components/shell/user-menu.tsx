@@ -55,7 +55,7 @@ export function UserMenu({
         </button>
       </form>
       {state && !state.ok ? (
-        <p role="alert" className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <p role="alert" className="absolute right-0 top-[calc(100%+8px)] z-50 w-72 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {state.error}
         </p>
       ) : null}

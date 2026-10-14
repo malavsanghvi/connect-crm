@@ -23,7 +23,7 @@ function ColorField({ name, label, value, onChange }: { name: string; label: str
           aria-label={`${label} picker`}
           value={valid ? `#${value.replace(/^#/, "").toLowerCase()}` : DEFAULT_COMMUNITY_PALETTE.primary}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="h-10 w-12 cursor-pointer rounded-[8px] border border-line-input bg-white p-1"
+          className="h-10 w-12 cursor-pointer rounded-tag border border-line-control bg-white p-1"
         />
         <input id={`color-${name}`} name={name} className="crm-input w-32 font-mono uppercase" value={value} onChange={(e) => onChange(e.target.value)} maxLength={7} />
       </div>
@@ -49,7 +49,7 @@ function Mark({ url, name, bg, fg, size }: { url: string | null; name: string; b
     return <img src={url} alt={`${name} logo`} style={{ height: size, width: "auto" }} />;
   }
   return (
-    <span style={{ height: size, minWidth: size, background: bg, color: fg, fontSize: Math.round(size * 0.34) }} className="inline-flex items-center justify-center rounded-[8px] px-1 font-bold">
+    <span style={{ height: size, minWidth: size, background: bg, color: fg, fontSize: Math.round(size * 0.34) }} className="inline-flex items-center justify-center rounded-tag px-1 font-bold">
       {name.slice(0, 4).toUpperCase()}
     </span>
   );
@@ -87,7 +87,7 @@ export function BrandColors({ initial, logos, name, shortName, greeting = "Welco
         <p className="crm-label">Preview</p>
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Portal header</p>
-          <div className="flex items-center gap-3 rounded-[10px] border border-line bg-white px-3 py-2">
+          <div className="flex items-center gap-3 rounded-field border border-line bg-white px-3 py-2">
             <Mark url={logos.mark ?? logos.logo} name={shortName} bg={p} fg={onP} size={30} />
             <span className="text-[14px] font-bold text-ink">Weaver</span>
             <span className="ml-auto rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: p, color: onP }}>
@@ -107,7 +107,7 @@ export function BrandColors({ initial, logos, name, shortName, greeting = "Welco
         </div>
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Email header</p>
-          <div className="max-w-[420px] overflow-hidden rounded-[10px] border border-line bg-white">
+          <div className="max-w-[420px] overflow-hidden rounded-field border border-line bg-white">
             {logos.emailHeader ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logos.emailHeader} alt={`${name} email header`} className="block w-full" />

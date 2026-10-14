@@ -34,7 +34,7 @@ export const metadata: Metadata = { title: "Event feedback" };
 const STATUS_CLASS: Record<FeedbackStatus, string> = {
   Closed: "cc-status-ok",
   "Not sent": "cc-status-warn",
-  Scheduled: "font-bold text-purple",
+  Scheduled: "font-bold text-navy",
   Open: "font-bold text-navy",
   Draft: "font-semibold text-muted",
 };
@@ -242,7 +242,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
                   label="Responses"
                   value={results.responses}
                   hint={results.rate !== null ? `${formatPct(results.rate)} of ${attendeesByEvent.get(selected.event_id as string) ?? 0} attendees` : "no check-ins recorded"}
-                  tone="purple"
+                  tone="navy"
                 />
                 <Stat
                   label="Anonymous"
@@ -282,7 +282,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
                     label: a.label,
                     value: a.average !== null ? a.average.toFixed(1) : "—",
                     ratio: (a.average ?? 0) / 5,
-                    tone: a.average !== null && a.average < LOW_AREA_SCORE ? "danger" : "purple",
+                    tone: a.average !== null && a.average < LOW_AREA_SCORE ? "danger" : "navy",
                   }))}
                 />
               )}

@@ -353,7 +353,7 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
                       {l.bank_type ? <Badge>{l.bank_type}</Badge> : null}
                       {l.is_batch_deposit ? <Badge tone="warning">Batch deposit</Badge> : null}
                       {l.originator_kind ? (
-                        <Badge tone="purple">{ORIGINATOR_LABEL[l.originator_kind] ?? l.originator_kind}</Badge>
+                        <Badge tone="navy">{ORIGINATOR_LABEL[l.originator_kind] ?? l.originator_kind}</Badge>
                       ) : null}
                     </div>
                     <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 text-sm">

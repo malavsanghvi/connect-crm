@@ -177,7 +177,7 @@ export function NewsletterCompose({
         >
           {campaign ? <input type="hidden" name="id" value={campaign.id} /> : null}
           {isDraft && hasUnknownAudienceKeys(campaign?.audience) ? (
-            <p className="mb-3 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900" role="status">
+            <p className="mb-3 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-ink" role="status">
               This draft&apos;s audience was set up somewhere other than this form (for example from a boli), so the chips below cannot show it. Choose the audience again here: saving
               the draft replaces the old one.
             </p>

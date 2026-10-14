@@ -207,7 +207,7 @@ export default async function ProfilePage() {
                   <iframe
                     title={`Map pin for ${center.name}`}
                     src={osmEmbedUrl(lat, lon)}
-                    className="mt-3 h-[240px] w-full max-w-[560px] rounded-[10px] border border-line"
+                    className="mt-3 h-[240px] w-full max-w-[560px] rounded-field border border-line"
                     loading="lazy"
                   />
                 ) : (
@@ -224,10 +224,10 @@ export default async function ProfilePage() {
               {BRAND_FILES.map((f) => {
                 const url = fileUrl(f.key);
                 return (
-                  <div key={f.key} className="rounded-[12px] border border-line-soft bg-ground p-3" data-brand-file={f.key} data-has-file={String(Boolean(url))}>
+                  <div key={f.key} className="rounded-field border border-line-soft bg-ground p-3" data-brand-file={f.key} data-has-file={String(Boolean(url))}>
                     <p className="text-[13px] font-bold">{f.label}</p>
                     <p className="crm-hint">{f.hint}</p>
-                    <div className={`my-2 flex h-20 items-center justify-center rounded-[8px] border border-line ${f.key === "logo_dark_path" ? "bg-navy" : "bg-white"}`}>
+                    <div className={`my-2 flex h-20 items-center justify-center rounded-tag border border-line ${f.key === "logo_dark_path" ? "bg-navy" : "bg-white"}`}>
                       {url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={url} alt={`${f.label} of ${center.name}`} className="max-h-16 max-w-[90%]" />

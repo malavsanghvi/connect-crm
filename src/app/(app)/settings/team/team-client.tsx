@@ -17,7 +17,7 @@ type RoleOption = { key: string; name: string; description: string | null };
 function ErrorLine({ text }: { text: string | null }) {
   if (!text) return null;
   return (
-    <p role="alert" className="mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <p role="alert" className="mt-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       {text}
     </p>
   );
@@ -28,7 +28,7 @@ function LinkBox({ result }: { result: InviteResult }) {
   const toast = useToast();
   const [copied, setCopied] = useState(false);
   return (
-    <div className="mt-3 rounded-[12px] border border-success/30 bg-success-50 p-3 text-[13px] text-success-900" role="status">
+    <div className="mt-3 rounded-field border border-success/30 bg-success-50 p-3 text-[13px] text-success-900" role="status">
       <p className="font-bold">Send this link to the person you invited</p>
       <p className="mt-1">
         Email and text sending are not connected yet, so Weaver cannot send it for you. It works once, only for the address or number you
@@ -139,7 +139,7 @@ export function InviteForm({ roles }: { roles: RoleOption[] }) {
       </div>
       <fieldset>
         <legend className="crm-label">Roles</legend>
-        <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-[10px] border border-line p-2">
+        <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-field border border-line p-2">
           {roles.map((r) => (
             <label key={r.key} className="flex items-start gap-2 text-[13px]">
               <input

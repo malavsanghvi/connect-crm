@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { AskNiva } from "@/components/niva/ask-niva";
 import { Card, EmptyState, Tag, buttonClass } from "@/components/ui";
 import { isHandTickable, nextStep, routineProgress, stepIsDone, type ResolvedRoutine, type ResolvedStep } from "@/lib/routines/resolve";
@@ -148,9 +149,7 @@ function StepRow({
 function StepBox({ step, done, onToggle }: { step: ResolvedStep; done: boolean; onToggle: () => void }) {
   const look = `mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${done ? "border-success bg-success text-white" : "border-line bg-white text-transparent"}`;
   const tick = (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 13l4 4 10-10" />
-    </svg>
+    <Icon name="check" className="h-3.5 w-3.5" strokeWidth={3} />
   );
   if (isHandTickable(step)) {
     return (

@@ -330,7 +330,7 @@ export function OpportunityBuilder({
           </div>
         </fieldset>
         {error ? (
-          <p role="alert" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+          <p role="alert" className="mt-3 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             {error}
           </p>
         ) : null}
@@ -460,7 +460,7 @@ export function OpportunityBuilder({
         title={name || "Untitled opportunity"}
         subtitle={`${centerName} · ${campaign?.name ?? "No campaign"}`}
       >
-        <div className="rounded-[20px] border border-line bg-white p-4 shadow-sm">
+        <div className="rounded-window border border-line bg-white p-4 shadow-sm">
           <p className="font-display text-[20px] font-semibold text-ink">{name || "Untitled opportunity"}</p>
           {subtitle ? <p className="text-[13px] text-muted">{subtitle}</p> : null}
           <div className="mt-3 flex flex-col gap-2">

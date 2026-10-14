@@ -60,7 +60,7 @@ export function ZelleReports({
         member is told.
       </p>
       {anyTest ? (
-        <p className="rounded-md border border-purple/40 bg-purple-50 px-3 py-2 text-sm text-ink">
+        <p className="rounded-md border border-navy/40 bg-navy-50 px-3 py-2 text-sm text-ink">
           Sandbox rehearsal: these are test reports. Members never see the real Zelle address in a sandbox, and no real money moves.
         </p>
       ) : null}
@@ -276,7 +276,7 @@ function ReportCard({ report: r, labels, timeZone, currency, canConfirm }: Share
           <p className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-display text-2xl font-semibold tabular-nums">{formatCents(r.amount_cents, currency)}</span>
             <Badge tone={r.status === "unmatched" ? "warning" : "navy"}>{REPORT_STATUS_LABEL[r.status]}</Badge>
-            {r.is_test ? <Badge tone="purple">Test</Badge> : null}
+            {r.is_test ? <Badge tone="navy">Test</Badge> : null}
           </p>
           <p>
             Sent {formatDate(r.sent_on, timeZone)} · flagged after {formatDate(r.due_on, timeZone)}
@@ -536,7 +536,7 @@ function ZelleSettings({
       {message ? (
         <p
           role="status"
-          className={`mt-2 rounded-lg border px-3 py-2 text-sm ${waiting ? "border-saffron/40 bg-saffron-50 text-brown-900" : "border-success/30 bg-success-50 text-success-900"}`}
+          className={`mt-2 rounded-lg border px-3 py-2 text-sm ${waiting ? "border-warning-200 bg-warning-50 text-warning-ink" : "border-success/30 bg-success-50 text-success-900"}`}
         >
           {message}
         </p>

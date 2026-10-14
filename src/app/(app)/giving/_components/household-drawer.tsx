@@ -75,7 +75,7 @@ export function HouseholdDrawerProvider({
         }
       >
         {error ? (
-          <div role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+          <div role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             {error}
             {id ? (
               <button type="button" onClick={() => load(id)} className={`${buttonClass("bad", "xs")} ml-2`}>

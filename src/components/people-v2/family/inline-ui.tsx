@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { REASON_CHIPS, checkDraft, conflictLine, displayValue, type CheckContext, type EditUnit, type Values } from "@/lib/people-v2/inline-edit";
 
 import type { InlineEdit } from "./use-inline-edit";
@@ -11,28 +12,14 @@ import type { InlineEdit } from "./use-inline-edit";
 // decides anything: the rules are in src/lib/people-v2/inline-edit.ts and the state in use-inline-edit.ts.
 
 export const INPUT =
-  "min-h-11 w-full rounded-[10px] border border-[var(--v2-line-input)] bg-white px-3 text-[14.5px] text-ink placeholder:text-faint focus:border-[var(--v2-blue)] focus:outline-none focus:ring-2 focus:ring-[var(--v2-blue-border)] md:min-h-10";
+  "min-h-11 w-full rounded-field border border-[var(--v2-line-input)] bg-white px-3 text-[14.5px] text-ink placeholder:text-faint focus:border-[var(--v2-blue)] focus:outline-none focus:ring-2 focus:ring-[var(--v2-blue-border)] md:min-h-10";
 
 const BTN_SMALL =
   "inline-flex min-h-10 items-center justify-center rounded-full border px-4 text-[13.5px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)]";
 
 export function Pencil({ className = "" }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" />
-    </svg>
+    <Icon name="pencil" size={14} className={className} />
   );
 }
 
@@ -76,7 +63,7 @@ export function ValueButton({
     >
       {body}
       {busy ? (
-        <span aria-hidden="true" className="size-2 shrink-0 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
+        <span aria-hidden="true" className="size-2 shrink-0 animate-pulse rounded-full bg-gold" />
       ) : (
         <Pencil className="hidden shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 md:block" />
       )}
@@ -97,7 +84,7 @@ export function Problem({ id, children }: { id?: string; children: ReactNode }) 
 export function SaveError({ edit }: { edit: InlineEdit }) {
   if (edit.state.phase !== "error" || !edit.state.message) return null;
   return (
-    <div role="alert" className="mt-1.5 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <div role="alert" className="mt-1.5 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       <p className="m-0">{edit.state.message}</p>
       <button type="button" onClick={edit.submit} className={`${BTN_SMALL} mt-2 border-danger/40 bg-white text-danger hover:bg-danger-50`}>
         Try again
@@ -120,7 +107,7 @@ export function ConflictPanel({ edit, unit }: { edit: InlineEdit; unit: EditUnit
     <div
       role="alert"
       data-testid="conflict"
-      className="rounded-[10px] border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] px-3 py-2.5 text-[13.5px] text-[var(--v2-sun-ink)]"
+      className="rounded-field border border-warning-200 bg-warning-50 px-3 py-2.5 text-[13.5px] text-warning-ink"
     >
       <p className="m-0">{conflictLine({ who: c.who, at: c.at, keys: unit.fields.filter((k) => k in c.theirs), theirs: c.theirs }, new Date())}</p>
       <div className="mt-2 flex flex-wrap gap-2">

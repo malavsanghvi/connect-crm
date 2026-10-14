@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { brandColor, type BrandColorName } from "@/lib/brand-colors";
-import { EMAIL_PALETTE } from "@/lib/messaging/email";
+import { EMAIL_PALETTE, WEAVER_MARK_URL, renderEmail } from "@/lib/messaging/email";
+import { FLYER_BRAND_DEFAULTS } from "@/lib/events/flyer-brand";
 import { buildPledgeDocument } from "@/lib/pledge-pdf/document";
 
 import {
@@ -59,7 +60,6 @@ const KIT_HEX = new Set(tokens.color.tokens.map((t) => brandColor(t.name as Bran
 /** Files that may hold a colour value of their own, and why. Everything else uses a token, or a value that is the kit's own. */
 const COLOUR_ALLOWLIST: { match: (rel: string) => boolean; why: string }[] = [
   { match: (r) => r === "src/styles/brand-tokens.css" || r === "src/lib/brand-tokens.generated.ts", why: "Generated from brand/tokens.json (the kit's shadows hold rgba values); the test below keeps both equal to the kit." },
-  { match: (r) => r === "src/styles/portal-tokens.css", why: "Three module hues the kit has no colour for (maroon, purple, store), waiting for owner decision D4." },
   { match: (r) => r === "src/components/brand/weaver-mark.tsx" || r === "src/app/icon.svg", why: "The logo's own artwork: its gradient stops are the mark, not interface colours." },
   { match: (r) => r.startsWith("src/lib/events/"), why: "Event flyer artwork and each community's own flyer palettes: a community's output, not Weaver's chrome (decision D7)." },
   { match: (r) => r.startsWith("src/lib/site-draft/"), why: "The community's own website draft: its theme palettes are the community's identity." },
@@ -97,7 +97,7 @@ describe("(a) colours come from the brand kit", () => {
 
   it("no utility reaches for Tailwind's own palette, and the logo's colours (mark-*) stay out of the interface", () => {
     const palette =
-      /\b(?:bg|text|border|ring|from|to|via|fill|stroke|divide|outline|accent|decoration|shadow|placeholder|caret)-(?:(?:slate|gray|grey|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|fuchsia|pink|rose)-\d{2,3}|purple-(?!50\b|900\b)\d{2,3})(?![\w-])/;
+      /\b(?:bg|text|border|ring|from|to|via|fill|stroke|divide|outline|accent|decoration|shadow|placeholder|caret)-(?:(?:slate|gray|grey|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|fuchsia|pink|rose)-\d{2,3}|(?:purple|maroon|store)(?:-\d{2,3})?)(?![\w-])/;
     const mark = /\b(?:bg|text|border|ring|from|to|via|fill|stroke)-mark-(?:teal|blue|green|deep-blue|indigo|lavender|sun-top|sun-bottom)\b/;
     const found: string[] = [];
     for (const { path, rel } of CODE) {
@@ -124,6 +124,18 @@ describe("(a) colours come from the brand kit", () => {
       });
     }
     expect(found).toEqual([]);
+  });
+
+  it("an email with no community brand carries Weaver's mark; a community's own email does not", () => {
+    expect(renderEmail({ subject: "Your code", body: "123456", brand: null, sandbox: false }).html).toContain(WEAVER_MARK_URL);
+    expect(renderEmail({ subject: "News", body: "Hello", brand: { name: "Riverside" }, sandbox: false }).html).not.toContain(WEAVER_MARK_URL);
+    expect(existsSync(join(ROOT, "public/brand", WEAVER_MARK_URL.split("/").pop()!))).toBe(true);
+  });
+
+  it("the flyer maker's defaults are the kit's navy, gold and canvas", () => {
+    expect(FLYER_BRAND_DEFAULTS.primary.toLowerCase()).toBe(brandColor("navy"));
+    expect(FLYER_BRAND_DEFAULTS.accent.toLowerCase()).toBe(brandColor("gold"));
+    expect(FLYER_BRAND_DEFAULTS.background.toLowerCase()).toBe(brandColor("canvas"));
   });
 
   it("the places that cannot read a variable use the kit's values", () => {
@@ -241,6 +253,60 @@ describe("(d) the official logo files are in place", () => {
   });
 });
 
+// ─── Shapes, icons, gradients, control borders ─────────────────────────────────────────────────────────────────────────────
+
+describe("shapes, icons, gradients and control borders follow the kit", () => {
+  const forCode = (check: (rel: string, line: string, no: number) => string | null, include: (rel: string) => boolean = () => true) => {
+    const found: string[] = [];
+    for (const { path, rel } of CODE) {
+      if (!include(rel)) continue;
+      withoutComments(readFileSync(path, "utf8")).split(/\r?\n/).forEach((line, i) => {
+        const problem = check(rel, line, i + 1);
+        if (problem) found.push(`${rel}:${i + 1}  ${problem}`);
+      });
+    }
+    return found;
+  };
+  const notTenantArt = (rel: string) => !rel.startsWith("src/lib/events/") && !rel.startsWith("src/lib/site-draft/");
+
+  it("an icon is the shared Icon component (brand/icons), never an inline <svg>", () => {
+    const found = forCode(
+      (rel, line) => (/<svg\b/.test(line) ? "inline <svg>: add the icon to brand/icons and use <Icon name=...>" : null),
+      (rel) => rel.endsWith(".tsx") && rel !== "src/components/brand/weaver-mark.tsx" && rel !== "src/components/brand/icons.tsx",
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("a radius that equals a kit radius is written as its token (rounded-card, rounded-field, rounded-tag ...)", () => {
+    const kit = new Set([6, 8, 10, 12, 16, 20, 24, 32, 40]);
+    const found = forCode((rel, line) => {
+      for (const m of line.matchAll(/\brounded(?:-[a-z]{1,2})?-\[(\d+)px\]/g)) if (kit.has(Number(m[1]))) return `${m[0]} (use the token class)`;
+      return null;
+    }, notTenantArt);
+    expect(found).toEqual([]);
+  });
+
+  it("a gradient appears only on the AI tag, the headline underline and the picture wash (and the rail's scroll fade)", () => {
+    const allowed = new Set(["src/components/brand/ai-tag.tsx", "src/app/site/opengraph-image.tsx", "src/app/site/page.tsx"]);
+    const found = forCode((rel, line) => (/linear-gradient|radial-gradient|conic-gradient|\bbg-gradient-to-/.test(line) && !allowed.has(rel) ? "gradient outside the kit's three places" : null), notTenantArt);
+    // globals.css: only the website's headline underline and the portal rail's scroll fade (white to transparent and the ink shadow) may use one.
+    const css = read("src/app/globals.css").split("\n").filter((l) => /gradient\(/.test(l));
+    expect(css.filter((l) => !/--color-white|--color-ink|--color-gold\) 55%/.test(l))).toEqual([]);
+    expect(found).toEqual([]);
+  });
+
+  it("a control's border is line-control (3:1); line-input stays for inputs drawn inside the website's pictures", () => {
+    const found = forCode((rel, line) => (/\b(?:border|divide|ring|outline)-line-input\b/.test(line) && !rel.startsWith("src/components/site/") ? "line-input on a control" : null));
+    expect(found).toEqual([]);
+    const css = read("src/app/globals.css");
+    for (const selector of [".crm-input {", ".cc-code-input {"]) {
+      const blocks: string[] = [];
+      for (let at = css.indexOf(selector); at >= 0; at = css.indexOf(selector, at + 1)) blocks.push(css.slice(at, css.indexOf("}", at)));
+      expect(blocks.some((b) => b.includes("border: 1px solid var(--color-line-control)")), selector).toBe(true);
+    }
+  });
+});
+
 // ─── The kit's own contrast claims ──────────────────────────────────────────────────────────────────────────────────────────
 
 describe("the kit's new tokens keep the contrast the README promises", () => {
@@ -280,7 +346,7 @@ const OLD_NAME_ALLOWLIST: { file: string; why: string }[] = [
   { file: "src/app/(app)/accounting/qbo/setup/page.tsx", why: "The same QuickBooks marker, in the confirmation the treasurer ticks." },
   { file: "src/lib/security.ts", why: "CC_FIRST_ADMIN_REASON is the audit reason written by migration 0400 and asserted by supabase/tests/32." },
   { file: "src/lib/payments/change-control.ts", why: 'Reads the database\'s own message "Community Connect has paused ..." (migrations 0580, 0597), which is already applied.' },
-  { file: "src/lib/modules.ts", why: 'The WhatsApp Business module is labelled "CommunityConnect" (decision D6 in docs/BRAND_CONFORMANCE.md): the owner chooses the new label.' },
+  { file: "src/lib/modules.ts", why: '"CommunityConnect" is the name the owner gave the Facebook, Instagram and WhatsApp marketplace pack (docs/BACKLOG.md B104, docs/MARKETPLACE_PACKS.md), a pack brand like iWeaver and WeCare, not the old product name (decision D6 in docs/BRAND_CONFORMANCE.md).' },
 ];
 
 describe("(b) the product is called Weaver", () => {

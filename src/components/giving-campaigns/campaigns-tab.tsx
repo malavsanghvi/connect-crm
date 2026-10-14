@@ -59,7 +59,7 @@ function visibilityNote(v: { active: boolean; visibleFrom: string | null; visibl
 
 function Problem({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" className="m-0 rounded-[12px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
+    <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
       {children}
     </p>
   );

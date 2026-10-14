@@ -50,7 +50,7 @@ export function ActionRow({
       </div>
       <div className="flex shrink-0 flex-wrap gap-1">
         {!a.owner_person_id && <PBadge tone="danger">Unassigned</PBadge>}
-        {(a.priority === "high" || a.priority === "critical") && <PBadge tone="maroon">{humanize(a.priority)}</PBadge>}
+        {(a.priority === "high" || a.priority === "critical") && <PBadge tone="navy">{humanize(a.priority)}</PBadge>}
         <PBadge tone={badge.tone}>{badge.label}</PBadge>
         <PBadge tone={a.state === "in_progress" ? "navy" : "muted"}>{humanize(a.state)}</PBadge>
       </div>

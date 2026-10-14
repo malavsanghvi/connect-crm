@@ -447,7 +447,7 @@ export function CheckInScreen({
             notice.tone === "success"
               ? "border-success/30 bg-success-50 text-success"
               : notice.tone === "warning"
-                ? "border-saffron/40 bg-saffron-50 text-brown"
+                ? "border-warning-200 bg-warning-50 text-warning-ink"
                 : notice.tone === "danger"
                   ? "border-danger/30 bg-danger-50 text-danger"
                   : "border-navy/20 bg-navy-50 text-navy"

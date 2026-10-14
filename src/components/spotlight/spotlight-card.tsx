@@ -76,7 +76,7 @@ export function SpotlightCard({ step, index, total, phase, missingNote, sheet, s
         {step.body}
       </p>
       {missing ? (
-        <p role="note" data-testid="spotlight-missing" className="m-0 mt-3 rounded-[10px] bg-saffron-50 px-3 py-2 text-[13.5px] leading-snug text-brown-900">
+        <p role="note" data-testid="spotlight-missing" className="m-0 mt-3 rounded-field bg-saffron-50 px-3 py-2 text-[13.5px] leading-snug text-brown-900">
           {missingNote}
         </p>
       ) : null}

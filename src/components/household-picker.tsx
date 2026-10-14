@@ -112,7 +112,7 @@ export function HouseholdPicker({
             <p className="text-sm text-muted">No household matches. Try an ID, or part of a member&apos;s name.</p>
           ) : null}
           {ambiguousNames || result.cards.length > 1 ? (
-            <p className="rounded-md border border-saffron/40 bg-saffron-50 px-3 py-2 text-sm text-brown">
+            <p className="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-ink">
               Several households match — compare the IDs, members and zone before choosing.
             </p>
           ) : null}

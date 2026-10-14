@@ -55,7 +55,7 @@ export function PreviewShell({ community, workspaces, children }: { community: s
             {PRODUCT_NAME}
           </span>
           <span className="cc-center-pill hidden lg:inline-flex">{community}</span>
-          <span className="rounded-[10px] bg-danger px-2.5 py-0.5 text-[10px] font-bold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</span>
+          <span className="rounded-field bg-danger px-2.5 py-0.5 text-[10px] font-bold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</span>
           <div className="hidden min-w-0 flex-1 justify-center md:flex">
             <span className="cc-search flex max-w-[520px] items-center text-muted">Search a name, phone, email or any ID</span>
           </div>

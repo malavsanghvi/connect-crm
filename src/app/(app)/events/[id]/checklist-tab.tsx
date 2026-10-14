@@ -142,7 +142,7 @@ export async function ChecklistTab({ event, session, access }: { event: Tables<"
         ) : (
           <ul className="flex flex-col gap-2">
             {lessons.map((l) => (
-              <li key={l.id} className="rounded-[10px] bg-ground p-3 text-[13px]">
+              <li key={l.id} className="rounded-field bg-ground p-3 text-[13px]">
                 <p className="whitespace-pre-line">{l.text}</p>
                 <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
                   <span>

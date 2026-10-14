@@ -10,7 +10,7 @@ import { flyerTextLength } from "@/lib/events/flyer";
 /** A plain-English problem next to what the organizer did, with a Try again when there is one. */
 export function InlineError({ children, onRetry }: { children: ReactNode; onRetry?: () => void }) {
   return (
-    <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       <span className="min-w-0 flex-1">{children}</span>
       {onRetry ? (
         <button type="button" className={buttonClass("ghost", "xs")} onClick={onRetry}>
@@ -119,7 +119,7 @@ export function TextField({
 export function SectionBox({ title, note, control, children }: { title: string; note?: ReactNode; control?: ReactNode; children?: ReactNode }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="rounded-[12px] border border-line-soft bg-white p-3">
+    <section aria-labelledby={id} className="rounded-field border border-line-soft bg-white p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 id={id} className="text-[13px] font-bold">
           {title}

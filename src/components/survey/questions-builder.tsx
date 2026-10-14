@@ -31,7 +31,7 @@ export function QuestionsBuilder({ initial, disabled = false }: { initial: Surve
     <fieldset disabled={disabled} className="flex flex-col gap-2.5">
       <input type="hidden" name="questions" value={JSON.stringify(qs)} />
       {qs.map((q, i) => (
-        <div key={q.id} className="rounded-[12px] border border-line bg-white p-3">
+        <div key={q.id} className="rounded-field border border-line bg-white p-3">
           <div className="grid gap-2 sm:grid-cols-[1fr_14rem]">
             <div>
               <label htmlFor={`${q.id}-label`} className="crm-label">

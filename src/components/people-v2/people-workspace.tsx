@@ -18,7 +18,7 @@ import { ComingNext, DraftForThese, ListHint, MergeByCard, NoticedLabel } from "
 // The People workspace in the new look, as drawn on the prototype board "Ask your data, then the household card": the list with
 // the ask box on the left, the household card on the right (a full-screen sheet on a phone). It only draws the model.
 
-const CHIP = "inline-flex min-h-10 items-center gap-1.5 rounded-[20px] border px-3.5 text-[13px] no-underline";
+const CHIP = "inline-flex min-h-10 items-center gap-1.5 rounded-window border px-3.5 text-[13px] no-underline";
 const BTN = "inline-flex min-h-11 items-center rounded-[22px] px-[18px] text-[14px] font-bold no-underline";
 const COLS = "md:grid md:grid-cols-[minmax(0,2.3fr)_minmax(0,1.5fr)_110px_110px_120px_150px] md:gap-2.5";
 
@@ -93,12 +93,12 @@ function QuickChips({ chips }: { chips: QuickChip[] }) {
             scroll={false}
             aria-current={c.current ? "true" : undefined}
             title={c.title}
-            className={`${CHIP} ${c.current ? "border-navy-300 bg-navy-50 font-bold text-navy" : "border-line-input bg-white font-semibold text-ink hover:border-navy"}`}
+            className={`${CHIP} ${c.current ? "border-navy-300 bg-navy-50 font-bold text-navy" : "border-line-control bg-white font-semibold text-ink hover:border-navy"}`}
           >
             {c.label}
           </Link>
         ) : (
-          <span key={c.key} title={c.title} className={`${CHIP} border-line-input bg-white font-semibold text-muted`}>
+          <span key={c.key} title={c.title} className={`${CHIP} border-line-control bg-white font-semibold text-muted`}>
             {c.label}
           </span>
         ),
@@ -177,7 +177,7 @@ function SortHead({ label, sortKey, section, align }: { label: string; sortKey: 
 function HouseholdsList({ section }: { section: HouseholdsSection }) {
   return (
     <section aria-label="Households" className="flex min-h-0 flex-col gap-0.5 rounded-2xl border border-line bg-white px-3 pb-3 pt-2.5">
-      <div className={`hidden rounded-[10px] bg-canvas px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.04em] text-muted ${COLS}`}>
+      <div className={`hidden rounded-field bg-canvas px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.04em] text-muted ${COLS}`}>
         <SortHead label="Household" sortKey="name" section={section} />
         <span>Primary member</span>
         <SortHead label="Area" sortKey="area" section={section} />
@@ -199,7 +199,7 @@ function HouseholdsList({ section }: { section: HouseholdsSection }) {
                 scroll={false}
                 aria-current={r.selected ? "true" : undefined}
                 aria-label={`${r.name}, ${r.ids}. Primary member ${r.primary}. Area ${r.area}. Open balance ${r.open ?? "not visible to your role"}. Last gift ${r.lastGift}. Last RSVP ${r.lastRsvp}.`}
-                className={`grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 rounded-[10px] px-2.5 py-1.5 text-[13px] font-medium text-ink no-underline ${COLS} ${r.selected ? (section.selectionExplicit ? "bg-highlight" : "hover:bg-canvas xl:bg-highlight") : "hover:bg-canvas"}`}
+                className={`grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 rounded-field px-2.5 py-1.5 text-[13px] font-medium text-ink no-underline ${COLS} ${r.selected ? (section.selectionExplicit ? "bg-highlight" : "hover:bg-canvas xl:bg-highlight") : "hover:bg-canvas"}`}
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="font-bold leading-snug">{r.name}</span>
@@ -259,7 +259,7 @@ function PeopleList({ section }: { section: PeopleSection }) {
     <>
       <QuickChips chips={section.bands} />
       <section aria-label="People" className="flex flex-col gap-0.5 rounded-2xl border border-line bg-white px-3 pb-3 pt-2.5">
-        <div className={`hidden rounded-[10px] bg-canvas px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.04em] text-muted ${cols}`} aria-hidden="true">
+        <div className={`hidden rounded-field bg-canvas px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.04em] text-muted ${cols}`} aria-hidden="true">
           <span>Person</span>
           <span>Relationship</span>
           <span>Household</span>
@@ -277,7 +277,7 @@ function PeopleList({ section }: { section: PeopleSection }) {
                   scroll={false}
                   aria-current={r.selected ? "true" : undefined}
                   aria-label={`${r.name}, ${r.ids}. ${r.relationship} in ${r.household}. Age ${r.age}. Contact ${r.contact}.`}
-                  className={`flex min-h-[52px] flex-col justify-center gap-0.5 rounded-[10px] px-2.5 py-1.5 text-[13px] text-ink no-underline md:items-center ${cols} ${r.selected ? "bg-highlight" : "hover:bg-canvas"}`}
+                  className={`flex min-h-[52px] flex-col justify-center gap-0.5 rounded-field px-2.5 py-1.5 text-[13px] text-ink no-underline md:items-center ${cols} ${r.selected ? "bg-highlight" : "hover:bg-canvas"}`}
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="truncate font-bold">{r.name}</span>
@@ -413,7 +413,7 @@ function DuplicateRow({ item }: { item: DuplicateItem }) {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Link href={item.compareHref} className="inline-flex min-h-10 items-center rounded-[20px] border border-line-input bg-white px-4 text-[13px] font-bold text-ink no-underline hover:border-navy">
+        <Link href={item.compareHref} className="inline-flex min-h-10 items-center rounded-window border border-line-control bg-white px-4 text-[13px] font-bold text-ink no-underline hover:border-navy">
           Compare side by side
         </Link>
         <ActionForm
@@ -555,12 +555,12 @@ function CardBody({ card }: { card: HouseholdPanel }) {
           </RecordPaymentButton>
         ) : null}
         <span className="relative inline-flex">
-          <button type="button" disabled title="Messaging one household from its card is not built yet." className={`${BTN} cursor-not-allowed border border-line-input bg-white text-muted`}>
+          <button type="button" disabled title="Messaging one household from its card is not built yet." className={`${BTN} cursor-not-allowed border border-line-control bg-white text-muted`}>
             Message the household
           </button>
           <ComingNext badge />
         </span>
-        <Link href={card.fullPageHref} className={`${BTN} border border-line-input bg-white text-ink hover:border-navy`}>
+        <Link href={card.fullPageHref} className={`${BTN} border border-line-control bg-white text-ink hover:border-navy`}>
           Open the full page
         </Link>
       </div>
@@ -579,7 +579,7 @@ function CardBody({ card }: { card: HouseholdPanel }) {
             , may be the same family.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={card.noticed.compareHref} className="inline-flex min-h-10 items-center rounded-[20px] border border-line-input bg-white px-4 text-[13px] font-bold text-ink no-underline hover:border-navy">
+            <Link href={card.noticed.compareHref} className="inline-flex min-h-10 items-center rounded-window border border-line-control bg-white px-4 text-[13px] font-bold text-ink no-underline hover:border-navy">
               Compare side by side
             </Link>
             <ActionForm action={dismissDuplicateAction} submitLabel="Not the same" variant="ghost" size="sm" confirmKicker="Not a duplicate" confirmMessage="Mark these as two different households? The suggestion is closed.">

@@ -19,7 +19,7 @@ export const chipTone = (on: boolean) => (on ? "border-navy bg-navy-50 text-navy
 /** On a phone the page still works; it says where it works best. */
 export function PhoneNote() {
   return (
-    <p className="m-0 rounded-[10px] bg-ground px-3 py-2 text-[13px] text-muted sm:hidden">
+    <p className="m-0 rounded-field bg-ground px-3 py-2 text-[13px] text-muted sm:hidden">
       Uploading works best on a computer, where the whole file fits on the screen.
     </p>
   );
@@ -141,7 +141,7 @@ export function EarlierUploads({
       <h2 className="m-0 text-[17px] font-bold text-ink">Earlier uploads</h2>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {uploads.map((u) => (
-          <li key={u.id} className="rounded-[12px] border border-line bg-white px-3 py-2.5">
+          <li key={u.id} className="rounded-field border border-line bg-white px-3 py-2.5">
             <p className="m-0 text-[14px] font-bold text-ink">
               {u.rowCount} {u.rowCount === 1 ? what : `${what}s`}, {formatCents(u.totalCents, currency, locale)}
               <span className="font-normal text-muted"> · {formatDateTime(u.createdAt, timeZone)}</span>
@@ -195,7 +195,7 @@ function CancelUpload({
     );
   }
   return (
-    <div className="mt-2 flex flex-col gap-2 rounded-[10px] bg-ground px-3 py-2.5">
+    <div className="mt-2 flex flex-col gap-2 rounded-field bg-ground px-3 py-2.5">
       <p className="m-0 text-[13px] text-ink">
         Every {what} of this upload is cancelled together; nothing is deleted. Each family&apos;s History shows the reason.
       </p>

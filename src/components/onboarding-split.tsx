@@ -28,12 +28,12 @@ export function OnboardingSplit({ title, lead, aside, children }: { title: strin
 }
 
 export const onboardingInputClass =
-  "min-h-[46px] w-full rounded-xl border border-line-input bg-white px-3.5 text-base text-ink placeholder:text-faint focus:border-navy focus:outline-2 focus:outline-offset-1 focus:outline-navy";
+  "min-h-[46px] w-full rounded-xl border border-line-control bg-white px-3.5 text-base text-ink placeholder:text-faint focus:border-navy focus:outline-2 focus:outline-offset-1 focus:outline-navy";
 
 export function OnboardingError({ text }: { text: string | null | undefined }) {
   if (!text) return null;
   return (
-    <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       {text}
     </p>
   );
@@ -42,7 +42,7 @@ export function OnboardingError({ text }: { text: string | null | undefined }) {
 export function OnboardingNotice({ text }: { text: string | null | undefined }) {
   if (!text) return null;
   return (
-    <p role="status" className="rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
+    <p role="status" className="rounded-field border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
       {text}
     </p>
   );

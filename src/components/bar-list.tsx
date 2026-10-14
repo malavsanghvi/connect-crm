@@ -1,15 +1,12 @@
 import type { ReactNode } from "react";
 
-/** Bar colours: the brand kit's tokens (src/styles/brand-tokens.css), and the portal's module hues (src/styles/portal-tokens.css). */
+/** Bar colours: the brand kit's tokens (src/styles/brand-tokens.css). The kit has no colour per module: parts of a product are navy. */
 export const BAR_COLOR = {
   saffron: "var(--color-saffron)",
   navy: "var(--color-navy)",
-  purple: "var(--color-purple)",
   green: "var(--color-success)",
   stone: "var(--color-muted)",
   brown: "var(--color-brown)",
-  maroon: "var(--color-maroon)",
-  store: "var(--color-store)",
 } as const;
 export type BarColor = keyof typeof BAR_COLOR;
 

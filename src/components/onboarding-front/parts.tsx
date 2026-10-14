@@ -4,7 +4,7 @@
 
 import type { ReactNode } from "react";
 
-import { Sparkle } from "@/components/niva/sparkle";
+import { AiTag } from "@/components/brand/ai-tag";
 
 /** The board's pill buttons: 44px tall, fully rounded. */
 export const btn = {
@@ -15,25 +15,21 @@ export const btn = {
   outlineLarge:
     "inline-flex min-h-[44px] items-center justify-center rounded-[22px] text-center border border-navy bg-white px-5 text-[15px] font-semibold text-navy no-underline hover:bg-navy-50",
   /** Not built yet: readable (6:1 on its ground), plainly not pressable. */
-  off: "inline-flex min-h-[44px] cursor-not-allowed items-center justify-center rounded-[22px] text-center border border-line-input bg-ground px-[18px] text-[14px] font-semibold text-muted",
+  off: "inline-flex min-h-[44px] cursor-not-allowed items-center justify-center rounded-[22px] text-center border border-line-control bg-ground px-[18px] text-[14px] font-semibold text-muted",
   offLarge:
-    "inline-flex min-h-[44px] cursor-not-allowed items-center justify-center rounded-[22px] text-center border border-line-input bg-ground px-5 text-[15px] font-semibold text-muted",
+    "inline-flex min-h-[44px] cursor-not-allowed items-center justify-center rounded-[22px] text-center border border-line-control bg-ground px-5 text-[15px] font-semibold text-muted",
 } as const;
 
-export const card = "rounded-[16px] border border-line bg-white p-5";
+export const card = "rounded-tile border border-line bg-white p-5";
 
 /** The board's headings in sections: display face 600. */
 export const h2 = "m-0 font-display text-[20px] font-semibold leading-[1.25] text-ink";
 
-/** Niva's mark: the sun gradient (kept for Niva alone) with the sparkle. */
+/** Niva's mark: the AI tag labelled "Niva" (brand/README.md, Talking about AI). */
 export function NivaMark() {
   return (
-    <span
-      aria-hidden="true"
-      className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full text-ink"
-      style={{ background: "var(--v2-sun)" }}
-    >
-      <Sparkle className="h-[18px] w-[18px]" />
+    <span aria-hidden="true" className="mt-1.5 flex-none">
+      <AiTag label="Niva" />
     </span>
   );
 }
@@ -84,7 +80,7 @@ const TONE = {
 export type PillTone = keyof typeof TONE;
 
 export function Pill({ tone = "grey", children }: { tone?: PillTone; children: ReactNode }) {
-  return <span className={`inline-flex items-center gap-1.5 rounded-[12px] px-[10px] py-[2px] text-[12px] font-bold ${TONE[tone]}`}>{children}</span>;
+  return <span className={`inline-flex items-center gap-1.5 rounded-field px-[10px] py-[2px] text-[12px] font-bold ${TONE[tone]}`}>{children}</span>;
 }
 
 /** The honest label on everything that is shown but not built yet. */

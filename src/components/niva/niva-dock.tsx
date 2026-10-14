@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 
 import { AiOffNote } from "@/components/ai-off-note";
+import { AiTag } from "@/components/brand/ai-tag";
 import { useKind } from "@/components/kind-context";
 import { buttonClass } from "@/components/ui";
 import { isWaitingForFirstPart, type AssistantPart, type ChatMessage } from "@/lib/assistant/chat-state";
@@ -125,7 +126,7 @@ function Dock({ niva }: { niva: NivaApi }) {
       className={`${open ? "flex" : "hidden"} fixed inset-0 z-40 flex-col bg-white md:inset-auto md:bottom-0 md:right-0 md:top-[60px] md:w-[400px] md:max-w-full md:border-l md:border-line md:shadow-[var(--shadow-sheet)] xl:sticky xl:bottom-auto xl:right-auto xl:top-[60px] xl:z-10 xl:h-[calc(100vh-60px)] xl:shrink-0 xl:self-start xl:shadow-none`}
     >
       <header className="flex items-start gap-2 border-b border-line-soft px-4 py-3">
-        <span className="mt-1 text-brown">
+        <span className="mt-1 text-navy">
           <Sparkle className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -186,7 +187,7 @@ function Dock({ niva }: { niva: NivaApi }) {
               }
             }}
             placeholder={aiReady ? "Ask Niva…" : niva.aiOff ? "Chat is part of iWeaver" : "Chat is not switched on yet"}
-            className="max-h-40 min-h-[44px] flex-1 resize-none rounded-xl border border-line-input bg-white px-3 py-2 text-[13px] text-ink disabled:bg-canvas disabled:text-faint"
+            className="max-h-40 min-h-[44px] flex-1 resize-none rounded-xl border border-line-control bg-white px-3 py-2 text-[13px] text-ink disabled:bg-canvas disabled:text-faint"
           />
           {chat.busy ? (
             <button type="button" onClick={niva.stop} className={buttonClass("ghost", "sm")}>
@@ -277,6 +278,9 @@ function Message({ message, isLastAnswer, waiting, phone, niva }: { message: Cha
   }
   return (
     <div className="flex flex-col items-stretch gap-2">
+      <span className="self-start">
+        <AiTag label="Niva" />
+      </span>
       {message.parts.map((part, i) => (
         <Part key={i} part={part} onNavigate={phone ? niva.closeDock : undefined} />
       ))}

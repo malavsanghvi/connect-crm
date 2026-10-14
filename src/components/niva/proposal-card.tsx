@@ -2,6 +2,7 @@
 
 import { useMemo, useReducer, useState, type ReactNode } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { useStepUp } from "@/components/step-up";
 import { browserFetch, confirmProposal, rejectProposal } from "@/lib/assistant/client";
 import {
@@ -26,9 +27,7 @@ import { useNow } from "./use-now";
 
 function Shield() {
   return (
-    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z" />
-    </svg>
+    <Icon name="shield" className="h-4 w-4 shrink-0" />
   );
 }
 

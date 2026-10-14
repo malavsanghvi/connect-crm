@@ -158,13 +158,15 @@ code); it applies to postings sent after it, and a posted entry keeps the docume
   English / ગુજરાતી / हिन्दी built in; no information by colour alone.
 - **Design tokens: the Weaver brand kit is the source** (`brand/tokens.json`, with `brand/README.md` for the rules). Indigo `navy`
   `#2B2A8A` (primary), `saffron` `#FF7640` (a ground, never text), `gold` `#FFB82A`, ember `brown` `#A8400D` (accent text),
-  `canvas` `#FFFAF5`, `ground`, `line`, `ink` `#1E1D5C`, `muted`, `success`, `danger`. Faces: Bricolage Grotesque (display) and
-  Hanken Grotesk (everything else); JetBrains Mono is kept for identifiers only (docs/BRAND_CONFORMANCE.md, D3). The portal (both looks)
+  `canvas` `#FFFAF5`, `ground`, `line`, `ink` `#1E1D5C`, `muted`, `success`, `danger`. Faces: Bricolage Grotesque (display),
+  Hanken Grotesk (everything else) and JetBrains Mono (identifiers only). Kit version 2 also names `warning` (with tint and ink), `faint`,
+  `line-control` (a control's 3:1 border), `saffron-strong` (the orange that carries white text), the control sizes and `radius-field` / `radius-tag`,
+  and `brand/icons` (42 icons, drawn by one `Icon` component). The portal (both looks)
   and the website read the same tokens: `scripts/sync-brand-tokens.mjs` writes `src/styles/brand-tokens.css` and `src/lib/brand-tokens.generated.ts` from the kit, `globals.css`
   imports it, and `src/styles/portal-tokens.css` holds the portal's aliases and its three module hues. `tests/brand-conformance.test.ts`
   fails on a colour value outside the kit, on "Community Connect" in a string a person reads, on a stale generated file and on a missing
   logo file. The older palette (navy `#1B2C5C`, saffron `#C9731C`, canvas `#F6F2EA`, Fraunces, DM Sans) is gone from the portal's own
-  chrome; it survives only in the flyer maker's defaults. Tenant branding (name, logo, colours) comes from `centers.branding` and is not
+  chrome and from the flyer maker's colour defaults; the flyer maker still bundles Fraunces and DM Sans as its default faces. Tenant branding (name, logo, colours) comes from `centers.branding` and is not
   replaced by Weaver's; the product brand is "Weaver" (owner 2026-10-08; it was "Community Connect"), with Faith Weaver for faith-based setups, Community Weaver and Org Weaver for the others, and the W mark in `src/components/brand/weaver-mark.tsx` (the favicon is `src/app/icon.svg`, the logo lockup `src/components/brand/logo.tsx`). Tokens: `src/app/globals.css`;
   components (PageHeader + module tabs, Card/BlockGrid, Stat, pill buttons, chips,
   toggle, drawer, modal, toast): `src/components/ui.tsx`, `controls.tsx`,

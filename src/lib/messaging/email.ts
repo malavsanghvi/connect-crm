@@ -42,6 +42,11 @@ export const EMAIL_PALETTE = {
   /** saffron-200 */ noticeBorder: "#ffd6b8",
   /** brown-900 */ noticeInk: "#7a2e09",
 } as const;
+/**
+ * Weaver's own mark, served with the website's brand downloads (public/brand/weaver-mark-256.png), shown in an email that carries no
+ * community's brand (a sign-in code, a request outcome). A community's own logo or name always wins over it (brand/components/Logo).
+ */
+export const WEAVER_MARK_URL = "https://www.weaverams.org/brand/weaver-mark-256.png";
 /** The kit's text face first; email clients that do not have it use the system sans-serif. */
 export const EMAIL_FONT = "'Hanken Grotesk',system-ui,sans-serif";
 
@@ -73,7 +78,9 @@ export function renderEmail(input: EmailInput): RenderedEmail {
     : "";
   const logo = input.brand?.logo_url
     ? `<img src="${escapeHtml(input.brand.logo_url)}" alt="${escapeHtml(name)}" style="max-height:48px;max-width:220px;display:block">`
-    : `<div style="font:700 18px ${EMAIL_FONT};color:${color}">${escapeHtml(name)}</div>`;
+    : input.brand
+      ? `<div style="font:700 18px ${EMAIL_FONT};color:${color}">${escapeHtml(name)}</div>`
+      : `<table role="presentation" cellpadding="0" cellspacing="0" style="border:0"><tr><td style="padding-right:8px"><img src="${WEAVER_MARK_URL}" width="40" height="40" alt="" style="display:block;border:0"></td><td style="font:700 18px ${EMAIL_FONT};color:${color}">${escapeHtml(name)}</td></tr></table>`;
   const html = [
     `<!doctype html><html><body style="margin:0;background:${EMAIL_PALETTE.page}">`,
     banner,

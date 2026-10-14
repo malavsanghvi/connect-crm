@@ -78,7 +78,7 @@ export function BoliDrawer({
   if (!data || !boli) {
     return (
       <Drawer open={Boolean(error)} onClose={close} kicker="BOLI" title="Could not open this boli">
-        <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {error}
         </p>
       </Drawer>
@@ -157,7 +157,7 @@ export function BoliDrawer({
       footer={footer}
     >
       {actionError ? (
-        <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {actionError}
         </p>
       ) : null}
