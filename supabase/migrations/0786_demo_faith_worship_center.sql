@@ -18,7 +18,7 @@
 set client_min_messages = warning;
 
 insert into app.demo_packs (key, version, title, description, contents, active, content) values
-('demo_faith_jain_v1', 2, 'Sunrise Worship Center (Demo)', 'A small worship center of invented people (in a Jain Center''s words: Pathshala, bolis, tapasvis): 13 households, 34 people, pledges and test-mode payments, events with RSVPs, a small store, notices, volunteer groups and a Pathshala term. One demo person for every role.', '[]'::jsonb, false, $demo{
+('demo_faith_jain_v1', 2, 'Sunrise Worship Center (Demo)', 'A small worship center of invented people (in a Jain Center''s words: Pathshala, bolis, tapasvis): 13 households, 34 people, pledges and test-mode payments, events with RSVPs, a small store, notices, volunteer groups and a Pathshala term. One demo person for every role.', '[]'::jsonb, false, $demo${
   "center": {"kind":"faith","name":"Sunrise Worship Center (Demo)","short_name":"Sunrise Worship Demo","slug":"sunrise-worship-demo","category_key":"jain_center","city":"Lakeview","state":"IL"},
   "order": ["setup","people","membership","giving","events","store","pathshala","community"],
   "steps": {

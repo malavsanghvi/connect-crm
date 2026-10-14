@@ -599,7 +599,7 @@ const updateSql = (b, v) => `-- Demo community pack ${b.key}, version ${v}, as d
 set client_min_messages = warning;
 
 insert into app.demo_packs (key, version, title, description, contents, active, content) values
-(${sq(b.key)}, ${v}, ${sq(b.title)}, ${sq(b.descr)}, '[]'::jsonb, false, $demo${format(b.content)}$demo$::jsonb)
+(${sq(b.key)}, ${v}, ${sq(b.title)}, ${sq(b.descr)}, '[]'::jsonb, false, $demo$${format(b.content)}$demo$::jsonb)
 on conflict (key) do update set version = excluded.version, title = excluded.title, description = excluded.description,
   contents = excluded.contents, active = excluded.active, content = excluded.content;
 `;
