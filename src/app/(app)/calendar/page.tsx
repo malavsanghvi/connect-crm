@@ -126,7 +126,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                   <label htmlFor="nl-color" className="crm-label">
                     Colour (optional)
                   </label>
-                  <input id="nl-color" name="color" type="color" defaultValue="#1B5E9C" className="crm-input h-10 w-20 p-1" />
+                  <input id="nl-color" name="color" type="color" defaultValue="#2B2A8A" className="crm-input h-10 w-20 p-1" />
                 </div>
                 <div>
                   <label htmlFor="nl-link" className="crm-label">
@@ -238,7 +238,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       {manage ? (
                         <td>
                           {e.event_id ? (
-                            <span className="text-xs text-muted">From Events</span>
+                            <span className="text-xs text-muted">From events</span>
                           ) : e.source_uid ? (
                             <span className="text-xs text-muted">From the calendar link</span>
                           ) : (

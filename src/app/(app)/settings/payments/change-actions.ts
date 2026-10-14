@@ -103,5 +103,5 @@ export async function confirmWalletAction(key: string, reason: string): Promise<
   const { error } = await untypedRpc(db)("confirm_wallet_in_stripe", { p_center: auth.session.center.id, p_key: key, p_reason: reason.trim() });
   if (error) return failure(`Could not ${doing}`, error);
   revalidatePath(PATH);
-  return { ok: true, message: `Recorded: ${label} is turned on in your Stripe account. Community Connect cannot check that setting yet.` };
+  return { ok: true, message: `Recorded: ${label} is turned on in your Stripe account. Weaver cannot check that setting yet.` };
 }

@@ -279,7 +279,7 @@ export function WalletConfirm({ pluginKey, label, cc }: { pluginKey: string; lab
             askReason({
               title: `${label} is turned on in Stripe`,
               confirmLabel: "Record it",
-              body: <p>You are saying you turned {label} on in the organization&apos;s Stripe payment-method settings. Community Connect cannot check that setting yet, so it records your word, who said it and when.</p>,
+              body: <p>You are saying you turned {label} on in the organization&apos;s Stripe payment-method settings. Weaver cannot check that setting yet, so it records your word, who said it and when.</p>,
               run: async (reason) => void (await run(`wallet-${pluginKey}`, `say that ${label} is turned on in Stripe`, () => confirmWalletAction(pluginKey, reason))),
             })
           }
@@ -312,8 +312,8 @@ export function ReadinessCard({ cc }: { cc: ChangeControl }) {
       title="Ready to go live?"
       description={
         r.environment === "sandbox"
-          ? "What Community Connect checks before approving this organization to go live (readiness check 6), shown for every way to pay that is switched on. A sandbox is checked in test mode."
-          : "What Community Connect checks before approving this organization to go live (readiness check 6), shown for every way to pay that is switched on."
+          ? "What Weaver checks before approving this organization to go live (readiness check 6), shown for every way to pay that is switched on. A sandbox is checked in test mode."
+          : "What Weaver checks before approving this organization to go live (readiness check 6), shown for every way to pay that is switched on."
       }
       actions={<Badge tone={r.ok ? "success" : "warning"}>{r.ok ? "Ready" : "Not ready"}</Badge>}
     >

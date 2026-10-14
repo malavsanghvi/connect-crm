@@ -371,7 +371,7 @@ async function SuggestedTab({ session, labels, canManage, page, sp }: { session:
                         <p className="mt-1 text-[12px] text-muted">{landingText(m.person_id ? ev.cc.person : null, ev.cc.primary)}</p>
                       </td>
                       <td className="align-top text-[12px]">
-                        <Badge tone={m.method === "ai" ? "purple" : "navy"}>{methodLabel(m.method)}</Badge>
+                        <Badge tone={m.method === "ai" ? "navy" : "navy"}>{methodLabel(m.method)}</Badge>
                         <ul className="mt-1 flex flex-col gap-1">
                           {ev.signals.map((s, k) => (
                             <li key={k}>

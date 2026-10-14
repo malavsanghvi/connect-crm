@@ -729,8 +729,8 @@ export function parseBrandColors(read: Read): { ok: true; value: { primary: stri
   const p = (read("primary") ?? "").trim();
   const a = (read("accent") ?? "").trim();
   const errors: string[] = [];
-  if (!parseHexColor(p)) errors.push("Enter the primary color as a hex code like #1B2C5C.");
-  if (!parseHexColor(a)) errors.push("Enter the accent color as a hex code like #C9731C.");
+  if (!parseHexColor(p)) errors.push("Enter the primary color as a hex code like #2B2A8A.");
+  if (!parseHexColor(a)) errors.push("Enter the accent color as a hex code like #A8400D.");
   if (errors.length) return { ok: false, error: errors.join(" ") };
   const norm = (v: string) => `#${v.replace(/^#/, "").toUpperCase()}`;
   return { ok: true, value: { primary: norm(p), accent: norm(a) } };

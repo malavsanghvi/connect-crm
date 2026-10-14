@@ -458,7 +458,7 @@ export const ENTITIES: readonly EntityDef[] = [
       }),
       col("source_url", "Source link", "text", "An iCal link, if any.", "https://…/calendar.ics"),
       col("default_on", "On by default", "boolean", "Yes or no.", "No"),
-      col("color", "Colour", "text", "A hex colour.", "#5B4B8A"),
+      col("color", "Colour", "text", "A hex colour.", "#2B2A8A"),
     ],
   },
   {

@@ -73,7 +73,7 @@ export function HouseholdTitle({ model, canEdit }: Common) {
             {name}
           </span>
           {edit.busy ? (
-            <span aria-hidden="true" className="size-2.5 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
+            <span aria-hidden="true" className="size-2.5 animate-pulse rounded-full bg-gold" />
           ) : (
             <Pencil className="size-4 shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
           )}
@@ -202,7 +202,7 @@ export function AddressCard({ model, canEdit }: Common) {
       >
         {text ?? <span className="text-[var(--v2-blue)]">Add an address</span>}
         {edit.busy ? (
-          <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
+          <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 animate-pulse rounded-full bg-gold" />
         ) : (
           <Pencil className="mt-1 shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
         )}
@@ -267,7 +267,7 @@ function Switch({
           aria-busy={edit.busy || undefined}
           disabled={!canEdit || edit.busy}
           onClick={() => edit.commit({ [fieldKey]: on ? "off" : "on" })}
-          className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)] disabled:cursor-default ${on ? "bg-navy" : "bg-[#b8c4d6]"} ${canEdit ? "" : "opacity-60"}`}
+          className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)] disabled:cursor-default ${on ? "bg-navy" : "bg-toggle-off"} ${canEdit ? "" : "opacity-60"}`}
         >
           <span aria-hidden="true" className={`absolute top-1 size-6 rounded-full bg-white shadow transition-all ${on ? "left-7" : "left-1"}`} />
           <span className="sr-only">{on ? "On" : "Off"}</span>

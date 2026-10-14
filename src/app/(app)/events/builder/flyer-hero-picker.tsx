@@ -53,7 +53,7 @@ export function HeroPicker({
       <div className="flex flex-wrap items-center gap-2">
         {value && thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="The picture you chose" className="h-14 w-14 rounded-[8px] border border-line object-cover" />
+          <img src={thumb} alt="The picture you chose" className="h-14 w-14 rounded-tag border border-line object-cover" />
         ) : null}
         <button
           type="button"
@@ -87,7 +87,7 @@ export function HeroPicker({
       {value && !thumb ? <p className="crm-hint">A picture is chosen; it shows in the preview.</p> : null}
       {open ? (
         <div>
-          {isGuestVisible ? <p className="mb-2 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900">Anyone who sees this flyer will see this picture, including guests.</p> : null}
+          {isGuestVisible ? <p className="mb-2 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-ink">Anyone who sees this flyer will see this picture, including guests.</p> : null}
           {error ? <InlineError onRetry={() => void load(photos?.albumId ?? null)}>{error}</InlineError> : null}
           {photos && photos.albums.length ? (
             <>
@@ -122,7 +122,7 @@ export function HeroPicker({
                           setThumb(p.thumbUrl);
                           onChange(p.id);
                         }}
-                        className={`aspect-square overflow-hidden rounded-[8px] border bg-ground ${on ? "border-navy ring-2 ring-navy/40" : "border-line"}`}
+                        className={`aspect-square overflow-hidden rounded-tag border bg-ground ${on ? "border-navy ring-2 ring-navy/40" : "border-line"}`}
                       >
                         {p.thumbUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element

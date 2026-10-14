@@ -258,7 +258,7 @@ export function QuickOpportunitySheet({
         <legend className="crm-label">What members choose</legend>
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
           {types.map((t) => (
-            <label key={t.type} className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-[12px] border border-line px-3 py-2 text-[14px] has-[:checked]:border-navy has-[:checked]:bg-navy-50">
+            <label key={t.type} className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-field border border-line px-3 py-2 text-[14px] has-[:checked]:border-navy has-[:checked]:bg-navy-50">
               <input
                 type="radio"
                 name="qo-type"
@@ -353,14 +353,14 @@ export function QuickOpportunitySheet({
       <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
         <legend className="crm-label">Publish now?</legend>
         <div className="flex flex-wrap gap-1.5">
-          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-[12px] border border-line px-3 py-2 text-[14px] has-[:checked]:border-navy has-[:checked]:bg-navy-50 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-field border border-line px-3 py-2 text-[14px] has-[:checked]:border-navy has-[:checked]:bg-navy-50 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
             <input type="radio" name="qo-publish" checked={publish} disabled={!publishable} onChange={() => {
                 touch();
                 setWantPublish(true);
               }} className="h-4 w-4" />
             Publish now
           </label>
-          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-[12px] border border-line px-3 py-2 text-[14px] has-[:checked]:border-navy has-[:checked]:bg-navy-50">
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-field border border-line px-3 py-2 text-[14px] has-[:checked]:border-navy has-[:checked]:bg-navy-50">
             <input type="radio" name="qo-publish" checked={!publish} onChange={() => {
                 touch();
                 setWantPublish(false);

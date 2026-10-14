@@ -22,7 +22,7 @@ export const SOURCE_LABEL: Record<SuggestionSource, string> = {
 export const sectionLabel = "m-0 text-[12px] font-bold uppercase tracking-[0.06em] text-muted";
 export const linkClass = "font-semibold text-navy underline underline-offset-2 hover:text-navy-hover";
 export const softButton =
-  "inline-flex min-h-[40px] items-center justify-center rounded-[20px] border border-line-input bg-white px-4 text-[14px] font-semibold text-navy hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-[40px] items-center justify-center rounded-window border border-line-control bg-white px-4 text-[14px] font-semibold text-navy hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-60";
 export const primaryButton =
   "inline-flex min-h-[44px] items-center justify-center rounded-[22px] border border-navy bg-navy px-5 text-[15px] font-semibold text-white hover:border-navy-hover hover:bg-navy-hover disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -49,7 +49,7 @@ export function SuggestionButton({
       type="button"
       aria-pressed={pressed}
       onClick={onPick}
-      className={`flex w-full items-start gap-3 rounded-[12px] border px-3.5 py-2.5 text-left ${pressed ? "border-navy bg-navy-50" : "border-line bg-white hover:border-navy-300"}`}
+      className={`flex w-full items-start gap-3 rounded-field border px-3.5 py-2.5 text-left ${pressed ? "border-navy bg-navy-50" : "border-line bg-white hover:border-navy-300"}`}
     >
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex flex-wrap items-center gap-1.5 text-[15px] font-semibold text-ink">
@@ -67,14 +67,14 @@ export function SuggestionButton({
 /** A suggested value with its reason and a button to use it (prices, capacity, the reminder): never applied on its own. */
 export function UseSuggestion({ why, source, action, onUse, used }: { why: string; source: SuggestionSource; action: string; onUse: () => void; used: boolean }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[10px] bg-saffron-50 px-3 py-2 text-[13px] text-ink">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-field bg-saffron-50 px-3 py-2 text-[13px] text-ink">
       <span className="min-w-0 flex-1">
-        <span className="font-bold text-saffron">{SOURCE_LABEL[source]}:</span> {why}
+        <span className="font-bold text-brown">{SOURCE_LABEL[source]}:</span> {why}
       </span>
       {used ? (
         <span className="text-[13px] font-semibold text-success-900">Used</span>
       ) : (
-        <button type="button" onClick={onUse} className="min-h-[36px] rounded-[18px] border border-saffron bg-white px-3 text-[13px] font-semibold text-saffron hover:bg-saffron-50">
+        <button type="button" onClick={onUse} className="min-h-[36px] rounded-[18px] border border-saffron bg-white px-3 text-[13px] font-semibold text-brown hover:bg-saffron-50">
           {action}
         </button>
       )}
@@ -111,7 +111,7 @@ export function SwitchRow({ label, sub, checked, onChange, onNote, offNote }: { 
 export function LessonNotes({ lessons }: { lessons: { text: string; from: string }[] }) {
   if (!lessons.length) return null;
   return (
-    <div className="rounded-[10px] bg-[#fff4d6] px-3 py-2 text-[13px] leading-snug text-[#5c3d00]">
+    <div className="rounded-field bg-saffron-50 px-3 py-2 text-[13px] leading-snug text-brown-900">
       <p className="m-0 font-bold">Lessons from last time</p>
       <ul className="m-0 mt-1 list-disc pl-5">
         {lessons.map((l) => (
@@ -126,7 +126,7 @@ export function LessonNotes({ lessons }: { lessons: { text: string; from: string
 
 export function ErrorNote({ children, onRetry, retryLabel = "Try again" }: { children: ReactNode; onRetry?: () => void; retryLabel?: string }) {
   return (
-    <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[10px] border border-danger bg-danger-50 px-3 py-2 text-[14px] text-danger">
+    <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-field border border-danger bg-danger-50 px-3 py-2 text-[14px] text-danger">
       <span className="min-w-0 flex-1">{children}</span>
       {onRetry ? (
         <button type="button" onClick={onRetry} className="min-h-[36px] rounded-[18px] border border-danger bg-white px-3 text-[13px] font-semibold text-danger">
@@ -138,8 +138,8 @@ export function ErrorNote({ children, onRetry, retryLabel = "Try again" }: { chi
 }
 
 export function Note({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "ok" | "warn" }) {
-  const cls = tone === "ok" ? "bg-success-50 text-success-900" : tone === "warn" ? "bg-[#fff4d6] text-[#5c3d00]" : "bg-[#eaf0f7] text-ink-2";
-  return <div className={`rounded-[10px] px-3 py-2 text-[13px] leading-snug ${cls}`}>{children}</div>;
+  const cls = tone === "ok" ? "bg-success-50 text-success-900" : tone === "warn" ? "bg-warning-50 text-warning-ink" : "bg-navy-50 text-ink-2";
+  return <div className={`rounded-field px-3 py-2 text-[13px] leading-snug ${cls}`}>{children}</div>;
 }
 
 /** What every card is given. */

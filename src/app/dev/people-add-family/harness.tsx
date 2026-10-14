@@ -74,9 +74,9 @@ export function PreviewHarness({ scenario }: { scenario: Scenario }) {
 
   const name = scenario === "cjk" ? "李 明" : scenario === "default" || scenario === "noaccess" ? "" : "Priya Shah";
   return (
-    <div className="min-h-screen bg-[var(--v2-page,#f3f7fb)] p-6">
+    <div className="min-h-screen bg-[var(--v2-page)] p-6">
       <div className="mx-auto max-w-[960px]">
-        <p className="m-0 text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">DEV PREVIEW · SAMPLE DATA · {PREVIEW_COMMUNITY}</p>
+        <p className="m-0 text-[12px] font-bold uppercase tracking-[0.04em] text-muted">DEV PREVIEW · SAMPLE DATA · {PREVIEW_COMMUNITY}</p>
         <h1 className="m-0 mt-1 font-display text-[30px] font-semibold text-ink">People</h1>
         <p className="m-0 mt-1 text-[14px] text-muted">The People home sits behind the sheet. Scenario: {scenario}.</p>
         {!open ? (

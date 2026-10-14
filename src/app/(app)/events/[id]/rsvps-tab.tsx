@@ -62,7 +62,7 @@ export async function RsvpsTab({ event, session, access, status }: { event: Tabl
     <div className="flex flex-col gap-4">
       <Card>
         <KpiGrid cols={4}>
-          <Stat label="RSVP'd people" value={report.rsvpdPeople} hint={`${report.householdsTotal - (report.households.cancelled ?? 0)} households`} tone="maroon" />
+          <Stat label="RSVP'd people" value={report.rsvpdPeople} hint={`${report.householdsTotal - (report.households.cancelled ?? 0)} households`} tone="navy" />
           <Stat label="Confirmed" value={report.confirmedPeople} hint={`of ${report.rsvpdPeople} RSVP'd`} tone="navy" />
           <Stat label="Checked in" value={report.checkedIn} hint={`${report.walkIns} walk-ins`} tone="success" />
           <Stat

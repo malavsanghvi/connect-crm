@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
-import { Icon, type IconName } from "@/components/site/icons";
+import { Icon, type IconName } from "@/components/brand/icons";
 
 export type TourTab = { id: string; label: string; icon: IconName; panel: ReactNode };
 

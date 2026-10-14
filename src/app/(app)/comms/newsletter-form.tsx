@@ -131,7 +131,7 @@ export function NewsletterCompose({
   const isDraft = campaign?.status === "working_draft";
   const reach = count.n !== null ? `${count.n.toLocaleString()} households by email` : "the chosen audience";
 
-  const previewBg = !built.ok ? "bg-[#FBF7F0]" : needsSecond || mode === "submit" ? "bg-[#FBEBD7]" : "bg-[#E4F2EA]";
+  const previewBg = !built.ok ? "bg-ground" : needsSecond || mode === "submit" ? "bg-saffron-50" : "bg-success-50";
   const approvalLine = !built.ok
     ? "Choose who receives it"
     : needsSecond
@@ -177,7 +177,7 @@ export function NewsletterCompose({
         >
           {campaign ? <input type="hidden" name="id" value={campaign.id} /> : null}
           {isDraft && hasUnknownAudienceKeys(campaign?.audience) ? (
-            <p className="mb-3 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900" role="status">
+            <p className="mb-3 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-ink" role="status">
               This draft&apos;s audience was set up somewhere other than this form (for example from a boli), so the chips below cannot show it. Choose the audience again here: saving
               the draft replaces the old one.
             </p>
@@ -331,7 +331,7 @@ export function NewsletterCompose({
       </Card>
 
       <Card title="Recipients" description="Live count" span={5} className={previewBg}>
-        <p className="text-[22px] font-extrabold text-ink" aria-live="polite">
+        <p className="text-[22px] font-bold text-ink" aria-live="polite">
           {!built.ok ? "—" : count.error ? "Count unavailable" : count.n === null || counting ? "Counting…" : `${count.n.toLocaleString()} household${count.n === 1 ? "" : "s"}`}
         </p>
         {count.error && built.ok ? <p className="mt-1 text-[13px] text-danger">{count.error}</p> : null}

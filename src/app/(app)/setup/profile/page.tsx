@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { ActionForm } from "@/components/action-form";
 import { BlockGrid, Card, InfoBox, QueryError } from "@/components/ui";
+import { DEFAULT_COMMUNITY_PALETTE } from "@/lib/brand-colors";
 import { isPlainObject } from "@/lib/center-rules";
 import { TIME_ZONES } from "@/lib/center-wizard";
 import { COUNTRIES, countryCodeOf } from "@/lib/countries";
@@ -206,7 +207,7 @@ export default async function ProfilePage() {
                   <iframe
                     title={`Map pin for ${center.name}`}
                     src={osmEmbedUrl(lat, lon)}
-                    className="mt-3 h-[240px] w-full max-w-[560px] rounded-[10px] border border-line"
+                    className="mt-3 h-[240px] w-full max-w-[560px] rounded-field border border-line"
                     loading="lazy"
                   />
                 ) : (
@@ -223,10 +224,10 @@ export default async function ProfilePage() {
               {BRAND_FILES.map((f) => {
                 const url = fileUrl(f.key);
                 return (
-                  <div key={f.key} className="rounded-[12px] border border-line-soft bg-ground p-3" data-brand-file={f.key} data-has-file={String(Boolean(url))}>
+                  <div key={f.key} className="rounded-field border border-line-soft bg-ground p-3" data-brand-file={f.key} data-has-file={String(Boolean(url))}>
                     <p className="text-[13px] font-bold">{f.label}</p>
                     <p className="crm-hint">{f.hint}</p>
-                    <div className={`my-2 flex h-20 items-center justify-center rounded-[8px] border border-line ${f.key === "logo_dark_path" ? "bg-navy" : "bg-white"}`}>
+                    <div className={`my-2 flex h-20 items-center justify-center rounded-tag border border-line ${f.key === "logo_dark_path" ? "bg-navy" : "bg-white"}`}>
                       {url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={url} alt={`${f.label} of ${center.name}`} className="max-h-16 max-w-[90%]" />
@@ -260,13 +261,13 @@ export default async function ProfilePage() {
         <Card span={12} title="Brand kit · colors and preview" description="Automatic readability check · the preview updates as you choose">
           <BrandColors
             initial={{
-              primary: typeof colors.primary === "string" ? colors.primary : typeof b.primary === "string" ? (b.primary as string) : "#1B2C5C",
-              accent: typeof colors.accent === "string" ? colors.accent : "#C9731C",
+              primary: typeof colors.primary === "string" ? colors.primary : typeof b.primary === "string" ? (b.primary as string) : DEFAULT_COMMUNITY_PALETTE.primary,
+              accent: typeof colors.accent === "string" ? colors.accent : DEFAULT_COMMUNITY_PALETTE.accent,
             }}
             logos={{ logo: fileUrl("logo_path"), mark: fileUrl("mark_path"), logoDark: fileUrl("logo_dark_path"), emailHeader: fileUrl("email_header_path") }}
             name={center.name}
             shortName={center.short_name || center.slug.toUpperCase()}
-            greeting={kindTerm(session.kind, "greeting", "Jai Jinendra")}
+            greeting={kindTerm(session.kind, "greeting", "Welcome")}
           />
         </Card>
       </BlockGrid>

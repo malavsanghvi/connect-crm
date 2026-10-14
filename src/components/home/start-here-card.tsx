@@ -25,7 +25,7 @@ export function StartHereCard({ start, span = 12 }: { start: StartHere; span?: B
       {hasBody ? (
         <>
           {start.problems.map((p) => (
-            <div key={p} role="alert" className="mb-2 flex flex-wrap items-center gap-3 rounded-[10px] border border-danger/30 bg-danger-50 px-4 py-2.5 text-[13px] text-danger">
+            <div key={p} role="alert" className="mb-2 flex flex-wrap items-center gap-3 rounded-field border border-danger/30 bg-danger-50 px-4 py-2.5 text-[13px] text-danger">
               <p className="min-w-0 flex-1 font-bold">{capitalize(p)}</p>
               <Link href="/" className={buttonClass("ghost", "sm")}>
                 Try again

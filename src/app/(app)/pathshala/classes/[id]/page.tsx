@@ -135,7 +135,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
                         </td>
                         <td>{ageFrom(student(e.student_person_id)?.date_of_birth ?? null, today) ?? "—"}</td>
                         <td>
-                          <PBadge tone={e.status === "active" ? "success" : "purple"}>{humanize(e.status)}</PBadge>
+                          <PBadge tone={e.status === "active" ? "success" : "navy"}>{humanize(e.status)}</PBadge>
                           {e.placed_at && <div className="text-xs text-muted">since {formatDate(e.placed_at)}</div>}
                         </td>
                         {canManage && (
@@ -273,7 +273,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
                     <span>
                       <span className="font-semibold">{d.names.get(t.person_id) ?? "Teacher"}</span>
                       <span className="ml-2">
-                        <PBadge tone="purple">{humanize(t.role)}</PBadge>
+                        <PBadge tone="navy">{humanize(t.role)}</PBadge>
                       </span>
                     </span>
                     {canManage && (

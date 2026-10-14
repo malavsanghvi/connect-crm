@@ -81,7 +81,7 @@ export function MoreMenu({ items, align = "right", direction = "down" }: { items
           id={menuId}
           role="menu"
           aria-label="More about this family"
-          className={`absolute z-40 m-0 min-w-[16rem] list-none rounded-2xl border border-line bg-white p-1.5 shadow-[0_12px_32px_rgba(18,32,58,0.18)] ${align === "right" ? "right-0" : "left-0"} ${direction === "up" ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]"}`}
+          className={`absolute z-40 m-0 min-w-[16rem] list-none rounded-2xl border border-line bg-white p-1.5 shadow-menu ${align === "right" ? "right-0" : "left-0"} ${direction === "up" ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]"}`}
         >
           {items.map((i) => (
             <li key={i.key} role="none">

@@ -124,7 +124,7 @@ export default async function AgreementsPage() {
                 {doc?.published_at ? (
                   <details>
                     <summary className="cursor-pointer text-[13px] font-semibold text-navy">Read the agreement</summary>
-                    <div className="mt-2 max-h-72 overflow-y-auto rounded-[10px] bg-canvas p-3">
+                    <div className="mt-2 max-h-72 overflow-y-auto rounded-field bg-canvas p-3">
                       <Body md={doc.body_md} />
                     </div>
                   </details>

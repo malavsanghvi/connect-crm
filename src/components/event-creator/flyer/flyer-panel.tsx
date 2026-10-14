@@ -195,7 +195,7 @@ export function FlyerPanel({ eventId, name, startsAt, venue, onFlyerChange, serv
           Your flyer draft
         </h2>
         {problem ? (
-          <div role="alert" className="mt-3 flex flex-wrap items-center gap-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+          <div role="alert" className="mt-3 flex flex-wrap items-center gap-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             <span className="min-w-0 flex-1">{problem}</span>
             <button type="button" className={btn.outline} onClick={() => setTick((t) => t + 1)}>
               Try again
@@ -363,13 +363,13 @@ export function FlyerPanelView({
           ) : null}
         </div>
 
-        <div className="mt-3 flex min-h-[260px] items-center justify-center rounded-[12px] border border-line bg-ground p-2">
+        <div className="mt-3 flex min-h-[260px] items-center justify-center rounded-field border border-line bg-ground p-2">
           {preview.url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview.url}
               alt={`Flyer draft for ${design.headline}: ${FLYER_TEMPLATE_LABEL[design.template]} template, ${FLYER_SIZES[design.size].label}`}
-              className={`max-h-[520px] w-auto max-w-full rounded-[6px] shadow-sm ${preview.loading ? "opacity-70" : ""}`}
+              className={`max-h-[520px] w-auto max-w-full rounded-chip shadow-sm ${preview.loading ? "opacity-70" : ""}`}
             />
           ) : (
             <p className="text-[13px] text-muted">{check.ok ? "Drawing your flyer…" : "Fix the problem below to see the flyer."}</p>
@@ -380,7 +380,7 @@ export function FlyerPanelView({
             {check.error}
           </p>
         ) : preview.error ? (
-          <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+          <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             <span className="min-w-0 flex-1">{preview.error}</span>
             <button type="button" className={btn.outline} onClick={() => setRenderTick((t) => t + 1)}>
               Try again
@@ -388,7 +388,7 @@ export function FlyerPanelView({
           </div>
         ) : null}
         {preview.notes.length ? (
-          <ul className="mt-2 flex list-none flex-col gap-1 rounded-[10px] border border-saffron-200 bg-saffron-50 px-3 py-2 text-[12px] text-brown-900" role="status">
+          <ul className="mt-2 flex list-none flex-col gap-1 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[12px] text-warning-ink" role="status">
             {preview.notes.map((n) => (
               <li key={n}>{n}</li>
             ))}
@@ -418,7 +418,7 @@ export function FlyerPanelView({
         </div>
 
         {isPoster && design.poster?.layout ? (
-          <details className="mt-3 rounded-[12px] border border-line px-3 py-2">
+          <details className="mt-3 rounded-field border border-line px-3 py-2">
             <summary className="cursor-pointer text-[13px] font-bold text-ink">Edit the words on the layout</summary>
             <div className="mt-2 flex flex-col gap-3">
               <LayoutPosterWords poster={design.poster} onPoster={onPoster} disabled={false} />
@@ -468,15 +468,15 @@ export function FlyerPanelView({
 
         {isPoster ? (
           <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
-            <div className="rounded-[10px] bg-ground px-3 py-2">
+            <div className="rounded-field bg-ground px-3 py-2">
               <dt className="font-bold text-ink-2">{FLYER_LAYER_LABEL.frame}</dt>
               <dd className="m-0 text-muted">{layerWord("frame")}</dd>
             </div>
-            <div className="rounded-[10px] bg-ground px-3 py-2">
+            <div className="rounded-field bg-ground px-3 py-2">
               <dt className="font-bold text-ink-2">{FLYER_LAYER_LABEL.scene}</dt>
               <dd className="m-0 text-muted">{layerWord("scene")}</dd>
             </div>
-            <div className="rounded-[10px] bg-ground px-3 py-2">
+            <div className="rounded-field bg-ground px-3 py-2">
               <dt className="font-bold text-ink-2">Words</dt>
               <dd className="m-0 text-muted">Always set by Weaver</dd>
             </div>
@@ -484,7 +484,7 @@ export function FlyerPanelView({
         ) : null}
 
         {isPoster && design.poster ? (
-          <details ref={layersRef} open={showLayers} onToggle={(e) => setShowLayers((e.currentTarget as HTMLDetailsElement).open)} className="mt-3 rounded-[12px] border border-line px-3 py-2">
+          <details ref={layersRef} open={showLayers} onToggle={(e) => setShowLayers((e.currentTarget as HTMLDetailsElement).open)} className="mt-3 rounded-field border border-line px-3 py-2">
             <summary className="cursor-pointer text-[13px] font-bold text-ink">Choose the art layers</summary>
             {showLayers ? (
               <div className="mt-2">

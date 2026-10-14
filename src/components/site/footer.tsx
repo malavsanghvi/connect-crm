@@ -1,5 +1,6 @@
 import { OWNER_FACTS } from "@/components/site/facts";
-import { Logo, PRODUCT_MENU, RESOURCES_MENU, SOLUTIONS_MENU } from "@/components/site/header";
+import { Logo } from "@/components/brand/logo";
+import { PRODUCT_MENU, RESOURCES_MENU, SOLUTIONS_MENU } from "@/components/site/header";
 import { SiteLink, container } from "@/components/site/ui";
 import { GENEROSITY_LINE } from "@/lib/brand";
 import { SITE_NAME, SITE_TAGLINE, portalUrl } from "@/lib/site";
@@ -14,7 +15,7 @@ export function SiteFooter() {
           <Logo light />
           <p className="text-[15px] font-bold text-gold">{GENEROSITY_LINE}</p>
           <p className="text-[15px] leading-relaxed text-navy-200">{SITE_TAGLINE} Members, households, events, giving, classes and the books in one place.</p>
-          <a href={portalUrl("/request-access")} className="inline-flex min-h-[48px] w-fit items-center rounded-full bg-gold px-6 text-[15px] font-bold text-navy hover:bg-[#ffc84a]">
+          <a href={portalUrl("/request-access")} className="inline-flex min-h-[48px] w-fit items-center rounded-full bg-gold px-6 text-[15px] font-bold text-navy hover:bg-gold-hover">
             Get started free
           </a>
         </div>

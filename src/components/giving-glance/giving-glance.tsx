@@ -85,7 +85,7 @@ function Ready({ model, currency, timeZone, titleId }: { model: GlanceModel; cur
             <p
               key={i}
               role="status"
-              className={`rounded-[10px] border px-3 py-2 text-[13px] ${n.tone === "warning" ? "border-saffron/40 bg-saffron-50 text-brown-900" : "border-navy/20 bg-navy-50 text-navy"}`}
+              className={`rounded-field border px-3 py-2 text-[13px] ${n.tone === "warning" ? "border-warning-200 bg-warning-50 text-warning-ink" : "border-navy/20 bg-navy-50 text-navy"}`}
             >
               {n.text}
             </p>
@@ -103,7 +103,7 @@ function Ready({ model, currency, timeZone, titleId }: { model: GlanceModel; cur
       )}
 
       {model.personRest ? (
-        <p className="mt-3 rounded-[10px] bg-ground px-3 py-2 text-[13px] text-ink-2" data-testid="giving-glance-rest">
+        <p className="mt-3 rounded-field bg-ground px-3 py-2 text-[13px] text-ink-2" data-testid="giving-glance-rest">
           <strong className="text-ink">Not tied to {model.personRest.firstName}:</strong> {money(model.personRest.paidCents)} paid and {money(model.personRest.pledgedCents)} pledged{" "}
           {model.personRest.period}. These are gifts and pledges with no named giver, or recorded under someone else in the household.{" "}
           <a href={model.personRest.seeHouseholdHref} className="crm-link font-semibold">
@@ -136,7 +136,7 @@ function ChooserLabel({ link, money }: { link: GlanceLink; money: (c: number) =>
 function EmptyGlance({ model }: { model: GlanceModel }) {
   const w = model.summary.window;
   return (
-    <div className="rounded-[12px] bg-ground px-4 py-5" data-testid="giving-glance-empty">
+    <div className="rounded-field bg-ground px-4 py-5" data-testid="giving-glance-empty">
       <p className="text-[15px] font-semibold text-ink">{w.selection.kind === "all" ? "No giving recorded yet" : "No giving recorded for this year"}</p>
       {w.selection.kind === "all" ? null : <p className="mt-0.5 text-[13px] text-muted">Nothing was pledged or paid in {w.label}.</p>}
       {model.yearsWithData.length > 0 ? (

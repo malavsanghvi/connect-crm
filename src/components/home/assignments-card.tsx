@@ -5,8 +5,8 @@ import type { AssignmentKind, AssignmentLine, AssignmentsCard as AssignmentsMode
 import { plural } from "@/lib/tasks";
 
 const KIND: Record<AssignmentKind, { tag: string; color: TagColor }> = {
-  event: { tag: "Event", color: "maroon" },
-  class: { tag: "Class", color: "purple" },
+  event: { tag: "Event", color: "navy" },
+  class: { tag: "Class", color: "navy" },
   zone: { tag: "Zone", color: "navy" },
 };
 

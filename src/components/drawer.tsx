@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 
 /**
  * Right-hand record panel, as in the prototype: 460px, white, kicker +
- * Fraunces 22 title + sub-line, a round × close button, scrolling sections
+ * Display-face 22 title + sub-line, a round × close button, scrolling sections
  * and a footer of pill actions. It sits under the 60px top bar and leaves the
  * page usable beside it (on narrow screens it covers the page, with a scrim).
  *
@@ -53,7 +53,7 @@ export function Drawer({
 
   return createPortal(
     <>
-      <div aria-hidden className="fixed inset-x-0 bottom-0 top-[60px] z-40 bg-[rgba(20,18,14,0.45)] lg:hidden" onClick={onClose} />
+      <div aria-hidden className="fixed inset-x-0 bottom-0 top-[60px] z-40 bg-ink/45 lg:hidden" onClick={onClose} />
       <aside role="dialog" aria-modal="false" aria-labelledby={titleId} className="cc-drawer">
         <div className="cc-drawer-head">
           <div className="min-w-0 flex-1">

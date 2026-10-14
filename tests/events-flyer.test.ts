@@ -374,7 +374,7 @@ describe("patternSvg", () => {
   it("refuses colours that are not hex codes (no markup can be injected)", () => {
     const svg = patternSvg("mandala", { w: 100, h: 100, primary: '"/><script>', accent: "red", background: "#FFF" });
     expect(svg).not.toContain("<script");
-    expect(svg).toContain("#1B2C5C");
+    expect(svg).toContain("#2B2A8A");
   });
 
   it("can leave out its own background", () => {
@@ -386,9 +386,9 @@ describe("readFlyerBrand", () => {
   const url = "https://abc.supabase.co";
   it("falls back to the Weaver defaults", () => {
     expect(readFlyerBrand(null, url)).toEqual({
-      primary: "#1B2C5C",
-      accent: "#C9731C",
-      background: "#FBF7F0",
+      primary: "#2B2A8A",
+      accent: "#FFB82A",
+      background: "#FFFAF5",
       displayFont: "Fraunces",
       bodyFont: "DM Sans",
       logoUrl: null,
@@ -431,6 +431,6 @@ describe("readFlyerBrand", () => {
 
   it("refuses font names that could not be a font family", () => {
     expect(readFlyerBrand({ display_font: "Comic'); drop", body_font: "x".repeat(41) }, url)).toMatchObject({ displayFont: "Fraunces", bodyFont: "DM Sans" });
-    expect(readFlyerBrand({ primary: "navy" }, url).primary).toBe("#1B2C5C");
+    expect(readFlyerBrand({ primary: "navy" }, url).primary).toBe("#2B2A8A");
   });
 });

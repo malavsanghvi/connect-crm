@@ -256,7 +256,7 @@ export function EditPledgeSheet({ ctx, request, onClose }: { ctx: GivingSheetCon
       {state && !familyNow ? <p className="m-0 text-[14px] text-muted">Opening the family…</p> : null}
 
       {done ? (
-        <div role="status" className="flex flex-col gap-2 rounded-[12px] border border-success/30 bg-success-50 px-3 py-2.5 text-[14px] text-success-900">
+        <div role="status" className="flex flex-col gap-2 rounded-field border border-success/30 bg-success-50 px-3 py-2.5 text-[14px] text-success-900">
           <p className="m-0 font-bold">{done.message}</p>
           <p className="m-0">{done.kind === "deleted" ? "No money moved. It is under Closed (Cancelled), and the family's History has your reason." : "No money moved. The family's History shows what it was before, and your reason."}</p>
           {ctx.canOpenFamily && state ? (

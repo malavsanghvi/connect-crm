@@ -87,7 +87,7 @@ export function MoneyFields({ draft, set, ctx }: { draft: EventDraft; set: (p: P
       {ctx.modules.giving ? (
         commitment
       ) : (
-        <details className="rounded-[12px] border border-line bg-ground px-3.5 py-2.5" open={draft.commitments_enabled}>
+        <details className="rounded-field border border-line bg-ground px-3.5 py-2.5" open={draft.commitments_enabled}>
           <summary className="cursor-pointer text-[14px] font-semibold text-ink">Donation commitment at RSVP</summary>
           <div className="mt-2">{commitment}</div>
         </details>

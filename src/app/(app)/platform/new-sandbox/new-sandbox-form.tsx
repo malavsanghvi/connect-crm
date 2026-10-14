@@ -20,7 +20,7 @@ function Created({ r }: { r: CreatedSandbox }) {
   const [copied, setCopied] = useState(false);
   const mail = invitationEmailText(r.emailStatus, r.ownerEmail);
   return (
-    <div className="mt-4 rounded-[12px] border border-success/30 bg-success-50 p-4 text-[13px] text-success-900" role="status" data-testid="sandbox-created">
+    <div className="mt-4 rounded-field border border-success/30 bg-success-50 p-4 text-[13px] text-success-900" role="status" data-testid="sandbox-created">
       <p className="font-bold">
         Sandbox created: <span className="font-mono">{r.slug}</span>
       </p>
@@ -193,7 +193,7 @@ export function NewSandboxForm({ experiences }: { experiences: Experience[] }) {
         </div>
       </form>
       {error ? (
-        <p role="alert" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <p role="alert" className="mt-3 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {error}
         </p>
       ) : null}

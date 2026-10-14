@@ -1,5 +1,5 @@
-/* Weaver Brand Kit: design tokens as CSS variables (generated from tokens.json). */
-@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400..700&display=swap");
+/* Weaver Brand Kit: design tokens as CSS variables (generated from tokens.json by scripts/sync-brand-tokens.mjs). */
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400..600&display=swap");
 :root {
   --navy: #2b2a8a;
   --navy-hover: #1e1d5c;
@@ -10,6 +10,7 @@
   --saffron: #ff7640;
   --saffron-50: #fff1e6;
   --saffron-200: #ffd6b8;
+  --saffron-strong: #c2501c;
   --gold: #ffb82a;
   --brown: #a8400d;
   --brown-900: #7a2e09;
@@ -19,14 +20,20 @@
   --line: #eee3d9;
   --line-soft: #f6eee6;
   --line-input: #e3d6ca;
+  --line-control: #85889e;
   --ink: #1e1d5c;
   --ink-2: #33325f;
   --muted: #555a79;
+  --faint: #666b86;
   --white: #ffffff;
   --success: #1f7a4d;
   --success-50: #e4f2ea;
   --danger: #b3261e;
   --danger-50: #fbe3e1;
+  --warning: #9b5111;
+  --warning-50: #fff6e5;
+  --warning-200: #ffe3aa;
+  --warning-ink: #6d3b07;
   --mark-teal: #34c4cb;
   --mark-blue: #2f8ed8;
   --mark-green: #6cc68f;
@@ -37,6 +44,7 @@
   --mark-sun-bottom: var(--saffron);
   --font-display: "Bricolage Grotesque", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --container: 1160px;
   --gutter: 20px;
   --gutter-wide: 32px;
@@ -51,6 +59,9 @@
   --gap: 12px;
   --gap-lg: 16px;
   --tap-target: 48px;
+  --control-primary: 52px;
+  --control-compact: 40px;
+  --control-dense: 36px;
   --radius-pill: 9999px;
   --radius-band: 40px;
   --radius-hero: 32px;
@@ -58,7 +69,9 @@
   --radius-window: 20px;
   --radius-tile: 16px;
   --radius-logo-tile: 12px;
+  --radius-field: 12px;
   --radius-chip: 6px;
+  --radius-tag: 8px;
   --shadow-hero: 0 30px 60px -30px rgba(43,42,138,0.45);
   --shadow-panel: 0 30px 60px -30px rgba(43,42,138,0.3);
   --shadow-window: 0 30px 60px -20px rgba(27,44,92,0.35);
@@ -79,3 +92,4 @@
 .eyebrow { font-family: var(--font-sans); font-size: 13px; line-height: 1.5; font-weight: 700; letter-spacing: 0.08em; }
 .descriptor { font-family: var(--font-sans); font-size: 11.5px; line-height: 1; font-weight: 600; }
 .ai-tag { font-family: var(--font-sans); font-size: 11px; line-height: 1; font-weight: 700; letter-spacing: 0.06em; }
+.identifier { font-family: var(--font-mono); font-size: 13.5px; line-height: 1.4; font-weight: 500; }

@@ -25,7 +25,7 @@ export function useCustomFields(): CustomFieldsPayload | null {
 export function CustomFieldsNote({ payload }: { payload: Exclude<CustomFieldsPayload, { state: "ok" }> }): ReactNode {
   if (payload.state === "no-access") return <p className="m-0 py-1 text-[14px] text-muted">{NO_CUSTOM_ACCESS}</p>;
   return (
-    <p role="alert" className="m-0 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       {payload.message} Reload the page to try again.
     </p>
   );

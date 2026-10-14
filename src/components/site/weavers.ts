@@ -1,4 +1,4 @@
-import type { IconName } from "@/components/site/icons";
+import type { IconName } from "@/components/brand/icons";
 
 /**
  * The three Weavers (owner decision 2026-10-08): one platform, named for who it serves. They share the same free plan and

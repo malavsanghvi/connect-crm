@@ -114,8 +114,10 @@ export type PledgeDocView = {
   generatedOn: string;
 };
 
-const DEFAULT_PRIMARY = "#1B2C5C";
-const DEFAULT_ACCENT = "#C9731C";
+// Until a community chooses its own colours, a pledge document carries Weaver's: the kit's navy and brown (brand/tokens.json; this
+// file is shared with the background service, so it cannot import the kit, and tests/brand-conformance.test.ts checks the values).
+const DEFAULT_PRIMARY = "#2B2A8A";
+const DEFAULT_ACCENT = "#A8400D";
 const HEX = /^#?([0-9a-fA-F]{6})$/;
 
 const LETTER_COUNTRIES = new Set(["US", "CA", "MX", "PH", "CL", "CO", "VE", "GT", "CR", "DO", "PA"]);

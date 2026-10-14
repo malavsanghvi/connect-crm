@@ -107,13 +107,13 @@ export function StartFrom({ recent, templates, available }: { recent: RecentRow[
 
           {mode === "recent" ? <p className="crm-hint mt-2">{COPY_NOTE}</p> : null}
           {mode === "template" && (channel === "whatsapp" || tpls.some((t) => t.channels.includes("whatsapp"))) ? (
-            <p role="note" className="mt-2 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900">
+            <p role="note" className="mt-2 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-ink">
               {WHATSAPP_TEMPLATE_NOTE}
             </p>
           ) : null}
 
           {draft.error ? (
-            <p role="alert" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+            <p role="alert" className="mt-3 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {draft.error}{" "}
               <button type="button" onClick={retry} disabled={draft.pending} className={`${buttonClass("bad", "xs")} align-middle`}>
                 Try again

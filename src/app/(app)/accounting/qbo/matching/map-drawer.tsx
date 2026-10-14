@@ -112,7 +112,7 @@ export function MapCustomerButton({
         }
       >
         {remap ? (
-          <p className="mb-3 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown">
+          <p className="mb-3 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-ink">
             Remapping moves the donations and pledges already brought in from QuickBooks to the household you choose. The old match is kept as rejected.
           </p>
         ) : null}
@@ -161,7 +161,7 @@ export function MapCustomerButton({
           <textarea id={`qbo-reason-${qboId}`} className="crm-input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
         </DrawerSection>
         {error ? (
-          <p role="alert" className="mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+          <p role="alert" className="mt-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             {error}
           </p>
         ) : null}

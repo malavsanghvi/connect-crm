@@ -41,7 +41,7 @@ function Decision({ card }: { card: IdeaCard }) {
 
 function Idea({ card, canAnswer }: { card: IdeaCard; canAnswer: boolean }) {
   return (
-    <li className="rounded-[12px] border border-line p-3" data-testid="automation-idea">
+    <li className="rounded-field border border-line p-3" data-testid="automation-idea">
       <p className="text-[14px] font-semibold text-ink">{card.title}</p>
       <p className={`mt-1 text-[13px] ${card.quiet ? "text-muted" : ""}`}>{card.facts}</p>
       <p className="mt-1 text-[12px] text-muted">

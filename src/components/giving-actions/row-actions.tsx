@@ -62,7 +62,7 @@ export type ActContext = {
 /** What an act repeats from its row in its sheet: the household card, then the evidence (a Today row or a list row). */
 export type RowLike = Pick<QueueRow, "family" | "title" | "lines">;
 
-const MENU_ITEM = "flex min-h-[44px] w-full items-center rounded-[10px] px-3 py-2 text-left text-[14px] font-semibold hover:bg-canvas";
+const MENU_ITEM = "flex min-h-[44px] w-full items-center rounded-field px-3 py-2 text-left text-[14px] font-semibold hover:bg-canvas";
 
 /** The button that opens an act: a small button on a row, or an item of the row menu. */
 function triggerClass(ctx: ActContext, primary: boolean, tone?: "primary" | "danger"): string {
@@ -112,7 +112,7 @@ function doneFrom(message: string | undefined, fallback: string): string {
 
 export function InlineError({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" className="m-0 mt-2 rounded-[10px] border border-[#f0b9b4] bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-[#7a1a14]">
+    <p role="alert" className="m-0 mt-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
       {children}
     </p>
   );
@@ -333,7 +333,7 @@ function ZelleExact({ pairs, ctx }: { pairs: ZellePairView[]; ctx: ActContext })
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {pairs.map((p) => (
           <li key={p.reportId}>
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-[10px] border border-line bg-white px-2.5 py-2 text-[13.5px]">
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-field border border-line bg-white px-2.5 py-2 text-[13.5px]">
               <input
                 type="checkbox"
                 className="mt-0.5 h-[18px] w-[18px] flex-none"
@@ -404,7 +404,7 @@ function DepositAct({ act, ctx }: { act: Extract<Act, { kind: "deposit" }>; ctx:
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {act.candidates.map((c) => (
           <li key={c.paymentId}>
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-[10px] border border-line bg-white px-2.5 py-2 text-[13.5px]">
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-field border border-line bg-white px-2.5 py-2 text-[13.5px]">
               <input
                 type="checkbox"
                 className="mt-0.5 h-[18px] w-[18px] flex-none"
@@ -469,7 +469,7 @@ function BehindFamily({ h, ctx }: { h: BehindView; ctx: ActContext }) {
   const chosen = pledges?.find((p) => p.id === pick) ?? null;
   const openCents = chosen ? chosen.amount_cents - chosen.paid_cents : 0;
   return (
-    <li className="flex flex-col gap-2 rounded-[10px] border border-line bg-white px-2.5 py-2 text-[13.5px] sm:flex-row sm:items-start">
+    <li className="flex flex-col gap-2 rounded-field border border-line bg-white px-2.5 py-2 text-[13.5px] sm:flex-row sm:items-start">
       <span className="min-w-0 flex-1">
         <span className="font-bold text-ink">{h.family.name}</span>
         <span className="block text-[13px] text-muted">
@@ -518,7 +518,7 @@ function BehindFamily({ h, ctx }: { h: BehindView; ctx: ActContext }) {
             <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
               <legend className="mb-1 text-[13px] font-bold text-ink">Which pledge?</legend>
               {pledges.map((p) => (
-                <label key={p.id} className="flex cursor-pointer items-start gap-2.5 rounded-[10px] border border-line px-2.5 py-2 text-[13.5px]">
+                <label key={p.id} className="flex cursor-pointer items-start gap-2.5 rounded-field border border-line px-2.5 py-2 text-[13.5px]">
                   <input type="radio" name={`wo-${h.family.id}`} className="mt-0.5 h-[18px] w-[18px] flex-none" checked={pick === p.id} onChange={() => setPick(p.id)} />
                   <span className="min-w-0 flex-1">
                     <span className="font-bold">{p.pledge_number ?? "Pledge"}</span>
@@ -616,7 +616,7 @@ function CloseItem({ item, month, canMark }: { item: CloseItemView; month: strin
   const [note, setNote] = useState<string | null>(null);
   const { pending, error, run } = useRun();
   return (
-    <li className="flex flex-wrap items-start gap-2 rounded-[10px] border border-line bg-white px-2.5 py-2 text-[13.5px]">
+    <li className="flex flex-wrap items-start gap-2 rounded-field border border-line bg-white px-2.5 py-2 text-[13.5px]">
       <span className="min-w-0 flex-1">
         <span className={`font-bold ${done ? "text-success" : "text-ink"}`}>
           {done ? "✓ " : ""}
@@ -1049,7 +1049,7 @@ function GrantMatchAct({ act, ctx }: { act: Extract<Act, { kind: "grant_match" }
             </button>
           )}
           {pick && preview ? (
-            <div className="rounded-[12px] border border-line px-3 py-2 text-[13.5px]">
+            <div className="rounded-field border border-line px-3 py-2 text-[13.5px]">
               <p className="m-0 mb-1 font-bold text-ink">Where it goes</p>
               {preview.lines.length === 0 ? <p className="m-0 text-muted">No open pledge: it stays a general gift.</p> : null}
               {preview.lines.map((l) => (

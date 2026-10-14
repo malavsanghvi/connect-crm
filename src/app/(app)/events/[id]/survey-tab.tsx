@@ -118,7 +118,7 @@ export async function SurveyTab({ event, session, access }: { event: Tables<"eve
               label="Answered"
               value={stats.answered}
               hint={`${stats.completions} ${stats.completions === 1 ? "completion" : "completions"}, anonymous ones included`}
-              tone="purple"
+              tone="navy"
             />
             <Stat label="Response rate" value={formatPct(rate)} hint={rate === null ? "nobody invited yet" : `of ${stats.invited} invited`} tone="success" />
             <Stat
@@ -233,7 +233,7 @@ function PushesCard({ notices, tz, retry }: { notices: SurveyNotices; tz: string
             tone="navy"
           />
           <Stat label="No login" value={c.noLogin} hint="they do not use the member app" tone="brown" />
-          <Stat label="Already answered" value={c.answered} hint="not pushed" tone="purple" />
+          <Stat label="Already answered" value={c.answered} hint="not pushed" tone="navy" />
         </KpiGrid>
       ) : (
         <p className="text-[13px] text-muted">{when ? `The counts are taken when the pushes start (${when}).` : "The counts are taken when the pushes start."}</p>

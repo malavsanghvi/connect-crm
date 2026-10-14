@@ -119,7 +119,7 @@ describe("what the pledge PDF says", () => {
 
   it("uses the platform's colours when the community has none (or a bad one), and the paper of its country", () => {
     const plain = buildPledgeDocument({ center: { name: "Bare Club", country: "GB", branding: { primary: "not a colour" } }, pledge: { amount_cents: 500 } });
-    expect(plain.brand).toEqual({ primary: "#1B2C5C", accent: "#C9731C" });
+    expect(plain.brand).toEqual({ primary: "#2B2A8A", accent: "#A8400D" });
     expect(plain.paper).toBe("a4");
     expect(paperFor("US")).toBe("letter");
     expect(paperFor("in")).toBe("a4");

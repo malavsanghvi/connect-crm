@@ -6,7 +6,7 @@ import { explainError } from "@/lib/errors";
 import { ACCESS, type AccessKey } from "@/lib/permissions";
 
 /**
- * Page title block, as in the prototype: Fraunces 28/600 ink title, 13px
+ * Page title block: display face 28/600 ink title, 13px
  * muted sub-line, pill actions on the right, and the module's tab strip
  * underneath (only when the module has more than one page).
  */
@@ -32,7 +32,7 @@ export function PageHeader({
           <h1 className="cc-page-title">{title}</h1>
           {description ? <p className="cc-page-sub mt-0.5 max-w-4xl">{description}</p> : null}
         </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="cc-page-actions flex flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
       {tabs ? <ModuleTabs /> : null}
     </header>
@@ -57,8 +57,8 @@ export function BlockGrid({ children, className = "" }: { children: ReactNode; c
 }
 
 /**
- * A block: white, radius 16, #E3D9C8 border, padding 16/18. Header is a DM
- * Sans 16/700 title with a 12px hint and small pill actions — no divider.
+ * A block: white, the kit's small-card radius, a 1px line border, padding 16/18. Header is a
+ * sans 16/700 title with a 12px hint and small pill actions — no divider.
  * `padded={false}` keeps a slim inset for tables. `span` sets the width
  * inside a <BlockGrid> (full width on small screens).
  */
@@ -107,15 +107,14 @@ export function TableWrap({ children }: { children: ReactNode }) {
   return <div className="overflow-x-auto">{children}</div>;
 }
 
-export type Tone = "neutral" | "navy" | "success" | "warning" | "danger" | "purple";
+export type Tone = "neutral" | "navy" | "success" | "warning" | "danger";
 
 const toneText: Record<Tone, string> = {
   neutral: "text-muted font-semibold",
   navy: "text-navy font-bold",
   success: "text-success font-bold",
-  warning: "text-brown font-bold",
+  warning: "text-warning font-bold",
   danger: "text-danger font-bold",
-  purple: "text-purple font-bold",
 };
 
 /**
@@ -131,19 +130,16 @@ export function Badge({ tone = "neutral", children, title }: { tone?: Tone; chil
   );
 }
 
-/** Bold coloured status text: ok (green #1F7A4D), warn (amber #8A4608), bad (red #B3261E). */
+/** Bold coloured status text: ok (success green), warn (ember brown), bad (danger red). */
 export function StatusText({ tone, children }: { tone: "ok" | "warn" | "bad"; children: ReactNode }) {
   return <span className={`cc-status-${tone} whitespace-nowrap`}>{children}</span>;
 }
 
-/** Module colours for solid tags (Home task rows and the like). */
+/** Solid tags (Home task rows and the like). One hue for the parts of a product, navy: the words and the icon say which part (brand/README.md, Colour). */
 export const TAG_COLOR = {
   danger: "bg-danger",
   brown: "bg-brown",
   navy: "bg-navy",
-  purple: "bg-purple",
-  store: "bg-store",
-  maroon: "bg-maroon",
   muted: "bg-muted",
   success: "bg-success",
 } as const;
@@ -167,12 +163,12 @@ export function Alert({
 }) {
   const styles = {
     danger: "border-danger/30 bg-danger-50 text-danger",
-    warning: "border-saffron/40 bg-saffron-50 text-brown-900",
+    warning: "border-warning-200 bg-warning-50 text-warning-ink",
     success: "border-success/30 bg-success-50 text-success-900",
     info: "border-navy/20 bg-navy-50 text-navy",
   }[tone];
   return (
-    <div role={tone === "danger" ? "alert" : "status"} className={`rounded-[10px] border px-4 py-3 text-[13px] ${styles}`}>
+    <div role={tone === "danger" ? "alert" : "status"} className={`rounded-field border px-4 py-3 text-[13px] ${styles}`}>
       {title ? <p className="font-bold">{title}</p> : null}
       {children ? <div className={title ? "mt-1" : ""}>{children}</div> : null}
       {action ? <div className="mt-2">{action}</div> : null}
@@ -228,22 +224,19 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
   );
 }
 
-export type StatTone = "navy" | "saffron" | "brown" | "success" | "danger" | "maroon" | "purple" | "store" | "ink";
+export type StatTone = "navy" | "saffron" | "brown" | "success" | "danger" | "ink";
 
 const statValue: Record<StatTone, string> = {
   navy: "text-navy",
-  saffron: "text-saffron",
+  saffron: "text-brown",
   brown: "text-brown",
   success: "text-success",
   danger: "text-danger",
-  maroon: "text-maroon",
-  purple: "text-purple",
-  store: "text-store",
   ink: "text-ink",
 };
 
 /**
- * KPI tile, as in the prototype: #FBF7F0 fill, radius 12, 12/600 label, 24/800
+ * KPI tile: ground fill, radius 12, 12/600 label, 24/700
  * value in the metric's colour, 11px sub-line. Links when `href` is given.
  */
 export function Stat({
@@ -447,7 +440,7 @@ export function Field({
   );
 }
 
-/** Read-only value styled like a field (prototype "info" box, #F6F2EA). */
+/** Read-only value styled like a field (the "info" box: canvas fill). */
 export function InfoBox({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`cc-info ${className}`}>{children}</div>;
 }
@@ -468,7 +461,7 @@ export function DrawerSection({ title, children }: { title: ReactNode; children:
 }
 
 /**
- * One key/value row (#FBF7F0, radius 10). With `href` it becomes a white,
+ * One key/value row (ground fill, radius 10). With `href` it becomes a white,
  * bordered link row, as the prototype does for clickable rows.
  */
 export function KeyValueRow({
@@ -485,7 +478,7 @@ export function KeyValueRow({
   const valueClass = {
     ink: "text-ink",
     ok: "text-success",
-    warn: "text-brown",
+    warn: "text-warning",
     bad: "text-danger",
     navy: "text-navy",
   }[tone];
@@ -504,7 +497,7 @@ export function KeyValueRow({
   );
 }
 
-/** Loading placeholder block (#E9E1D2, shimmer). */
+/** Loading placeholder block (the kit's line colour, shimmer). */
 export function Skeleton({ height, className = "" }: { height: number; className?: string }) {
   return <div aria-hidden className={`cc-skeleton ${className}`} style={{ height }} />;
 }

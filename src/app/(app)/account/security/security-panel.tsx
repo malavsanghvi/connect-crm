@@ -32,7 +32,7 @@ export type FactorView = { id: string; name: string; createdAt: string };
 function ErrorLine({ text }: { text: string | null }) {
   if (!text) return null;
   return (
-    <p role="alert" className="mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <p role="alert" className="mt-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       {text}
     </p>
   );
@@ -249,7 +249,7 @@ export function SecurityPanel({
       >
         <div className="flex flex-col gap-4">
           {needsChallenge ? (
-            <form onSubmit={verifyNow} noValidate className="rounded-[12px] border border-navy/20 bg-navy-50 p-3">
+            <form onSubmit={verifyNow} noValidate className="rounded-field border border-navy/20 bg-navy-50 p-3">
               <p className="mb-2 text-[13px] font-bold text-navy">This session has not passed 2FA yet</p>
               <CodeInput id={ids.verify} value={verifyCode} onChange={setVerifyCode} label="Code from your authenticator app" />
               <div className="mt-2">
@@ -284,7 +284,7 @@ export function SecurityPanel({
           {factors.length > 0 ? (
             <ul className="flex flex-col gap-2">
               {factors.map((f) => (
-                <li key={f.id} className="flex flex-wrap items-center gap-3 rounded-[10px] bg-canvas px-3 py-2 text-[13px]">
+                <li key={f.id} className="flex flex-wrap items-center gap-3 rounded-field bg-canvas px-3 py-2 text-[13px]">
                   <span className="min-w-0 flex-1">
                     <span className="block font-bold text-ink">{f.name}</span>
                     <span className="text-muted">Added {formatDate(f.createdAt)}</span>
@@ -298,11 +298,11 @@ export function SecurityPanel({
           ) : null}
 
           {enrollment ? (
-            <form onSubmit={confirmEnroll} noValidate className="flex flex-col gap-3 rounded-[12px] border border-line p-3">
+            <form onSubmit={confirmEnroll} noValidate className="flex flex-col gap-3 rounded-field border border-line p-3">
               <p className="text-[13px] font-bold text-ink">1 · Scan this code with your authenticator app</p>
               {/* A data: URI SVG from the sign-in service; next/image does not apply. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={enrollment.qrSvg} alt="QR code to add Weaver to your authenticator app" width={180} height={180} className="rounded-[8px] bg-white p-1" />
+              <img src={enrollment.qrSvg} alt="QR code to add Weaver to your authenticator app" width={180} height={180} className="rounded-tag bg-white p-1" />
               <p className="text-[12px] text-muted">
                 Can&apos;t scan? Enter this setup key instead:{" "}
                 <code data-testid="totp-secret" className="break-all rounded bg-subtle px-1 font-mono text-[12px] text-ink">

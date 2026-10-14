@@ -119,7 +119,7 @@ export function KindPanel({
       </p>
 
       {done ? (
-        <div role="status" className="rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-success-900" data-testid="kind-changed">
+        <div role="status" className="rounded-field border border-success/30 bg-success-50 px-3 py-2 text-success-900" data-testid="kind-changed">
           <p className="font-bold">Changed to {done.to.label}.</p>
           {done.summary.length > 0 ? (
             <ul className="mt-1 list-disc pl-5">
@@ -141,7 +141,7 @@ export function KindPanel({
           </button>
         </div>
       ) : (
-        <div className="flex flex-col gap-3 rounded-[12px] border border-line bg-canvas p-3">
+        <div className="flex flex-col gap-3 rounded-field border border-line bg-canvas p-3">
           <KindPicker experiences={experiences} includeInactive={sandbox} name="kind" defaultKey={currentKey} label="Change to" onChange={pick} />
           {target ? (
             <div>
@@ -154,7 +154,7 @@ export function KindPanel({
           ) : null}
 
           {previewIsCurrent && preview ? (
-            <div data-testid="kind-preview" className="rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-navy">
+            <div data-testid="kind-preview" className="rounded-field border border-navy/20 bg-navy-50 px-3 py-2 text-navy">
               <p className="font-bold">
                 {preview.from.label} → {preview.to.label}
               </p>
@@ -198,7 +198,7 @@ export function KindPanel({
             </div>
           )}
           {error ? (
-            <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-danger">
+            <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-danger">
               {error}
             </p>
           ) : null}

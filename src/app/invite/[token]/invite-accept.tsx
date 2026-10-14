@@ -21,12 +21,12 @@ export type InvitePreview = {
 };
 
 const inputClass =
-  "min-h-[50px] w-full rounded-xl border border-line-input bg-white px-3.5 text-base text-ink placeholder:text-faint focus:border-navy focus:outline-2 focus:outline-offset-1 focus:outline-navy";
+  "min-h-[50px] w-full rounded-xl border border-line-control bg-white px-3.5 text-base text-ink placeholder:text-faint focus:border-navy focus:outline-2 focus:outline-offset-1 focus:outline-navy";
 
 function ErrorBox({ text }: { text: string | null }) {
   if (!text) return null;
   return (
-    <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       {text}
     </p>
   );
@@ -158,7 +158,7 @@ export function InviteAccept({
         <div className="flex w-full max-w-[400px] flex-col gap-4">
           <h2 className="font-display text-[28px] font-semibold text-ink">Accept the invitation</h2>
           {closed ? (
-            <p role="status" className="rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900">
+            <p role="status" className="rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-ink">
               {closed}
             </p>
           ) : signedInAs ? (

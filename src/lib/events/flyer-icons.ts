@@ -83,7 +83,7 @@ const PATHS: Record<PosterIcon, string> = {
 /** One icon as a complete SVG document, stroked in `color`. */
 export function posterIconSvg(name: PosterIcon, color: string, strokeWidth = 2.6): string {
   const body = PATHS[name];
-  const c = /^#[0-9a-f]{6}$/i.test(color) ? color : "#1B2C5C";
+  const c = /^#[0-9a-f]{6}$/i.test(color) ? color : "#2B2A8A";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="${c}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 }
 

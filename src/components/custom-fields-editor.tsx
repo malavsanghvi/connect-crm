@@ -67,7 +67,7 @@ function EditableRow({ row, entity, recordId, editable, currency, path }: { row:
     );
   }
   return (
-    <div className="rounded-[10px] border border-line p-2.5">
+    <div className="rounded-field border border-line p-2.5">
       <label htmlFor={id} className="crm-label">
         {row.def.label}
       </label>

@@ -227,7 +227,7 @@ export async function accommodateOthersAction(boliId: string): Promise<ActionRes
       name: `Boli · ${boli.data!.name} · similar labh${hh ? ` · ${hh}` : ""}`,
       title: `A labh like ${boli.data!.name}`,
       body_md:
-        `${hh ? `Dear ${hh},` : "Jai Jinendra,"}\n\n` +
+        `${hh ? `Dear ${hh},` : "Hello,"}\n\n` +
         `Thank you for pledging for ${boli.data!.name}. Another family's pledge was recorded first, and we would like to offer your family a similar labh. ` +
         `Reply to this message or speak with the religious coordinator.\n\n${center.short_name ?? center.name}`,
       channels: ["email", "push"] as ("email" | "push")[],

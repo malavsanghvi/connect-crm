@@ -376,7 +376,7 @@ describe("cancelPayeeChangeAction, approveZelleInstructionsAction, confirmWallet
   it("confirms only the two wallets, with a reason", async () => {
     sessionRpc.mockResolvedValue({ data: null, error: null });
     expect((await confirmWalletAction("apple_pay", "Turned on in the Stripe dashboard")).message).toBe(
-      "Recorded: Apple Pay is turned on in your Stripe account. Community Connect cannot check that setting yet.",
+      "Recorded: Apple Pay is turned on in your Stripe account. Weaver cannot check that setting yet.",
     );
     expect(sessionRpc).toHaveBeenLastCalledWith("confirm_wallet_in_stripe", {
       p_center: "00000000-0000-4000-8000-000000000001", p_key: "apple_pay", p_reason: "Turned on in the Stripe dashboard",
@@ -402,8 +402,8 @@ describe("the platform pause actions", () => {
 
   it("is for platform admins only, before the database is asked", async () => {
     platformAdmin = false;
-    expect((await suspendPluginAction("card", null, "x")).error).toBe("Could not pause Card — only Community Connect platform admins can do this.");
-    expect((await liftPauseAction("card", null, "x")).error).toBe("Could not resume Card — only Community Connect platform admins can do this.");
+    expect((await suspendPluginAction("card", null, "x")).error).toBe("Could not pause Card — only Weaver platform admins can do this.");
+    expect((await liftPauseAction("card", null, "x")).error).toBe("Could not resume Card — only Weaver platform admins can do this.");
     platformAdmin = true;
     sessionState = "signed_out";
     expect((await suspendPluginAction("card", null, "x")).error).toBe("Could not pause Card — your session has expired. Sign in again.");
@@ -411,7 +411,7 @@ describe("the platform pause actions", () => {
   });
 
   it("checks the plugin, the community and the reason first, and shows the database's refusal in plain English", async () => {
-    expect((await suspendPluginAction("venmo_direct", null, "x")).error).toBe("Could not pause venmo direct — that is not a payment method Community Connect offers.");
+    expect((await suspendPluginAction("venmo_direct", null, "x")).error).toBe("Could not pause venmo direct — that is not a payment method Weaver offers.");
     expect((await suspendPluginAction("card", "not-a-uuid", "x")).error).toBe("Could not pause Card — choose a community from the list, or every community.");
     expect((await suspendPluginAction("card", null, "")).error).toBe("Could not pause Card — say why. The reason is kept in the audit log.");
     expect(sessionRpc).not.toHaveBeenCalled();

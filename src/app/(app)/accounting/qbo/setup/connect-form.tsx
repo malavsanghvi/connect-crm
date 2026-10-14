@@ -82,7 +82,7 @@ export function ConnectQboForm({ sandbox, reconnect }: { sandbox: boolean; recon
         <span className="text-xs text-muted">You sign in on Intuit&apos;s site and choose the company; we never see your Intuit password.</span>
       </div>
       {error ? (
-        <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {error}
         </p>
       ) : null}

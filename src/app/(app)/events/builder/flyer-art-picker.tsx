@@ -345,7 +345,7 @@ export function FlyerArtPicker({
       aria-label={label}
       disabled={disabled || waiting}
       onClick={onSelect}
-      className={`flex flex-col items-center gap-1 rounded-[10px] border p-1.5 text-[12px] font-bold ${wide ? "w-[150px]" : "w-[84px]"} ${selected ? "border-navy ring-2 ring-navy/30" : "border-line"} disabled:opacity-60`}
+      className={`flex flex-col items-center gap-1 rounded-field border p-1.5 text-[12px] font-bold ${wide ? "w-[150px]" : "w-[84px]"} ${selected ? "border-navy ring-2 ring-navy/30" : "border-line"} disabled:opacity-60`}
     >
       {children}
       <span aria-hidden="true">{label}</span>
@@ -359,7 +359,7 @@ export function FlyerArtPicker({
           Occasion
         </p>
         {top ? (
-          <div className="mt-1 flex flex-wrap items-center gap-2 rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">
+          <div className="mt-1 flex flex-wrap items-center gap-2 rounded-field border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">
             <p className="m-0 min-w-0 flex-1">
               {top.occasion === poster.occasion ? "Suggested for this event, and chosen" : "Suggested for this event"}: <strong>{labelOf(top.occasion)}</strong>. {top.reason}
             </p>
@@ -385,10 +385,10 @@ export function FlyerArtPicker({
                       aria-checked={on}
                       disabled={disabled || waiting}
                       onClick={() => chooseOccasion(occasion)}
-                      className={`flex flex-col items-center gap-1 rounded-[10px] border p-1.5 text-center text-[11px] font-bold leading-tight ${on ? "border-navy ring-2 ring-navy/30" : "border-line"} disabled:opacity-60`}
+                      className={`flex flex-col items-center gap-1 rounded-field border p-1.5 text-center text-[11px] font-bold leading-tight ${on ? "border-navy ring-2 ring-navy/30" : "border-line"} disabled:opacity-60`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={thumbs[occasion]} alt="" width={120} height={180} loading="lazy" className="h-auto w-full rounded-[6px] border border-line-soft" />
+                      <img src={thumbs[occasion]} alt="" width={120} height={180} loading="lazy" className="h-auto w-full rounded-chip border border-line-soft" />
                       {labelOf(occasion)}
                     </button>
                   );
@@ -428,7 +428,7 @@ export function FlyerArtPicker({
         const label = FLYER_LAYER_LABEL[kind];
         const here = problem && problem.layer === kind ? problem : null;
         return (
-          <fieldset key={kind} className="rounded-[10px] border border-line-soft p-2" disabled={disabled}>
+          <fieldset key={kind} className="rounded-field border border-line-soft p-2" disabled={disabled}>
             <legend className="px-1 text-[13px] font-bold">{label}</legend>
             <p className="crm-hint">{LAYER_HELP[kind]}</p>
             <div role="radiogroup" aria-label={`${label} art`} className="mt-1 flex flex-wrap gap-2">
@@ -437,7 +437,7 @@ export function FlyerArtPicker({
                 "Drawn",
                 () => setLayer(kind, { source: "code" }),
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={t.src} alt="" width={wide ? 138 : 72} height={wide ? Math.round((138 * t.h) / t.w) : Math.round((72 * t.h) / t.w)} className="rounded-[6px]" style={{ backgroundColor: pack.palette.paper }} />,
+                <img src={t.src} alt="" width={wide ? 138 : 72} height={wide ? Math.round((138 * t.h) / t.w) : Math.round((72 * t.h) / t.w)} className="rounded-chip" style={{ backgroundColor: pack.palette.paper }} />,
                 wide,
                 `poster-art-${kind}-drawn`,
               )}
@@ -448,9 +448,9 @@ export function FlyerArtPicker({
                   () => setLayer(kind, { source: "ai", path: e.path }),
                   e.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={e.url} alt="" loading="lazy" className={`rounded-[6px] object-cover ${wide ? "h-[60px] w-[138px]" : "h-[108px] w-[72px]"}`} />
+                    <img src={e.url} alt="" loading="lazy" className={`rounded-chip object-cover ${wide ? "h-[60px] w-[138px]" : "h-[108px] w-[72px]"}`} />
                   ) : (
-                    <span className={`flex items-center justify-center rounded-[6px] bg-ground p-1 text-[10px] font-normal text-danger ${wide ? "h-[60px] w-[138px]" : "h-[108px] w-[72px]"}`}>Preview not available</span>
+                    <span className={`flex items-center justify-center rounded-chip bg-ground p-1 text-[10px] font-normal text-danger ${wide ? "h-[60px] w-[138px]" : "h-[108px] w-[72px]"}`}>Preview not available</span>
                   ),
                   wide,
                 ),
@@ -460,7 +460,7 @@ export function FlyerArtPicker({
                 "None",
                 () => setLayer(kind, { source: "none" }),
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={layerThumbs.none.src} alt="" width={wide ? 138 : 72} height={wide ? 60 : 108} className="rounded-[6px] object-cover" style={{ height: wide ? 60 : 108 }} />,
+                <img src={layerThumbs.none.src} alt="" width={wide ? 138 : 72} height={wide ? 60 : 108} className="rounded-chip object-cover" style={{ height: wide ? 60 : 108 }} />,
                 wide,
               )}
             </div>
@@ -494,7 +494,7 @@ export function FlyerArtPicker({
           {artCostSentence(ready.model)} Look at the preview: AI art can still include shapes you don&apos;t want — Discard it if so.
         </p>
       ) : notReady ? (
-        <div className="rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">
+        <div className="rounded-field border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">
           <p>{notReady.message}</p>
           {notReady.state === "ai_off" ? (
             <p className="mt-1">

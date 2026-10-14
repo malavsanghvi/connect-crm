@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { cache, type ReactNode } from "react";
 
-import { Icon, type IconName } from "@/components/site/icons";
+import { Icon, type IconName } from "@/components/brand/icons";
 import { isPublicSiteHost } from "@/lib/site";
 
 /** "" on the website's own hosts (it is served at /), "/site" on any other host (the preview address). */
@@ -25,7 +25,7 @@ const BUTTON_BASE =
   "inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full px-7 text-base font-bold transition-colors duration-150 focus-visible:outline-offset-4";
 export const buttonStyles = {
   primary: `${BUTTON_BASE} bg-navy text-white hover:bg-navy-hover`,
-  gold: `${BUTTON_BASE} bg-gold text-navy hover:bg-[#ffc84a]`,
+  gold: `${BUTTON_BASE} bg-gold text-navy hover:bg-gold-hover`,
   ghost: `${BUTTON_BASE} border-2 border-navy/20 bg-white text-navy hover:border-navy`,
   ghostOnNavy: `${BUTTON_BASE} border-2 border-white/30 bg-transparent text-white hover:border-white`,
 } as const;
@@ -82,17 +82,14 @@ export function Ticks({ items, tone = "dark", compact = false }: { items: ReactN
 }
 
 /** A round icon on a tinted tile. */
-export function IconTile({ name, tone = "navy" }: { name: IconName; tone?: "navy" | "saffron" | "success" | "purple" | "maroon" | "store" }) {
+export function IconTile({ name, tone = "navy" }: { name: IconName; tone?: "navy" | "saffron" | "success" }) {
   const tones = {
     navy: "bg-navy-50 text-navy",
     saffron: "bg-saffron-50 text-brown",
     success: "bg-success-50 text-success",
-    purple: "bg-purple-50 text-purple",
-    maroon: "bg-danger-50 text-maroon",
-    store: "bg-store-50 text-store",
   } as const;
   return (
-    <span className={`flex h-12 w-12 flex-none items-center justify-center rounded-2xl ${tones[tone]}`}>
+    <span className={`flex h-12 w-12 flex-none items-center justify-center rounded-tile ${tones[tone]}`}>
       <Icon name={name} className="h-6 w-6" />
     </span>
   );

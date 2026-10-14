@@ -43,7 +43,7 @@ export function AskBox() {
         Ask Niva anything
       </label>
       <div className="flex items-center gap-2">
-        <span className="text-saffron" aria-hidden="true">
+        <span className="text-brown" aria-hidden="true">
           <Sparkle className="h-5 w-5" />
         </span>
         <input

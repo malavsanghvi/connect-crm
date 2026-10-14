@@ -160,7 +160,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
             <>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                 {entitlementGroupsFor(session.kind, session.modulesOff).filter((g) => g.name !== "Platform" || wildcard).map((g) => (
-                  <section key={g.name} className="rounded-[12px] bg-ground px-3 py-2.5" aria-label={g.name}>
+                  <section key={g.name} className="rounded-field bg-ground px-3 py-2.5" aria-label={g.name}>
                     <p className="cc-section">{g.name.toUpperCase()}</p>
                     {g.note ? <p className="mt-1 text-[12px] text-muted">{g.note}</p> : null}
                     <ul className="mt-1.5 flex flex-col gap-1.5">
@@ -172,7 +172,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
                           <li key={e.key} className={`flex items-start gap-2.5 text-[13px] ${e.planned ? "text-muted" : "text-ink-2"}`}>
                             <span
                               aria-hidden
-                              className={`mt-px inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border text-[12px] font-bold ${
+                              className={`mt-px inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-chip border text-[12px] font-bold ${
                                 held ? "border-navy bg-navy text-white" : "border-line-strong bg-white"
                               }`}
                             >
@@ -190,7 +190,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
                   </section>
                 ))}
                 {other.length > 0 ? (
-                  <section className="rounded-[12px] bg-ground px-3 py-2.5" aria-label="Other">
+                  <section className="rounded-field bg-ground px-3 py-2.5" aria-label="Other">
                     <p className="cc-section">OTHER</p>
                     <ul className="mt-1.5 flex flex-col gap-1 font-mono text-[12px]">
                       {other.map((p) => (

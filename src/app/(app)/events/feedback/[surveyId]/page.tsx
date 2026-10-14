@@ -166,7 +166,7 @@ export default async function FeedbackSurveyPage({ params }: { params: Promise<{
         <Card span={12} title="Audience and answers" description="Invited = adults of households with an active RSVP, or who attended. Anonymous answers count, but never show who gave them.">
           <KpiGrid cols={3}>
             <Stat label="Invited" value={stats.invited} hint="adults" tone="navy" />
-            <Stat label="Responses" value={stats.responses} hint={`${stats.answered} ${stats.answered === 1 ? "person" : "people"} answered`} tone="purple" />
+            <Stat label="Responses" value={stats.responses} hint={`${stats.answered} ${stats.answered === 1 ? "person" : "people"} answered`} tone="navy" />
             <Stat label="Response rate" value={formatPct(rate)} hint={rate === null ? "nobody invited" : `of ${stats.invited} invited`} tone="success" />
             <Stat label="Completions" value={stats.completions} hint="people who finished, anonymous answers included" tone="navy" />
             <Stat
@@ -192,7 +192,7 @@ export default async function FeedbackSurveyPage({ params }: { params: Promise<{
           {chartDays.length === 0 ? (
             <p className="text-[13px] text-muted">No answers yet.</p>
           ) : (
-            <BarList labelWidth="5rem" items={chartDays.map((d) => ({ label: shortDay(d.date), value: d.count, ratio: d.count / busiest, tone: "purple" as const }))} />
+            <BarList labelWidth="5rem" items={chartDays.map((d) => ({ label: shortDay(d.date), value: d.count, ratio: d.count / busiest, tone: "navy" as const }))} />
           )}
         </Card>
 

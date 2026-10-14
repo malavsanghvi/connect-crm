@@ -16,7 +16,7 @@ const confirmClass: Record<ModalTone, string> = {
 };
 
 /**
- * Confirmation / step-up modal, as in the prototype: kicker, Fraunces title,
+ * Confirmation / step-up modal, as in the prototype: kicker, display-face title,
  * body, optional 6-digit code field, "Cancel" and a coloured confirm button.
  *
  * The code field only COLLECTS a code. Whatever handles `onConfirm(code)` must
@@ -175,7 +175,7 @@ export function Modal({
             </div>
           ) : null}
           {error ? (
-            <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
+            <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
               {error}
             </p>
           ) : null}

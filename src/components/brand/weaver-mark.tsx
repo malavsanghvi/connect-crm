@@ -2,8 +2,10 @@ import { useId } from "react";
 
 // The Weaver mark: a "W" made of one flowing ribbon with a sun above its middle peak. Drawn as a vector from the logo
 // the owner supplied on 2026-10-08 (the original file was not available, so this is a redraw; swapping in the original
-// artwork means replacing the shapes below, src/app/icon.svg, src/app/apple-icon.tsx and src/app/favicon.ico).
-// The app icon / favicon (src/app/icon.svg) is the same drawing: tests/brand.test.ts keeps them in step.
+// artwork means replacing the shapes below, src/app/icon.svg, brand/logos/weaver-mark.svg, public/brand/weaver-mark.svg and
+// src/app/favicon.ico, then running scripts/brand-logo-pngs.mjs).
+// The app icon / favicon (src/app/icon.svg) is the same drawing: tests/brand.test.ts keeps them in step, and
+// tests/brand-conformance.test.ts keeps the kit's master file (brand/logos/weaver-mark.svg) identical to it.
 
 /** The silhouette of the W (the clip for the shading). */
 export const WEAVER_SILHOUETTE_D =
@@ -68,8 +70,8 @@ export function weaverMarkSvg(id: string, props: { className?: string; width?: n
   );
 }
 
-/** The Weaver mark. Decorative unless a `title` is given. */
-export function WeaverMark({ className = "h-8 w-8", title }: { className?: string; title?: string }) {
+/** The Weaver mark. Decorative unless a `title` is given. `size` (pixels) sets width and height and replaces `className`. */
+export function WeaverMark({ className = "h-8 w-8", title, size }: { className?: string; title?: string; size?: number }) {
   const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  return weaverMarkSvg(`wm${id}`, { className, title });
+  return weaverMarkSvg(`wm${id}`, size ? { width: size, height: size, title } : { className, title });
 }

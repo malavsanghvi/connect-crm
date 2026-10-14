@@ -92,7 +92,7 @@ export default async function GoLivePage() {
                             <div className="flex flex-col gap-4 text-[13px]">
                               {rows13 ? <ReadinessTable rows={rows13} links={false} /> : <p className="text-danger">The readiness checks could not be run. Reload to try again.</p>}
                               {mine ? (
-                                <p className="rounded-[10px] bg-canvas px-3 py-2 text-muted">You gave the first approval. A second, different Weaver admin must approve.</p>
+                                <p className="rounded-field bg-canvas px-3 py-2 text-muted">You gave the first approval. A second, different Weaver admin must approve.</p>
                               ) : null}
                               <ActionForm
                                 action={decideGoliveAction}

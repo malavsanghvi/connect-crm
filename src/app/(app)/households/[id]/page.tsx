@@ -159,7 +159,7 @@ export default async function HouseholdPage({
       />
 
       {household.merged_into_id ? (
-        <p className="mb-4 rounded-lg border border-saffron/40 bg-saffron-50 px-4 py-2 text-sm text-brown">
+        <p className="mb-4 rounded-lg border border-warning-200 bg-warning-50 px-4 py-2 text-sm text-warning-ink">
           This household was merged into{" "}
           <Link href={`/households/${household.merged_into_id}`} className="crm-link font-semibold">
             another household
@@ -187,7 +187,7 @@ export default async function HouseholdPage({
           label="Membership"
           value={
             activeMembership.data ? (
-              <Badge tone={activeMembership.data.tier === "life" ? "purple" : "navy"}>{activeMembership.data.tier} · active</Badge>
+              <Badge tone={activeMembership.data.tier === "life" ? "navy" : "navy"}>{activeMembership.data.tier} · active</Badge>
             ) : (
               "None active"
             )

@@ -87,7 +87,7 @@ export default async function AnnouncementsPage({ searchParams }: { searchParams
                       <Card>
                         <div className="flex flex-wrap items-center gap-2">
                           <PBadge tone={a.published_at ? "success" : "muted"}>{a.published_at ? "Published" : "Draft"}</PBadge>
-                          <PBadge tone="purple">{audience}</PBadge>
+                          <PBadge tone="navy">{audience}</PBadge>
                         </div>
                         <h3 className="mt-2 font-display text-lg font-semibold">{a.title}</h3>
                         <p className="mt-1 whitespace-pre-line text-sm">{a.body_md}</p>

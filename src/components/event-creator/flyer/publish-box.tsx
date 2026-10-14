@@ -51,7 +51,7 @@ export function zoneName(tz: string, at: Date = new Date()): string {
 
 function InlineProblem({ children, onRetry, retryLabel = "Try again" }: { children: ReactNode; onRetry?: () => void; retryLabel?: string }) {
   return (
-    <div role="alert" className="mt-3 flex flex-wrap items-center gap-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <div role="alert" className="mt-3 flex flex-wrap items-center gap-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       <span className="min-w-0 flex-1">{children}</span>
       {onRetry ? (
         <button type="button" className={btn.outline} onClick={onRetry}>
@@ -187,7 +187,7 @@ export function PublishBox({
 
       {/* Where it stands: published, scheduled, or a scheduled publish that did not happen */}
       {state === "live" ? (
-        <p className="m-0 mt-3 rounded-[10px] bg-success-50 px-3 py-2 text-[13px] text-success-900" role="status">
+        <p className="m-0 mt-3 rounded-field bg-success-50 px-3 py-2 text-[13px] text-success-900" role="status">
           Published. Members can RSVP in the app{setup.guestVisible ? ", and guests on the event page" : ""}.
         </p>
       ) : state === "ended" || state === "cancelled" ? (
@@ -195,7 +195,7 @@ export function PublishBox({
       ) : !setup.canEdit ? (
         <p className="m-0 mt-3 text-[13px] text-muted">Your role can see this event but not publish it.</p>
       ) : state === "scheduled" && ev.publish_at ? (
-        <div className="mt-3 rounded-[12px] border border-navy-300 bg-navy-50 px-3 py-2.5" role="status">
+        <div className="mt-3 rounded-field border border-navy-300 bg-navy-50 px-3 py-2.5" role="status">
           <p className="m-0 text-[14px] font-bold text-ink">Scheduled for {formatDateTime(ev.publish_at, tz)}</p>
           <p className="m-0 mt-0.5 text-[12px] leading-[1.5] text-ink-2">
             {scheduledLater
@@ -254,7 +254,7 @@ export function PublishBox({
       </ul>
 
       {/* Social posting: visible, not built */}
-      <div className="mt-2 rounded-[12px] border border-line bg-ground px-3 py-2.5">
+      <div className="mt-2 rounded-field border border-line bg-ground px-3 py-2.5">
         <label htmlFor={ids.caption} className="text-[12px] font-bold text-ink-2">
           Caption for Facebook and Instagram
         </label>
@@ -263,7 +263,7 @@ export function PublishBox({
           disabled
           rows={3}
           aria-describedby={`${ids.caption}-why`}
-          className="mt-1 block w-full cursor-not-allowed rounded-[10px] border border-line-input bg-white px-3 py-2 text-[13px] text-muted"
+          className="mt-1 block w-full cursor-not-allowed rounded-field border border-line-control bg-white px-3 py-2 text-[13px] text-muted"
           defaultValue={`${eventNow.name}. ${eventNow.starts_at ? formatDateTime(eventNow.starts_at, tz) : ""}${eventNow.venue ? `, ${eventNow.venue}` : ""}. RSVP in the app or on our website.`}
         />
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -309,7 +309,7 @@ export function PublishBox({
           ) : null}
 
           {problems.length ? (
-            <div className="mt-3 rounded-[10px] border border-saffron-200 bg-saffron-50 px-3 py-2 text-[12px] text-brown-900">
+            <div className="mt-3 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[12px] text-warning-ink">
               <p className="m-0 font-bold">Before it can be published:</p>
               <ul className="m-0 mt-1 list-disc pl-5">
                 {problems.map((p) => (

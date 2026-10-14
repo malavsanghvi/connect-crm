@@ -268,7 +268,7 @@ export default async function DemoDataPage() {
               </ActionForm>
             </div>
           </div>
-          <div className="mt-4 rounded-[10px] bg-ground px-4 py-3 text-[13px]">
+          <div className="mt-4 rounded-field bg-ground px-4 py-3 text-[13px]">
             <p className="font-bold">What clearing keeps</p>
             <ul className="mt-1 list-disc pl-5 text-muted">
               {KEPT.map((k) => (

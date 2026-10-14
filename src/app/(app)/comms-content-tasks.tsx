@@ -53,7 +53,7 @@ export async function CommsContentTasks({ session }: { session: CrmSession }) {
     tasks.push({
       key: `nl-${c.id}`,
       tag: "Newsletter",
-      color: "purple",
+      color: "navy",
       title: `Approve “${label}”`,
       meta: `${describeAudience(c.audience, { zones: zoneNames })} · drafted by ${c.created_by === session.userId ? "you" : (drafters.get(c.created_by ?? "")?.name ?? "a colleague")}${c.status === "pending_approval" ? " · needs a second approver" : ""}`,
       actions: (
@@ -103,7 +103,7 @@ export async function CommsContentTasks({ session }: { session: CrmSession }) {
     tasks.push({
       key: "content",
       tag: "Content",
-      color: "purple",
+      color: "navy",
       title: `${waitingItems + waitingPhotos} item${waitingItems + waitingPhotos === 1 ? "" : "s"} awaiting approval`,
       meta: [waitingItems ? `${waitingItems} content item${waitingItems === 1 ? "" : "s"} (religious text needs an approver)` : null, waitingPhotos ? `${waitingPhotos} member photo${waitingPhotos === 1 ? "" : "s"}${children ? ", some with children" : ""}` : null]
         .filter(Boolean)

@@ -123,7 +123,7 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
     },
     {
       label: "Next event RSVPs",
-      tone: "maroon",
+      tone: "navy",
       href: "/events",
       show: can(session, ["events.view", "events.manage"]) && isModuleEnabled(session, "events"),
       async load() {
@@ -151,7 +151,7 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
     },
     {
       label: "Store orders this cycle",
-      tone: "store",
+      tone: "navy",
       href: "/store",
       show: can(session, "store.manage") && isModuleEnabled(session, "store"),
       async load() {
@@ -163,7 +163,7 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
     },
     {
       label: "Pathshala students",
-      tone: "purple",
+      tone: "navy",
       href: "/pathshala",
       show: can(session, "pathshala.manage") && isModuleEnabled(session, "pathshala"),
       async load() {

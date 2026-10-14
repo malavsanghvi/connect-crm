@@ -320,7 +320,7 @@ function QrButton({
         ? createPortal(
         <div role="dialog" aria-modal="true" aria-label="Class attendance QR code" className="fixed inset-0 z-50 flex items-center justify-center bg-navy-700/90 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 text-center">
-            <p className="text-xs font-bold uppercase tracking-wider text-purple">Scan to mark attendance</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-navy">Scan to mark attendance</p>
             <p className="mt-1 text-sm text-muted">Students or parents scan this with the member app. It changes every 10 minutes.</p>
             <div className="mx-auto mt-4 flex aspect-square w-full max-w-xs items-center justify-center rounded-xl border border-line bg-white">
               {dataUrl ? (

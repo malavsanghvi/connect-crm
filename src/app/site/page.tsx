@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { AiTag } from "@/components/brand/ai-tag";
 import { OWNER_FACTS } from "@/components/site/facts";
-import { Icon, type IconName } from "@/components/site/icons";
+import { Icon, type IconName } from "@/components/brand/icons";
 import { ExperienceBand } from "@/components/site/experience-band";
 import { EventMock, GivingMock, HandoverMock, HouseholdMock, LearningMock, PhoneMock } from "@/components/site/mockups";
 import { ProductTour } from "@/components/site/product-tour";
@@ -40,33 +41,23 @@ export default function HomePage() {
   );
 }
 
-/** The small "AI" label on every AI line. */
-function AiTag({ label = "AI" }: { label?: string }) {
-  return (
-    <span className="inline-flex flex-none items-center gap-1.5 rounded-md bg-gradient-to-r from-gold to-saffron px-2 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.06em] text-navy-hover">
-      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-white" />
-      {label}
-    </span>
-  );
-}
-
 // ── Hero ─────────────────────────────────────────────────────────────────────
 
 function Hero() {
   return (
     <section className="bg-[linear-gradient(180deg,var(--color-saffron)_0,var(--color-saffron)_58%,var(--color-canvas)_58%)] pb-8 pt-6 sm:pb-12 sm:pt-10">
       <div className={container}>
-        <div className="grid grid-cols-1 items-center gap-10 rounded-[32px] bg-white p-6 shadow-[0_30px_60px_-30px_rgba(43,42,138,0.45)] sm:p-10 lg:grid-cols-[1.05fr_1fr] lg:gap-12 lg:p-14">
+        <div className="grid grid-cols-1 items-center gap-10 rounded-hero bg-white p-6 shadow-hero sm:p-10 lg:grid-cols-[1.05fr_1fr] lg:gap-12 lg:p-14">
           <div className="flex min-w-0 flex-col items-start gap-5 sm:gap-6">
             <span className="inline-flex rounded-full bg-saffron-50 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-brown">Your mission partner</span>
             <h1 className="font-display text-[36px] font-bold leading-[1.04] tracking-[-0.03em] text-navy sm:text-[52px] lg:text-[56px]">
               Do more good. Weaver handles the operations.{" "}
-              <span className="bg-[linear-gradient(90deg,rgba(255,184,42,0.55),rgba(255,118,64,0.45))] bg-no-repeat text-brown [background-position:0_92%] [background-size:100%_0.26em] [box-decoration-break:clone]">
+              <span className="site-underline text-brown [box-decoration-break:clone]">
                 For free. Forever.
               </span>
             </h1>
             <p className="max-w-[580px] text-[17px] leading-relaxed text-ink-2 sm:text-[19px]">
-              We take members, giving, events, classes and the books off your volunteers&apos; plates. AI does the busywork, and people make the final decisions.{" "}
+              We take members, giving, events, classes and the books off your volunteers&apos; plates. AI does the busywork. People make the final decisions.{" "}
               <strong className="font-semibold text-navy">This is our way of paying it forward.</strong>
             </p>
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -196,7 +187,7 @@ function Pains() {
         />
         <ul className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {PAINS.map((p) => (
-            <li key={p.pain} className="flex flex-col gap-3 rounded-[24px] border border-line bg-white p-5 sm:p-6">
+            <li key={p.pain} className="flex flex-col gap-3 rounded-card border border-line bg-white p-5 sm:p-6">
               <IconTile name={p.icon} tone="saffron" />
               <h3 className="font-display text-[20px] font-semibold leading-snug text-navy">{p.pain}</h3>
               <p className="text-[15.5px] leading-relaxed text-muted">{p.fix}</p>
@@ -251,7 +242,7 @@ function HowWeUseAi() {
 
 function TourPanel({ title, lead, points, ask, visual }: { title: string; lead: string; points: string[]; ask: string; visual: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 items-center gap-5 rounded-[24px] border border-line bg-white p-4 shadow-[0_30px_60px_-30px_rgba(43,42,138,0.3)] sm:gap-8 sm:rounded-[32px] sm:p-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12">
+    <div className="grid grid-cols-1 items-center gap-5 rounded-card border border-line bg-white p-4 shadow-panel sm:gap-8 sm:rounded-hero sm:p-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12">
       <div className="flex flex-col items-start gap-3 sm:gap-4">
         <h3 className="font-display text-[24px] font-semibold leading-[1.1] tracking-[-0.01em] text-navy sm:text-[32px]">{title}</h3>
         <p className="text-[16px] leading-relaxed text-muted sm:text-[17px]">{lead}</p>
@@ -262,7 +253,7 @@ function TourPanel({ title, lead, points, ask, visual }: { title: string; lead: 
         </p>
       </div>
       {/* On a phone only the top of the picture shows (it fades out), so a tab stays about a screen and a half. */}
-      <div className="relative max-h-[230px] overflow-hidden rounded-[20px] bg-gradient-to-br from-saffron-50 via-canvas to-navy-50 p-3 sm:max-h-none sm:overflow-visible sm:rounded-[24px] sm:p-6">
+      <div className="relative max-h-[230px] overflow-hidden rounded-window bg-gradient-to-br from-saffron-50 via-canvas to-navy-50 p-3 sm:max-h-none sm:overflow-visible sm:rounded-card sm:p-6">
         {visual}
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-canvas to-transparent sm:hidden" />
       </div>
@@ -404,7 +395,7 @@ function Partner() {
         <SectionHeading eyebrow="Your mission partner" title="Partner is a promise. Here is ours." />
         <ul className={`mx-auto grid w-full max-w-[960px] grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 ${cols}`}>
           {promises.map((p) => (
-            <li key={p.title} id={p.id} className="flex scroll-mt-28 gap-4 rounded-[24px] border border-line bg-white p-5 target:ring-2 target:ring-saffron sm:p-6">
+            <li key={p.title} id={p.id} className="flex scroll-mt-28 gap-4 rounded-card border border-line bg-white p-5 target:ring-2 target:ring-saffron sm:p-6">
               <IconTile name={p.icon} tone="navy" />
               <div className="min-w-0">
                 <h3 className="font-display text-[19px] font-semibold leading-snug text-navy">{p.title}</h3>
@@ -433,7 +424,7 @@ function GetStarted() {
   return (
     <section id="get-ready" aria-labelledby="get-ready-title" className="scroll-mt-24 py-12 sm:py-16 lg:py-20">
       <div className={container}>
-        <div className="relative isolate overflow-hidden rounded-[28px] bg-navy px-5 py-10 text-white sm:rounded-[40px] sm:px-12 sm:py-14">
+        <div className="relative isolate overflow-hidden rounded-[28px] bg-navy px-5 py-10 text-white sm:rounded-band sm:px-12 sm:py-14">
           <div aria-hidden className="absolute -right-24 -top-24 -z-10 h-[340px] w-[340px] rounded-full bg-white/5" />
           <div aria-hidden className="absolute -bottom-32 -left-20 -z-10 h-[380px] w-[380px] rounded-full bg-saffron/25" />
           <div className="flex flex-col items-center gap-6 text-center sm:gap-8">

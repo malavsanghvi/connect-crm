@@ -8,7 +8,7 @@ import { AI_OFF, MARKETPLACE_HREF } from "@/lib/ai-gate";
  */
 export function AiOffNote({ stillWorks, className = "" }: { stillWorks?: string; className?: string }) {
   return (
-    <div role="status" data-testid="ai-off" className={`rounded-xl border border-saffron-200 bg-saffron-50 px-3 py-2.5 text-[13px] text-brown-900 ${className}`}>
+    <div role="status" data-testid="ai-off" className={`rounded-xl border border-warning-200 bg-warning-50 px-3 py-2.5 text-[13px] text-warning-ink ${className}`}>
       <p className="m-0 font-semibold">{AI_OFF}</p>
       <p className="m-0 mt-0.5">
         {stillWorks ? `${stillWorks} ` : ""}

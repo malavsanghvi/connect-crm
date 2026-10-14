@@ -1,0 +1,46 @@
+<link rel="stylesheet" href="../../weaver-tokens.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  body { margin: 0; font-family: var(--font-sans); color: var(--ink); }
+  .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; }
+  .panel { display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: var(--radius-tile); background: var(--canvas); border: 1px solid var(--line); }
+  label { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .field { box-sizing: border-box; width: 100%; min-height: var(--control-compact); padding: 0 12px; border: 1px solid var(--line-control); border-radius: var(--radius-field); background: var(--white); font: inherit; font-size: 14px; color: var(--ink); }
+  .field::placeholder { color: var(--faint); }
+  .field:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; border-color: var(--navy); }
+  .field.tall { min-height: var(--control-primary); font-size: 16px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: var(--radius-tag); font-size: 12px; font-weight: 700; }
+  .t-navy { background: var(--navy); color: var(--white); }
+  .t-tint { background: var(--navy-50); color: var(--navy); }
+  .t-ok { background: var(--success-50); color: var(--success); }
+  .t-bad { background: var(--danger-50); color: var(--danger); }
+  .t-warn { background: var(--warning-50); color: var(--warning-ink); }
+  .warning { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--warning-200); border-radius: var(--radius-tile); background: var(--warning-50); color: var(--warning-ink); font-size: 14.5px; }
+  .warning svg { flex: none; width: 20px; height: 20px; color: var(--warning); }
+  .id { font-family: var(--font-mono); font-size: 13.5px; font-weight: 500; }
+  .btns { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-pill); border: 0; font: inherit; font-weight: 700; color: var(--white); background: var(--navy); }
+  .b52 { min-height: var(--control-primary); padding: 0 28px; font-size: 16px; }
+  .b40 { min-height: var(--control-compact); padding: 0 16px; font-size: 14px; }
+  .b36 { min-height: var(--control-dense); padding: 0 14px; font-size: 13px; }
+</style>
+<div class="row">
+  <div class="panel">
+    <label for="n">Household name</label>
+    <input id="n" class="field" placeholder="For example, the Rivera household">
+    <label for="m">Mobile number (touch size)</label>
+    <input id="m" class="field tall" placeholder="(212) 555-0123">
+    <p class="id" style="margin: 0">JSH-H-2041 · 0417</p>
+  </div>
+  <div class="panel">
+    <div class="tags">
+      <span class="tag t-navy">Events</span><span class="tag t-tint">Learning</span><span class="tag t-ok">Paid</span><span class="tag t-bad">Refund</span><span class="tag t-warn">Needs a look</span>
+    </div>
+    <div class="warning">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span><b>Two households match.</b> Pick the one that gave this gift before you record it.</span>
+    </div>
+    <div class="btns"><span class="btn b52">52 primary</span><span class="btn b40">40 compact</span><span class="btn b36">36 dense</span></div>
+  </div>
+</div>

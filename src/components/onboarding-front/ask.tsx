@@ -7,6 +7,7 @@
 
 import { useId, useState } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { useNiva } from "@/components/niva/niva-context";
 import { AI_OFF } from "@/lib/ai-gate";
 
@@ -86,7 +87,7 @@ export function AskNivaBar() {
         setText("");
       }}
     >
-      <div className="flex items-center gap-[10px] rounded-[28px] border border-line-input bg-white py-2 pl-[18px] pr-2 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-navy">
+      <div className="flex items-center gap-[10px] rounded-[28px] border border-line-control bg-white py-2 pl-[18px] pr-2 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-navy">
         <input
           type="text"
           aria-label="Ask Niva about your data"
@@ -103,10 +104,7 @@ export function AskNivaBar() {
           disabled={!ready}
           className="flex h-11 w-11 flex-none items-center justify-center rounded-full border-0 bg-navy text-white hover:bg-navy-hover disabled:cursor-not-allowed disabled:bg-line-input disabled:text-ink-2"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M5 12h14" />
-            <path d="M13 6l6 6-6 6" />
-          </svg>
+          <Icon name="arrow" size={20} />
         </button>
       </div>
       <p id={noteId} className="m-0 pl-[18px] text-[12px] leading-[1.5] text-muted">

@@ -11,7 +11,7 @@ const COLS = "md:grid md:grid-cols-[minmax(0,1.5fr)_minmax(0,2.3fr)_130px_minmax
 export function GapList({ section }: { section: GapSection }) {
   return (
     <section aria-label="Adults with a gap in their contact details" className="flex flex-col gap-0.5 rounded-2xl border border-line bg-white px-3 pb-3 pt-2.5">
-      <div className={`hidden rounded-[10px] bg-canvas px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.04em] text-muted ${COLS}`} aria-hidden="true">
+      <div className={`hidden rounded-field bg-canvas px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.04em] text-muted ${COLS}`} aria-hidden="true">
         <span>Person</span>
         <span>Family</span>
         <span>Mobile</span>
@@ -32,7 +32,7 @@ export function GapList({ section }: { section: GapSection }) {
                 href={r.href}
                 scroll={false}
                 aria-label={`${r.name}, ${r.relationship}. Family ${r.family}${r.cardLine ? `, ${r.cardLine}` : ""}. Mobile ${r.mobile}. Email ${r.email}. ${r.app}. Age ${r.age}.`}
-                className={`flex min-h-[56px] flex-col justify-center gap-1 rounded-[10px] px-2.5 py-2 text-[13px] text-ink no-underline hover:bg-canvas md:items-start ${COLS}`}
+                className={`flex min-h-[56px] flex-col justify-center gap-1 rounded-field px-2.5 py-2 text-[13px] text-ink no-underline hover:bg-canvas md:items-start ${COLS}`}
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span dir="auto" className="truncate font-bold">

@@ -5,7 +5,8 @@ import { useState } from "react";
 import { useNiva } from "@/components/niva/niva-context";
 import { browserFetch, runCommand } from "@/lib/assistant/client";
 
-import { SparkOutline } from "./icons";
+import { AiTag } from "@/components/brand/ai-tag";
+import { Icon } from "@/components/brand/icons";
 
 const PILL = "inline-flex min-h-11 items-center rounded-[22px] px-[18px] text-[14px] font-bold";
 
@@ -13,9 +14,18 @@ const PILL = "inline-flex min-h-11 items-center rounded-[22px] px-[18px] text-[1
 export function NoticedLabel() {
   const niva = useNiva();
   return (
-    <span className="flex items-center gap-2 text-[13px] font-extrabold text-[var(--v2-sun-ink)]">
-      <SparkOutline />
-      {niva?.enabled ? "Niva noticed" : "Possible duplicate"}
+    <span className="flex items-center gap-2 text-[13px] font-bold text-[var(--v2-sun-ink)]">
+      {niva?.enabled ? (
+        <>
+          <AiTag label="Niva" />
+          noticed
+        </>
+      ) : (
+        <>
+          <Icon name="alert" size={16} />
+          Possible duplicate
+        </>
+      )}
     </span>
   );
 }
@@ -53,7 +63,7 @@ export function ListHint() {
 export function ComingNext({ label = "Coming next", badge = false }: { label?: string; /** Sits on the corner of the switched-off control it belongs to. */ badge?: boolean }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full bg-[var(--v2-indigo-tint)] font-extrabold tracking-[0.02em] text-[var(--v2-indigo-dark)] ${badge ? "pointer-events-none absolute -right-2 -top-2.5 min-h-5 px-2 text-[10px] ring-2 ring-white" : "min-h-6 px-2.5 text-[11px]"}`}
+      className={`inline-flex items-center rounded-full bg-[var(--v2-indigo-tint)] font-bold tracking-[0.02em] text-[var(--v2-indigo-dark)] ${badge ? "pointer-events-none absolute -right-2 -top-2.5 min-h-5 px-2 text-[10px] ring-2 ring-white" : "min-h-6 px-2.5 text-[11px]"}`}
     >
       {label}
     </span>
@@ -109,7 +119,7 @@ export function MergeByCard({ kind, options, compareHref }: { kind: "household" 
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap gap-2">
         {options.map((o) => (
-          <button key={o.keepId} type="button" onClick={() => prepare(o)} disabled={busy} className="inline-flex min-h-10 items-center rounded-[20px] border border-line-input bg-white px-4 text-[13px] font-bold text-ink hover:border-navy disabled:opacity-60">
+          <button key={o.keepId} type="button" onClick={() => prepare(o)} disabled={busy} className="inline-flex min-h-10 items-center rounded-window border border-line-control bg-white px-4 text-[13px] font-bold text-ink hover:border-navy disabled:opacity-60">
             {busy ? "Preparing the card…" : `Merge, keeping ${o.keepLabel}`}
           </button>
         ))}

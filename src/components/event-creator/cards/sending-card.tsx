@@ -61,7 +61,7 @@ export function SendingCard({ draft, set, ctx, api }: CardProps) {
             </div>
             {drafts.error ? <ErrorNote onRetry={draftText}>{drafts.error}</ErrorNote> : null}
             {drafts.data?.drafts.map((d) => (
-              <div key={d.language} className="rounded-[12px] border border-line bg-white px-3.5 py-2.5" dir={d.text_direction}>
+              <div key={d.language} className="rounded-field border border-line bg-white px-3.5 py-2.5" dir={d.text_direction}>
                 <p className="m-0 flex flex-wrap items-center gap-2 text-[13px] font-bold text-muted" dir="ltr">
                   {d.language_name}
                   {d.needs_translation ? <Pill tone="sun">Needs translation</Pill> : null}
@@ -85,11 +85,11 @@ export function SendingCard({ draft, set, ctx, api }: CardProps) {
         )}
       </section>
       <section className="flex flex-col gap-2" aria-label="Coming next">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-line bg-ground px-3.5 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-field border border-line bg-ground px-3.5 py-2.5">
           <span className="text-[14px] text-ink-2">More reminders on a schedule (a week before, the morning of)</span>
           <ComingNext />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-line bg-ground px-3.5 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-field border border-line bg-ground px-3.5 py-2.5">
           <span className="text-[14px] text-ink-2">Posting the flyer to Facebook and Instagram (the website, the member app and the calendar are in the publish box beside the questions)</span>
           <ComingNext />
         </div>

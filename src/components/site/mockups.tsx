@@ -1,41 +1,40 @@
 import type { ReactNode } from "react";
 
-import { Icon, type IconName } from "@/components/site/icons";
+import { Icon, type IconName } from "@/components/brand/icons";
 import { TIP_YEARLY_CAP_CENTS, usd } from "@/lib/site";
 
 // Illustrative screens drawn in HTML and CSS (no screenshots, no real people). Every figure and name here is sample data.
 
 function WindowFrame({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <div className={`overflow-hidden rounded-[20px] border border-line bg-white shadow-[0_30px_60px_-20px_rgba(27,44,92,0.35)] ${className}`}>
+    <div className={`overflow-hidden rounded-window border border-line bg-white shadow-window ${className}`}>
       <div className="flex items-center gap-2 border-b border-line-soft bg-ground px-4 py-3">
-        <span className="h-2.5 w-2.5 rounded-full bg-[#e5836f]" />
+        <span className="h-2.5 w-2.5 rounded-full bg-saffron" />
         <span className="h-2.5 w-2.5 rounded-full bg-gold" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#7dbb97]" />
-        <span className="ml-3 truncate text-[12px] font-semibold text-muted">{title}</span>
+        <span className="h-2.5 w-2.5 rounded-full bg-success" />
+        <span className="ml-3 min-w-0 flex-1 truncate text-[12px] font-semibold text-muted">{title}</span>
+        <span className="flex-none rounded-tag border border-line bg-white px-2 py-0.5 text-[11px] font-bold text-muted">Sample data</span>
       </div>
       {children}
     </div>
   );
 }
 
-function Pill({ children, tone }: { children: ReactNode; tone: "navy" | "saffron" | "success" | "purple" | "maroon" }) {
+function Pill({ children, tone }: { children: ReactNode; tone: "navy" | "saffron" | "success" }) {
   const tones = {
     navy: "bg-navy-50 text-navy",
     saffron: "bg-saffron-50 text-brown",
     success: "bg-success-50 text-success-900",
-    purple: "bg-purple-50 text-purple-900",
-    maroon: "bg-danger-50 text-maroon",
   } as const;
   return <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${tones[tone]}`}>{children}</span>;
 }
 
 /** The admin portal's home: tasks and numbers at a glance. */
 export function DashboardMock({ className = "" }: { className?: string }) {
-  const tasks: { tag: string; tone: "navy" | "saffron" | "success" | "purple" | "maroon"; title: string; meta: string }[] = [
+  const tasks: { tag: string; tone: "navy" | "saffron" | "success"; title: string; meta: string }[] = [
     { tag: "Membership", tone: "navy", title: "3 new family applications", meta: "Waiting for a reference to approve" },
     { tag: "Deposit", tone: "saffron", title: "Match this week's Zelle payments", meta: "11 exact matches ready to confirm" },
-    { tag: "Event", tone: "maroon", title: "Annual dinner: lunch slots are 90% full", meta: "Open 2 more tables?" },
+    { tag: "Event", tone: "navy", title: "Annual dinner: lunch slots are 90% full", meta: "Open 2 more tables?" },
   ];
   return (
     <WindowFrame title="Sample Community · Home" className={className}>
@@ -80,15 +79,18 @@ export function PhoneMock({ className = "" }: { className?: string }) {
     ["users", "Family", false],
   ];
   return (
-    <div className={`mx-auto w-[270px] rounded-[38px] border-[7px] border-navy bg-navy shadow-[0_30px_60px_-20px_rgba(27,44,92,0.5)] ${className}`}>
+    <div className={`mx-auto w-[270px] rounded-[38px] border-[7px] border-navy bg-navy shadow-window ${className}`}>
       <div className="overflow-hidden rounded-[30px] bg-canvas">
         <div className="bg-navy px-4 pb-4 pt-5 text-white">
-          <p className="text-[11px] font-semibold text-navy-200">Sample Community</p>
+          <p className="flex items-center justify-between gap-2 text-[11px] font-semibold text-navy-200">
+            Sample Community
+            <span className="rounded-tag bg-navy-hover px-2 py-0.5 text-[11px] font-bold text-navy-200">Sample data</span>
+          </p>
           <p className="font-display text-[19px] font-semibold">Welcome, the Rivera family</p>
         </div>
         <div className="flex flex-col gap-2.5 p-3.5">
           <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-            <Pill tone="maroon">Event</Pill>
+            <Pill tone="navy">Event</Pill>
             <p className="mt-1.5 text-[14px] font-bold text-ink">Spring celebration</p>
             <p className="text-[12px] text-muted">Saturday, 6:30 PM · Main hall</p>
             <div className="mt-2.5 flex gap-2">
@@ -105,7 +107,7 @@ export function PhoneMock({ className = "" }: { className?: string }) {
             <p className="mt-1.5 text-[12px] text-muted">$310 of $501 paid</p>
           </div>
           <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-            <Pill tone="purple">Learning</Pill>
+            <Pill tone="navy">Learning</Pill>
             <p className="mt-1.5 text-[14px] font-bold text-ink">Level 2 · this week&apos;s lesson</p>
           </div>
         </div>
@@ -125,7 +127,7 @@ export function PhoneMock({ className = "" }: { className?: string }) {
 /** A household card: the ids, not just a name. */
 export function HouseholdMock({ className = "" }: { className?: string }) {
   const rows: [string, string][] = [
-    ["Connect number", "H-2041"],
+    ["Household no.", "H-2041"],
     ["Your old member ID", "0417"],
     ["Your old household ID", "0212"],
     ["Bank payer name", "DANIEL RIVERA"],
@@ -235,7 +237,7 @@ export function LearningMock({ className = "" }: { className?: string }) {
             <p className="font-display text-[20px] font-semibold text-navy">Level 2 · Fall term</p>
             <p className="text-[12px] text-muted">Sunday 10:00 AM · Room 4</p>
           </div>
-          <Pill tone="purple">Class</Pill>
+          <Pill tone="navy">Class</Pill>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           <div className="rounded-xl bg-ground p-3">
@@ -269,7 +271,7 @@ export function FloatChip({ icon, tone, title, body, className = "", delay = "0s
     <div
       aria-hidden
       style={{ animationDelay: delay }}
-      className={`absolute z-20 hidden items-center gap-3 rounded-2xl border border-line bg-white/95 py-2.5 pl-2.5 pr-4 shadow-[0_18px_40px_-12px_rgba(27,44,92,0.4)] backdrop-blur motion-safe:animate-site-float sm:flex ${className}`}
+      className={`absolute z-20 hidden items-center gap-3 rounded-2xl border border-line bg-white/95 py-2.5 pl-2.5 pr-4 shadow-window backdrop-blur motion-safe:animate-site-float sm:flex ${className}`}
     >
       <span className={`flex h-9 w-9 flex-none items-center justify-center rounded-xl ${tones[tone]}`}>
         <Icon name={icon} className="h-[18px] w-[18px]" />
@@ -286,7 +288,7 @@ export function FloatChip({ icon, tone, title, body, className = "", delay = "0s
 export function TipCheckoutMock({ className = "" }: { className?: string }) {
   const cap = usd(TIP_YEARLY_CAP_CENTS);
   return (
-    <div className={`overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_30px_60px_-20px_rgba(27,44,92,0.35)] ${className}`}>
+    <div className={`overflow-hidden rounded-card border border-line bg-white shadow-window ${className}`}>
       <div className="border-b border-line-soft bg-ground px-5 py-4">
         <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Checkout · example</p>
         <div className="mt-1.5 flex items-center justify-between gap-3">

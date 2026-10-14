@@ -53,7 +53,7 @@ export async function PersonSlideOverServer({
     console.error("[slideover] the person could not be read:", loaded.error);
     return (
       <SlideOverMessage title="Could not load this person" closeHref={closeHref}>
-        <p role="alert" className="m-0 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13.5px] text-danger">
+        <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13.5px] text-danger">
           Could not load the details: {explainError(loaded.error)}.{" "}
           <Link href={slideOverHref(base, sp, personId)} className="font-bold underline">
             Try again

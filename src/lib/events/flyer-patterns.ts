@@ -146,9 +146,9 @@ function mandala(w: number, h: number, p: string, a: string): string {
 export function patternSvg(kind: FlyerPattern, o: PatternColors): string {
   const w = Math.max(1, Math.round(o.w));
   const h = Math.max(1, Math.round(o.h));
-  const p = color(o.primary, "#1B2C5C");
-  const a = color(o.accent, "#C9731C");
-  const bg = color(o.background, "#FBF7F0");
+  const p = color(o.primary, "#2B2A8A");
+  const a = color(o.accent, "#FFB82A");
+  const bg = color(o.background, "#FFFAF5");
   const body = kind === "lotus" ? lotus(w, h, p, a, !o.transparent) : kind === "rangoli" ? rangoli(w, h, p, a) : kind === "diya" ? diya(w, h, p, a) : mandala(w, h, p, a);
   const fill = o.transparent ? "" : `<rect width="${w}" height="${h}" fill="${bg}"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${fill}${body}</svg>`;

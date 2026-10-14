@@ -164,7 +164,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
                         </td>
                         <td>
                           {tierLabel(a.tier)}
-                          {ec ? <div className="text-xs text-purple">EC approval</div> : null}
+                          {ec ? <div className="text-xs text-navy">EC approval</div> : null}
                         </td>
                         <td>{reference?.name ?? <span className="text-faint">None named</span>}</td>
                         <td>

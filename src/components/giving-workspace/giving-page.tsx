@@ -23,7 +23,7 @@ export function GivingPage({ model, initial, demo }: { model: GivingWorkspaceMod
               <p className="m-0 text-[14px] text-muted">Ask, review, confirm. The tables and reports are one tap away.</p>
             </div>
             <nav aria-label={`${model.title} views`} className="max-w-full overflow-x-auto">
-              <ul className="m-0 flex list-none gap-1 rounded-[24px] bg-[#e9eff7] p-1">
+              <ul className="m-0 flex list-none gap-1 rounded-card bg-navy-50 p-1">
                 {model.views.map((v) => {
                   const current = v.key === "conversation";
                   return (
@@ -31,7 +31,7 @@ export function GivingPage({ model, initial, demo }: { model: GivingWorkspaceMod
                       <Link
                         href={v.href}
                         aria-current={current ? "page" : undefined}
-                        className={`inline-flex min-h-[40px] items-center whitespace-nowrap rounded-[20px] px-4 text-[14px] no-underline ${current ? "bg-white font-bold text-navy" : "font-semibold text-ink-2 hover:bg-white/60"}`}
+                        className={`inline-flex min-h-[40px] items-center whitespace-nowrap rounded-window px-4 text-[14px] no-underline ${current ? "bg-white font-bold text-navy" : "font-semibold text-ink-2 hover:bg-white/60"}`}
                       >
                         {v.label}
                       </Link>
@@ -58,7 +58,7 @@ export function GivingPage({ model, initial, demo }: { model: GivingWorkspaceMod
         </div>
         <aside
           aria-label={`${model.title} context`}
-          className="mt-2 flex flex-col gap-[22px] rounded-[16px] border border-line bg-ground p-5 @[1080px]:mt-0 @[1080px]:rounded-none @[1080px]:border-0 @[1080px]:border-l @[1080px]:p-7"
+          className="mt-2 flex flex-col gap-[22px] rounded-tile border border-line bg-ground p-5 @[1080px]:mt-0 @[1080px]:rounded-none @[1080px]:border-0 @[1080px]:border-l @[1080px]:p-7"
         >
           <GivingSidePanel model={model} />
         </aside>

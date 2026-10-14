@@ -145,7 +145,7 @@ function ReturnBox({ what, pending, onReturn, onCancel }: { what: string; pendin
   const [reason, setReason] = useState("");
   const [missing, setMissing] = useState(false);
   return (
-    <div className="mt-2 flex flex-col gap-2 rounded-[10px] border border-line p-3">
+    <div className="mt-2 flex flex-col gap-2 rounded-field border border-line p-3">
       <label htmlFor={id} className="crm-label">
         What should the author change in {what}?
       </label>

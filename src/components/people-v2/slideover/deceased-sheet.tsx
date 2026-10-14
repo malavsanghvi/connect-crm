@@ -95,8 +95,8 @@ export function DeceasedSheet({ mode, person, today, onClose }: { mode: "mark" |
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[48] grid place-items-center overflow-y-auto bg-[rgba(18,32,58,0.5)] p-3" data-testid="deceased-sheet">
-      <div role="dialog" aria-modal="true" aria-labelledby={`${uid}-t`} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-[0_20px_60px_rgba(18,32,58,0.35)]">
+    <div className="fixed inset-0 z-[48] grid place-items-center overflow-y-auto bg-ink/50 p-3" data-testid="deceased-sheet">
+      <div role="dialog" aria-modal="true" aria-labelledby={`${uid}-t`} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-window">
         <h2 id={`${uid}-t`} className="m-0 font-display text-[21px] font-semibold text-ink" dir="auto">
           {marking ? `Mark ${person.name} as deceased` : `Undo “deceased” for ${person.name}`}
         </h2>
@@ -181,7 +181,7 @@ export function DeceasedSheet({ mode, person, today, onClose }: { mode: "mark" |
             <button
               type="submit"
               disabled={phase === "saving"}
-              className={`inline-flex min-h-11 items-center rounded-full px-5 text-[14px] font-bold text-white disabled:opacity-60 ${marking ? "bg-danger hover:bg-[#8f1e18]" : "bg-navy hover:bg-navy-hover"}`}
+              className={`inline-flex min-h-11 items-center rounded-full px-5 text-[14px] font-bold text-white disabled:opacity-60 ${marking ? "bg-danger hover:bg-danger-900" : "bg-navy hover:bg-navy-hover"}`}
             >
               {phase === "saving" ? "Working…" : error ? "Try again" : marking ? `Mark ${person.firstName} as deceased` : `Undo for ${person.firstName}`}
             </button>

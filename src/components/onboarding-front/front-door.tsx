@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useId } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import type { FrontModel, FrontStep } from "@/lib/onboarding-front/front-door";
 import type { RecogniseContext } from "@/lib/onboarding-front/recognise";
 
@@ -42,21 +43,19 @@ function StepMark({ step }: { step: FrontStep }) {
   if (step.state === "done") {
     return (
       <span aria-hidden="true" className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-success">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 13l4 4 10-10" />
-        </svg>
+        <Icon name="check" size={14} strokeWidth={3} className="text-white" />
       </span>
     );
   }
   if (step.state === "now") {
     return (
-      <span aria-hidden="true" className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-navy text-[13px] font-extrabold text-white">
+      <span aria-hidden="true" className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-navy text-[13px] font-bold text-white">
         {step.n}
       </span>
     );
   }
   return (
-    <span aria-hidden="true" className="box-border flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border-2 border-[#9fb0c6] text-[12px] font-extrabold text-muted">
+    <span aria-hidden="true" className="box-border flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border-2 border-navy-300 text-[12px] font-bold text-muted">
       {step.n}
     </span>
   );
@@ -86,8 +85,8 @@ export function StepsNav({ steps, setupHref, guidedHref }: { steps: readonly Fro
         <span className="text-[13px] text-muted">
           Step {current} of {steps.length}
         </span>
-        <div aria-hidden="true" className="h-2 overflow-hidden rounded-[4px] bg-[#eaf0f7]">
-          <div className="h-2" style={{ width: pct, background: "linear-gradient(90deg, #34c4cb, #2f8ed8, #6cc68f)" }} />
+        <div aria-hidden="true" className="h-2 overflow-hidden rounded-[4px] bg-navy-50">
+          <div className="h-2 bg-navy" style={{ width: pct }} />
         </div>
       </div>
       <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -99,7 +98,7 @@ export function StepsNav({ steps, setupHref, guidedHref }: { steps: readonly Fro
           >
             <StepMark step={s} />
             <span className="flex flex-col gap-0.5">
-              <span className={`text-[14px] ${s.state === "now" ? "font-extrabold text-navy-hover" : s.state === "todo" ? "font-bold text-muted" : "font-bold text-ink"}`}>
+              <span className={`text-[14px] ${s.state === "now" ? "font-bold text-navy-hover" : s.state === "todo" ? "font-bold text-muted" : "font-bold text-ink"}`}>
                 {s.title}
                 <span className="sr-only"> ({STATE_WORD[s.state]})</span>
               </span>
@@ -112,7 +111,7 @@ export function StepsNav({ steps, setupHref, guidedHref }: { steps: readonly Fro
         <div className="rounded-[14px] border border-line bg-ground px-[14px] py-3 text-[12px] leading-[1.55] text-ink-2">
           Nothing is saved until you confirm, and every load can be undone in Settings › Data import.
         </div>
-        <div className="rounded-[14px] bg-saffron-50 px-[14px] py-3 text-[12px] leading-[1.55] text-[#5c2a0b]">
+        <div className="rounded-[14px] bg-saffron-50 px-[14px] py-3 text-[12px] leading-[1.55] text-brown-900">
           <b>Children.</b> Nothing about anyone under 18 is ever sent to an AI service.
         </div>
       </div>
@@ -148,7 +147,7 @@ export function PlanCard({ model, retryHref }: { model: FrontModel; retryHref: s
         ))}
       </ul>
       {model.importsError ? (
-        <p role="alert" className="m-0 rounded-[12px] bg-danger-50 px-3 py-2 text-[14px] leading-[1.5] text-danger">
+        <p role="alert" className="m-0 rounded-field bg-danger-50 px-3 py-2 text-[14px] leading-[1.5] text-danger">
           {model.importsError}{" "}
           <a href={retryHref} className="font-semibold text-danger underline">
             Try again
@@ -178,7 +177,7 @@ const QBO_TONE: Record<FrontModel["qbo"]["tone"], PillTone> = { ok: "green", war
 function TileHead({ mono, name }: { mono: string; name: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span aria-hidden="true" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-navy-50 text-[13px] font-extrabold text-navy">
+      <span aria-hidden="true" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-navy-50 text-[13px] font-bold text-navy">
         {mono}
       </span>
       <span className="text-[15px] font-bold text-ink">{name}</span>
@@ -284,9 +283,7 @@ export function NivaSees({ model }: { model: FrontModel }) {
   const nowId = useId();
   return (
     <section aria-labelledby={id} className={`${card} flex gap-[14px] @md:ml-[46px]`}>
-      <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 flex-none text-success">
-        <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" />
-      </svg>
+      <Icon name="shield" size={24} className="mt-0.5 flex-none text-success" />
       <div className="flex min-w-0 flex-col gap-2">
         <h2 id={id} className={h2}>
           What Niva sees, and what it never does

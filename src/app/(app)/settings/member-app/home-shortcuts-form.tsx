@@ -48,7 +48,7 @@ export function HomeShortcutsCard({
         {[...shownShortcuts(rows), ...kept].map((k) => (
           <input key={k} type="hidden" name="shortcut" value={k} />
         ))}
-        <ol className="divide-y divide-line-soft rounded-[10px] border border-line" aria-label="Home shortcuts, in the order members see them">
+        <ol className="divide-y divide-line-soft rounded-field border border-line" aria-label="Home shortcuts, in the order members see them">
           {rows.map((r, i) => {
             const def = homeShortcutDef(r.key);
             const note = moduleNotes[r.key];

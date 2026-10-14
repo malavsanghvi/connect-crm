@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { AskNiva } from "@/components/niva/ask-niva";
 import { Card, EmptyState, Tag, buttonClass } from "@/components/ui";
 import { isHandTickable, nextStep, routineProgress, stepIsDone, type ResolvedRoutine, type ResolvedStep } from "@/lib/routines/resolve";
@@ -65,7 +66,7 @@ export function RoutineCard({ routine }: { routine: ResolvedRoutine }) {
           ) : null}
           {routine.groups.map((g) => (
             <section key={g.when} aria-label={g.label} className="mb-3 last:mb-0">
-              <h3 className="px-2 pb-1 pt-2 text-[12px] font-extrabold uppercase tracking-[0.04em] text-navy">{g.label}</h3>
+              <h3 className="px-2 pb-1 pt-2 text-[12px] font-bold uppercase tracking-[0.04em] text-navy">{g.label}</h3>
               <ul className="m-0 list-none p-0">
                 {g.steps.map((s) => (
                   <StepRow
@@ -88,7 +89,7 @@ export function RoutineCard({ routine }: { routine: ResolvedRoutine }) {
 
       {routine.later.length > 0 ? (
         <section aria-label="Coming up" className="mt-4 border-t border-line-soft pt-3">
-          <h3 className="pb-1 text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">Coming up</h3>
+          <h3 className="pb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-muted">Coming up</h3>
           <ul className="m-0 list-none p-0 text-[13px] text-muted">
             {routine.later.slice(0, LATER_SHOWN).map((l) => (
               <li key={l.key} className="py-0.5">
@@ -148,9 +149,7 @@ function StepRow({
 function StepBox({ step, done, onToggle }: { step: ResolvedStep; done: boolean; onToggle: () => void }) {
   const look = `mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${done ? "border-success bg-success text-white" : "border-line bg-white text-transparent"}`;
   const tick = (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 13l4 4 10-10" />
-    </svg>
+    <Icon name="check" className="h-3.5 w-3.5" strokeWidth={3} />
   );
   if (isHandTickable(step)) {
     return (

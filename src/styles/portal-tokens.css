@@ -1,0 +1,32 @@
+/*
+ * The portal's own token names, on top of the brand kit's (brand-tokens.css, generated from brand/tokens.json).
+ *
+ * The portal is on the Weaver brand kit (docs/BRAND_CONFORMANCE.md): every colour, face, radius and shadow is the kit's, from the
+ * generated file. This file holds only what the kit does not name, and it holds no colour value of its own:
+ *   1. aliases, for names the portal used before it moved onto the kit;
+ *   2. shades worked out from kit colours (a darker hover, a lighter mark on a dark screen), so no new hue enters;
+ *   3. two shadows composed from the kit's ink.
+ * tests/brand-conformance.test.ts fails on a colour value written anywhere in the portal outside the kit's own.
+ */
+@theme static {
+  /* 1. Aliases */
+  --color-card: var(--color-white);
+  --color-subtle: var(--color-canvas);
+  --color-line-strong: var(--color-line-control);
+  --color-navy-700: var(--color-navy-hover);
+  --color-frame: var(--color-line); /* a switched-off button */
+  --color-highlight: var(--color-saffron-50); /* a highlighted table row */
+  --color-skeleton: var(--color-line); /* a loading block */
+  --color-toggle-off: var(--color-line-control); /* a switch that is off (3:1 against the surface) */
+
+  /* 2. Shades of kit colours */
+  --color-success-900: color-mix(in srgb, var(--color-success) 70%, black); /* text on success-50 (7.6:1), a darker ok button on hover */
+  --color-success-200: color-mix(in srgb, var(--color-success) 30%, white);
+  --color-danger-200: color-mix(in srgb, var(--color-danger) 30%, white); /* an error mark on a navy screen */
+  --color-danger-900: color-mix(in srgb, var(--color-danger) 75%, black); /* error text and a solid red button on hover (7.8:1 on danger-50) */
+  --color-gold-hover: color-mix(in srgb, var(--color-gold) 80%, white); /* the gold button on hover: the kit says "a lighter gold" */
+
+  /* 3. Elevation: composed from the kit's ink, so the shadow takes the brand's cool tone */
+  --shadow-toast: 0 8px 24px color-mix(in srgb, var(--color-ink) 25%, transparent);
+  --shadow-sheet: -8px 0 30px color-mix(in srgb, var(--color-ink) 14%, transparent);
+}

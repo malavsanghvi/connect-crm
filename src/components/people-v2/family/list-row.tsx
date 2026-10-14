@@ -76,7 +76,7 @@ export function ListRow({
         {/* The box is the input's frame: a click anywhere in it types. */}
         <div
           onClick={() => input.current?.focus()}
-          className="flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-[10px] border border-[var(--v2-line-input)] bg-white px-2 py-1.5 focus-within:border-[var(--v2-blue)] focus-within:ring-2 focus-within:ring-[var(--v2-blue-border)] md:min-h-10"
+          className="flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-field border border-[var(--v2-line-input)] bg-white px-2 py-1.5 focus-within:border-[var(--v2-blue)] focus-within:ring-2 focus-within:ring-[var(--v2-blue-border)] md:min-h-10"
         >
           {chips.map((c, i) => (
             <span key={`${c}-${i}`} dir="auto" className={CHIP}>
@@ -138,7 +138,7 @@ export function ListRow({
         {items.length ? <Chips items={items} /> : <span className="text-[var(--v2-blue)]">{placeholder}</span>}
         {edit.busy ? (
           <>
-            <span aria-hidden="true" className="size-2 shrink-0 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
+            <span aria-hidden="true" className="size-2 shrink-0 animate-pulse rounded-full bg-gold" />
             <span className="sr-only">Saving…</span>
           </>
         ) : (
@@ -289,7 +289,7 @@ export function InterestsRow({
         {names.length ? <Chips items={names} /> : <span className="text-[var(--v2-blue)]">{placeholder}</span>}
         {edit.busy ? (
           <>
-            <span aria-hidden="true" className="size-2 shrink-0 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
+            <span aria-hidden="true" className="size-2 shrink-0 animate-pulse rounded-full bg-gold" />
             <span className="sr-only">Saving…</span>
           </>
         ) : (

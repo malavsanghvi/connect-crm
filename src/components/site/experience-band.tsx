@@ -1,4 +1,4 @@
-import { Icon } from "@/components/site/icons";
+import { Icon } from "@/components/brand/icons";
 import { SectionHeading, buttonStyles, container } from "@/components/site/ui";
 import { portalUrl } from "@/lib/site";
 

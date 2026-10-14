@@ -17,7 +17,7 @@ export type RowsContext = { currency: string; locale: string; timeZone: string; 
 
 const TONE: Record<Tone, string> = {
   ok: "bg-success-50 text-success",
-  warn: "bg-saffron-50 text-saffron",
+  warn: "bg-warning-50 text-warning-ink",
   bad: "bg-danger-50 text-danger",
   info: "bg-navy-50 text-navy",
   muted: "border border-line bg-ground text-muted",
@@ -65,7 +65,7 @@ function RowMenu({ row, ctx }: { row: ListRow; ctx: ActContext }) {
         aria-label={`More for ${row.reference === "—" ? row.title : row.reference}`}
         title="More"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-10 min-w-10 items-center justify-center rounded-[10px] border border-line bg-white px-2 text-[18px] font-bold leading-none text-ink-2 hover:bg-canvas"
+        className="flex h-10 min-w-10 items-center justify-center rounded-field border border-line bg-white px-2 text-[18px] font-bold leading-none text-ink-2 hover:bg-canvas"
       >
         <span aria-hidden="true">⋯</span>
       </button>
@@ -73,7 +73,7 @@ function RowMenu({ row, ctx }: { row: ListRow; ctx: ActContext }) {
         id={id}
         hidden={!open}
         onClickCapture={() => setOpen(false)}
-        className="absolute right-0 top-11 z-30 flex w-64 max-w-[calc(100vw-32px)] flex-col gap-0.5 rounded-[14px] border border-line bg-white p-1.5 shadow-[0_12px_32px_rgba(18,32,58,0.18)]"
+        className="absolute right-0 top-11 z-30 flex w-64 max-w-[calc(100vw-32px)] flex-col gap-0.5 rounded-[14px] border border-line bg-white p-1.5 shadow-menu"
       >
         <ActButtons acts={row.menu} row={row} ctx={{ ...ctx, trigger: "menu" }} />
         {row.history ? (

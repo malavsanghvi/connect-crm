@@ -100,9 +100,9 @@ export function DetailsTab({
         >
           {flyerUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={flyerUrl} alt={`Flyer for ${event.name}`} className="w-full rounded-[10px] border border-line" />
+            <img src={flyerUrl} alt={`Flyer for ${event.name}`} className="w-full rounded-field border border-line" />
           ) : flyerError ? (
-            <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+            <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {flyerError}
             </p>
           ) : (
@@ -110,7 +110,7 @@ export function DetailsTab({
           )}
           {flyerSource ? <p className="crm-hint mt-1">{FLYER_SOURCE_LABEL[flyerSource]}</p> : null}
           {flyerStale ? (
-            <p role="status" className="mt-2 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[12px] text-brown-900">
+            <p role="status" className="mt-2 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[12px] text-warning-ink">
               The event&apos;s {flyerStale} changed after this flyer was made, so the flyer still shows the old {flyerStale}.
               {canEdit ? (
                 <>

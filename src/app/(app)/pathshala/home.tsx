@@ -43,7 +43,7 @@ export function PathshalaHomeKpi({ data }: { data: PathshalaHome }) {
       label="Pathshala students"
       value={data.stats.students.toLocaleString()}
       hint={`${percent(data.stats.attendanceRate)} attendance`}
-      tone="purple"
+      tone="navy"
       href="/pathshala"
     />
   );
@@ -56,8 +56,8 @@ export function PathshalaHomeTask({ data }: { data: PathshalaHome }) {
   if (data.ok && !task) return null;
   return (
     <Card title="My tasks" description="Pathshala" className="mt-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-[12px] border border-line-soft bg-ground px-3.5 py-3">
-        <Tag color="purple">Pathshala</Tag>
+      <div className="flex flex-wrap items-center gap-3 rounded-field border border-line-soft bg-ground px-3.5 py-3">
+        <Tag color="navy">Pathshala</Tag>
         <div className="min-w-0 flex-1">
           {data.ok && task ? (
             <>

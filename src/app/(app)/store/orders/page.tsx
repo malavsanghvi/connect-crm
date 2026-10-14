@@ -189,7 +189,7 @@ export default async function StoreOrdersPage({ searchParams }: { searchParams: 
                 <div key={t.item_id} className="flex items-center gap-2.5 text-[13px]">
                   <div className="w-[150px] truncate font-semibold">{itemName(t.item_id)}</div>
                   <div className="h-3.5 flex-1 rounded-full bg-track" aria-hidden>
-                    <div className="h-3.5 rounded-full bg-store" style={{ width: `${t.pct}%` }} />
+                    <div className="h-3.5 rounded-full bg-navy" style={{ width: `${t.pct}%` }} />
                   </div>
                   <div className="w-[80px] text-right font-bold">{t.units} units</div>
                 </div>

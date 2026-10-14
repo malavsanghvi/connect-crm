@@ -267,7 +267,7 @@ function AuthenticatorStep() {
       <button type="submit" disabled={pending} className={`${buttonClass("primary", "lg")} w-full`}>
         {pending ? "Checking…" : "Turn on 2FA"}
       </button>
-      <p className="rounded-[10px] bg-canvas px-3 py-2 text-[12px] text-muted">
+      <p className="rounded-field bg-canvas px-3 py-2 text-[12px] text-muted">
         Printed recovery codes are not offered yet: the sign-in service has no safe way to accept them. If you lose your phone, the Weaver team can
         reset your 2FA after checking who you are.
       </p>

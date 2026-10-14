@@ -73,12 +73,12 @@ export default async function ClosePage({ searchParams }: { searchParams: Promis
           actions={canClose ? <LockMonthButton month={month} monthLabel={label} shortLabel={shortLabel} ready={ready} locked={locked} /> : null}
         >
           <div className="flex flex-col gap-1 rounded-xl bg-ground px-3 py-2.5">
-            <p className="text-xs font-extrabold tracking-[0.04em] text-navy">{label.toUpperCase()}</p>
+            <p className="text-xs font-bold tracking-[0.04em] text-navy">{label.toUpperCase()}</p>
             {items.map((i) => (
               <div key={i.key} className="flex min-h-9 items-center gap-2 py-1 text-[13px] text-ink">
                 <span
                   aria-hidden
-                  className={`flex h-5 w-5 flex-none items-center justify-center rounded-[5px] border-2 border-success text-xs font-extrabold text-white ${i.done ? "bg-success" : "bg-white"}`}
+                  className={`flex h-5 w-5 flex-none items-center justify-center rounded-[5px] border-2 border-success text-xs font-bold text-white ${i.done ? "bg-success" : "bg-white"}`}
                 >
                   {i.done ? "✓" : ""}
                 </span>

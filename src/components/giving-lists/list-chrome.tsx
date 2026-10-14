@@ -90,7 +90,7 @@ export function BodyState({ body }: { body: Exclude<ListBody, { state: "ok" }> }
     );
   }
   return (
-    <div role="alert" className="rounded-[14px] border border-[#f0b9b4] bg-danger-50 px-4 py-3 text-[14px] text-[#7a1a14]">
+    <div role="alert" className="rounded-[14px] border border-danger/30 bg-danger-50 px-4 py-3 text-[14px] text-danger">
       {body.error}{" "}
       <Link href={body.retry} className="font-bold underline">
         Try again

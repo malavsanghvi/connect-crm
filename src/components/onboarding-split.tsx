@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { WeaverMark } from "@/components/brand/weaver-mark";
+import { LogoTile } from "@/components/brand/logo";
 import { GENEROSITY_LINE, PRODUCT_NAME } from "@/lib/brand";
 
 /**
@@ -11,9 +11,7 @@ export function OnboardingSplit({ title, lead, aside, children }: { title: strin
   return (
     <main className="grid min-h-screen grid-cols-1 lg:grid-cols-[480px_minmax(0,1fr)]">
       <section className="flex flex-col gap-[18px] bg-navy px-8 py-10 text-white lg:p-14">
-        <div className="flex h-[64px] w-[64px] items-center justify-center rounded-2xl bg-white">
-          <WeaverMark className="h-[46px] w-[46px]" />
-        </div>
+        <LogoTile size={64} />
         <div>
           <p className="text-[13px] font-semibold uppercase tracking-wide text-navy-200">{PRODUCT_NAME} · {GENEROSITY_LINE}</p>
           <h1 className="mt-1 font-display text-[34px] font-semibold leading-[1.15]">{title}</h1>
@@ -30,12 +28,12 @@ export function OnboardingSplit({ title, lead, aside, children }: { title: strin
 }
 
 export const onboardingInputClass =
-  "min-h-[46px] w-full rounded-xl border border-line-input bg-white px-3.5 text-base text-ink placeholder:text-faint focus:border-navy focus:outline-2 focus:outline-offset-1 focus:outline-navy";
+  "min-h-[46px] w-full rounded-xl border border-line-control bg-white px-3.5 text-base text-ink placeholder:text-faint focus:border-navy focus:outline-2 focus:outline-offset-1 focus:outline-navy";
 
 export function OnboardingError({ text }: { text: string | null | undefined }) {
   if (!text) return null;
   return (
-    <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       {text}
     </p>
   );
@@ -44,7 +42,7 @@ export function OnboardingError({ text }: { text: string | null | undefined }) {
 export function OnboardingNotice({ text }: { text: string | null | undefined }) {
   if (!text) return null;
   return (
-    <p role="status" className="rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
+    <p role="status" className="rounded-field border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
       {text}
     </p>
   );
