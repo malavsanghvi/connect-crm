@@ -316,7 +316,7 @@ select pg_temp.claims(:octreas);
 select pg_temp.assert_raises(format($$select app.pledge_document(%L, %L, 18)$$, :oc, :p6), 'was not found', 'D · another community''s treasurer asking in their own community: not found');
 select pg_temp.assert_raises(format($$select app.pledge_document(%L, %L, 18)$$, :jc, :p6), 'don''t have access', 'D · and in this community: no access');
 select pg_temp.assert_raises(format($$select app.pledge_document(%L, %L, 18)$$, :jc, '18400000-0000-4000-8000-0000000009ff'), 'was not found', 'D · a pledge that does not exist: not found');
-select pg_temp.assert_raises(format($$select app.worker_pledge_document(%L, %L, 18)$$, :'msg6', :p6), 'Only the background service', 'D · only the background service reads for a message');
+select pg_temp.assert_raises(format($$select app.worker_pledge_document(%L, %L, 18)$$, :'msg6', :p6), 'permission denied', 'D · signed-in people cannot read for a message: only the background service can');
 reset role;
 set role connect_worker;
 select app.worker_pledge_document(:'msg6', :p6, 18) as wdoc \gset
