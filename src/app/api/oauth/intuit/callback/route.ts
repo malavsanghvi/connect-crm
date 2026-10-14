@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { explainError } from "@/lib/errors";
+import { originOf } from "@/lib/payments/server";
 import { verifyState } from "@/lib/qbo/oauth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
@@ -17,7 +18,9 @@ import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-c
 const SETUP = "/accounting/qbo/setup";
 
 function back(request: NextRequest, outcome: "ok" | "error", message: string) {
-  const url = new URL(SETUP, request.url);
+  // request.url is the server's own address behind Caddy (http://localhost:3000), so the person's origin comes from the
+  // forwarded host, as the Stripe and PayPal callbacks do.
+  const url = new URL(SETUP, originOf(request.headers, request.nextUrl.origin));
   url.searchParams.set("connect", outcome);
   url.searchParams.set("msg", message.slice(0, 300));
   return NextResponse.redirect(url);
