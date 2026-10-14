@@ -368,7 +368,11 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
   infected one is refused to everyone, then removed (the part marked removed by the virus check, the recording
   cleared from gyan_progress) and the learner and a child's household adults are told (upload.removed, no file name);
   the parts in app.gyan_submission_json carry scan and scan_held
-- **Background jobs:** homework.publish_notify (queued on every publish; the worker tells the learners and
+- **Background jobs:** pathshala.announcement_notify (0781: queued by a trigger the moment a class announcement
+  becomes published; the worker pushes the adults of the households with a learner placed or active in the class,
+  or in the term for a whole-Pathshala one, in batches through app.worker_pathshala_announcement_notify, each
+  person once per announcement; the member app lists them at /pathshala-announcements);
+  homework.publish_notify (queued on every publish; the worker tells the learners and
   the parents of children in batches through app.worker_homework_publish_notify, each person once);
   homework.reminders_sweep (every 15 minutes, in batches of 100, 0588: app.worker_homework_reminders_sweep
   reminds the learners who have not handed in, and the parents of children, the hours before the end of the

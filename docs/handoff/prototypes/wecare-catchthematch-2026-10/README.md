@@ -9,7 +9,7 @@ WeCare page:
 - `Thanks.dc.html`: thank-yous due on Today and Settings > WeCare (slice 3, plan awaiting the owner).
 - `Dashboard.dc.html`: engagement signs and the organization dashboard (slice 4, plan awaiting the owner).
 - `VideoSend.dc.html` + `VideoApp.dc.html`: a video message to several households, watched in the app, never offered
-  as a file (owner idea 2026-10-14; backlog B106; not planned).
+  as a file (owner idea 2026-10-14; backlog B108; not planned).
 
 CatchTheMatch page:
 - `MatchFlow.dc.html`: who does what; the paused steps dashed.

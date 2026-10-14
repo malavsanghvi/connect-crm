@@ -1,0 +1,30 @@
+<link rel="stylesheet" href="../../weaver-tokens.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap">
+<style>
+  body { margin: 0; font-family: var(--font-sans); }
+  .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; }
+  .panel { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 104px; padding: 0 20px; border-radius: var(--radius-tile); }
+  .on-canvas { background: var(--canvas); border: 1px solid var(--line); }
+  .on-navy { background: var(--navy); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 28px; border-radius: var(--radius-pill); font-size: 16px; font-weight: 700; text-decoration: none; border: 2px solid transparent; }
+  .btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 4px; }
+  .primary { background: var(--navy); color: var(--white); }
+  .primary:hover { background: var(--navy-hover); }
+  .ghost { background: var(--white); color: var(--navy); border-color: rgba(43, 42, 138, 0.2); }
+  .ghost:hover { border-color: var(--navy); }
+  .gold { background: var(--gold); color: var(--navy); }
+  .ghost-navy { background: none; color: var(--white); border-color: rgba(255, 255, 255, 0.3); }
+  .ghost-navy:hover { border-color: var(--white); }
+  .gold:focus-visible, .ghost-navy:focus-visible { outline-color: var(--gold); }
+  svg { width: 20px; height: 20px; }
+</style>
+<div class="row">
+  <div class="panel on-canvas">
+    <a class="btn primary" href="#">Get started free <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+    <a class="btn ghost" href="#">Try the demo</a>
+  </div>
+  <div class="panel on-navy">
+    <a class="btn gold" href="#">Get started free <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+    <a class="btn ghost-navy" href="#">Try the demo</a>
+  </div>
+</div>

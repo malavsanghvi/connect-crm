@@ -11,7 +11,7 @@
 import { providerStatus, type Env } from "../config";
 import { messageOf, PermanentError } from "../errors";
 import { QboClient } from "../qbo/client";
-import { references, toQbo, totalCents, type QboDoc } from "../qbo/documents";
+import { references, resolveLinks, toQbo, totalCents, type QboDoc } from "../qbo/documents";
 import type { Job, JobContext } from "../types";
 
 export const kind = "qbo.test_post";
@@ -50,18 +50,23 @@ export async function run(job: Job, ctx: JobContext) {
     await ctx.db.query("select app.qbo_worker_test_post_done($1, false, '[]', $2)", [testId, messageOf(err)]);
     throw err;
   }
-  for (const doc of plan.docs ?? []) {
+  // What this run created, by entity: the Deposit moves the Sales receipt out of Undeposited Funds, which QuickBooks only
+  // does through a link to that receipt's id (see DocLine.linked_txn).
+  const created: Record<string, string> = {};
+  for (const planned of plan.docs ?? []) {
     try {
+      const doc = resolveLinks(planned, created, plan.mode === "dry_run");
       const body = toQbo(doc);
       if (plan.mode === "dry_run") {
         const problems = await checkRefs(qbo, doc);
         results.push({ entity: doc.entity, ok: problems.length === 0, total_cents: totalCents(doc), checked: problems.length ? problems : ["every account, item and class exists and is active"], error: problems.join("; ") || undefined, body });
       } else {
         const saved = await qbo.create(doc.entity, body, `${testId}-${doc.entity}`);
+        created[doc.entity] = saved.Id;
         results.push({ entity: doc.entity, ok: true, qbo_id: saved.Id, doc_number: doc.doc_number ?? null, total_cents: totalCents(doc) });
       }
     } catch (err) {
-      results.push({ entity: doc.entity, ok: false, error: messageOf(err) });
+      results.push({ entity: planned.entity, ok: false, error: messageOf(err) });
     }
   }
   const ok = results.length === 4 && results.every((r) => r.ok);

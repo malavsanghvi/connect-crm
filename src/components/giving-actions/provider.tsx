@@ -10,6 +10,8 @@
 //   <RecordPaymentButton householdId={id} href={`/giving/payments?household=${id}`}>Record payment</RecordPaymentButton>
 //   sheets?.openRecordPledge({ householdId, prefill });          (giving.manage only; slice 7)
 //   <RecordPledgeButton householdId={id} />                       (nothing where no sheet can open: there is no other screen)
+//   sheets?.openEditPledge({ pledgeId, onDone });                  (giving.manage only; 0782: edit or delete one pledge)
+//   <EditPledgeButton pledgeId={id} />                             (nothing where no sheet can open)
 //
 // The sheets only open; the Record payment sheet's own button records (through the existing recordOfflinePaymentAction). Where no
 // sheet can open (the classic look, or a person without Giving) useGivingSheets() is null and RecordPaymentButton is its plain link.
@@ -21,11 +23,13 @@ import type { RecordPaymentResult } from "@/app/(app)/giving/payments/actions";
 import type { FamilyFocus } from "@/lib/giving-actions/family-giving";
 import type { RecordedPledge, RecordPledgeRequest } from "@/lib/giving-actions/record-pledge";
 import type { GivingSheetContext, RecordPaymentRequest } from "@/lib/giving-actions/record-sheet";
+import type { EditPledgeRequest } from "./edit-pledge-sheet";
 
 // The sheets (and the Server Actions behind them) load when one is first opened, not with every page of the shell.
 const RecordPaymentSheet = lazy(() => import("./record-payment-sheet").then((m) => ({ default: m.RecordPaymentSheet })));
 const FamilyGivingPanel = lazy(() => import("./family-giving").then((m) => ({ default: m.FamilyGivingPanel })));
 const RecordPledgeSheet = lazy(() => import("./record-pledge-sheet").then((m) => ({ default: m.RecordPledgeSheet })));
+const EditPledgeSheet = lazy(() => import("./edit-pledge-sheet").then((m) => ({ default: m.EditPledgeSheet })));
 
 export type OpenRecordPayment = RecordPaymentRequest & {
   /** Called once the server confirmed the payment (a list can show the new row as done). */
@@ -45,11 +49,15 @@ export type GivingSheetsApi = {
   /** The person may record a pledge by hand (giving.manage; slice 7). */
   canRecordPledge: boolean;
   openRecordPledge: (request?: OpenRecordPledge) => void;
+  /** The person may edit or delete a pledge (giving.manage; 0782). */
+  canEditPledge: boolean;
+  openEditPledge: (request: EditPledgeRequest) => void;
 };
 
 type Open =
   | { kind: "record"; request: OpenRecordPayment; n: number }
   | { kind: "pledge"; request: OpenRecordPledge; n: number }
+  | { kind: "editPledge"; request: EditPledgeRequest; n: number }
   | { kind: "family"; householdId: string; focus: FamilyFocus | null; n: number }
   | null;
 
@@ -91,6 +99,12 @@ export function GivingSheetsProvider({ ctx, children }: { ctx: GivingSheetContex
         remember();
         setOpen({ kind: "pledge", request, n: ++count.current });
       },
+      canEditPledge: ctx.canEditPledge === true,
+      openEditPledge: (request) => {
+        if (ctx.canEditPledge !== true) return;
+        remember();
+        setOpen({ kind: "editPledge", request, n: ++count.current });
+      },
     };
   }, [ctx, remember]);
 
@@ -120,6 +134,7 @@ export function GivingSheetsProvider({ ctx, children }: { ctx: GivingSheetContex
         {ctx && open?.kind === "pledge" ? (
           <RecordPledgeSheet key={open.n} ctx={ctx} request={open.request} onRecorded={open.request.onRecorded} onClose={close} />
         ) : null}
+        {ctx && open?.kind === "editPledge" ? <EditPledgeSheet key={open.n} ctx={ctx} request={open.request} onClose={close} /> : null}
         {ctx && open?.kind === "family" ? (
           <FamilyGivingPanel
             key={open.n}
@@ -165,6 +180,20 @@ export function RecordPledgeButton({ householdId, className, children = "Record 
   if (!sheets?.canRecordPledge) return null;
   return (
     <button type="button" className={className} onClick={() => sheets.openRecordPledge(householdId ? { householdId } : {})}>
+      {children}
+    </button>
+  );
+}
+
+/**
+ * "Edit": opens the Edit pledge sheet in place for someone with giving.manage where the sheets are mounted (the New look). There is no
+ * other Edit screen, so elsewhere (the classic look, or without the permission) it renders nothing.
+ */
+export function EditPledgeButton({ pledgeId, className, children = "Edit", label }: { pledgeId: string; className?: string; children?: ReactNode; label?: string }) {
+  const sheets = useGivingSheets();
+  if (!sheets?.canEditPledge) return null;
+  return (
+    <button type="button" className={className} aria-label={label} onClick={() => sheets.openEditPledge({ pledgeId })}>
       {children}
     </button>
   );

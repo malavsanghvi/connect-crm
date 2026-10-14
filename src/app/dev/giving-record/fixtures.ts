@@ -10,6 +10,8 @@ import { addDays } from "@/lib/dates";
 import type { ActionResult } from "@/lib/errors";
 import { buildGivingLane, readGivingIntent, type FindScope, type GivingFound } from "@/lib/find/giving";
 import type { FindResult, FindRow } from "@/lib/find/types";
+import type { PledgeEditSheet } from "@/lib/data/edit-pledge";
+import type { DeletedPledge, DeletePledgeInput, EditedPledge, EditPledgeInput } from "@/lib/giving-actions/edit-pledge";
 import { composeFamilyGiving, type FamilyFocus, type GivingHousehold } from "@/lib/giving-actions/family-giving";
 import { checkPledge, splitPledgeWords, type PledgeDesignation, type PledgeSheetOptions, type RecordedPledge, type RecordPledgeInput } from "@/lib/giving-actions/record-pledge";
 import type { GivingSheetContext } from "@/lib/giving-actions/record-sheet";
@@ -34,6 +36,7 @@ export function previewContext(role: PreviewRole): GivingSheetContext {
     bankOn: true,
     canOpenFamily: role === "treasurer",
     canRecordPledge: role === "treasurer",
+    canEditPledge: role === "treasurer",
   };
 }
 
@@ -211,5 +214,74 @@ export const PREVIEW_BACKEND: GivingSheetBackend = {
     const recorded: RecordedPledge = { pledgeId: `preview-${pledgeNumber}`, pledgeNumber: `PL-PREVIEW-${pledgeNumber}`, householdId: checked.value.householdId, amountCents: checked.value.amountCents, replayed: false };
     recordedPledges.set(input.requestId, recorded);
     return later<ActionResult<RecordedPledge>>({ ok: true, data: recorded, message: "Preview: nothing was saved." });
+  },
+  pledgeEditSheet: async (pledgeId: string) => {
+    const p = PLEDGES.find((x) => x.id === pledgeId);
+    if (!p) return later<ActionResult<PledgeEditSheet>>({ ok: false, error: "Could not open the pledge — it was not found." });
+    const h = byId.get(p.household_id);
+    const adults = h?.primary ? [{ id: "9c000000-0000-4000-8000-000000000001", name: h.primary, isPrimary: true }] : [];
+    const open = p.status === "open" || p.status === "partially_paid";
+    const closed = open ? null : "This pledge is closed, so it stays as it is.";
+    return later<ActionResult<PledgeEditSheet>>({
+      ok: true,
+      data: {
+        state: {
+          pledgeId: p.id,
+          pledgeNumber: p.pledge_number,
+          householdId: p.household_id,
+          status: p.status,
+          source: p.source,
+          amountCents: p.amount_cents,
+          paidCents: p.paid_cents,
+          dueOn: p.due_on,
+          pledgedOn: p.pledged_at.slice(0, 10),
+          campaignId: null,
+          fundId: null,
+          opportunityId: null,
+          dedication: null,
+          recognitionName: null,
+          anonymous: false,
+          pledgedByPersonId: null,
+          locks: {
+            details: null,
+            due: closed,
+            amount: closed,
+            for: closed ?? (p.paid_cents > 0 ? "Payments are already applied to this pledge, so what it is for does not change." : null),
+            delete: closed ?? (p.paid_cents > 0 ? "Payments are already applied to this pledge. Undo them first, or write off what is still open." : null),
+            qbo: null,
+          },
+        },
+        options: { funds: FUNDS, campaigns: PLEDGE_CAMPAIGNS, opportunities: [], adults, dueDays: 30, defaultDueOn: addDays(TODAY, 30) },
+      },
+    });
+  },
+  editPledge: async (input: EditPledgeInput) => {
+    const p = PLEDGES.find((x) => x.id === input.pledgeId);
+    if (!p) return later<ActionResult<EditedPledge>>({ ok: false, error: "Could not change the pledge — it was not found." });
+    const fields = Object.keys(input.changes).map((k) => k.replace(/_/g, " "));
+    return later<ActionResult<EditedPledge>>({
+      ok: true,
+      message: "Preview: nothing was saved.",
+      data: {
+        pledgeId: p.id,
+        pledgeNumber: p.pledge_number,
+        householdId: p.household_id,
+        changed: fields.length > 0,
+        fields,
+        amountCents: input.changes.amount_cents ?? p.amount_cents,
+        wasAmountCents: p.amount_cents,
+        dueOn: input.changes.due_on ?? p.due_on,
+        status: p.status,
+      },
+    });
+  },
+  deletePledge: async (input: DeletePledgeInput) => {
+    const p = PLEDGES.find((x) => x.id === input.pledgeId);
+    if (!p) return later<ActionResult<DeletedPledge>>({ ok: false, error: "Could not delete the pledge — it was not found." });
+    return later<ActionResult<DeletedPledge>>({
+      ok: true,
+      message: "Preview: nothing was saved.",
+      data: { pledgeId: p.id, pledgeNumber: p.pledge_number, householdId: p.household_id, amountCents: p.amount_cents },
+    });
   },
 };

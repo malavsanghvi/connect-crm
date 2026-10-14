@@ -48,6 +48,8 @@ export type GivingSheetContext = {
   canAllocate: boolean;
   /** giving.manage: the person may record a pledge by hand (slice 7). Left out: they may not. */
   canRecordPledge?: boolean;
+  /** giving.manage: the person may edit or delete a pledge (0782). Left out: they may not. */
+  canEditPledge?: boolean;
   /** Bank reconciliation is on (Zelle and ACH usually arrive through it). */
   bankOn: boolean;
   /** The person may open the Family page (People). */

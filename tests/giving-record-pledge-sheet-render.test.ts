@@ -10,6 +10,7 @@ vi.mock("@/app/(app)/giving/actions", () => ({ openPledgesAction: vi.fn(), findH
 vi.mock("@/app/(app)/giving/payments/actions", () => ({ applyPaymentAction: vi.fn(), possibleDuplicateZelleAction: vi.fn(), recordOfflinePaymentAction: vi.fn() }));
 vi.mock("@/app/(app)/giving/sheet-actions", () => ({ sheetHouseholdAction: vi.fn(), familyGivingAction: vi.fn() }));
 vi.mock("@/app/(app)/giving/pledges/record-pledge-actions", () => ({ pledgeSheetOptionsAction: vi.fn(), recordPledgeAction: vi.fn() }));
+vi.mock("@/app/(app)/giving/pledges/edit-pledge-actions", () => ({ pledgeEditSheetAction: vi.fn(), editPledgeAction: vi.fn(), deletePledgeAction: vi.fn() }));
 
 import { RecordPledgeSheet } from "@/components/giving-actions/record-pledge-sheet";
 import { PLEDGE_NO_UNDO, PLEDGE_REASONS, type RecordPledgeRequest } from "@/lib/giving-actions/record-pledge";

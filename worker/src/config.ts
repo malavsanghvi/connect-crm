@@ -13,7 +13,9 @@ export type Provider = "stripe" | "paypal" | "intuit" | "email" | "twilio" | "an
 export const PROVIDERS: Record<Provider, { label: string; anyOf: string[][] }> = {
   stripe: { label: "Stripe", anyOf: [["STRIPE_SECRET_KEY", "STRIPE_CLIENT_ID"], ["STRIPE_TEST_SECRET_KEY", "STRIPE_CLIENT_ID"]] },
   paypal: { label: "PayPal", anyOf: [["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET"], ["PAYPAL_SANDBOX_CLIENT_ID", "PAYPAL_SANDBOX_CLIENT_SECRET"]] },
-  intuit: { label: "QuickBooks (Intuit)", anyOf: [["INTUIT_CLIENT_ID", "INTUIT_CLIENT_SECRET"]] },
+  // Like PayPal: the development (sandbox) pair alone is enough to connect and run an Intuit sandbox company; a real
+  // company still needs the production pair (qbo/intuit.ts appKeys refuses it by name).
+  intuit: { label: "QuickBooks (Intuit)", anyOf: [["INTUIT_CLIENT_ID", "INTUIT_CLIENT_SECRET"], ["INTUIT_SANDBOX_CLIENT_ID", "INTUIT_SANDBOX_CLIENT_SECRET"]] },
   email: { label: "Email sending", anyOf: [["RESEND_API_KEY"], ["POSTMARK_SERVER_TOKEN"]] },
   twilio: { label: "Twilio", anyOf: [["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"]] },
   anthropic: { label: "Anthropic (Niva, mapping suggestions)", anyOf: [["ANTHROPIC_API_KEY"]] },

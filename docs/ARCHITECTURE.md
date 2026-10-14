@@ -151,6 +151,9 @@ code); it applies to postings sent after it, and a posted entry keeps the docume
 - **Money is integer cents** everywhere (`*_cents`). Format only at the edge.
 - **Errors are always shown to the user in plain English** with a retry where one
   exists; never console-only, never a silent fallback. Log the technical detail.
+  A page left open across a deploy still holds the old build's Server Action ids; `ActionForm`
+  (via `guardStalePage`, `src/lib/stale-page.ts`) and the page error screen say so plainly with a
+  Reload button instead of "This page could not be shown". Nothing ran, so nothing was saved.
 - **Accessibility and language**: 44px minimum touch targets, large-text mode,
   English / ગુજરાતી / हिन्दी built in; no information by colour alone.
 - **Design tokens** (from the prototype): navy `#1B2C5C` (primary), saffron
