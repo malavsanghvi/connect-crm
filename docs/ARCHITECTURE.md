@@ -166,7 +166,7 @@ code); it applies to postings sent after it, and a posted entry keeps the docume
   imports it, and `src/styles/portal-tokens.css` holds the portal's aliases and its three module hues. `tests/brand-conformance.test.ts`
   fails on a colour value outside the kit, on "Community Connect" in a string a person reads, on a stale generated file and on a missing
   logo file. The older palette (navy `#1B2C5C`, saffron `#C9731C`, canvas `#F6F2EA`, Fraunces, DM Sans) is gone from the portal's own
-  chrome and from the flyer maker's colour defaults; the flyer maker still bundles Fraunces and DM Sans as its default faces. Tenant branding (name, logo, colours) comes from `centers.branding` and is not
+  chrome and from the flyer maker's colour defaults; the flyer maker's defaults are the kit's two faces too (bundled WOFF files; Fraunces, DM Sans and Kaushan Script stay available for a community that chose them). Tenant branding (name, logo, colours) comes from `centers.branding` and is not
   replaced by Weaver's; the product brand is "Weaver" (owner 2026-10-08; it was "Community Connect"), with Faith Weaver for faith-based setups, Community Weaver and Org Weaver for the others, and the W mark in `src/components/brand/weaver-mark.tsx` (the favicon is `src/app/icon.svg`, the logo lockup `src/components/brand/logo.tsx`). Tokens: `src/app/globals.css`;
   components (PageHeader + module tabs, Card/BlockGrid, Stat, pill buttons, chips,
   toggle, drawer, modal, toast): `src/components/ui.tsx`, `controls.tsx`,

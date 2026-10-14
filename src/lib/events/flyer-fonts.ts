@@ -30,21 +30,33 @@ export class FlyerFontsMissingError extends Error {
   }
 }
 
-export const BUNDLED_DISPLAY = "Fraunces";
-export const BUNDLED_BODY = "DM Sans";
+// The defaults are the Weaver brand kit's two faces (brand/tokens.json, "type"): Bricolage Grotesque for headings and Hanken Grotesk for
+// body text. Fraunces and DM Sans, the faces the flyer maker used before it moved onto the kit, stay bundled for a community that chose them.
+export const BUNDLED_DISPLAY = "Bricolage Grotesque";
+export const BUNDLED_BODY = "Hanken Grotesk";
+export const LEGACY_DISPLAY = "Fraunces";
+export const LEGACY_BODY = "DM Sans";
 /** The brush-script accent of the flyer layouts (flyer-layout.ts): one accent word, a "Save the date" line, a greeting. */
 export const BUNDLED_SCRIPT = "Kaushan Script";
 
 export const BUNDLED_FONT_FILES = [
-  { name: BUNDLED_BODY, weight: 400, file: "DMSans-400.woff" },
-  { name: BUNDLED_BODY, weight: 500, file: "DMSans-500.woff" },
-  { name: BUNDLED_BODY, weight: 700, file: "DMSans-700.woff" },
-  { name: BUNDLED_BODY, weight: 800, file: "DMSans-800.woff" },
-  { name: BUNDLED_DISPLAY, weight: 600, file: "Fraunces-600.woff" },
-  { name: BUNDLED_DISPLAY, weight: 700, file: "Fraunces-700.woff" },
-  // Flyers v2: the Poster's huge headline and big number.
-  { name: BUNDLED_DISPLAY, weight: 800, file: "Fraunces-800.woff" },
-  { name: BUNDLED_DISPLAY, weight: 900, file: "Fraunces-900.woff" },
+  { name: BUNDLED_BODY, weight: 400, file: "HankenGrotesk-400.woff" },
+  { name: BUNDLED_BODY, weight: 500, file: "HankenGrotesk-500.woff" },
+  { name: BUNDLED_BODY, weight: 700, file: "HankenGrotesk-700.woff" },
+  { name: BUNDLED_BODY, weight: 800, file: "HankenGrotesk-800.woff" },
+  { name: BUNDLED_DISPLAY, weight: 600, file: "BricolageGrotesque-600.woff" },
+  { name: BUNDLED_DISPLAY, weight: 700, file: "BricolageGrotesque-700.woff" },
+  // Flyers v2: the Poster's huge headline and big number. Bricolage Grotesque stops at 800: a 900 request is drawn in its 800.
+  { name: BUNDLED_DISPLAY, weight: 800, file: "BricolageGrotesque-800.woff" },
+  // The previous defaults, for a community whose brand names them.
+  { name: LEGACY_BODY, weight: 400, file: "DMSans-400.woff" },
+  { name: LEGACY_BODY, weight: 500, file: "DMSans-500.woff" },
+  { name: LEGACY_BODY, weight: 700, file: "DMSans-700.woff" },
+  { name: LEGACY_BODY, weight: 800, file: "DMSans-800.woff" },
+  { name: LEGACY_DISPLAY, weight: 600, file: "Fraunces-600.woff" },
+  { name: LEGACY_DISPLAY, weight: 700, file: "Fraunces-700.woff" },
+  { name: LEGACY_DISPLAY, weight: 800, file: "Fraunces-800.woff" },
+  { name: LEGACY_DISPLAY, weight: 900, file: "Fraunces-900.woff" },
 ] as const;
 
 /** Read only when a flyer uses a layout (`script: true`), so the older templates carry no extra font. */
@@ -154,7 +166,7 @@ export async function getFlyerFonts(brand: { displayFont: string; bodyFont: stri
     console.error("[events/flyer] the bundled flyer fonts could not be read:", base);
     throw new FlyerFontsMissingError(base);
   }
-  const isBundled = (name: string) => name === BUNDLED_DISPLAY || name === BUNDLED_BODY;
+  const isBundled = (name: string) => BUNDLED_FONT_FILES.some((f) => f.name === name);
   const wantDisplay = brand.displayFont.trim() || BUNDLED_DISPLAY;
   const wantBody = brand.bodyFont.trim() || BUNDLED_BODY;
 

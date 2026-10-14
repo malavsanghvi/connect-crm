@@ -132,7 +132,11 @@ describe("(a) colours come from the brand kit", () => {
     expect(existsSync(join(ROOT, "public/brand", WEAVER_MARK_URL.split("/").pop()!))).toBe(true);
   });
 
-  it("the flyer maker's defaults are the kit's navy, gold and canvas", () => {
+  it("the flyer maker's defaults are the kit's navy, gold and canvas, in the kit's two faces", () => {
+    const families = (readTokens() as { type: { families: Record<string, string> } }).type.families;
+    const first = (stack: string) => /^"([^"]+)"/.exec(stack)![1];
+    expect(FLYER_BRAND_DEFAULTS.displayFont).toBe(first(families.display!));
+    expect(FLYER_BRAND_DEFAULTS.bodyFont).toBe(first(families.sans!));
     expect(FLYER_BRAND_DEFAULTS.primary.toLowerCase()).toBe(brandColor("navy"));
     expect(FLYER_BRAND_DEFAULTS.accent.toLowerCase()).toBe(brandColor("gold"));
     expect(FLYER_BRAND_DEFAULTS.background.toLowerCase()).toBe(brandColor("canvas"));

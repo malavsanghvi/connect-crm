@@ -389,8 +389,8 @@ describe("readFlyerBrand", () => {
       primary: "#2B2A8A",
       accent: "#FFB82A",
       background: "#FFFAF5",
-      displayFont: "Fraunces",
-      bodyFont: "DM Sans",
+      displayFont: "Bricolage Grotesque",
+      bodyFont: "Hanken Grotesk",
       logoUrl: null,
       logoDarkUrl: null,
       markUrl: null,
@@ -430,7 +430,7 @@ describe("readFlyerBrand", () => {
   });
 
   it("refuses font names that could not be a font family", () => {
-    expect(readFlyerBrand({ display_font: "Comic'); drop", body_font: "x".repeat(41) }, url)).toMatchObject({ displayFont: "Fraunces", bodyFont: "DM Sans" });
+    expect(readFlyerBrand({ display_font: "Comic'); drop", body_font: "x".repeat(41) }, url)).toMatchObject({ displayFont: "Bricolage Grotesque", bodyFont: "Hanken Grotesk" });
     expect(readFlyerBrand({ primary: "navy" }, url).primary).toBe("#2B2A8A");
   });
 });
