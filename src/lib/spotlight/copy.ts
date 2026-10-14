@@ -10,7 +10,6 @@ export const SPOTLIGHT_TEXT = {
   announceFinished: "Tour finished",
   announceOff: "Tours are turned off. You can turn them back on from the Tour menu.",
   announceOn: "Tours are turned on.",
-  dialogLabel: "Guided tour",
   next: "Next",
   back: "Back",
   skip: "Skip tour",
@@ -22,8 +21,6 @@ export const SPOTLIGHT_TEXT = {
   /** The card when a step's target is not on the screen and the step has no words of its own. */
   missing:
     "We could not find this part of the screen. It may still be loading, or it may not be available to you here. You can try again, go on to the next step, or skip the tour.",
-  /** Shown on a step whose target is hidden by a narrow screen when it has no ring to draw. */
-  tourNoteLive: "The tour only shows and explains. It never presses anything for you.",
 
   // The invitation on Home
   inviteKicker: "New here?",
@@ -42,7 +39,6 @@ export const SPOTLIGHT_TEXT = {
   menuTurnOff: "Don't show tours again",
   menuTurnOn: "Turn tours back on",
   menuOffNote: "Tours are turned off for you here. No invitations are shown.",
-  menuOnNote: "Tours are on. Invitations show on Home and in the demo banner.",
   menuSeenNote: "You have taken this tour before.",
 
   // The demo banner
