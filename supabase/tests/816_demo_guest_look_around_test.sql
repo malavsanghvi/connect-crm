@@ -169,7 +169,7 @@ select pg_temp.as_none();
 select pg_temp.assert(:d_jsh = 1 and :d_jsh_events = :n_jsh_events, 'D · the live community is untouched by the switch');
 select pg_temp.assert(not (:'ch_off'::jsonb ->> 'enabled')::boolean, 'D · and the public list says the demo is off');
 -- The Weaver team still has the demo community while it is off.
-select pg_temp.as_user(:'admin');
+select pg_temp.as_user(:admin);
 select count(*) as p_pub from app.community_public(:'fslug') \gset
 select count(*) as p_table from app.centers where id = :'fc' \gset
 select pg_temp.as_none();

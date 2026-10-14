@@ -11,6 +11,10 @@ Two tests keep it honest: `tests/demo-role-work.test.ts` (what the portal shows 
 security on). The people and their pledges, gifts, events and orders are the pack of `supabase/scripts/build-demo-packs.mjs`; this change is its
 version 3 (migration 0797), and 0796 fixes how three of the people are signed in.
 
+**Who the public list offers (0815).** All 26 people exist and can start a demo, but the list a visitor chooses from (the `/demo` page and the member
+app's "Try the demo") offers six: the administrator, treasurer, membership coordinator, event lead and teacher (non-profit operational roles) and the
+family's main adult (community roles). The list is `app.demo_featured_roles()`; see [DEMO_SIGNIN.md](DEMO_SIGNIN.md).
+
 ## What the portal shows, in one paragraph
 
 Home "My tasks" is a list of queues, each shown only to someone who holds one of the permissions that act on it (`visibleTaskSources`). The
