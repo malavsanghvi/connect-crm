@@ -497,7 +497,7 @@ select pg_temp.assert(pg_temp.act(:staff99, :a99, '{}'::jsonb) = 0 and pg_temp.a
 
 -- ══ F. The community's agreement, and who may flip the switch ════════════════
 -- C is a community nobody has agreed for. cadm99 is its administrator (center_admin: settings.manage; 2FA is required of
--- staff by default, so a fresh check is needed for anything sensitive), staff99 a treasurer of A, plat99 a Weaver platform admin.
+-- staff by default, but agreeing and sharing need no fresh 2FA code since 0787), staff99 a treasurer of A, plat99 a Weaver platform admin.
 select pg_temp.assert(pg_temp.act(:cadm99, :c99, pg_temp.screens(2)) = 0
                       and pg_temp.act(:staff99, :c99, pg_temp.screens(2)) = 0
                       and (select count(*) = 0 from app.activity_events where center_id = :c99),
@@ -534,14 +534,11 @@ select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-
   'F · and has to look like a version');
 select pg_temp.assert_raises($q$select app.set_activity_sharing('99000000-0000-4000-8000-0000000000c1', true)$q$, 'agree to activity recording first',
   'F · sharing can only be decided after the agreement');
-select pg_temp.as_user(:cadm99);
-select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-4000-8000-0000000000c1', false, 'v1')$q$, 'fresh 2fa check',
-  'F · the administrator needs a fresh 2FA check to agree (without one: asked for it, nothing changes)');
 select pg_temp.as_none();
-select pg_temp.assert(not app.activity_enabled(:c99) and not app.activity_consented(:c99), 'F · and nothing changed');
+select pg_temp.assert(not app.activity_enabled(:c99) and not app.activity_consented(:c99), 'F · the refused attempts above changed nothing');
 
--- The administrator agrees (with a fresh 2FA check), without sharing.
-select pg_temp.as_user_2fa(:cadm99);
+-- The administrator agrees (no fresh 2FA check is asked for since 0787: signed in without one), without sharing.
+select pg_temp.as_user(:cadm99);
 select app.give_activity_consent(:c99, false, '2026-10-v1');
 select (app.activity_status(:c99))::text as st_cadm_c \gset
 select pg_temp.as_none();
@@ -572,10 +569,8 @@ select pg_temp.as_none();
 select pg_temp.assert((select rules -> 'home' ->> 'layout' = 'grid' and rules #>> '{activity,consent,version}' = '2026-10-v1' and app.activity_enabled(:c99) from app.centers where id = :c99),
   'F · other rules can still be edited, and an unchanged activity setting travels with them');
 
--- Sharing is a second, separate decision (a fresh 2FA check; the administrator only).
+-- Sharing is a second, separate decision (the administrator only; no fresh 2FA check is asked for since 0787: signed in without one).
 select pg_temp.as_user(:cadm99);
-select pg_temp.assert_raises($q$select app.set_activity_sharing('99000000-0000-4000-8000-0000000000c1', true)$q$, 'fresh 2fa check', 'F · sharing needs the fresh 2FA check');
-select pg_temp.as_user_2fa(:cadm99);
 select app.set_activity_sharing(:c99, true);
 select pg_temp.as_none();
 select pg_temp.assert(app.activity_shared(:c99) and (select rules #>> '{activity,share_with_weaver}' = 'true' and rules #>> '{activity,consent,version}' = '2026-10-v1' from app.centers where id = :c99),

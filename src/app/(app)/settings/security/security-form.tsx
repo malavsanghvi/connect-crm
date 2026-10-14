@@ -116,8 +116,8 @@ export function SecurityForm({
             </Field>
           </div>
           <p className="crm-hint mt-3">
-            2FA and step-up are enforced: with the rule on, a staff session without 2FA opens only Account › Security until it passes, and the database
-            refuses sensitive changes without a fresh code from anyone who has an app. Switching the rule off needs a fresh code too. Session length,
+            2FA at sign-in is enforced: with the rule on, a staff session without 2FA opens only Account › Security until it passes. Nothing after
+            sign-in asks for another code, except creating a sandbox, approving go-live and adding a marketplace feature. Session length,
             idle timeout and printed codes are the center&apos;s recorded policy only: the sign-in service still uses its own session length.
           </p>
           <div className="mt-4 flex justify-end">

@@ -193,12 +193,12 @@ export function PausesPanel({ view, tz }: { view: PausesView; tz: string }) {
           <>
             <p>
               Members stop seeing {ask.plugin.label}{ask.centerName ? ` in ${ask.centerName}` : ""}, and a new payment, or a new Zelle report, with it cannot start.
-              Nothing already recorded changes. This needs a fresh 2FA check.
+              Nothing already recorded changes.
             </p>
             {riderPauseNote(ask.plugin.key, ask.plugin.label) ? <p className="mt-2 font-semibold">{riderPauseNote(ask.plugin.key, ask.plugin.label)}</p> : null}
           </>
         ) : (
-          <p>{ask?.plugin.label} is offered again. This needs a fresh 2FA check.</p>
+          <p>{ask?.plugin.label} is offered again.</p>
         )}
         <label htmlFor={reasonId} className="mt-3 block text-[13px] font-semibold">
           Reason (kept in the audit log)

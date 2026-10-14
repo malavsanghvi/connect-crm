@@ -1,6 +1,6 @@
 -- 0589: virus scanning of uploads, built complete and switched OFF.
--- The table, its rules and grants; the mode (off by default, monitor, enforce), set only by a platform admin with a fresh
--- 2FA check, and switching it on queues a sweep; off: every upload still queues a check that nothing claims, nothing is
+-- The table, its rules and grants; the mode (off by default, monitor, enforce), set only by a platform admin (no fresh
+-- 2FA check since 0787), and switching it on queues a sweep; off: every upload still queues a check that nothing claims, nothing is
 -- recorded and every read is what it was; monitor: results are recorded, an infected file is kept and written to the
 -- audit log, and nothing is denied; enforce: a homework file or recording uploaded after the switch is opened by the
 -- family at once and by the teacher only once it is clean (a failed check keeps it with the family), files from before
@@ -30,7 +30,7 @@ begin
   perform set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
 end $$;
--- A platform admin who has just passed a fresh two-factor check (what the setup wizard needs to save a setting).
+-- A platform admin who has just passed a two-factor check (saving a setting does not need one since 0787; harmless).
 create or replace function pg_temp.sign_in_step_up(p_user uuid) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', jsonb_build_object(
@@ -251,8 +251,8 @@ select pg_temp.assert_raises($$select app.set_platform_setting('UPLOAD_SCAN_MODE
 rollback;
 begin;
 select pg_temp.sign_in(:pa);
-select pg_temp.assert(pg_temp.state_of($$select app.set_platform_setting('UPLOAD_SCAN_MODE', 'monitor', 'ClamAV is installed')$$) = 'CCSTP',
-  'a platform admin needs a fresh 2FA check');
+select pg_temp.assert(pg_temp.state_of($$select app.set_platform_setting('UPLOAD_SCAN_MODE', 'monitor', 'ClamAV is installed')$$) = 'OK',
+  'saving the setting no longer asks a platform admin for a fresh 2FA check (rolled back: nothing is kept)');
 rollback;
 begin;
 select pg_temp.sign_in_step_up(:pa);

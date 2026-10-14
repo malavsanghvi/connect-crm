@@ -161,6 +161,12 @@ export function connectionSummary(c: NonNullable<QboStatus["connection"]>): stri
   return `${what} · ${mode}`;
 }
 
+/** A typed reason when there is one, otherwise the action's own plain description: nobody is made to explain an obvious step. */
+export function reasonOrDefault(reason: string, fallback: string): string {
+  const r = reason.trim();
+  return r || fallback;
+}
+
 export function reasonProblem(reason: string, doing: string): string | null {
   const r = reason.trim();
   if (!r) return `Could not ${doing} — say why. The reason is kept in the audit log.`;

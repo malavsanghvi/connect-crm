@@ -79,8 +79,8 @@ rollback;
 begin;
 select pg_temp.claims('10000000-0000-4000-8000-000000000011', false);
 set local role authenticated;
-select pg_temp.assert_state($$select app.begin_payment_connect('00000000-0000-4000-8000-000000000001', 'stripe', 'https://jsh.example/api/oauth/stripe/callback', 'Connect our Stripe')$$,
-  'CCSTP', 'connecting Stripe without a fresh 2FA check gets CCSTP');
+select pg_temp.assert((app.begin_payment_connect('00000000-0000-4000-8000-000000000001', 'stripe', 'https://jsh.example/api/oauth/stripe/callback', 'Connect our Stripe')->>'state') is not null,
+  'connecting Stripe no longer asks for a fresh 2FA check');
 rollback;
 begin;
 select pg_temp.claims('10000000-0000-4000-8000-000000000003', true);
@@ -254,21 +254,15 @@ select pg_temp.assert((app.create_checkout(:jsh, '20000000-0000-4000-8000-000000
   'a sandbox checkout is forced to test mode');
 rollback;
 
--- Live in production: step-up, then members can pay.
+-- Live in production, with no fresh 2FA code asked for (0787): then members can pay.
 begin;
 select pg_temp.claims('10000000-0000-4000-8000-000000000011', false);
-set local role authenticated;
-select pg_temp.assert_state($$select app.set_payment_mode('00000000-0000-4000-8000-000000000001', 'stripe', 'live', 'Go live')$$,
-  'CCSTP', 'going live needs a fresh 2FA check');
-rollback;
-begin;
-select pg_temp.claims('10000000-0000-4000-8000-000000000011', true);
 set local role authenticated;
 select app.set_payment_mode(:jsh, 'stripe', 'live', 'Go live after the pilot');
 commit;
 select pg_temp.assert((select cp.status = 'live' and ic.settings->>'mode' = 'live'
                          from app.center_payment_processors cp join app.integration_connections ic on ic.id = cp.connection_id
-                        where cp.center_id = :jsh and cp.processor = 'stripe'), 'Stripe is live (processor and connection)');
+                        where cp.center_id = :jsh and cp.processor = 'stripe'), 'going live no longer asks for a fresh 2FA check: Stripe is live (processor and connection)');
 
 -- ── A member checkout, paid through the webhook ──────────────────────────────
 create temp table t_checkout (id uuid);
@@ -356,14 +350,8 @@ commit;
 begin;
 select pg_temp.claims('10000000-0000-4000-8000-000000000003', false);
 set local role authenticated;
-select pg_temp.assert_state($$select app.request_provider_refund((select id from app.payments where provider_ref = 'pi_1'), 'Duplicate gift')$$,
-  'CCSTP', 'a provider refund needs a fresh 2FA check');
-rollback;
-begin;
-select pg_temp.claims('10000000-0000-4000-8000-000000000003', true);
-set local role authenticated;
 select pg_temp.assert(app.request_provider_refund((select id from app.payments where provider_ref = 'pi_1'), 'Duplicate gift') is not null,
-  'with two approvers and a fresh 2FA check the refund is queued');
+  'with two approvers the refund is queued; no fresh 2FA check is asked for');
 select pg_temp.assert_raises($$select app.request_provider_refund((select id from app.payments where provider_ref = 'pi_1'), 'again')$$,
   'already on its way', 'a second refund of the same payment waits for the first');
 commit;
@@ -388,13 +376,7 @@ select pg_temp.assert(not (app.check_payments_live(:jsh)->>'ok')::boolean
 create temp table t_test (id uuid);
 grant all on t_test to authenticated, connect_worker, service_role;
 begin;
-select pg_temp.claims('10000000-0000-4000-8000-000000000011', false);
-set local role authenticated;
-select pg_temp.assert_state($$select app.create_processor_test_checkout('00000000-0000-4000-8000-000000000001', 'stripe')$$,
-  'CCSTP', 'a live $1 test needs a fresh 2FA check');
-rollback;
-begin;
-select pg_temp.claims('10000000-0000-4000-8000-000000000011', true);
+select pg_temp.claims('10000000-0000-4000-8000-000000000011', false);   -- the live $1 test asks for no fresh 2FA check (0787)
 set local role authenticated;
 insert into t_test select (app.create_processor_test_checkout(:jsh, 'stripe')->>'checkout_id')::uuid;
 select app.attach_checkout((select id from t_test), 'cs_test_dollar', 'https://checkout.stripe.test/c/cs_test_dollar');
@@ -470,10 +452,7 @@ end $f$;
 grant execute on function app.enqueue_message(uuid, text, text, text, jsonb, text) to authenticated;
 select pg_temp.claims('10000000-0000-4000-8000-000000000011', false);
 set local role authenticated;
-select pg_temp.assert_state($$select app.start_paypal_email_verification('00000000-0000-4000-8000-000000000001', 'give@jsh.example')$$,
-  'CCSTP', 'the PayPal email needs a fresh 2FA check');
-select pg_temp.claims('10000000-0000-4000-8000-000000000011', true);
-select pg_temp.assert((app.start_paypal_email_verification(:jsh, 'Give@JSH.example')->>'sent')::boolean, 'the code is sent through app.enqueue_message');
+select pg_temp.assert((app.start_paypal_email_verification(:jsh, 'Give@JSH.example')->>'sent')::boolean, 'the code is sent through app.enqueue_message, with no fresh 2FA check asked for');
 select pg_temp.assert((select tmpl = 'paypal_email_code' and purpose = 'verification_code' and "to" = 'give@jsh.example' and vars->>'code' ~ '^\d{6}$'
                          from pg_temp.sent), 'template paypal_email_code, purpose verification_code, a 6-digit code');
 select pg_temp.assert(not (app.confirm_paypal_email(:jsh, '000000')->>'ok')::boolean or (select vars->>'code' from pg_temp.sent) = '000000',

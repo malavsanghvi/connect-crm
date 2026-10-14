@@ -2,7 +2,7 @@
 -- levels) and chooses the lowest level that may use each area (darshan, puja, listen, ...). A person's level
 -- is the highest rung they meet in that community; the live darshan stream's row (its link) is protected by row
 -- level security, so guests can watch it by default and a community can close it to signed-in members, Members or
--- Life members. Settings are changed through RPCs that need settings.manage, a reason and a fresh 2FA check.
+-- Life members. Settings are changed through RPCs that need settings.manage and a reason (no fresh 2FA code since 0787).
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -797,20 +797,15 @@ select pg_temp.assert(not pg_temp.can_as(null, :c3, 'niva') and pg_temp.access_a
   'a choice below an area''s floor is never applied (belt and braces: the RPC refuses it first)');
 delete from app.center_feature_access where center_id = :c3;
 
--- ── Step-up: the changes need a fresh 2FA check where the community requires it ──
+-- ── No step-up (0787): the changes no longer ask for a fresh 2FA code, even where the community requires staff 2FA ──
 begin;
-select pg_temp.sign_in(:u_admin2);   -- an administrator of C2, which has the default (2FA required for staff)
-select pg_temp.assert_raises($$select app.set_feature_access('71000000-0000-4000-8000-0000000000c2', 'darshan', 'community', 'because')$$, 'fresh 2FA check', 'choosing a level needs a fresh 2FA check');
-select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c2', '[]'::jsonb, null, 'because')$$, 'fresh 2FA check', 'so does editing the ladder');
-commit;
-begin;
-select pg_temp.sign_in(:u_admin2, 30);   -- authenticator code entered 30 seconds ago
-select app.set_feature_access(:c2, 'darshan', 'community', 'Test: with a fresh 2FA check');
-select app.save_access_levels(:c2, '[]'::jsonb, '{"community":"Parishioner"}'::jsonb, 'Test: with a fresh 2FA check');
+select pg_temp.sign_in(:u_admin2);   -- an administrator of C2, which has the default (2FA required for staff); no authenticator check in the session
+select app.set_feature_access(:c2, 'darshan', 'community', 'Test: without a fresh 2FA code');
+select app.save_access_levels(:c2, '[]'::jsonb, '{"community":"Parishioner"}'::jsonb, 'Test: without a fresh 2FA code');
 commit;
 select pg_temp.assert((select level_key from app.center_feature_access where center_id = :c2 and feature_key = 'darshan') = 'community'
                       and (select label from app.access_levels where center_id = :c2 and key = 'community') = 'Parishioner',
-  'with a fresh 2FA check both go through');
+  'choosing a level and editing the ladder no longer ask for a fresh 2FA code: both go through');
 
 -- ── Who may call what ────────────────────────────────────────────────────────
 select pg_temp.assert(has_function_privilege('anon', 'app.can_use_feature(uuid,text)', 'execute')

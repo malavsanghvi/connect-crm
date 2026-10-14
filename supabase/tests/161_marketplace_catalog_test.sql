@@ -210,8 +210,8 @@ reset role;
 select pg_temp.no_claims();
 
 -- ══ D. Pause and resume: the community's own switch ════════════════════════
--- (A module switch asks for a fresh 2FA check, 0154: the Marketplace's Pause goes through the same step-up as Settings › Modules.)
-select pg_temp.claims(:admin, true);
+-- (A module switch no longer asks for a fresh 2FA check, 0787: the Marketplace's Pause is the same switch as Settings › Modules, run here without one.)
+select pg_temp.claims(:admin);
 select app.set_module_enabled(:c, 'accounting', false, 'Paused in Settings › Marketplace');
 select pg_temp.assert((select state = 'paused' and paused and not enabled and granted and paused_by_name = 'Sam K.'
                               and pause_reason = 'Paused in Settings › Marketplace' and paused_at is not null

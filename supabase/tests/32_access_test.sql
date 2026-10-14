@@ -5,6 +5,7 @@
 --   (21) sandboxes never appear in community search; join codes still open them
 --   (22) members never receive staff-only custom-field values
 --   (23) staff with an authenticator app must pass the fresh 2FA check even where the rule is off
+--        (the check only applies to the four actions app.step_up_required lists since 0787; these tests use 'platform.module_grant')
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -138,7 +139,7 @@ select pg_temp.assert(app.is_staff_of(:r, :rowner) and app.staff_2fa_required(:r
   '(2) an owner with no role grant counts as staff for the 2FA rules');
 begin;
 select pg_temp.sign_in(:rowner);
-select pg_temp.assert_raises($$select app.assert_step_up('giving.refund')$$, 'fresh 2FA check',
+select pg_temp.assert_raises($$select app.assert_step_up('platform.module_grant')$$, 'fresh 2FA check',
   '(2) …so in a community that requires staff 2FA, the owner must pass it');
 rollback;
 
@@ -269,17 +270,17 @@ select pg_temp.assert((select count(*) from app.module_tables where table_name =
 select pg_temp.assert(not app.require_2fa_for_staff(:c), '(23) the community has not switched staff 2FA on (as JSH)');
 begin;
 select pg_temp.sign_in(:totpstaff);
-select pg_temp.assert_raises($$select app.assert_step_up('export.people')$$, 'fresh 2FA check',
+select pg_temp.assert_raises($$select app.assert_step_up('platform.module_grant')$$, 'fresh 2FA check',
   '(23) a staff member with an authenticator app is asked for a fresh check');
 rollback;
 begin;
 select pg_temp.sign_in(:totpstaff, 30);
-select app.assert_step_up('export.people');
+select app.assert_step_up('platform.module_grant');
 select pg_temp.assert(true, '(23) …and passes once they entered a code in the last 5 minutes');
 rollback;
 begin;
 select pg_temp.sign_in(:plainstaff);
-select app.assert_step_up('export.people');
+select app.assert_step_up('platform.module_grant');
 select pg_temp.assert(true, '(23) a staff member without one keeps today''s behaviour (not asked while the rule is off)');
 rollback;
 

@@ -7,7 +7,7 @@ import { failure, type ActionResult } from "@/lib/errors";
 import { QBO_PURPOSES } from "@/lib/labels";
 import { untypedRpc } from "@/lib/payments/rpc";
 import { authorizeUrl, intuitPortalConfig, redirectUri, signState } from "@/lib/qbo/oauth";
-import { ACCRUAL_WAITING, BASIS_LABEL, isBasis, reasonProblem, TEST_POST_HOW_TO_VOID } from "@/lib/qbo/setup";
+import { ACCRUAL_WAITING, BASIS_LABEL, isBasis, reasonOrDefault, reasonProblem, TEST_POST_HOW_TO_VOID } from "@/lib/qbo/setup";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason } from "@/lib/session";
 import { platformEnv } from "@/lib/platform-setup/server-config";
@@ -38,7 +38,7 @@ async function origin(): Promise<string> {
 export async function startQboConnectAction(_prev: ActionResult<{ url: string }> | null, fd: FormData): Promise<ActionResult<{ url: string }>> {
   const doing = "connect QuickBooks";
   const company = text(fd, "company") === "sandbox" ? "sandbox" : "real";
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Connect QuickBooks");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qbo", doing);
@@ -69,7 +69,7 @@ export async function startQboConnectAction(_prev: ActionResult<{ url: string }>
 
 export async function disconnectQboAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const doing = "disconnect QuickBooks";
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Disconnect QuickBooks");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qbo", doing);
@@ -91,7 +91,7 @@ export async function saveQboBasisAction(_prev: ActionResult | null, fd: FormDat
   const changing = text(fd, "changing") === "1";
   const doing = changing ? "change the accounting basis" : "choose the accounting basis";
   if (!isBasis(basis)) return { ok: false, error: `Could not ${doing} — choose cash or accrual.` };
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Choose the accounting basis");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qboManage", doing);
@@ -117,7 +117,7 @@ export async function saveQboSettingsAction(_prev: ActionResult | null, fd: Form
   const basis = text(fd, "basis");
   const posting = text(fd, "posting");
   const goLive = text(fd, "go_live_date");
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Set the posting and go-live date");
   if (!isBasis(basis)) return { ok: false, error: `Could not ${doing} — choose the accounting basis first (step 2).` };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(goLive)) return { ok: false, error: `Could not ${doing} — choose the go-live date.` };
   const bad = reasonProblem(reason, doing);
@@ -206,7 +206,7 @@ export async function saveFundClassAction(_prev: ActionResult | null, fd: FormDa
 
 export async function approveQboMappingAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const doing = "approve the QuickBooks mapping";
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Approve the account mapping");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qboManage", doing);
@@ -221,7 +221,7 @@ export async function approveQboMappingAction(_prev: ActionResult | null, fd: Fo
 
 export async function runQboTestPostAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const doing = "run the QuickBooks test post";
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Run the QuickBooks test post");
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qboManage", doing);
@@ -246,7 +246,7 @@ export async function runQboTestPostAction(_prev: ActionResult | null, fd: FormD
 export async function approveQboTestPostAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const doing = "approve the test post";
   const id = text(fd, "test_id");
-  const reason = text(fd, "reason");
+  const reason = reasonOrDefault(text(fd, "reason"), "Approve the QuickBooks test post");
   if (!isUuid(id)) return { ok: false, error: `Could not ${doing} — the test post was not found.` };
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };

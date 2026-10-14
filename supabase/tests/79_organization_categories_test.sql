@@ -8,7 +8,7 @@
 --      refuse with the category sentence, storage, Setup, access areas, my_modules); a switch cannot turn them on; Store
 --      starts off and can be switched on and off; platform admins pass; tradition is "other"; no Jain dietary option.
 --   D. The category can change only through app.set_center_category (not through the table, not by a platform admin),
---      with a reason, a fresh 2FA check and a preview; data is hidden, not deleted, and comes back; paths are kept.
+--      with a reason and a preview (no fresh 2FA check since 0787); data is hidden, not deleted, and comes back; paths are kept.
 --   E. Creating and promoting carries the category (platform_create_sandbox, the request, the copy route).
 --   F. A person's path: validated in plain English, private like the rest of person_profile_details, masked in the audit log.
 -- Everything runs in one transaction that is rolled back.
@@ -697,7 +697,7 @@ select pg_temp.assert_raises(format($$select app.category_change_preview(%L, 'no
   'Only the Community Connect team', 'D · nor can they preview one');
 select pg_temp.claims(:cc, true);
 select pg_temp.assert_raises(format($$update app.centers set category_key = 'jain_center' where id = %L$$, :'chm'),
-  'only be changed by Community Connect', 'D · a platform admin''s direct table update is refused too (the reason and 2FA cannot be skipped)');
+  'only be changed by Community Connect', 'D · a platform admin''s direct table update is refused too (the reason cannot be skipped)');
 select pg_temp.assert((select category_key from app.centers where id = :'chm') = 'chamber_of_commerce', 'D · and nothing changed');
 select pg_temp.assert_raises(format($$select app.set_center_category(%L, 'chamber_of_commerce', 'Same again')$$, :'chm'),
   'already a Chamber of commerce organization', 'D · changing to the category it already has is refused');
@@ -707,10 +707,6 @@ select pg_temp.assert_raises($$select app.set_center_category('00000000-0000-400
   'not switched on yet', 'D · a live organization (JSH) cannot take a category that is not switched on yet');
 select pg_temp.assert_raises(format($$select app.set_center_category(%L, 'nonprofit_secular', '   ')$$, :'jt'),
   'Give a reason', 'D · a reason is required');
-select pg_temp.claims(:cc, false);
-select pg_temp.assert_raises(format($$select app.set_center_category(%L, 'nonprofit_secular', 'Without the 2FA check')$$, :'jt'),
-  'fresh 2FA check', 'D · and a fresh 2FA check');
-select pg_temp.claims(:cc, true);
 select pg_temp.assert((select category_key from app.centers where id = :'jt') = 'jain_center', 'D · every refusal left the category alone');
 
 -- The preview says what will be hidden, in plain English, and changes nothing.
@@ -752,7 +748,8 @@ select pg_temp.assert((select category_key from app.centers where id = :'jt') = 
                       and exists (select 1 from pg_attribute where attrelid = 'app.person_profile_details'::regclass and attname = 'path_key' and not attisdropped),
   'D · (and the rollback put the column and the category back)');
 set role authenticated;
-select pg_temp.claims(:cc, true);
+-- No fresh 2FA check is asked for since 0787 (platform.category is not one of the four): the change runs with a session that carries none.
+select pg_temp.claims(:cc, false);
 
 -- The change itself.
 select app.set_center_category(:'jt', 'chamber_of_commerce', 'Switching the Austin temple to the chamber preview') as changed \gset

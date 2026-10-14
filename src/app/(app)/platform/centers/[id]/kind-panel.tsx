@@ -115,7 +115,7 @@ export function KindPanel({
       {current?.description ? <p className="text-muted">{current.description}</p> : null}
       <p className="text-muted">
         The kind sets which modules {centerName} has, the words its screens and member app use, and its Setup checklist. It is chosen when the organization is created; changing it is a
-        Weaver-only step that needs a reason and a fresh 2FA check. Nothing is deleted, and changing back restores everything.
+        Weaver-only step that needs a reason. Nothing is deleted, and changing back restores everything.
       </p>
 
       {done ? (

@@ -62,7 +62,7 @@ export function ConsentPanel({ consent, tz, canDecide, centerId }: { consent: Ac
                 ? "Weaver staff can see counts of how communities use Weaver, including yours (no names, no content)."
                 : "Weaver staff cannot see anything about how your community uses Weaver."}
             </p>
-            <p className="crm-hint">Changing this asks for a fresh 2FA code.</p>
+            <p className="crm-hint">Changing this is recorded in the audit log.</p>
           </ActionForm>
           <ActionForm
             action={withdrawActivityConsentAction}
@@ -79,7 +79,7 @@ export function ConsentPanel({ consent, tz, canDecide, centerId }: { consent: Ac
             <input type="checkbox" name="share" className="mt-1" />
             <span>{SHARE_LABEL}</span>
           </label>
-          <p className="crm-hint">Agreeing asks for a fresh 2FA code. Nothing is noted until you agree.</p>
+          <p className="crm-hint">Nothing is noted until you agree.</p>
         </ActionForm>
       )}
     </Card>

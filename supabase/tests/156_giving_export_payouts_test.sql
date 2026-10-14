@@ -1,7 +1,7 @@
 -- 0747: Giving exports for the treasurer and card payouts paired with their bank lines (docs/GIVING_REDESIGN.md slice 9).
 --   A. data.export: the Treasurer role holds it; no other role gained it.
---   B. Giving exports: the permission and the list's read permission, an authenticator, a 2FA code from the last 5 minutes that
---      no earlier Giving export used (one code, one file), the audit entry (counts and filter words, never contents), module
+--   B. Giving exports: the permission and the list's read permission, no authenticator or 2FA code asked for (0787; it was one
+--      code, one file in 0747), the audit entry (counts and filter words, never contents), module
 --      guards (bank lines need Bank reconciliation, year-end totals need Statements), another community refused.
 --   C. Card payouts: pairing needs giving.manage, a typed reason and a sentence when the amounts differ, none when they agree;
 --      the same pair again changes nothing; one bank line holds one payout (and the unique index says so to a direct write);
@@ -26,22 +26,8 @@ exception when others then
   if position(lower(expect) in lower(sqlerrm)) = 0 then raise exception 'FAIL: % (got "%")', label, sqlerrm; end if;
   raise notice 'PASS: %', label;
 end $$;
--- A statement refused with SQLSTATE CCSTP ("This needs a fresh 2FA check."), whose hint contains `hint`.
-create or replace function pg_temp.assert_step_up(stmt text, hint text, label text) returns void language plpgsql as $$
-declare v_hint text;
-begin
-  execute stmt;
-  raise exception 'FAIL: % (no step-up was asked for)', label;
-exception
-  when sqlstate 'CCSTP' then
-    get stacked diagnostics v_hint = pg_exception_hint;
-    if position(lower(hint) in lower(coalesce(v_hint, ''))) = 0 then raise exception 'FAIL: % (hint "%")', label, v_hint; end if;
-    raise notice 'PASS: %', label;
-  when others then
-    if sqlerrm like 'FAIL:%' then raise; end if;
-    raise exception 'FAIL: % (got "%")', label, sqlerrm;
-end $$;
--- Sign in as a user. p_code_age: seconds since the last 2FA code (null: no code in this session).
+-- Sign in as a user. p_code_age: seconds since the last 2FA code (null: no code in this session). No Giving export asks for one
+-- since 0787; the code's time is still recorded in the audit entry when the token carries one.
 create or replace function pg_temp.claims(p_user uuid, p_code_age int default null) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', jsonb_build_object(
@@ -120,21 +106,21 @@ select pg_temp.assert(not app.has_permission(:jc, 'data.export') and app.has_per
   'A · a committee member who reads Giving has no data.export');
 
 -- ══ B. Giving exports ═══════════════════════════════════════════════════════
-select pg_temp.claims(:exec, 60);
+select pg_temp.claims(:exec);
 select pg_temp.assert_raises(format($$select app.giving_export_check(%L, 'payments')$$, :jc), 'data-export permission',
-  'B · a committee member who reads Giving, with a fresh code, cannot export (no data.export)');
+  'B · a committee member who reads Giving cannot export (no data.export)');
 select pg_temp.claims(:vol, 60);
 select pg_temp.assert_raises(format($$select app.giving_export_check(%L, 'payments')$$, :jc), 'data-export permission',
   'B · a finance volunteer cannot export');
-select pg_temp.claims(:treas0, 60);
-select pg_temp.assert_step_up(format($$select app.giving_export_check(%L, 'payments')$$, :jc), 'Set up an authenticator',
-  'B · a treasurer without an authenticator app is asked to set one up');
+select pg_temp.claims(:treas0);
+select app.giving_export_check(:jc, 'payments');
+select pg_temp.assert(true, 'B · a treasurer without an authenticator app can export: no authenticator is asked for any more');
 select pg_temp.claims(:treas);
-select pg_temp.assert_step_up(format($$select app.giving_export_check(%L, 'payments')$$, :jc), '6-digit code',
-  'B · a treasurer with no code in this session is asked for one');
+select app.giving_export_check(:jc, 'payments');
+select pg_temp.assert(true, 'B · a treasurer with no code in this session can export: no code is asked for any more');
 select pg_temp.claims(:treas, 600);
-select pg_temp.assert_step_up(format($$select app.record_giving_export(%L, 'payments', '{"rows": 3}')$$, :jc), '6-digit code',
-  'B · a code from ten minutes ago is not fresh');
+select app.giving_export_check(:jc, 'payments');
+select pg_temp.assert(true, 'B · a code from ten minutes ago does not matter either: no fresh code is asked for');
 select pg_temp.assert_raises(format($$select app.giving_export_check(%L, 'donors')$$, :jc), 'Unknown Giving export',
   'B · an unknown list is refused');
 
@@ -157,13 +143,9 @@ select pg_temp.assert((select array_agg(k order by k) from app.audit_log l, json
   'B · anything else the caller sends is dropped: the search''s text ("q": "Shah"), an unknown chip, a chip value that is not a fixed word, the file');
 set role authenticated;
 select pg_temp.claims(:treas, 60);
-select pg_temp.assert_step_up(format($$select app.record_giving_export(%L, 'pledges', '{"rows": 2}')$$, :jc), 'Each export needs a new code',
-  'B · the same code cannot make a second file (one code, one file)');
-select pg_temp.assert_step_up(format($$select app.giving_export_check(%L, 'pledges')$$, :jc), 'Each export needs a new code',
-  'B · and the check before reading the list says so first');
-select pg_temp.claims(:treas, 20);
 select app.record_giving_export(:jc, 'pledges', '{"rows": 2}');
-select pg_temp.assert(true, 'B · a new code exports the next list');
+select app.giving_export_check(:jc, 'pledges');
+select pg_temp.assert(true, 'B · the same code can make a second file: "one code, one file" is gone (0787)');
 select pg_temp.claims(:treas, 10);
 select pg_temp.assert_raises(format($$select app.giving_export_check(%L, 'payments')$$, :np), 'data-export permission',
   'B · a treasurer of one community cannot export another community''s list');

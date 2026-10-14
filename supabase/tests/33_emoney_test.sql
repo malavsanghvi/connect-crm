@@ -163,16 +163,10 @@ select pg_temp.assert_raises(format($$select app.approve_flagged_refund(%L, 'ok'
 rollback;
 begin;
 set local role authenticated;
-select pg_temp.as_user(:tara, false);
-select pg_temp.assert_state(format($$select app.approve_flagged_refund(%L, 'Donor asked in person')$$, :'rid'), 'CCSTP',
-  '#6 approving needs a fresh 2FA check');
-rollback;
-begin;
-set local role authenticated;
-select pg_temp.as_user(:tara);
+select pg_temp.as_user(:tara, false);   -- no fresh 2FA code is asked for any more (0787)
 select pg_temp.assert_raises(format($$select app.approve_flagged_refund(%L, ' ')$$, :'rid'), 'say why', '#6 approving needs a reason');
 select pg_temp.assert((app.approve_flagged_refund(:'rid', 'Donor asked in person; confirmed with the office')->>'stage') = 'first',
-  '#6 the treasurer approves first');
+  '#6 the treasurer approves first, with no fresh 2FA check');
 select pg_temp.assert_raises(format($$select app.approve_flagged_refund(%L, 'me again')$$, :'rid'), 'different person',
   '#6 the same person cannot also be the second approver');
 commit;
