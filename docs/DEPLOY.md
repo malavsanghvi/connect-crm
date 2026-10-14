@@ -1,5 +1,13 @@
 # Deploy Connect (DigitalOcean droplet + Supabase)
 
+**Open owner checks (found 2026-10-13/14, still open until ticked here):**
+- [ ] `WORKER_DATABASE_URL` is not set in connect-crm's Actions secrets, so every deploy skips the background service
+  (`connect@worker`): scheduled and automatic emails, Niva's member answers, AI flyer art, imports and other jobs may not
+  run in production. See "Background service" below.
+- [ ] Supabase Authentication: turn on **Confirm email** and **Secure email change**, and turn off password sign-ups if
+  sign-in is email code only. Weaver's protections (sign-in links, consent records) assume nobody can claim an email
+  address they do not own. The local `supabase/config.toml` has `enable_confirmations = false`.
+
 Where things run:
 
 | Piece | Runs on | Address before a domain is set up |

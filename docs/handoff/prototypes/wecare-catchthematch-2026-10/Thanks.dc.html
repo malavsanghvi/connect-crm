@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Thank-yous due and WeCare settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+a{color:#2b2a8a}a:hover{color:#1e1d5c}
+button,textarea,input,select{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1320px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; align-items: center; gap: 6px;">
+<img src="/_blob/a892f24db66aedf02e346cf7a7d298a6" alt="" style="height: 40px; width: auto;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; letter-spacing: -0.01em; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700; color: #1e1d5c;">Riverbend Community Center</span>
+<span style="color: #1e1d5c; font-size: 15px;">Signed in as {{viewerName}}</span>
+<span style="background: #ffffff; color: #1e1d5c; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1320px; margin: 0 auto; padding: 28px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="align-self: flex-start; background: #fff1e6; color: #a8400d; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;">SLICE 3 · PLAN</span>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; color: #2b2a8a;">Today</h1>
+<p style="margin: 0; max-width: 760px; font-size: 18px; line-height: 1.6; color: #33325f;">Every gift gets a thank-you. Ordinary gifts are thanked by their receipt; first gifts and large gifts wait here for a personal touch.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 14px; color: #555a79;">Due now</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; color: #1e1d5c;">{{dueCount}}</span>
+<span style="font-size: 14px; color: #33325f;">{{overdueLine}}</span>
+</div>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 14px; color: #555a79;">Thanked on time this month</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; color: #1e1d5c;">{{onTime}}</span>
+<span style="font-size: 14px; color: #33325f;">within {{windowDays}} days of the gift</span>
+</div>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 14px; color: #555a79;">Typical time to thank</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; color: #1e1d5c;">26 hours</span>
+<span style="font-size: 14px; color: #33325f;">the median this month</span>
+</div>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 14px; color: #555a79;">Thanked by their receipt</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; color: #1e1d5c;">38</span>
+<span style="font-size: 14px; color: #33325f;">ordinary gifts this month</span>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
+<section aria-label="Thank-yous due" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a;">Thank-yous due</h2>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div role="status" style="background: #e4f2ea; color: #1f7a4d; border-radius: 16px; padding: 10px 14px; font-size: 15px; font-weight: 700;">{{toast}}</div>
+</sc-if>
+<sc-for list="{{items}}" as="it" hint-placeholder-count="3">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px;">
+<div style="display: flex; flex-direction: column; gap: 2px;">
+<strong style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 18px; font-weight: 600;">{{it.name}}</strong>
+<span style="font-size: 14px; color: #555a79;">{{it.card}}</span>
+</div>
+<span style="align-self: flex-start; background: {{it.dueBg}}; color: {{it.dueFg}}; border-radius: 9999px; padding: 3px 10px; font-size: 13px; font-weight: 700;">{{it.due}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px; font-size: 15px;">
+<span>{{it.gift}}</span>
+<span style="color: #a8400d; font-weight: 700;">{{it.why}}</span>
+<span style="color: #555a79;">{{it.hint}}</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px;">
+<sc-for list="{{it.actions}}" as="a" hint-placeholder-count="4">
+<button onClick="{{a.go}}" style="min-height: 44px; padding: 0 16px; border-radius: 9999px; border: 1px solid #e3d6ca; background: #ffffff; color: #1e1d5c; font-size: 14.5px; font-weight: 700;">{{a.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{noItems}}" hint-placeholder-val="{{false}}">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 18px; color: #1f7a4d; font-weight: 700;">Every gift is thanked. Nothing is waiting.</div>
+</sc-if>
+</section>
+
+<aside aria-label="Settings, WeCare" style="flex: 1 1 380px; min-width: 0; background: #ffffff; border: 1px solid #eee3d9; border-radius: 24px; padding: 22px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px;">
+<nav aria-label="Breadcrumb" style="font-size: 14px; color: #555a79;">Settings › {{careLabel}}</nav>
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a;">Thank-you rules</h2>
+<sc-if value="{{isLead}}" hint-placeholder-val="{{true}}">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 15px; font-weight: 700;">Thank every gift within (days)
+<input type="number" min="1" max="14" value="{{windowDays}}" onChange="{{onWindow}}" style="width: 120px; min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 12px; font-size: 16px; color: #1e1d5c; background: #ffffff;"></label>
+<label style="display: flex; align-items: flex-start; gap: 10px; font-size: 15px;">
+<input type="checkbox" checked="{{firstPersonal}}" onChange="{{onFirst}}" style="width: 20px; height: 20px; margin-top: 2px;">
+<span><strong>A first gift needs a personal touch</strong><br><span style="color: #555a79;">A call, a visit, a card or a short video, not only the receipt.</span></span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 15px; font-weight: 700;">A gift from this amount needs a personal touch too
+<input value="{{threshold}}" onChange="{{onThreshold}}" placeholder="Leave empty for none" inputmode="decimal" style="width: 220px; min-height: 44px; border: 1px solid #e3d6ca; border-radius: 12px; padding: 0 12px; font-size: 16px; color: #1e1d5c; background: #ffffff;"></label>
+<label style="display: flex; align-items: flex-start; gap: 10px; font-size: 15px;">
+<input type="checkbox" checked="{{countFees}}" onChange="{{onFees}}" style="width: 20px; height: 20px; margin-top: 2px;">
+<span><strong>Count fees and memberships as gifts</strong><br><span style="color: #555a79;">Off: only donations are thanked here.</span></span>
+</label>
+<div style="background: #fff6ee; border: 1px solid #eee3d9; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">
+<strong style="font-size: 15px;">Starting point</strong>
+<span style="font-size: 14.5px; color: #33325f;">Thank-yous start from the day you first save these rules.</span>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 15px;">
+<input type="checkbox" checked="{{backfill}}" onChange="{{onBackfill}}" style="width: 20px; height: 20px;">
+Also include gifts from the last 30 days
+</label>
+</div>
+<sc-if value="{{hasErr}}" hint-placeholder-val="{{false}}">
+<div role="alert" style="background: #fbe3e1; color: #b3261e; border-radius: 12px; padding: 10px 12px; font-size: 14.5px;">{{err}}</div>
+</sc-if>
+<sc-if value="{{hasSaved}}" hint-placeholder-val="{{false}}">
+<div role="status" style="background: #e4f2ea; color: #1f7a4d; border-radius: 12px; padding: 10px 12px; font-size: 14.5px; font-weight: 700;">{{saved}}</div>
+</sc-if>
+<button onClick="{{save}}" style="align-self: flex-start; min-height: 52px; padding: 0 22px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">{{saveLabel}}</button>
+<span style="font-size: 13.5px; color: #555a79;">Only WeCare leads change these rules. Weaver support can open this page only if your community's owner allows it, and never sees care records.</span>
+</sc-if>
+<sc-if value="{{notLead}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 15px; color: #33325f;">Thank within {{windowDays}} days. First gifts need a personal touch. Only WeCare leads change these rules.</p>
+</sc-if>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"viewer":{"editor":"enum","options":["WeCare lead","Relationship owner"],"default":"WeCare lead","section":"Prototype"},"seesAmounts":{"editor":"boolean","default":true,"section":"Prototype"},"careLabel":{"editor":"enum","options":["Donor care","Member care"],"default":"Donor care","section":"Prototype"},"showSaveFailure":{"editor":"boolean","default":false,"section":"Prototype"},"$preview":{"width":1440,"height":1260}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      items: [
+        { id: 'g1', name: 'García Morales household', card: 'H-0988 · 2 adults · 2 children · no owner yet', owner: '', amt: '$1,000 gift on Oct 9', plain: 'Gift on Oct 9', why: 'Over $500: a personal touch is asked', whyNo: 'A personal touch is asked', hint: 'They like to be thanked in person, in Spanish. Recognition: anonymous.', due: 'Overdue by 2 days', late: true },
+        { id: 'o1', name: 'Okafor household', card: 'H-1042 · 2 adults · 1 child · owner Sam K.', owner: 'Sam K.', amt: '$120 first gift on Oct 11', plain: 'First gift on Oct 11', why: 'First gift: a personal touch is asked', whyNo: 'First gift: a personal touch is asked', hint: 'Best by phone after 6 pm. Recognition: private only.', due: 'Due tomorrow', late: false },
+        { id: 'm1', name: 'Mensah household', card: 'H-1199 · 2 adults · 1 child · owner Priya N.', owner: 'Priya N.', amt: '$40 first gift on Oct 12', plain: 'First gift on Oct 12', why: 'First gift: a personal touch is asked', whyNo: 'First gift: a personal touch is asked', hint: 'New this year. A short video from the leader would suit.', due: 'Due in 1 day', late: false }
+      ],
+      thanked: 0, toast: '',
+      windowDays: 2, firstPersonal: true, threshold: '$500', countFees: false, backfill: true,
+      err: '', saved: '', failedOnce: false
+    };
+  }
+
+  renderVals() {
+    const viewer = this.props.viewer || 'WeCare lead';
+    const isLead = viewer === 'WeCare lead';
+    const amounts = this.props.seesAmounts !== false;
+    const me = isLead ? 'Amira S.' : 'Sam K.';
+    const mine = this.state.items.filter((x) => isLead || x.owner === me);
+    const items = mine.map((x) => ({
+      name: x.name, card: x.card,
+      gift: amounts ? x.amt : x.plain,
+      why: amounts ? x.why : x.whyNo,
+      hint: x.hint,
+      due: x.due, dueBg: x.late ? '#fbe3e1' : '#fff1e6', dueFg: x.late ? '#b3261e' : '#a8400d',
+      actions: ['Called', 'Card sent', 'Visited', 'Video message'].map((a) => ({
+        label: a,
+        go: () => this.setState({ items: this.state.items.filter((y) => y.id !== x.id), thanked: this.state.thanked + 1, toast: x.name + ' thanked (' + a.toLowerCase() + '). The step is closed and the touch is in their history.' })
+      }))
+    }));
+    const overdue = mine.filter((x) => x.late).length;
+    const pct = Math.min(100, 84 + this.state.thanked * 2);
+    return {
+      viewerName: isLead ? 'Amira S. (WeCare lead)' : 'Sam K. (relationship owner)',
+      careLabel: this.props.careLabel || 'Donor care',
+      isLead: isLead, notLead: !isLead,
+      items: items, noItems: items.length === 0,
+      dueCount: String(items.length), overdueLine: overdue ? overdue + ' overdue' : 'none overdue',
+      onTime: pct + '%',
+      toast: this.state.toast, hasToast: !!this.state.toast,
+      windowDays: this.state.windowDays, firstPersonal: this.state.firstPersonal, threshold: amounts ? this.state.threshold : '(hidden: needs giving access)',
+      countFees: this.state.countFees, backfill: this.state.backfill,
+      onWindow: (e) => this.setState({ windowDays: e.target.value, saved: '' }),
+      onFirst: (e) => this.setState({ firstPersonal: e.target.checked, saved: '' }),
+      onThreshold: (e) => { if (amounts) this.setState({ threshold: e.target.value, saved: '' }); },
+      onFees: (e) => this.setState({ countFees: e.target.checked, saved: '' }),
+      onBackfill: (e) => this.setState({ backfill: e.target.checked, saved: '' }),
+      err: this.state.err, hasErr: !!this.state.err, saved: this.state.saved, hasSaved: !!this.state.saved,
+      saveLabel: this.state.err ? 'Try again' : 'Save rules',
+      save: () => {
+        const d = parseInt(this.state.windowDays, 10);
+        if (!(d >= 1 && d <= 14)) { this.setState({ err: 'Choose between 1 and 14 days.', saved: '' }); return; }
+        if (this.props.showSaveFailure && !this.state.failedOnce) { this.setState({ err: 'Could not save the rules: the connection dropped. Your changes are kept. Try again.', failedOnce: true, saved: '' }); return; }
+        this.setState({ err: '', failedOnce: false, saved: 'Saved. New gifts follow these rules from now on.' });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
