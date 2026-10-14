@@ -147,7 +147,7 @@ export async function pullQboListsAction(): Promise<ActionResult> {
   const { data, error } = await auth.session.db.rpc("request_qbo_pull", { p_center: auth.session.center.id });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
-  return { ok: true, message: `Pull queued (job #${data}). The chart of accounts and lists refresh within a minute; reload to see them.` };
+  return { ok: true, message: `Pull queued (job #${data}). The chart of accounts and lists refresh within a minute; this page updates by itself.` };
 }
 
 // Setup (before the mapping has ever been approved): one person chooses, as before, through the same function as a change
@@ -238,8 +238,8 @@ export async function runQboTestPostAction(_prev: ActionResult | null, fd: FormD
   return {
     ok: true,
     message: real
-      ? `Test post queued: it creates four real $1.00 entries in QuickBooks. When they are there, void them: ${TEST_POST_HOW_TO_VOID} The result appears here within a minute; reload to see it.`
-      : "Test post queued. The result appears here within a minute; reload to see it.",
+      ? `Test post queued: it creates four real $1.00 entries in QuickBooks. When they are there, void them: ${TEST_POST_HOW_TO_VOID} The result appears here within a minute, and this page updates by itself.`
+      : "Test post queued. The result appears here within a minute, and this page updates by itself.",
   };
 }
 
