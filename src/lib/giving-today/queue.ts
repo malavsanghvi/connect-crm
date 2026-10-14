@@ -960,7 +960,7 @@ function closeRows(c: CloseIn, ctx: TodayContext): QueueRow[] {
 
 function bookTaskRows(tasks: HomeTask[]): QueueRow[] {
   return tasks
-    .filter((t) => t.source === "quickbooks")
+    .filter((t) => t.source === "quickbooks" || t.source === "mapping")
     .map((t) => ({
       id: t.id,
       group: "books" as const,
@@ -1053,7 +1053,15 @@ function donorRows(d: DonorMatchesIn): QueueRow[] {
 
 // ---------------------------------------------------------------------------- The queue
 
-const SOURCE_GROUP: Record<string, GroupKey> = { refund: "approvals", payee: "approvals", writeoff: "approvals", credit: "approvals", deposits: "bank", quickbooks: "books" };
+const SOURCE_GROUP: Record<string, GroupKey> = {
+  refund: "approvals",
+  payee: "approvals",
+  writeoff: "approvals",
+  credit: "approvals",
+  deposits: "bank",
+  quickbooks: "books",
+  mapping: "books",
+};
 
 function partRows<T>(part: Part<T> | null, group: GroupKey, problems: Problem[], rows: (d: T) => QueueRow[]): QueueRow[] {
   if (!part || part.state === "no_access" || part.state === "off") return [];

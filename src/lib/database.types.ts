@@ -164,6 +164,141 @@ export type Database = {
         };
         Relationships: [];
       };
+      account_mapping_changes: {
+        Row: {
+          id: string;
+          center_id: string;
+          subject: string;
+          target_key: string;
+          target_label: string;
+          connection_id: string | null;
+          realm_id: string | null;
+          from_ref: string | null;
+          from_name: string | null;
+          to_ref: string | null;
+          to_name: string | null;
+          to_type: string | null;
+          mode: string;
+          status: string;
+          requested_by: string;
+          requested_at: string;
+          request_reason: string;
+          expires_at: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_reason: string | null;
+          cancelled_by: string | null;
+          applied_at: string | null;
+          queued_postings: number | null;
+          requeued_postings: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          subject: string;
+          target_key: string;
+          target_label: string;
+          connection_id?: string | null;
+          realm_id?: string | null;
+          from_ref?: string | null;
+          from_name?: string | null;
+          to_ref?: string | null;
+          to_name?: string | null;
+          to_type?: string | null;
+          mode?: string;
+          status?: string;
+          requested_by: string;
+          requested_at?: string;
+          request_reason: string;
+          expires_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          cancelled_by?: string | null;
+          applied_at?: string | null;
+          queued_postings?: number | null;
+          requeued_postings?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          subject?: string;
+          target_key?: string;
+          target_label?: string;
+          connection_id?: string | null;
+          realm_id?: string | null;
+          from_ref?: string | null;
+          from_name?: string | null;
+          to_ref?: string | null;
+          to_name?: string | null;
+          to_type?: string | null;
+          mode?: string;
+          status?: string;
+          requested_by?: string;
+          requested_at?: string;
+          request_reason?: string;
+          expires_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          cancelled_by?: string | null;
+          applied_at?: string | null;
+          queued_postings?: number | null;
+          requeued_postings?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      account_roles: {
+        Row: {
+          key: string;
+          kind: string;
+          label: string;
+          hint: string | null;
+          account_types: string[];
+          aliases: string[];
+          needs_item: boolean;
+          required_when: string;
+          module_key: string | null;
+          listed: string;
+          sort: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          kind: string;
+          label: string;
+          hint?: string | null;
+          account_types: string[];
+          aliases?: string[];
+          needs_item?: boolean;
+          required_when?: string;
+          module_key?: string | null;
+          listed?: string;
+          sort?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          kind?: string;
+          label?: string;
+          hint?: string | null;
+          account_types?: string[];
+          aliases?: string[];
+          needs_item?: boolean;
+          required_when?: string;
+          module_key?: string | null;
+          listed?: string;
+          sort?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       accounting_periods: {
         Row: {
           center_id: string;
@@ -875,6 +1010,7 @@ export type Database = {
           active: boolean;
           statement_format: string;
           custom: Json;
+          qbo_account_realm: string | null;
         };
         Insert: {
           id?: string;
@@ -887,6 +1023,7 @@ export type Database = {
           active?: boolean;
           statement_format?: string;
           custom?: Json;
+          qbo_account_realm?: string | null;
         };
         Update: {
           id?: string;
@@ -899,6 +1036,7 @@ export type Database = {
           active?: boolean;
           statement_format?: string;
           custom?: Json;
+          qbo_account_realm?: string | null;
         };
         Relationships: [];
       };
@@ -1328,6 +1466,192 @@ export type Database = {
           active?: boolean;
           visible_from?: string | null;
           visible_until?: string | null;
+        };
+        Relationships: [];
+      };
+      care_message_kinds: {
+        Row: {
+          source: string;
+          key: string;
+          counts: boolean;
+        };
+        Insert: {
+          source: string;
+          key: string;
+          counts: boolean;
+        };
+        Update: {
+          source?: string;
+          key?: string;
+          counts?: boolean;
+        };
+        Relationships: [];
+      };
+      care_notes: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          person_id: string | null;
+          body: string;
+          created_by: string | null;
+          created_at: string;
+          edited_at: string | null;
+          archived_at: string | null;
+          archived_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          person_id?: string | null;
+          body: string;
+          created_by?: string | null;
+          created_at?: string;
+          edited_at?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          person_id?: string | null;
+          body?: string;
+          created_by?: string | null;
+          created_at?: string;
+          edited_at?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+        };
+        Relationships: [];
+      };
+      care_owners: {
+        Row: {
+          household_id: string;
+          center_id: string;
+          owner_user_id: string | null;
+          backup_user_id: string | null;
+          assigned_by: string | null;
+          assigned_at: string;
+          created_at: string;
+        };
+        Insert: {
+          household_id: string;
+          center_id: string;
+          owner_user_id?: string | null;
+          backup_user_id?: string | null;
+          assigned_by?: string | null;
+          assigned_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          household_id?: string;
+          center_id?: string;
+          owner_user_id?: string | null;
+          backup_user_id?: string | null;
+          assigned_by?: string | null;
+          assigned_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      care_profiles: {
+        Row: {
+          household_id: string;
+          center_id: string;
+          thanks: string | null;
+          recognition: string | null;
+          channel: string | null;
+          language: string | null;
+          contact_person_id: string | null;
+          do_not_ask: boolean;
+          rest_until: string | null;
+          updated_by: string | null;
+          updated_at: string;
+          created_at: string;
+        };
+        Insert: {
+          household_id: string;
+          center_id: string;
+          thanks?: string | null;
+          recognition?: string | null;
+          channel?: string | null;
+          language?: string | null;
+          contact_person_id?: string | null;
+          do_not_ask?: boolean;
+          rest_until?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          household_id?: string;
+          center_id?: string;
+          thanks?: string | null;
+          recognition?: string | null;
+          channel?: string | null;
+          language?: string | null;
+          contact_person_id?: string | null;
+          do_not_ask?: boolean;
+          rest_until?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      care_touches: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          person_id: string | null;
+          kind: string;
+          channel: string;
+          outcome: string;
+          is_ask: boolean;
+          note: string | null;
+          touched_at: string;
+          by_user_id: string | null;
+          created_at: string;
+          voided_at: string | null;
+          voided_by: string | null;
+          void_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          person_id?: string | null;
+          kind: string;
+          channel: string;
+          outcome?: string;
+          is_ask?: boolean;
+          note?: string | null;
+          touched_at?: string;
+          by_user_id?: string | null;
+          created_at?: string;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          person_id?: string | null;
+          kind?: string;
+          channel?: string;
+          outcome?: string;
+          is_ask?: boolean;
+          note?: string | null;
+          touched_at?: string;
+          by_user_id?: string | null;
+          created_at?: string;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
         };
         Relationships: [];
       };
@@ -3276,6 +3600,7 @@ export type Database = {
           qbo_class_id: string | null;
           active: boolean;
           custom: Json;
+          qbo_class_realm: string | null;
         };
         Insert: {
           id?: string;
@@ -3286,6 +3611,7 @@ export type Database = {
           qbo_class_id?: string | null;
           active?: boolean;
           custom?: Json;
+          qbo_class_realm?: string | null;
         };
         Update: {
           id?: string;
@@ -3296,6 +3622,7 @@ export type Database = {
           qbo_class_id?: string | null;
           active?: boolean;
           custom?: Json;
+          qbo_class_realm?: string | null;
         };
         Relationships: [];
       };
@@ -5202,6 +5529,9 @@ export type Database = {
           created_at: string;
           claimed_at: string | null;
           request_id: string | null;
+          qbo_doc: Json | null;
+          qbo_realm: string | null;
+          needs_mapping: string | null;
         };
         Insert: {
           id?: string;
@@ -5224,6 +5554,9 @@ export type Database = {
           created_at?: string;
           claimed_at?: string | null;
           request_id?: string | null;
+          qbo_doc?: Json | null;
+          qbo_realm?: string | null;
+          needs_mapping?: string | null;
         };
         Update: {
           id?: string;
@@ -5246,6 +5579,9 @@ export type Database = {
           created_at?: string;
           claimed_at?: string | null;
           request_id?: string | null;
+          qbo_doc?: Json | null;
+          qbo_realm?: string | null;
+          needs_mapping?: string | null;
         };
         Relationships: [];
       };
@@ -5456,285 +5792,6 @@ export type Database = {
           closed_by?: string | null;
           closed_at?: string | null;
           close_note?: string | null;
-        };
-        Relationships: [];
-      };
-      match_program_names: {
-        Row: {
-          id: string;
-          program_id: string;
-          name: string;
-          name_key: string;
-          is_primary: boolean;
-          retired_at: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          program_id: string;
-          name: string;
-          name_key: string;
-          is_primary?: boolean;
-          retired_at?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          program_id?: string;
-          name?: string;
-          name_key?: string;
-          is_primary?: boolean;
-          retired_at?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      match_program_submissions: {
-        Row: {
-          id: string;
-          center_id: string;
-          program_id: string | null;
-          proposal: Json;
-          note: string | null;
-          channel: string;
-          submitted_by: string;
-          submitted_at: string;
-          status: string;
-          reviewed: Json | null;
-          forwarded_by: string | null;
-          forwarded_at: string | null;
-          forward_note: string | null;
-          forwarded_because: string | null;
-          decided_kind: string | null;
-          decided_by: string | null;
-          decided_at: string | null;
-          decision_reason: string | null;
-          result_program_id: string | null;
-          duplicate_of: string | null;
-        };
-        Insert: {
-          id?: string;
-          center_id: string;
-          program_id?: string | null;
-          proposal: Json;
-          note?: string | null;
-          channel?: string;
-          submitted_by: string;
-          submitted_at?: string;
-          status?: string;
-          reviewed?: Json | null;
-          forwarded_by?: string | null;
-          forwarded_at?: string | null;
-          forward_note?: string | null;
-          forwarded_because?: string | null;
-          decided_kind?: string | null;
-          decided_by?: string | null;
-          decided_at?: string | null;
-          decision_reason?: string | null;
-          result_program_id?: string | null;
-          duplicate_of?: string | null;
-        };
-        Update: {
-          id?: string;
-          center_id?: string;
-          program_id?: string | null;
-          proposal?: Json;
-          note?: string | null;
-          channel?: string;
-          submitted_by?: string;
-          submitted_at?: string;
-          status?: string;
-          reviewed?: Json | null;
-          forwarded_by?: string | null;
-          forwarded_at?: string | null;
-          forward_note?: string | null;
-          forwarded_because?: string | null;
-          decided_kind?: string | null;
-          decided_by?: string | null;
-          decided_at?: string | null;
-          decision_reason?: string | null;
-          result_program_id?: string | null;
-          duplicate_of?: string | null;
-        };
-        Relationships: [];
-      };
-      match_program_versions: {
-        Row: {
-          id: string;
-          program_id: string;
-          version: number;
-          facts: Json;
-          written_kind: string;
-          written_center_id: string | null;
-          note: string | null;
-          written_at: string;
-        };
-        Insert: {
-          id?: string;
-          program_id: string;
-          version: number;
-          facts: Json;
-          written_kind: string;
-          written_center_id?: string | null;
-          note?: string | null;
-          written_at?: string;
-        };
-        Update: {
-          id?: string;
-          program_id?: string;
-          version?: number;
-          facts?: Json;
-          written_kind?: string;
-          written_center_id?: string | null;
-          note?: string | null;
-          written_at?: string;
-        };
-        Relationships: [];
-      };
-      match_programs: {
-        Row: {
-          id: string;
-          company_name: string;
-          country: string | null;
-          gift_match: boolean;
-          volunteer_grant: boolean;
-          match_ratio_bp: number | null;
-          currency: string;
-          min_gift_cents: number | null;
-          max_gift_cents: number | null;
-          max_year_cents: number | null;
-          gift_types: string[];
-          org_kinds: string[];
-          religious_orgs: string | null;
-          eligibility_note: string | null;
-          portal: string | null;
-          portal_url: string | null;
-          deadline_kind: string | null;
-          deadline_months: number | null;
-          deadline_month: number | null;
-          deadline_day: number | null;
-          deadline_note: string | null;
-          volunteer_cents_per_hour: number | null;
-          volunteer_min_hours: number | null;
-          volunteer_max_year_cents: number | null;
-          volunteer_note: string | null;
-          notes: string | null;
-          source: string;
-          source_url: string | null;
-          last_verified_on: string | null;
-          verified_by_kind: string | null;
-          verified_submission_id: string | null;
-          version: number;
-          status: string;
-          merged_into: string | null;
-          status_reason: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          company_name: string;
-          country?: string | null;
-          gift_match?: boolean;
-          volunteer_grant?: boolean;
-          match_ratio_bp?: number | null;
-          currency?: string;
-          min_gift_cents?: number | null;
-          max_gift_cents?: number | null;
-          max_year_cents?: number | null;
-          gift_types?: string[];
-          org_kinds?: string[];
-          religious_orgs?: string | null;
-          eligibility_note?: string | null;
-          portal?: string | null;
-          portal_url?: string | null;
-          deadline_kind?: string | null;
-          deadline_months?: number | null;
-          deadline_month?: number | null;
-          deadline_day?: number | null;
-          deadline_note?: string | null;
-          volunteer_cents_per_hour?: number | null;
-          volunteer_min_hours?: number | null;
-          volunteer_max_year_cents?: number | null;
-          volunteer_note?: string | null;
-          notes?: string | null;
-          source: string;
-          source_url?: string | null;
-          last_verified_on?: string | null;
-          verified_by_kind?: string | null;
-          verified_submission_id?: string | null;
-          version?: number;
-          status?: string;
-          merged_into?: string | null;
-          status_reason?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          company_name?: string;
-          country?: string | null;
-          gift_match?: boolean;
-          volunteer_grant?: boolean;
-          match_ratio_bp?: number | null;
-          currency?: string;
-          min_gift_cents?: number | null;
-          max_gift_cents?: number | null;
-          max_year_cents?: number | null;
-          gift_types?: string[];
-          org_kinds?: string[];
-          religious_orgs?: string | null;
-          eligibility_note?: string | null;
-          portal?: string | null;
-          portal_url?: string | null;
-          deadline_kind?: string | null;
-          deadline_months?: number | null;
-          deadline_month?: number | null;
-          deadline_day?: number | null;
-          deadline_note?: string | null;
-          volunteer_cents_per_hour?: number | null;
-          volunteer_min_hours?: number | null;
-          volunteer_max_year_cents?: number | null;
-          volunteer_note?: string | null;
-          notes?: string | null;
-          source?: string;
-          source_url?: string | null;
-          last_verified_on?: string | null;
-          verified_by_kind?: string | null;
-          verified_submission_id?: string | null;
-          version?: number;
-          status?: string;
-          merged_into?: string | null;
-          status_reason?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      match_publishing_controls: {
-        Row: {
-          center_id: string;
-          paused: boolean;
-          pause_reason: string | null;
-          daily_cap: number;
-          updated_at: string;
-          updated_by: string | null;
-        };
-        Insert: {
-          center_id: string;
-          paused?: boolean;
-          pause_reason?: string | null;
-          daily_cap?: number;
-          updated_at?: string;
-          updated_by?: string | null;
-        };
-        Update: {
-          center_id?: string;
-          paused?: boolean;
-          pause_reason?: string | null;
-          daily_cap?: number;
-          updated_at?: string;
-          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -8678,36 +8735,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      person_match_programs: {
-        Row: {
-          person_id: string;
-          center_id: string;
-          program_id: string;
-          how: string;
-          confirmed_by: string;
-          confirmed_at: string;
-          confirmed_version: number;
-        };
-        Insert: {
-          person_id: string;
-          center_id: string;
-          program_id: string;
-          how: string;
-          confirmed_by: string;
-          confirmed_at?: string;
-          confirmed_version: number;
-        };
-        Update: {
-          person_id?: string;
-          center_id?: string;
-          program_id?: string;
-          how?: string;
-          confirmed_by?: string;
-          confirmed_at?: string;
-          confirmed_version?: number;
-        };
-        Relationships: [];
-      };
       person_profile_details: {
         Row: {
           person_id: string;
@@ -9284,6 +9311,8 @@ export type Database = {
           qbo_account_name: string | null;
           approved_by: string | null;
           approved_at: string | null;
+          realm_id: string | null;
+          first_approved_at: string | null;
         };
         Insert: {
           id?: string;
@@ -9293,6 +9322,8 @@ export type Database = {
           qbo_account_name?: string | null;
           approved_by?: string | null;
           approved_at?: string | null;
+          realm_id?: string | null;
+          first_approved_at?: string | null;
         };
         Update: {
           id?: string;
@@ -9302,6 +9333,8 @@ export type Database = {
           qbo_account_name?: string | null;
           approved_by?: string | null;
           approved_at?: string | null;
+          realm_id?: string | null;
+          first_approved_at?: string | null;
         };
         Relationships: [];
       };
@@ -12293,6 +12326,36 @@ export type Database = {
         };
         Returns: Json;
       };
+      account_map_can_approve: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      account_map_can_request: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      account_mapping_in_use: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      account_mapping_overview: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      account_mapping_waiting: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       activate_demo_pack: {
         Args: {
           p_center: string;
@@ -12330,6 +12393,14 @@ export type Database = {
           p_days?: number;
         };
         Returns: { item_key: string; item_kind: string; surface: string; platform: string; app_version: string; events: number; people: number; errors: number; median_ms: number }[];
+      };
+      add_care_note: {
+        Args: {
+          p_household: string;
+          p_body: string;
+          p_person?: string;
+        };
+        Returns: string;
       };
       add_email_domain: {
         Args: {
@@ -12459,6 +12530,13 @@ export type Database = {
           p_note?: string;
         };
         Returns: Json;
+      };
+      archive_care_note: {
+        Args: {
+          p_note: string;
+          p_reason?: string;
+        };
+        Returns: undefined;
       };
       assert_entitlement: {
         Args: {
@@ -12679,6 +12757,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      cancel_account_mapping_change: {
+        Args: {
+          p_request: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       cancel_my_rsvp: {
         Args: {
           p_rsvp: string;
@@ -12743,11 +12828,56 @@ export type Database = {
         };
         Returns: boolean;
       };
+      care_holders: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { user_id: string; name: string; level: string }[];
+      };
+      care_household_can: {
+        Args: {
+          p_household: string;
+        };
+        Returns: boolean;
+      };
+      care_household_card: {
+        Args: {
+          p_household: string;
+        };
+        Returns: Json;
+      };
+      care_household_touches: {
+        Args: {
+          p_household: string;
+          p_before_at?: string;
+          p_before_key?: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      care_households: {
+        Args: {
+          p_center: string;
+          p_filter?: string;
+          p_search?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
+      care_my_households: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
       care_settings_can: {
         Args: {
           p_center: string;
         };
         Returns: boolean;
+      };
+      care_view_centers: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
       };
       catalog_shows: {
         Args: {
@@ -13123,6 +13253,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      decide_account_mapping_change: {
+        Args: {
+          p_request: string;
+          p_approve: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       decide_household_change_request: {
         Args: {
           p_request: string;
@@ -13131,17 +13269,6 @@ export type Database = {
           p_reason?: string;
         };
         Returns: string;
-      };
-      decide_match_submission: {
-        Args: {
-          p_submission: string;
-          p_decision: string;
-          p_program?: Json;
-          p_reason?: string;
-          p_into_program?: string;
-          p_into_submission?: string;
-        };
-        Returns: Json;
       };
       decide_org_verification: {
         Args: {
@@ -13271,6 +13398,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      edit_care_note: {
+        Args: {
+          p_note: string;
+          p_body: string;
+        };
+        Returns: undefined;
+      };
       email_automation_log: {
         Args: {
           p_center: string;
@@ -13317,12 +13451,6 @@ export type Database = {
           p_majority?: number;
         };
         Returns: Json;
-      };
-      employer_name_key: {
-        Args: {
-          p: string;
-        };
-        Returns: string;
       };
       end_weaver_filing: {
         Args: {
@@ -14146,14 +14274,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      link_match_program: {
-        Args: {
-          p_center: string;
-          p_person: string;
-          p_program: string;
-        };
-        Returns: Json;
-      };
       link_payment_report: {
         Args: {
           p_report: string;
@@ -14171,6 +14291,13 @@ export type Database = {
       list_experiences: {
         Args: Record<PropertyKey, never>;
         Returns: { key: string; label: string; description: string; family_key: string; family_label: string; faith_based: boolean; active: boolean; sort: number }[];
+      };
+      log_care_touch: {
+        Args: {
+          p_household: string;
+          p_touch: Json;
+        };
+        Returns: string;
       };
       log_practice: {
         Args: {
@@ -14279,20 +14406,12 @@ export type Database = {
         };
         Returns: { key: string; module_key: string; name: string; module_label: string; mark: string; line: string; gets: string[]; needs: Json; members_line: string; data_line: string; price_text: string; price_short: string; included: boolean; catalog_status: string; target_quarter: string; on_note: string; off_note: string; sort: number; state: string; enabled: boolean; granted: boolean; paused: boolean; waiting_for: string[]; source: string; granted_at: string; granted_by_name: string; grant_reason: string; paused_at: string; paused_by_name: string; pause_reason: string; request_id: string; request_note: string; requested_at: string; requested_by_name: string; notified_at: string }[];
       };
-      match_deadline_kinds: {
-        Args: Record<PropertyKey, never>;
-        Returns: string[];
-      };
       match_deposit: {
         Args: {
           p_txn: string;
           p_payment_ids: string[];
         };
         Returns: number;
-      };
-      match_directory_can_read: {
-        Args: Record<PropertyKey, never>;
-        Returns: boolean;
       };
       match_employer_adult: {
         Args: {
@@ -14301,80 +14420,12 @@ export type Database = {
         };
         Returns: boolean;
       };
-      match_employers_queue: {
-        Args: {
-          p_center: string;
-          p_filter?: string;
-          p_limit?: number;
-          p_offset?: number;
-        };
-        Returns: Json;
-      };
-      match_gift_types: {
-        Args: Record<PropertyKey, never>;
-        Returns: string[];
-      };
-      match_link_readable: {
-        Args: {
-          p_center: string;
-          p_person: string;
-        };
-        Returns: boolean;
-      };
-      match_org_kinds: {
-        Args: Record<PropertyKey, never>;
-        Returns: string[];
-      };
-      match_portals: {
-        Args: Record<PropertyKey, never>;
-        Returns: string[];
-      };
-      match_program_candidates: {
-        Args: {
-          p_center: string;
-          p_person: string;
-        };
-        Returns: Json;
-      };
-      match_program_search: {
-        Args: {
-          p_query?: string;
-          p_status?: string;
-          p_limit?: number;
-          p_offset?: number;
-        };
-        Returns: Json;
-      };
-      match_publishing_cap: {
-        Args: {
-          p_center: string;
-        };
-        Returns: number;
-      };
-      match_publishing_state: {
-        Args: {
-          p_center: string;
-        };
-        Returns: Json;
-      };
-      match_religious_rules: {
-        Args: Record<PropertyKey, never>;
-        Returns: string[];
-      };
-      match_sources: {
-        Args: Record<PropertyKey, never>;
-        Returns: string[];
-      };
       matching_can: {
         Args: {
           p_center: string;
           p_level: string;
         };
         Returns: boolean;
-      };
-      matching_org_readable_centers: {
-        Args: Record<PropertyKey, never>;
-        Returns: string[];
       };
       matching_readable_centers: {
         Args: Record<PropertyKey, never>;
@@ -14454,14 +14505,6 @@ export type Database = {
           p_drop: string;
         };
         Returns: Json;
-      };
-      merge_match_programs: {
-        Args: {
-          p_keep: string;
-          p_drop: string;
-          p_reason: string;
-        };
-        Returns: string;
       };
       merge_people: {
         Args: {
@@ -15198,30 +15241,6 @@ export type Database = {
         };
         Returns: boolean;
       };
-      platform_match_communities: {
-        Args: Record<PropertyKey, never>;
-        Returns: Json;
-      };
-      platform_match_program_versions: {
-        Args: {
-          p_id: string;
-        };
-        Returns: Json;
-      };
-      platform_match_recent_publishes: {
-        Args: {
-          p_days?: number;
-        };
-        Returns: Json;
-      };
-      platform_match_submissions: {
-        Args: {
-          p_view?: string;
-          p_program?: string;
-          p_limit?: number;
-        };
-        Returns: Json;
-      };
       platform_onboarding_pipeline: {
         Args: Record<PropertyKey, never>;
         Returns: { center_id: string; slug: string; name: string; environment: string; status: string; stage: string; stage_since: string; steps_done: number; steps_total: number; readiness_ok: number; readiness_total: number; blockers: string[]; owner_name: string; owner_email: string; owner_phone: string; golive_id: string; golive_status: string; promoted_to: string; last_activity_at: string; support_live: boolean }[];
@@ -15826,6 +15845,16 @@ export type Database = {
         };
         Returns: string;
       };
+      request_account_mapping_change: {
+        Args: {
+          p_center: string;
+          p_subject: string;
+          p_target: string;
+          p_to: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       request_add_family_member: {
         Args: {
           p_household: string;
@@ -16121,14 +16150,6 @@ export type Database = {
         };
         Returns: string[];
       };
-      revert_match_program: {
-        Args: {
-          p_id: string;
-          p_version: number;
-          p_reason: string;
-        };
-        Returns: number;
-      };
       review_gyan_submission: {
         Args: {
           p_submission: string;
@@ -16208,6 +16229,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      save_care_profile: {
+        Args: {
+          p_household: string;
+          p_profile: Json;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
       save_email_automation_wording: {
         Args: {
           p_center: string;
@@ -16271,14 +16300,6 @@ export type Database = {
           p_files: Json;
         };
         Returns: Json;
-      };
-      save_match_program: {
-        Args: {
-          p_id: string;
-          p_program: Json;
-          p_reason: string;
-        };
-        Returns: string;
       };
       save_numbering: {
         Args: {
@@ -16407,6 +16428,15 @@ export type Database = {
         };
         Returns: undefined;
       };
+      set_care_owner: {
+        Args: {
+          p_household: string;
+          p_owner?: string;
+          p_backup?: string;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
       set_center_branding: {
         Args: {
           p_center: string;
@@ -16504,23 +16534,6 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
-      };
-      set_match_program_retired: {
-        Args: {
-          p_id: string;
-          p_retired: boolean;
-          p_reason: string;
-        };
-        Returns: undefined;
-      };
-      set_match_publishing: {
-        Args: {
-          p_center: string;
-          p_paused: boolean;
-          p_daily_cap: number;
-          p_reason: string;
-        };
-        Returns: undefined;
       };
       set_messaging_review_status: {
         Args: {
@@ -16653,24 +16666,6 @@ export type Database = {
         Args: {
           p_center: string;
           p_basis: string;
-          p_reason: string;
-        };
-        Returns: Json;
-      };
-      set_qbo_fund_class: {
-        Args: {
-          p_center: string;
-          p_fund: string;
-          p_qbo_class_id: string;
-          p_reason: string;
-        };
-        Returns: Json;
-      };
-      set_qbo_mapping: {
-        Args: {
-          p_center: string;
-          p_purpose: string;
-          p_qbo_account_id: string;
           p_reason: string;
         };
         Returns: Json;
@@ -16970,15 +16965,6 @@ export type Database = {
         };
         Returns: string;
       };
-      submit_match_program: {
-        Args: {
-          p_center: string;
-          p_program: string;
-          p_proposal: Json;
-          p_note?: string;
-        };
-        Returns: string;
-      };
       submit_membership_application: {
         Args: {
           p_center: string;
@@ -17134,13 +17120,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      unlink_match_program: {
-        Args: {
-          p_center: string;
-          p_person: string;
-        };
-        Returns: boolean;
-      };
       unlog_practice: {
         Args: {
           p_person: string;
@@ -17199,6 +17178,13 @@ export type Database = {
           p: string;
         };
         Returns: string;
+      };
+      void_care_touch: {
+        Args: {
+          p_touch: string;
+          p_reason?: string;
+        };
+        Returns: undefined;
       };
       webhook_job_kind: {
         Args: {

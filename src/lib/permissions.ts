@@ -275,6 +275,8 @@ export const ACCESS = {
   qboLedger: ["giving.view", "accounting.manage"],
   qboManage: ["accounting.manage"],
   qbo: ["integrations.view", "integrations.manage", "giving.view", "accounting.manage"],
+  /** Books › Account mapping (0779): the QuickBooks setup readers, and giving.approve (the second person who confirms a change). */
+  qboMapping: ["accounting.manage", "giving.approve", "giving.view", "integrations.view", "integrations.manage"],
   /** QuickBooks donor matching (o-qbo-match, 0240): read accounting.manage or giving.manage; decide accounting.manage. */
   qboMatch: ["accounting.manage", "giving.manage"],
   qboMatchManage: ["accounting.manage"],
@@ -605,6 +607,8 @@ export const NAV: NavModule[] = [
     tabs: [
       { href: "/accounting/qbo", label: "QuickBooks sync", access: "qbo" },
       { href: "/accounting/qbo/setup", label: "QuickBooks setup", access: "qbo" },
+      // The page lets in qboMapping (giving.approve too: the second person opens it from the Home or Today task).
+      { href: "/accounting/qbo/mapping", label: "Account mapping", access: "qbo" },
       { href: "/accounting/qbo/matching", label: "Donor matching", access: "qboMatch" },
       { href: "/accounting/close", label: "Month-end close", access: "close" },
     ],
@@ -619,6 +623,16 @@ export const NAV: NavModule[] = [
       { href: "/reports/community", label: "Community dashboard", access: "publicKpis" },
     ],
     paths: ["/reports"],
+  },
+  {
+    // WeCare (module `care`, 0760-0763): the organization's own care records. Shown only to roles the organization gives a
+    // care key (`can` never lets a platform admin through on care.*), and only while Weaver has turned the product on. Named by
+    // the kind (Donor care / Member care). Not recorded in the activity stream (W2): see tests/activity-catalog.test.ts.
+    key: "care",
+    module: "care",
+    label: "WeCare",
+    tabs: [{ href: "/care", label: "Households", access: "care" }],
+    paths: ["/care"],
   },
   {
     // Onboarding (ONBOARDING_PLAN §4): the organization's own Setup checklist.

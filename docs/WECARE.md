@@ -1,6 +1,6 @@
 # WeCare: Donor care and Member care (plan)
 
-Status: plan, 2026-10-13, nothing built. It merges B73 (donor playbooks) and B98 (giving insights: who to approach,
+Status: plan, 2026-10-13. Slices 1 (0750, 0757-0758) and 2 (0760-0763, in review) are built; the rest is plan. It merges B73 (donor playbooks) and B98 (giving insights: who to approach,
 [`GIVING_INSIGHTS.md`](GIVING_INSIGHTS.md)) into one product, backlog **B102**. Built for every organization Weaver
 onboards (temple, church, mosque, chamber, club, food bank, school; any faith or none; any language): behaviour comes
 from the organization's kind, its own settings and its own records, never from code written for one community.
@@ -68,6 +68,23 @@ the three keys and the roles `care_lead` and `relationship_owner` (given only by
 grant audited and the owner emailed), the `care.settings` support area (`app.care_settings_can`), read logging
 (`app.log_private_read`), the masked audit trigger (`app.audit_private_row`) and the audit-log rule. The contract every care
 table follows is in the 0757 header and [`ROLES.md`](ROLES.md).
+
+**Built (slice 2, migrations 0760-0763, tests 164-165):** `app.care_owners` (owner and backup, `app.set_care_owner`,
+care.manage only; "needs an owner" worked out on read), `app.care_profiles` (thanks, recognition, channel, one of the
+community's own languages, the adult to reach first, do not ask with rest-until), `app.care_notes` (archived, never
+deleted) and `app.care_touches` (kind, channel, outcome, ask or no ask; voided, never deleted). `app.care_household_can`:
+care.view and care.manage see every household, care.own the households they own or back up; whoever sees a household's
+record writes its touches, notes and profile (owner decision 2026-10-13). Reads only through `app.care_household_card`,
+`app.care_households` and `app.care_household_touches`, each logged; the touches Weaver already knows (messages,
+receipts, statements, check-ins, volunteer shifts) are read live, adults only, receipt amounts only with
+`app.care_amounts_can`; People fields are read where they live and only with people.view. Portal: the Care card on the
+Family page and the WeCare area (`/care`), neither recorded in the activity stream. No export, no AI. Care records never
+disappear with a household or a person: deleting either is refused in plain words (an import undo too), and merging two
+households moves notes and touches to the survivor (its profile and owner win; the merged one fills blanks). The touch
+log counts only community messages (`app.care_message_kinds`: campaign kinds and topics as data, never learning or
+account messages) and each former member only for the time they lived in the household. The Marketplace card
+stays "Not built yet" until a separate catalog change (0764) after a sandbox check: that change emails the communities that
+asked to be told.
 
 ## 4. Product and module
 
