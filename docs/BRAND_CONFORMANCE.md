@@ -28,10 +28,10 @@ brand/tokens.json  ──  scripts/sync-brand-tokens.mjs  ──►  src/styles/
 
 | What | Before | After |
 |---|---|---|
-| Colour values written in `src/` (comments left out): hex, rgb(a), Tailwind arbitrary colours | 1,412 in 104 files | 1,101 in 43 files |
+| Colour values written in `src/` (comments left out): hex, rgb(a), Tailwind arbitrary colours | 1,412 in 104 files | 1,141 in 44 files |
 | ...that were neither a kit colour nor in a file the guard allows (drift) | 273 in 67 files | 0 |
 | ...that equal a kit colour (allowed anywhere) | 109 | 27 |
-| ...in files the guard allows, with a reason (flyer artwork, the generated token file, the logo's own drawing, tenant palettes) | 1,030 | 1,074 |
+| ...in files the guard allows, with a reason (flyer artwork, the generated token file, the logo's own drawing, tenant palettes) | 1,030 | 1,114 |
 | Arbitrary Tailwind colour classes (`bg-[#...]`, `text-[#...]`, `border-[#...]`) | 115 | 0 |
 | Arbitrary shadows and scrims with an rgba value | 31 | 0 |
 | `text-saffron` (the kit: saffron is never text) | 28 | 0 (now `text-brown`) |
