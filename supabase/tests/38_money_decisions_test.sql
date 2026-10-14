@@ -129,7 +129,7 @@ rollback;
 begin;
 set local role authenticated;
 select pg_temp.as_user(:tara, false);
-select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-0000000000f8', 'income.general', '1', 'x')$$, 'accounting basis',
+select pg_temp.assert_raises($$select app.request_account_mapping_change('00000000-0000-4000-8000-0000000000f8', 'role', 'income.general', '1', 'x')$$, 'accounting basis',
   'basis: nothing is mapped before the basis is chosen');
 select pg_temp.assert_raises($$select app.set_qbo_settings('00000000-0000-4000-8000-0000000000f8', null, 'per_txn', current_date, 'x')$$, 'accounting basis',
   'basis: posting and go-live wait for the basis');

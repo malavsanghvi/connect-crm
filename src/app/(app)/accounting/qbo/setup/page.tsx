@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { Alert, Badge, BlockGrid, Card, DefinitionList, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { Alert, Badge, BlockGrid, buttonClass, Card, DefinitionList, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { parseMappingOverview, roleStateView, type MappingRole } from "@/lib/books/mapping";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { QBO_PURPOSES } from "@/lib/labels";
+import { untypedRpc } from "@/lib/payments/rpc";
 import { canAccess } from "@/lib/permissions";
 import {
   accountChoices,
@@ -110,6 +112,15 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
   const accounts = (accountsRes?.data ?? []) as PulledAccount[];
   const classes = classesRes?.data ?? [];
   const mappingBy = new Map((mappingsRes?.data ?? []).map((m) => [m.purpose, m]));
+  // Step 5 lists every fund and role this organization uses, in its own words, from the catalog (app.account_roles, 0779).
+  // Once the mapping has been approved it is "in use": a change is asked for in Books › Account mapping and a second person
+  // confirms it, so the forms here become a link.
+  const overviewRes = conn ? await untypedRpc(db)("account_mapping_overview", { p_center: center.id }) : null;
+  const overview = overviewRes && !overviewRes.error ? parseMappingOverview(overviewRes.data) : null;
+  const overviewError = overviewRes?.error ?? (overview && !overview.ok ? { message: overview.error } : null);
+  const roles: MappingRole[] = overview?.ok ? overview.value.roles : [];
+  const mappingInUse = overview?.ok ? overview.value.in_use : false;
+  const roleLabel = (p: string) => roles.find((r) => r.key === p)?.label ?? QBO_PURPOSES.find((x) => x.purpose === p)?.label ?? p;
   const warnBy = new Map(s.warnings.filter((w) => w.purpose).map((w) => [w.purpose!, w]));
   const fundWarn = new Map(s.warnings.filter((w) => w.fund_id).map((w) => [w.fund_id!, w]));
   const steps = setupSteps(s);
@@ -388,7 +399,16 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
 
           <Card
             title="5 · Account mapping"
-            description="Choose, from the chart pulled from QuickBooks, where each kind of money posts. The treasurer approves the whole mapping; any change needs approval again."
+            description={
+              mappingInUse
+                ? "Where each kind of money posts. The mapping is in use: a change is asked for in Account mapping and a different person with giving.approve confirms it."
+                : "Choose, from the chart pulled from QuickBooks, where each kind of money posts. The treasurer approves the whole mapping; from then on every change needs a second person."
+            }
+            actions={
+              <Link href="/accounting/qbo/mapping" className={buttonClass("ghost", "sm")}>
+                Account mapping and history
+              </Link>
+            }
             padded={false}
             className="mb-4"
           >
@@ -396,6 +416,10 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
               <EmptyState title="Choose the accounting basis first">It decides which accounts the mapping needs (step 2).</EmptyState>
             ) : !pulled ? (
               <EmptyState title="Pull the chart of accounts first">The accounts to choose from come from QuickBooks.</EmptyState>
+            ) : overviewError ? (
+              <div className="p-3">
+                <QueryError what="the funds and accounts to map" error={overviewError} retryHref="/accounting/qbo/setup" />
+              </div>
             ) : (
               <TableWrap>
                 <table className="crm-table">
@@ -407,9 +431,11 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                     </tr>
                   </thead>
                   <tbody>
-                    {QBO_PURPOSES.map((p) => {
+                    {roles.map((r) => {
+                      const p = { purpose: r.key, label: r.label, hint: r.hint };
                       const m = mappingBy.get(p.purpose);
                       const w = warnBy.get(p.purpose);
+                      const state = roleStateView(r);
                       const choices = accountChoices(p.purpose, accounts);
                       return (
                         <tr key={p.purpose}>
@@ -419,9 +445,19 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                             <div className="text-xs text-muted">{p.hint}</div>
                           </td>
                           <td className="min-w-72">
-                            {canManage ? (
+                            {canManage && mappingInUse ? (
+                              <>
+                                {m?.qbo_account_name ?? "—"}
+                                <div className="text-xs">
+                                  <Link href={`/accounting/qbo/mapping#role-${p.purpose}`} className="crm-link">
+                                    Ask for a change →
+                                  </Link>
+                                </div>
+                              </>
+                            ) : canManage ? (
                               <ActionForm action={saveQboMappingAction} submitLabel="Save" pendingLabel="Saving…" size="xs" variant="secondary" buttonsClassName="mt-1">
                                 <input type="hidden" name="purpose" value={p.purpose} />
+                                <input type="hidden" name="label" value={p.label} />
                                 <select name="qbo_account_id" aria-label={`QuickBooks account for ${p.label}`} defaultValue={m?.qbo_account_id ?? ""} className="crm-input">
                                   <option value="">— choose an account —</option>
                                   {choices.map((a) => (
@@ -436,17 +472,14 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                             )}
                           </td>
                           <td>
-                            {w ? (
-                              <StatusText tone={w.level === "error" ? "bad" : "warn"}>{w.level === "error" ? "Needs a new account" : "Renamed in QuickBooks"}</StatusText>
-                            ) : m?.approved_at ? (
-                              <StatusText tone="ok">Approved</StatusText>
-                            ) : m ? (
-                              <StatusText tone="warn">Not approved</StatusText>
-                            ) : required.has(p.purpose) ? (
-                              <StatusText tone="bad">Not mapped</StatusText>
+                            {w && r.account_id ? (
+                              <StatusText tone="warn">Renamed in QuickBooks</StatusText>
+                            ) : state.tone === "muted" ? (
+                              <span className="text-xs text-muted">{required.has(p.purpose) ? state.label : "Optional"}</span>
                             ) : (
-                              <span className="text-xs text-muted">Optional</span>
+                              <StatusText tone={state.tone}>{state.label}</StatusText>
                             )}
+                            {r.problem && !r.account_id && r.mapped_account_id ? <div className="text-xs text-danger">{r.problem}</div> : null}
                           </td>
                         </tr>
                       );
@@ -481,7 +514,16 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                           {fundWarn.get(f.id) ? <div className="text-xs text-danger">{fundWarn.get(f.id)!.text}</div> : null}
                         </td>
                         <td className="min-w-72">
-                          {canManage ? (
+                          {canManage && mappingInUse ? (
+                            <>
+                              {classes.find((k) => k.qbo_id === f.qbo_class_id)?.name ?? "—"}
+                              <div className="text-xs">
+                                <Link href={`/accounting/qbo/mapping#fund-${f.id}`} className="crm-link">
+                                  Ask for a change →
+                                </Link>
+                              </div>
+                            </>
+                          ) : canManage ? (
                             <ActionForm action={saveFundClassAction} submitLabel="Save" pendingLabel="Saving…" size="xs" variant="secondary" buttonsClassName="mt-1">
                               <input type="hidden" name="fund_id" value={f.id} />
                               <select name="qbo_class_id" aria-label={`QuickBooks class for ${f.name}`} defaultValue={f.qbo_class_id ?? ""} className="crm-input">
@@ -516,7 +558,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
               ) : (
                 <p className="mb-3 text-sm">
                   {s.missing_purposes.length > 0
-                    ? `Still to map: ${s.missing_purposes.map((p) => QBO_PURPOSES.find((x) => x.purpose === p)?.label ?? p).join(", ")}.`
+                    ? `Still to map: ${s.missing_purposes.map(roleLabel).join(", ")}.`
                     : errors.length > 0
                       ? "Fix the problems above first."
                       : "Everything required is mapped. Check it against your books, then approve."}
