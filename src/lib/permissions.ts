@@ -348,7 +348,12 @@ export const ACCESS = {
   commsDraft: ["comms.send"],
   store: ["store.view", "store.manage"],
   storeManage: ["store.manage"],
-  storeOrders: ["store.view", "store.manage", "store.pickup"],
+  /**
+   * My Store › Orders by pickup (the prep list by pickup slot). The kitchen lead (kitchen.view) reads it too: the database already
+   * lets them read the orders, their lines and the pickup slots (store_orders_pickup, store_lines_kitchen, pickup_windows_kitchen),
+   * and they move nothing (storePickup is store.manage or store.pickup only).
+   */
+  storeOrders: ["store.view", "store.manage", "store.pickup", "kitchen.view"],
   /** Move orders along (store_orders_pickup_update / staff write). */
   storePickup: ["store.manage", "store.pickup"],
   /** Calendar layers are content (0010 calendar_layers_manage needs content.manage). */

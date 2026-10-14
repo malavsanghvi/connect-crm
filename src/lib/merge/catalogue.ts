@@ -152,7 +152,7 @@ export const TRIGGER_INFO: Record<EmailTrigger, { title: string; when: string; m
   },
   pledge_recorded: {
     title: "Pledge confirmation",
-    when: "ON BY DEFAULT: when a pledge is recorded, by a member, by staff one at a time or in a bulk upload · to the household's primary member, with the pledge attached as a PDF in your branding · once per pledge · not for fees, recurring gift cycles, store orders, registrations, imported pledges or pledges dated more than 30 days ago",
+    when: "ON BY DEFAULT: when a pledge is recorded, by a member, by staff one at a time or in a bulk upload · to the household's primary member, with the pledge attached as a PDF in your branding · once per pledge, whatever its date · not for fees, recurring gift cycles, store orders, registrations or imported pledges",
     module: "giving",
     manage: "giving.manage",
     view: ["giving.view", "giving.manage"],
