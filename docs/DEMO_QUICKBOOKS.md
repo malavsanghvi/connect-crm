@@ -1,6 +1,6 @@
 # The faith-based demo with QuickBooks: the whole sequence
 
-One demo community, **Sunrise Jain Temple (Demo)** (slug `sunrise-jain-demo`, a Jain Center), made of invented people, with one demo
+One demo community, **Sunrise Jain Temple (Demo)** (slug `sunrise-jain-demo-sandbox`, a Jain Center), made of invented people, with one demo
 person for each of the 26 roles, and connected to its own **QuickBooks sandbox company**. It starts over every night; its QuickBooks
 connection and account mapping do not (0785). The machinery is the demo communities of B88 ([DEMO_SIGNIN.md](DEMO_SIGNIN.md),
 migrations 0627-0629, 0678-0679); this page adds the QuickBooks half and the order to do everything in.
@@ -54,8 +54,13 @@ Roles screen can only grant to a person who is in the community. So grant it dir
 insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason)
 select c.id, u.id, 'treasurer', 'center', 'Platform owner connects QuickBooks to the demo'
   from app.centers c, auth.users u
- where c.slug = 'sunrise-jain-demo' and lower(u.email) = 'malav.sanghavi@gmail.com';
+ where c.slug = 'sunrise-jain-demo-sandbox' and lower(u.email) = 'malav.sanghavi@gmail.com'
+   and not exists (select 1 from app.role_grants g where g.center_id = c.id and g.user_id = u.id
+                    and g.role_key = 'treasurer' and g.status = 'active');
 ```
+The slug is `sunrise-jain-demo-sandbox` (a sandbox's slug ends in `-sandbox`), not the `sunrise-jain-demo` the pack names. The statement
+inserts nothing, and says nothing, when the slug or email does not match: check that the editor reports **1 row**, and that the
+demo community's QuickBooks setup page no longer says "Connecting QuickBooks needs the owner, integrations.manage or accounting.manage".
 - **Treasurer** carries `accounting.manage` and `giving.approve`. Do **not** grant Center admin: the first active administrator becomes
   the owner, and the owner of the demo should be the demo administrator (Asha Varma) once sign-in is on.
 - **Do not make yourself a person in the demo** (`app.bootstrap_first_admin`, a join code): a reset restarts member and household
