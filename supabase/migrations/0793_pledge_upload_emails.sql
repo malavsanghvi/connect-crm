@@ -164,6 +164,8 @@ begin
   end loop;
 
   if not coalesce(p_send_emails, true) then
+    -- The choice is for this upload's pledges only: it never outlives the call (inside a larger transaction it would).
+    perform set_config('app.pledge_email', '', true);
     v_auto := app._pledge_email_automation(p_center);
     for y in select (e->>'pledge_id')::uuid as pledge_id, (e->>'household_id')::uuid as household_id from jsonb_array_elements(v_out) e loop
       insert into app.email_automation_sends (center_id, automation_id, ref_id, period, household_id, to_address, outcome, reason, reason_code)
