@@ -1,3 +1,9 @@
+Bricolage Grotesque (BricolageGrotesque-600.woff, BricolageGrotesque-700.woff, BricolageGrotesque-800.woff):
+Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
+
+Hanken Grotesk (HankenGrotesk-400.woff, HankenGrotesk-500.woff, HankenGrotesk-700.woff, HankenGrotesk-800.woff):
+Copyright 2021 The Hanken Grotesk Project Authors (https://github.com/marcologous/hanken-grotesk)
+
 DM Sans (DMSans-400.woff, DMSans-700.woff):
 Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts) DMSans-Italic[opsz,wght].ttf: Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts)
 
