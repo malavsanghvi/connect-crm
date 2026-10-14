@@ -39,6 +39,8 @@ uses for the sign-in hooks and the platform keys):
 
 ## To turn it on (owner, once)
 
+With QuickBooks connected to the faith demo, [DEMO_QUICKBOOKS.md](DEMO_QUICKBOOKS.md) has the whole order (Intuit sandbox company, the community, your own role in it, the connection, the sign-ins, the checks).
+
 1. Check Supabase Auth (the Weaver owner; none of this can be read from the repository):
    - **"Single session per user" off** (a shared demo sign-in needs several sessions at once);
    - **"Secure email change" ON** and **manual identity linking OFF**; **phone sign-in auto-confirm OFF**;

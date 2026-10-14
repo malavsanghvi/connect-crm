@@ -628,8 +628,8 @@ select pg_temp.assert(app.demo_keep_tables() = array[
     'qbo_oauth_states','qbo_pull_runs','qbo_test_posts','qbo_accounts','qbo_classes','qbo_locations','qbo_items',
     'qbo_tax_codes','qbo_payment_methods','qbo_customers','qbo_transactions',
     'legal_documents','message_templates','receipt_templates','import_mappings','dietary_options',
-    'audit_log','jobs']::text[],
-  'demo_keep_tables is the 0546 list plus center_payment_plugins');
+    'audit_log','jobs','demo_qbo_links']::text[],
+  'demo_keep_tables is the 0546 list plus center_payment_plugins, plus demo_qbo_links (0785)');
 select pg_temp.assert('center_payment_plugins' <> all (app.demo_clear_tables()) and 'payment_plugins' <> all (app.demo_clear_tables()),
   'a demo clear keeps the plugin rows (and never touches the catalog)');
 rollback;
