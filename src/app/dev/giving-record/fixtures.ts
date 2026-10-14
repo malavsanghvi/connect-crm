@@ -11,6 +11,8 @@ import type { ActionResult } from "@/lib/errors";
 import { buildGivingLane, readGivingIntent, type FindScope, type GivingFound } from "@/lib/find/giving";
 import type { FindResult, FindRow } from "@/lib/find/types";
 import type { PledgeEditSheet } from "@/lib/data/edit-pledge";
+import type { EmailedPledge, EmailPledgeInput } from "@/app/(app)/giving/pledges/email-pledge-actions";
+import type { PledgeEmailSheetData, RequestStatus } from "@/lib/pledge-email/sheet";
 import type { DeletedPledge, DeletePledgeInput, EditedPledge, EditPledgeInput } from "@/lib/giving-actions/edit-pledge";
 import { composeFamilyGiving, type FamilyFocus, type GivingHousehold } from "@/lib/giving-actions/family-giving";
 import { checkPledge, splitPledgeWords, type PledgeDesignation, type PledgeSheetOptions, type RecordedPledge, type RecordPledgeInput } from "@/lib/giving-actions/record-pledge";
@@ -37,6 +39,7 @@ export function previewContext(role: PreviewRole): GivingSheetContext {
     canOpenFamily: role === "treasurer",
     canRecordPledge: role === "treasurer",
     canEditPledge: role === "treasurer",
+    canEmailPledge: role === "treasurer",
   };
 }
 
@@ -123,6 +126,9 @@ export async function previewSearch(q: string, scope: FindScope, role: PreviewRo
 const later = <T,>(value: T): Promise<T> => new Promise((resolve) => setTimeout(() => resolve(value), 250));
 let receipt = 412;
 let pledgeNumber = 20500;
+// Email a pledge (0792): the primary member's address is invented; a household whose primary adult has none shows the empty box and the note.
+const PREVIEW_EMAILS: Record<string, string> = { [F.adeyemi.id]: "tunde.adeyemi@example.org" };
+const sentPreview = new Map<string, number>();
 const recordedPledges = new Map<string, RecordedPledge>();
 
 /** The sheets' reads and the record call, over the invented rows. Recording here saves nothing: the receipt says PREVIEW. */
@@ -274,6 +280,37 @@ export const PREVIEW_BACKEND: GivingSheetBackend = {
         status: p.status,
       },
     });
+  },
+  pledgeEmailSheet: async (pledgeId: string) => {
+    const p = PLEDGES.find((x) => x.id === pledgeId);
+    if (!p) return later<ActionResult<PledgeEmailSheetData>>({ ok: false, error: "Could not open the pledge to email it — it was not found." });
+    const h = byId.get(p.household_id);
+    const email = PREVIEW_EMAILS[p.household_id] ?? null;
+    return later<ActionResult<PledgeEmailSheetData>>({
+      ok: true,
+      data: {
+        pledge: { id: p.id, number: p.pledge_number, status: p.status, householdId: p.household_id, amountCents: p.amount_cents },
+        primary: {
+          personId: "9c000000-0000-4000-8000-000000000001",
+          name: h?.primary ?? null,
+          email,
+          problem: email ? null : "no_email",
+          message: email ? null : `The primary member (${h?.primary ?? "unknown"}) has no email address on file.`,
+        },
+        earlier: email ? [{ at: "2026-10-03T15:00:00Z", to: email, how: "automatic", outcome: "sent", reason: null }] : [],
+      },
+    });
+  },
+  emailPledge: async (input: EmailPledgeInput) => {
+    const requestId = `preview-email-${input.key}`;
+    sentPreview.set(requestId, 0);
+    return later<ActionResult<EmailedPledge>>({ ok: true, data: { requestId, to: input.to, replayed: false }, message: "Preview: nothing is sent." });
+  },
+  emailStatus: async (requestId: string) => {
+    const polls = (sentPreview.get(requestId) ?? 0) + 1;
+    sentPreview.set(requestId, polls);
+    const status: RequestStatus = { status: polls < 2 ? "waiting" : "sent", to: "preview@example.org", reason: null };
+    return later<ActionResult<RequestStatus>>({ ok: true, data: status });
   },
   deletePledge: async (input: DeletePledgeInput) => {
     const p = PLEDGES.find((x) => x.id === input.pledgeId);

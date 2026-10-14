@@ -50,6 +50,8 @@ export type GivingSheetContext = {
   canRecordPledge?: boolean;
   /** giving.manage: the person may edit or delete a pledge (0782). Left out: they may not. */
   canEditPledge?: boolean;
+  /** giving.manage: the person may email a pledge with its PDF (0792). Left out: they may not. */
+  canEmailPledge?: boolean;
   /** Bank reconciliation is on (Zelle and ACH usually arrive through it). */
   bankOn: boolean;
   /** The person may open the Family page (People). */

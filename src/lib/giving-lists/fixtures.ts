@@ -179,6 +179,7 @@ function listCtx(role: ListsRole, c: Community, paypalEmailOnly = false): ListCo
       record: canAccess(ctx, "recordPayment"),
       allocate: canAccess(ctx, "allocatePayment"),
       bankConfirm: canAccess(ctx, "bankConfirm"),
+      print: canAccess(ctx, "pledgeCopy"),
     },
     currency: c.currency,
     locale: c.locale,

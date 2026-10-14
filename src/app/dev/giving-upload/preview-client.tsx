@@ -106,6 +106,7 @@ export function UploadPreview({ community, fresh }: { community: UploadCommunity
           replayed: false,
           count: input.rows.length,
           totalCents: input.rows.reduce((s, r) => s + r.amount_cents, 0),
+          emails: input.sendEmails !== false,
           pledges: input.rows.map((r, i) => ({
             row: r.row,
             pledgeId: `9b000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
@@ -117,6 +118,17 @@ export function UploadPreview({ community, fresh }: { community: UploadCommunity
         },
       }),
     cancel: async () => later({ ok: true as const, message: "Cancelled the upload: 12 pledges cancelled (preview: nothing was saved).", data: { cancelled: 12 } }),
+    // Invented: the first pledge has no email address on file, the rest were sent (preview: nothing is sent).
+    emailStatus: async (ids) =>
+      later({
+        ok: true as const,
+        data: ids.map((id, i) => ({
+          pledgeId: id,
+          number: `PL-${String(501 + i).padStart(4, "0")}`,
+          state: i === 0 ? ("no_email" as const) : ("sent" as const),
+          reason: i === 0 ? "Not sent: The primary member (Rahul Shah) has no email address on file." : null,
+        })),
+      }),
   };
   return (
     <PledgeUpload

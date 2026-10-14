@@ -49,7 +49,27 @@ function fail(provider: string, what: string, status: number, text: string): nev
 
 // ── Email ────────────────────────────────────────────────────────────────────
 export type EmailProvider = "resend" | "postmark";
-export type OutgoingEmail = { from: string; to: string; subject: string; html: string; text: string; replyTo?: string | null; unsubscribeUrl?: string | null };
+/** A file sent with an email: its bytes as base64 text (what both providers take). */
+export type EmailAttachment = { filename: string; contentType: string; content: string };
+
+/** The most a message may carry: the two providers allow far more (Postmark 10 MB, Resend 40 MB), but a pledge or receipt copy is small. */
+export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
+export type OutgoingEmail = {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  replyTo?: string | null;
+  unsubscribeUrl?: string | null;
+  attachments?: readonly EmailAttachment[] | null;
+};
+
+/** What the attachments weigh once decoded (base64 is four characters for three bytes). */
+export function attachmentBytes(attachments: readonly EmailAttachment[] | null | undefined): number {
+  return (attachments ?? []).reduce((sum, a) => sum + Math.floor((a.content.replace(/=+$/, "").length * 3) / 4), 0);
+}
 
 /** The platform key for a provider, unless the organization stored its own (vault) key. */
 export function emailKey(env: Env, provider: EmailProvider, ownKey: string | null | undefined): string {
@@ -63,12 +83,19 @@ export function emailKey(env: Env, provider: EmailProvider, ownKey: string | nul
 }
 
 export async function sendEmail(req: Req, env: Env, provider: EmailProvider, key: string, m: OutgoingEmail): Promise<{ id: string }> {
+  const attachments = m.attachments ?? [];
+  if (attachmentBytes(attachments) > MAX_ATTACHMENT_BYTES) {
+    throw new ProviderError("The attachment is larger than a message may carry, so the email was not sent", null, true);
+  }
   const listUnsub = m.unsubscribeUrl ? { "List-Unsubscribe": `<${m.unsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : null;
   if (provider === "resend") {
     const r = await req(`${base(env, "RESEND_API_BASE", "https://api.resend.com")}/emails`, {
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({ from: m.from, to: [m.to], subject: m.subject, html: m.html, text: m.text, ...(m.replyTo ? { reply_to: m.replyTo } : {}), ...(listUnsub ? { headers: listUnsub } : {}) }),
+      body: JSON.stringify({
+        from: m.from, to: [m.to], subject: m.subject, html: m.html, text: m.text, ...(m.replyTo ? { reply_to: m.replyTo } : {}), ...(listUnsub ? { headers: listUnsub } : {}),
+        ...(attachments.length > 0 ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content, content_type: a.contentType })) } : {}),
+      }),
     });
     if (r.status >= 300) fail("Resend", "send the email", r.status, r.text);
     const id = parse(r.text).id;
@@ -82,6 +109,7 @@ export async function sendEmail(req: Req, env: Env, provider: EmailProvider, key
       From: m.from, To: m.to, Subject: m.subject, HtmlBody: m.html, TextBody: m.text, MessageStream: "outbound",
       ...(m.replyTo ? { ReplyTo: m.replyTo } : {}),
       ...(listUnsub ? { Headers: Object.entries(listUnsub).map(([Name, Value]) => ({ Name, Value })) } : {}),
+      ...(attachments.length > 0 ? { Attachments: attachments.map((a) => ({ Name: a.filename, Content: a.content, ContentType: a.contentType })) } : {}),
     }),
   });
   const body = parse(r.text);

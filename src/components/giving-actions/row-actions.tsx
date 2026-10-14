@@ -40,6 +40,7 @@ import { formatCents, parseAmountToCents } from "@/lib/money";
 
 import { MatchCountAct, UnmatchCountAct } from "./count-acts";
 import { GiftAct } from "./gift-act";
+import { PrintPledgeButton } from "./pledge-print";
 import { RecordPaymentButton, useGivingSheets } from "./provider";
 import { FamilyCard, GivingSheet, NO_UNDO } from "./sheet";
 
@@ -747,6 +748,22 @@ function EditPledgeAct({ act, ctx }: { act: Extract<Act, { kind: "edit_pledge" }
   );
 }
 
+/** Print the pledge as an invoice-style PDF (0791): the browser's print dialog opens on it; a failure is said next to the pledge, with a retry. */
+function PrintPledgeAct({ act, row, ctx }: { act: Extract<Act, { kind: "print_pledge" }>; row: RowLike; ctx: ActContext }) {
+  return <PrintPledgeButton pledgeId={act.id} reference={act.reference} family={row.family} labels={ctx.labels} label={act.label} className={triggerClass(ctx, false)} />;
+}
+
+/** Email the pledge, with its PDF, to the primary member or any address typed (0792): the sheet opens in place; where no sheet can open nothing is drawn. */
+function EmailPledgeAct({ act, ctx }: { act: Extract<Act, { kind: "email_pledge" }>; ctx: ActContext }) {
+  const sheets = useGivingSheets();
+  if (!sheets?.canEmailPledge) return null;
+  return (
+    <button type="button" aria-label={`Email pledge ${act.reference}`} className={triggerClass(ctx, false)} onClick={() => sheets.openEmailPledge({ pledgeId: act.id })}>
+      {act.label}
+    </button>
+  );
+}
+
 function WithdrawWriteOffAct({ act, row, ctx }: { act: Extract<Act, { kind: "withdraw_write_off" }>; row: RowLike; ctx: ActContext }) {
   return (
     <SheetAct
@@ -1128,6 +1145,10 @@ export function ActButtons({ acts, row, ctx }: { acts: readonly Act[]; row: RowL
             return <WithdrawWriteOffAct key={i} act={a} row={row} ctx={ctx} />;
           case "edit_pledge":
             return <EditPledgeAct key={i} act={a} ctx={ctx} />;
+          case "print_pledge":
+            return <PrintPledgeAct key={i} act={a} row={row} ctx={ctx} />;
+          case "email_pledge":
+            return <EmailPledgeAct key={i} act={a} ctx={ctx} />;
           case "change_due":
             return <ChangeDueAct key={i} act={a} row={row} ctx={ctx} />;
           case "request_refund":

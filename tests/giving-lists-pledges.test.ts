@@ -161,8 +161,8 @@ describe("a pledge row acts as Today does", () => {
     expect(r.status.label).toBe("Written off");
     expect(r.lines).toContain("Reason: “Hardship”");
     expect(r.lines).toContain("Posted to QuickBooks as a credit memo.");
-    expect(kinds(r, "menu")).toEqual(["edit_pledge", "link"]);
-    // Edit is giving.manage only; without it a closed pledge only opens the family.
+    expect(kinds(r, "menu")).toEqual(["edit_pledge", "email_pledge", "link"]);
+    // Edit and Email are giving.manage only; without it a closed pledge only opens the family.
     expect(kinds(pledgeRow(byNumber("PL-0301"), F.kim, ctx({ can: { manage: false } })), "menu")).toEqual(["link"]);
   });
 
@@ -172,6 +172,46 @@ describe("a pledge row acts as Today does", () => {
     expect(r.menu[0]).toEqual({ kind: "edit_pledge", id: open.id, reference: "PL-0455", label: "Edit pledge…" });
     expect(kinds(pledgeRow(open, F.adeyemi, ctx({ can: { manage: false } })), "menu")).not.toContain("edit_pledge");
     expect(kinds(pledgeRow({ ...open, status: "cancelled" }, F.adeyemi, ctx()), "menu")).not.toContain("edit_pledge");
+  });
+});
+
+describe("Print and Email in the row menu (0791, 0792)", () => {
+  const open = byNumber("PL-0455");
+
+  it("a treasurer is offered Print… and Email… on an open pledge, just before Open family, each naming its pledge", () => {
+    const r = pledgeRow(open, F.adeyemi, ctx({ can: { print: true } }));
+    const k = kinds(r, "menu");
+    expect(k.slice(-3)).toEqual(["print_pledge", "email_pledge", "link"]);
+    expect(r.menu).toContainEqual({ kind: "print_pledge", id: open.id, reference: "PL-0455", label: "Print…" });
+    expect(r.menu).toContainEqual({ kind: "email_pledge", id: open.id, reference: "PL-0455", label: "Email…" });
+  });
+
+  it("Print is giving.view or giving.manage (can.print); Email is giving.manage only: a person who may only read can print but not email", () => {
+    const reader = pledgeRow(open, F.adeyemi, ctx({ can: { manage: false, print: true } }));
+    expect(kinds(reader, "menu")).toContain("print_pledge");
+    expect(kinds(reader, "menu")).not.toContain("email_pledge");
+    const volunteer = pledgeRow(open, F.adeyemi, ctx({ can: { manage: false, print: false } }));
+    expect(kinds(volunteer, "menu")).not.toContain("print_pledge");
+    expect(kinds(volunteer, "menu")).not.toContain("email_pledge");
+    // The old context without the flag offers no Print (the database would refuse it anyway).
+    expect(kinds(pledgeRow(open, F.adeyemi, ctx()), "menu")).not.toContain("print_pledge");
+  });
+
+  it("a closed pledge (paid, written off) can still be printed and emailed; a deleted one has neither", () => {
+    for (const status of ["paid", "written_off"]) {
+      const k = kinds(pledgeRow({ ...open, status }, F.adeyemi, ctx({ can: { print: true } })), "menu");
+      expect(k).toContain("print_pledge");
+      expect(k).toContain("email_pledge");
+    }
+    const deleted = kinds(pledgeRow({ ...open, status: "cancelled" }, F.adeyemi, ctx({ can: { print: true } })), "menu");
+    expect(deleted).not.toContain("print_pledge");
+    expect(deleted).not.toContain("email_pledge");
+  });
+
+  it("the household card stays with the row, so the Email sheet and the print dialog name the family by its card, not its name", () => {
+    const r = pledgeRow(open, F.adeyemi, ctx({ can: { print: true } }));
+    expect(r.family).toEqual(F.adeyemi);
+    expect(r.history).toEqual({ table: "pledges", title: "Pledge PL-0455" });
   });
 });
 
