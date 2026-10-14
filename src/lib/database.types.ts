@@ -5795,6 +5795,285 @@ export type Database = {
         };
         Relationships: [];
       };
+      match_program_names: {
+        Row: {
+          id: string;
+          program_id: string;
+          name: string;
+          name_key: string;
+          is_primary: boolean;
+          retired_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          program_id: string;
+          name: string;
+          name_key: string;
+          is_primary?: boolean;
+          retired_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          program_id?: string;
+          name?: string;
+          name_key?: string;
+          is_primary?: boolean;
+          retired_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      match_program_submissions: {
+        Row: {
+          id: string;
+          center_id: string;
+          program_id: string | null;
+          proposal: Json;
+          note: string | null;
+          channel: string;
+          submitted_by: string;
+          submitted_at: string;
+          status: string;
+          reviewed: Json | null;
+          forwarded_by: string | null;
+          forwarded_at: string | null;
+          forward_note: string | null;
+          forwarded_because: string | null;
+          decided_kind: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_reason: string | null;
+          result_program_id: string | null;
+          duplicate_of: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          program_id?: string | null;
+          proposal: Json;
+          note?: string | null;
+          channel?: string;
+          submitted_by: string;
+          submitted_at?: string;
+          status?: string;
+          reviewed?: Json | null;
+          forwarded_by?: string | null;
+          forwarded_at?: string | null;
+          forward_note?: string | null;
+          forwarded_because?: string | null;
+          decided_kind?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          result_program_id?: string | null;
+          duplicate_of?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          program_id?: string | null;
+          proposal?: Json;
+          note?: string | null;
+          channel?: string;
+          submitted_by?: string;
+          submitted_at?: string;
+          status?: string;
+          reviewed?: Json | null;
+          forwarded_by?: string | null;
+          forwarded_at?: string | null;
+          forward_note?: string | null;
+          forwarded_because?: string | null;
+          decided_kind?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          result_program_id?: string | null;
+          duplicate_of?: string | null;
+        };
+        Relationships: [];
+      };
+      match_program_versions: {
+        Row: {
+          id: string;
+          program_id: string;
+          version: number;
+          facts: Json;
+          written_kind: string;
+          written_center_id: string | null;
+          note: string | null;
+          written_at: string;
+        };
+        Insert: {
+          id?: string;
+          program_id: string;
+          version: number;
+          facts: Json;
+          written_kind: string;
+          written_center_id?: string | null;
+          note?: string | null;
+          written_at?: string;
+        };
+        Update: {
+          id?: string;
+          program_id?: string;
+          version?: number;
+          facts?: Json;
+          written_kind?: string;
+          written_center_id?: string | null;
+          note?: string | null;
+          written_at?: string;
+        };
+        Relationships: [];
+      };
+      match_programs: {
+        Row: {
+          id: string;
+          company_name: string;
+          country: string | null;
+          gift_match: boolean;
+          volunteer_grant: boolean;
+          match_ratio_bp: number | null;
+          currency: string;
+          min_gift_cents: number | null;
+          max_gift_cents: number | null;
+          max_year_cents: number | null;
+          gift_types: string[];
+          org_kinds: string[];
+          religious_orgs: string | null;
+          eligibility_note: string | null;
+          portal: string | null;
+          portal_url: string | null;
+          deadline_kind: string | null;
+          deadline_months: number | null;
+          deadline_month: number | null;
+          deadline_day: number | null;
+          deadline_note: string | null;
+          volunteer_cents_per_hour: number | null;
+          volunteer_min_hours: number | null;
+          volunteer_max_year_cents: number | null;
+          volunteer_note: string | null;
+          notes: string | null;
+          source: string;
+          source_url: string | null;
+          last_verified_on: string | null;
+          verified_by_kind: string | null;
+          verified_submission_id: string | null;
+          version: number;
+          status: string;
+          merged_into: string | null;
+          status_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_name: string;
+          country?: string | null;
+          gift_match?: boolean;
+          volunteer_grant?: boolean;
+          match_ratio_bp?: number | null;
+          currency?: string;
+          min_gift_cents?: number | null;
+          max_gift_cents?: number | null;
+          max_year_cents?: number | null;
+          gift_types?: string[];
+          org_kinds?: string[];
+          religious_orgs?: string | null;
+          eligibility_note?: string | null;
+          portal?: string | null;
+          portal_url?: string | null;
+          deadline_kind?: string | null;
+          deadline_months?: number | null;
+          deadline_month?: number | null;
+          deadline_day?: number | null;
+          deadline_note?: string | null;
+          volunteer_cents_per_hour?: number | null;
+          volunteer_min_hours?: number | null;
+          volunteer_max_year_cents?: number | null;
+          volunteer_note?: string | null;
+          notes?: string | null;
+          source: string;
+          source_url?: string | null;
+          last_verified_on?: string | null;
+          verified_by_kind?: string | null;
+          verified_submission_id?: string | null;
+          version?: number;
+          status?: string;
+          merged_into?: string | null;
+          status_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_name?: string;
+          country?: string | null;
+          gift_match?: boolean;
+          volunteer_grant?: boolean;
+          match_ratio_bp?: number | null;
+          currency?: string;
+          min_gift_cents?: number | null;
+          max_gift_cents?: number | null;
+          max_year_cents?: number | null;
+          gift_types?: string[];
+          org_kinds?: string[];
+          religious_orgs?: string | null;
+          eligibility_note?: string | null;
+          portal?: string | null;
+          portal_url?: string | null;
+          deadline_kind?: string | null;
+          deadline_months?: number | null;
+          deadline_month?: number | null;
+          deadline_day?: number | null;
+          deadline_note?: string | null;
+          volunteer_cents_per_hour?: number | null;
+          volunteer_min_hours?: number | null;
+          volunteer_max_year_cents?: number | null;
+          volunteer_note?: string | null;
+          notes?: string | null;
+          source?: string;
+          source_url?: string | null;
+          last_verified_on?: string | null;
+          verified_by_kind?: string | null;
+          verified_submission_id?: string | null;
+          version?: number;
+          status?: string;
+          merged_into?: string | null;
+          status_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      match_publishing_controls: {
+        Row: {
+          center_id: string;
+          paused: boolean;
+          pause_reason: string | null;
+          daily_cap: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          paused?: boolean;
+          pause_reason?: string | null;
+          daily_cap?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          paused?: boolean;
+          pause_reason?: string | null;
+          daily_cap?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       matching_filing_grants: {
         Row: {
           id: string;
@@ -8732,6 +9011,36 @@ export type Database = {
           withdrawn_at?: string | null;
           withdrawn_by?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      person_match_programs: {
+        Row: {
+          person_id: string;
+          center_id: string;
+          program_id: string;
+          how: string;
+          confirmed_by: string;
+          confirmed_at: string;
+          confirmed_version: number;
+        };
+        Insert: {
+          person_id: string;
+          center_id: string;
+          program_id: string;
+          how: string;
+          confirmed_by: string;
+          confirmed_at?: string;
+          confirmed_version: number;
+        };
+        Update: {
+          person_id?: string;
+          center_id?: string;
+          program_id?: string;
+          how?: string;
+          confirmed_by?: string;
+          confirmed_at?: string;
+          confirmed_version?: number;
         };
         Relationships: [];
       };
@@ -13270,6 +13579,17 @@ export type Database = {
         };
         Returns: string;
       };
+      decide_match_submission: {
+        Args: {
+          p_submission: string;
+          p_decision: string;
+          p_program?: Json;
+          p_reason?: string;
+          p_into_program?: string;
+          p_into_submission?: string;
+        };
+        Returns: Json;
+      };
       decide_org_verification: {
         Args: {
           p_center: string;
@@ -13451,6 +13771,12 @@ export type Database = {
           p_majority?: number;
         };
         Returns: Json;
+      };
+      employer_name_key: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
       };
       end_weaver_filing: {
         Args: {
@@ -14274,6 +14600,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      link_match_program: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_program: string;
+        };
+        Returns: Json;
+      };
       link_payment_report: {
         Args: {
           p_report: string;
@@ -14406,12 +14740,20 @@ export type Database = {
         };
         Returns: { key: string; module_key: string; name: string; module_label: string; mark: string; line: string; gets: string[]; needs: Json; members_line: string; data_line: string; price_text: string; price_short: string; included: boolean; catalog_status: string; target_quarter: string; on_note: string; off_note: string; sort: number; state: string; enabled: boolean; granted: boolean; paused: boolean; waiting_for: string[]; source: string; granted_at: string; granted_by_name: string; grant_reason: string; paused_at: string; paused_by_name: string; pause_reason: string; request_id: string; request_note: string; requested_at: string; requested_by_name: string; notified_at: string }[];
       };
+      match_deadline_kinds: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
       match_deposit: {
         Args: {
           p_txn: string;
           p_payment_ids: string[];
         };
         Returns: number;
+      };
+      match_directory_can_read: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
       };
       match_employer_adult: {
         Args: {
@@ -14420,12 +14762,80 @@ export type Database = {
         };
         Returns: boolean;
       };
+      match_employers_queue: {
+        Args: {
+          p_center: string;
+          p_filter?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
+      match_gift_types: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      match_link_readable: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
+      match_org_kinds: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      match_portals: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      match_program_candidates: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: Json;
+      };
+      match_program_search: {
+        Args: {
+          p_query?: string;
+          p_status?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
+      match_publishing_cap: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      match_publishing_state: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      match_religious_rules: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      match_sources: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
       matching_can: {
         Args: {
           p_center: string;
           p_level: string;
         };
         Returns: boolean;
+      };
+      matching_org_readable_centers: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
       };
       matching_readable_centers: {
         Args: Record<PropertyKey, never>;
@@ -14505,6 +14915,14 @@ export type Database = {
           p_drop: string;
         };
         Returns: Json;
+      };
+      merge_match_programs: {
+        Args: {
+          p_keep: string;
+          p_drop: string;
+          p_reason: string;
+        };
+        Returns: string;
       };
       merge_people: {
         Args: {
@@ -15240,6 +15658,30 @@ export type Database = {
           p: string;
         };
         Returns: boolean;
+      };
+      platform_match_communities: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      platform_match_program_versions: {
+        Args: {
+          p_id: string;
+        };
+        Returns: Json;
+      };
+      platform_match_recent_publishes: {
+        Args: {
+          p_days?: number;
+        };
+        Returns: Json;
+      };
+      platform_match_submissions: {
+        Args: {
+          p_view?: string;
+          p_program?: string;
+          p_limit?: number;
+        };
+        Returns: Json;
       };
       platform_onboarding_pipeline: {
         Args: Record<PropertyKey, never>;
@@ -16150,6 +16592,14 @@ export type Database = {
         };
         Returns: string[];
       };
+      revert_match_program: {
+        Args: {
+          p_id: string;
+          p_version: number;
+          p_reason: string;
+        };
+        Returns: number;
+      };
       review_gyan_submission: {
         Args: {
           p_submission: string;
@@ -16300,6 +16750,14 @@ export type Database = {
           p_files: Json;
         };
         Returns: Json;
+      };
+      save_match_program: {
+        Args: {
+          p_id: string;
+          p_program: Json;
+          p_reason: string;
+        };
+        Returns: string;
       };
       save_numbering: {
         Args: {
@@ -16534,6 +16992,23 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      set_match_program_retired: {
+        Args: {
+          p_id: string;
+          p_retired: boolean;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_match_publishing: {
+        Args: {
+          p_center: string;
+          p_paused: boolean;
+          p_daily_cap: number;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       set_messaging_review_status: {
         Args: {
@@ -16965,6 +17440,15 @@ export type Database = {
         };
         Returns: string;
       };
+      submit_match_program: {
+        Args: {
+          p_center: string;
+          p_program: string;
+          p_proposal: Json;
+          p_note?: string;
+        };
+        Returns: string;
+      };
       submit_membership_application: {
         Args: {
           p_center: string;
@@ -17119,6 +17603,13 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      unlink_match_program: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
       };
       unlog_practice: {
         Args: {
