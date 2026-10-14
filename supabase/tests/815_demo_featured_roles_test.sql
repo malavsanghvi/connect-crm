@@ -139,6 +139,7 @@ select pg_temp.assert((select count(*) > 6 from app.demo_personas where center_i
   'C · and the faith community has many more demo people than the list offers, one per role');
 select pg_temp.assert((select count(*) = (select count(*) from app.demo_personas) - 1 from app.demo_auth_users),
   'C · every demo person keeps their sign-in (but the one whose address is a real person''s)');
+select pg_temp.claims(:admin, false);
 select app.set_demo_signin(true, 'Open the demo for the test')::text as sw \gset
 select pg_temp.begin_as_worker(:'p_member', 'hash-815')::text as b \gset
 select pg_temp.assert((:'b'::jsonb ->> 'ok')::boolean and (:'b'::jsonb ->> 'email') like '%@demo.weaverams.org',
