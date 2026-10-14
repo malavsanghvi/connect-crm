@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { cache, type ReactNode } from "react";
 
-import { Icon, type IconName } from "@/components/site/icons";
+import { Icon, type IconName } from "@/components/brand/icons";
 import { isPublicSiteHost } from "@/lib/site";
 
 /** "" on the website's own hosts (it is served at /), "/site" on any other host (the preview address). */

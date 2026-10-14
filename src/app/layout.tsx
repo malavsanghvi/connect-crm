@@ -22,10 +22,10 @@ const hanken = Hanken_Grotesk({
   display: "swap",
 });
 
-// The one face outside the kit: identifiers (receipt, pledge and member numbers) stay in a monospace (docs/BRAND_CONFORMANCE.md, D3).
+// The kit's third face, for identifiers only (receipt, pledge, household and member numbers): JetBrains Mono (brand/README.md, Type).
 
 const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
+  variable: "--font-jetbrains",
   subsets: ["latin"],
   display: "swap",
   preload: false,

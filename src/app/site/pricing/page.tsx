@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { Icon } from "@/components/site/icons";
+import { Icon } from "@/components/brand/icons";
 import { TipCheckoutMock } from "@/components/site/mockups";
 import { Eyebrow, FaqList, SectionHeading, SiteLink, Ticks, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS } from "@/components/site/weavers";

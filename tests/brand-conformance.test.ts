@@ -8,7 +8,18 @@ import { brandColor, type BrandColorName } from "@/lib/brand-colors";
 import { EMAIL_PALETTE } from "@/lib/messaging/email";
 import { buildPledgeDocument } from "@/lib/pledge-pdf/document";
 
-import { OUTPUT_PATH, TS_OUTPUT_PATH, buildBrandTokensCss, buildBrandTokensTs, readTokens } from "../scripts/sync-brand-tokens.mjs";
+import {
+  ICONS_TS_PATH,
+  KIT_CSS_PATH,
+  OUTPUT_PATH,
+  TS_OUTPUT_PATH,
+  buildBrandTokensCss,
+  buildBrandTokensTs,
+  buildIconsTs,
+  buildKitCss,
+  readIcons,
+  readTokens,
+} from "../scripts/sync-brand-tokens.mjs";
 
 // Keeps the portal and the website on the Weaver brand kit (brand/: README.md, tokens.json, logos, icons, components).
 // docs/BRAND_CONFORMANCE.md says what was brought onto the kit and what waits for an owner decision; brand/MAINTAINING.md says how
@@ -152,18 +163,15 @@ describe("(c) the generated token file", () => {
     expect(generated).toContain("--font-sans: var(--font-hanken)");
     expect(layout).toContain('variable: "--font-bricolage"');
     expect(layout).toContain('variable: "--font-hanken"');
+    expect(layout).toContain('variable: "--font-jetbrains"');
+    expect(generated).toContain("--font-mono: var(--font-jetbrains)");
   });
 
-  it("the kit's own stylesheet (brand/weaver-tokens.css) agrees with tokens.json", () => {
-    const kitCss = read("brand/weaver-tokens.css");
-    for (const t of tokens.color.tokens) {
-      const m = new RegExp(`--${t.name}: ([^;]+);`).exec(kitCss);
-      expect(m, `brand/weaver-tokens.css has no --${t.name}`).not.toBeNull();
-      expect(m![1], t.name).toBe(t.value.startsWith("{") ? `var(--${t.value.slice(1, -1)})` : t.value);
-    }
+  it("the kit's own stylesheet (brand/weaver-tokens.css) is what tokens.json produces", () => {
+    expect(readFileSync(KIT_CSS_PATH, "utf8").replace(/\r\n/g, "\n")).toBe(buildKitCss(readTokens()));
   });
 
-  it("no stylesheet or layout loads a face the kit does not name (the monospace for identifiers is decision D3)", () => {
+  it("no stylesheet or layout loads a face the kit does not name (the kit has Bricolage Grotesque, Hanken Grotesk and JetBrains Mono)", () => {
     const loaders = CODE.filter((f) => /from "next\/font\/google"/.test(readFileSync(f.path, "utf8")));
     expect(loaders.map((f) => f.rel)).toEqual(["src/app/layout.tsx"]);
     expect(read("src/app/layout.tsx").match(/import \{([^}]+)\} from "next\/font\/google"/)![1]!.split(",").map((s) => s.trim()).sort()).toEqual([
@@ -216,9 +224,12 @@ describe("(d) the official logo files are in place", () => {
     expect(og).toContain("For free. Forever.");
   });
 
-  it("the 21 icons are in the kit", () => {
+  it("the icons are in the kit, every file has the kit's root, and the Icon component is generated from them", () => {
     const icons = readdirSync(join(ROOT, "brand/icons")).filter((f) => f.endsWith(".svg"));
-    expect(icons).toHaveLength(21);
+    expect(icons).toHaveLength(42);
+    // readIcons throws on a file whose root is not the kit's (24px grid, navy ink, stroke 2, round caps).
+    expect(readIcons(readTokens()).map(([name]) => name)).toEqual(icons.map((f) => f.replace(/\.svg$/, "")).sort());
+    expect(readFileSync(ICONS_TS_PATH, "utf8").replace(/\r\n/g, "\n")).toBe(buildIconsTs(readIcons(readTokens())));
   });
 
   it("every place that shows the Weaver mark draws it with the component (no second drawing of the W)", () => {
@@ -227,6 +238,37 @@ describe("(d) the official logo files are in place", () => {
     // Over navy the mark sits on its white tile (the kit's LogoTile), never bare.
     expect(read("src/components/brand/logo.tsx")).toContain("rounded-logo-tile");
     for (const page of ["src/app/login/page.tsx", "src/components/onboarding-split.tsx", "src/app/demo/page.tsx"]) expect(read(page), page).toContain("LogoTile");
+  });
+});
+
+// ─── The kit's own contrast claims ──────────────────────────────────────────────────────────────────────────────────────────
+
+describe("the kit's new tokens keep the contrast the README promises", () => {
+  const lum = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  };
+  const ratio = (a: BrandColorName, b: BrandColorName) => {
+    const [hi, lo] = [lum(brandColor(a)), lum(brandColor(b))].sort((x, y) => y - x);
+    return (hi! + 0.05) / (lo! + 0.05);
+  };
+  const atLeast: [BrandColorName, BrandColorName, number][] = [
+    // text
+    ["faint", "white", 4.5], ["faint", "canvas", 4.5], ["faint", "ground", 4.5], ["faint", "navy-50", 4.5], ["faint", "saffron-50", 4.5],
+    ["white", "saffron-strong", 4.5], ["saffron-strong", "canvas", 4.5],
+    ["warning", "white", 4.5], ["warning", "canvas", 4.5], ["warning", "warning-50", 4.5],
+    ["warning-ink", "warning-50", 7], ["warning-ink", "warning-200", 7],
+    // a control's border (WCAG 1.4.11)
+    ["line-control", "white", 3], ["line-control", "canvas", 3], ["line-control", "ground", 3],
+  ];
+  for (const [fg, bg, min] of atLeast) {
+    it(`${fg} on ${bg} is at least ${min}:1`, () => {
+      expect(ratio(fg, bg)).toBeGreaterThanOrEqual(min);
+    });
+  }
+  it("saffron on its own still fails white text, which is why saffron-strong exists", () => {
+    expect(ratio("white", "saffron")).toBeLessThan(3);
+    expect(ratio("brown", "white")).toBeGreaterThanOrEqual(4.5);
   });
 });
 

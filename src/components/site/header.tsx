@@ -1,5 +1,5 @@
 import { Logo } from "@/components/brand/logo";
-import { Icon, type IconName } from "@/components/site/icons";
+import { Icon, type IconName } from "@/components/brand/icons";
 import { MobileMenu } from "@/components/site/mobile-menu";
 import { NavDropdown } from "@/components/site/nav-dropdown";
 import { SiteLink, buttonStyles, container } from "@/components/site/ui";

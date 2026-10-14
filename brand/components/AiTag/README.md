@@ -8,3 +8,4 @@ The AI tag and the AI line: how Weaver marks what AI does, always next to the pe
 - The line: the tag, then the sentence in `ink-2`, on `saffron-50` with a 1px `saffron-200` border and `radius-tile`.
 - The gold-to-saffron gradient is only for this tag (and the headline underline). Never use it for buttons or backgrounds.
 - Never show an AI line without the human decision, and never for a feature that is not built.
+- Niva is the AI tag labelled "Niva". Niva's own button is an ordinary button (a `navy-50` tile with an `ink` sparkle, or `navy`): no gradient fill, no coloured orb. The gradient is for the tag alone.

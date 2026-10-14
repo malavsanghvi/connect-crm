@@ -115,7 +115,12 @@ describe("text contrast is at least 4.5:1 on the surface it sits on", () => {
     ["--v2-ink", surfaces],
     ["--v2-ink-2", surfaces],
     ["--v2-muted", surfaces],
-    ["--v2-faint", surfaces],
+    // The kit: faint is for hints and timestamps on white, canvas, ground and the tints; on the line colour (a switched-off button) text is muted.
+    ["--v2-faint", cardSurfaces],
+    [WHITE, ["--color-saffron-strong"]],
+    ["--color-warning", [WHITE, "--v2-page", "--color-warning-50"]],
+    ["--color-warning-ink", ["--color-warning-50", "--color-warning-200"]],
+    ["--color-muted", ["--color-frame"]],
     ["--v2-blue", surfaces],
     ["--v2-indigo", [...surfaces, "--v2-indigo-tint"]],
     ["--v2-lavender", [...surfaces, "--v2-lavender-tint"]],
@@ -143,6 +148,13 @@ describe("text contrast is at least 4.5:1 on the surface it sits on", () => {
       });
     }
   }
+
+  it("a control's border reaches 3:1 against the surfaces it sits on (WCAG 1.4.11)", () => {
+    for (const surface of [WHITE, "--v2-page", "--v2-ground", "--v2-blue-tint"]) {
+      const r = ratio(color("--color-line-control"), color(surface));
+      expect(r, `line-control on ${surface} is ${r.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
+    }
+  });
 
   it("Niva's icon is readable on both ends of the sun gradient", () => {
     expect(ratio(color("--v2-ink"), color("--v2-sun-from"))).toBeGreaterThanOrEqual(4.5);

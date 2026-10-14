@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-import { Icon } from "@/components/site/icons";
+import { Icon } from "@/components/brand/icons";
 
 /**
  * One drop-down of the website's main menu (desktop). Opens on hover, click, or the keyboard; closes on Escape, on a click

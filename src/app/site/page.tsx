@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { AiTag } from "@/components/brand/ai-tag";
 import { OWNER_FACTS } from "@/components/site/facts";
-import { Icon, type IconName } from "@/components/site/icons";
+import { Icon, type IconName } from "@/components/brand/icons";
 import { ExperienceBand } from "@/components/site/experience-band";
 import { EventMock, GivingMock, HandoverMock, HouseholdMock, LearningMock, PhoneMock } from "@/components/site/mockups";
 import { ProductTour } from "@/components/site/product-tour";

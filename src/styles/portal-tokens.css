@@ -15,7 +15,6 @@
   --color-line-strong: var(--color-line-input);
   --color-navy-700: var(--color-navy-hover);
   --color-maroon-50: var(--color-danger-50);
-  --color-faint: var(--color-muted); /* the kit has one supporting grey: muted (6:1 or better on every surface) */
   --color-frame: var(--color-line); /* a switched-off button */
   --color-highlight: var(--color-saffron-50); /* a highlighted table row */
   --color-skeleton: var(--color-line); /* a loading block */
@@ -39,7 +38,4 @@
   /* Elevation: composed from the kit's ink, so the shadow takes the brand's cool tone */
   --shadow-toast: 0 8px 24px color-mix(in srgb, var(--color-ink) 25%, transparent);
   --shadow-sheet: -8px 0 30px color-mix(in srgb, var(--color-ink) 14%, transparent);
-
-  /* The one face the kit does not have: identifiers (receipt, pledge and member numbers) stay in a monospace (owner decision D3) */
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }

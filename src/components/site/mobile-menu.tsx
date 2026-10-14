@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState, type ReactNode } from "react";
 
-import { Icon } from "@/components/site/icons";
+import { Icon } from "@/components/brand/icons";
 
 /** The menu button and drop-down panel of the website's header on small screens. The links are rendered by the server and passed in. */
 export function MobileMenu({ children }: { children: ReactNode }) {

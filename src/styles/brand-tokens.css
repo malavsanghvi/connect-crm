@@ -17,6 +17,7 @@
   --color-saffron: #ff7640;
   --color-saffron-50: #fff1e6;
   --color-saffron-200: #ffd6b8;
+  --color-saffron-strong: #c2501c;
   --color-gold: #ffb82a;
   --color-brown: #a8400d;
   --color-brown-900: #7a2e09;
@@ -26,14 +27,20 @@
   --color-line: #eee3d9;
   --color-line-soft: #f6eee6;
   --color-line-input: #e3d6ca;
+  --color-line-control: #85889e;
   --color-ink: #1e1d5c;
   --color-ink-2: #33325f;
   --color-muted: #555a79;
+  --color-faint: #666b86;
   --color-white: #ffffff;
   --color-success: #1f7a4d;
   --color-success-50: #e4f2ea;
   --color-danger: #b3261e;
   --color-danger-50: #fbe3e1;
+  --color-warning: #9b5111;
+  --color-warning-50: #fff6e5;
+  --color-warning-200: #ffe3aa;
+  --color-warning-ink: #6d3b07;
   --color-mark-teal: #34c4cb;
   --color-mark-blue: #2f8ed8;
   --color-mark-green: #6cc68f;
@@ -46,6 +53,7 @@
   /* Type */
   --font-display: var(--font-bricolage), "Bricolage Grotesque", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-hanken), "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Shape */
   --radius-pill: 9999px;
@@ -55,7 +63,9 @@
   --radius-window: 20px;
   --radius-tile: 16px;
   --radius-logo-tile: 12px;
+  --radius-field: 12px;
   --radius-chip: 6px;
+  --radius-tag: 8px;
 
   /* Elevation */
   --shadow-hero: 0 30px 60px -30px rgba(43,42,138,0.45);
@@ -81,4 +91,7 @@
   --gap: 12px;
   --gap-lg: 16px;
   --tap-target: 48px;
+  --control-primary: 52px;
+  --control-compact: 40px;
+  --control-dense: 36px;
 }

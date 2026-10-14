@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { OWNER_FACTS } from "@/components/site/facts";
-import { Icon } from "@/components/site/icons";
+import { Icon } from "@/components/brand/icons";
 import { SectionHeading, Ticks, container } from "@/components/site/ui";
 import { brandColor, type BrandColorName } from "@/lib/brand-colors";
 import { SITE_NAME } from "@/lib/site";
@@ -144,6 +144,16 @@ const COLOURS: { name: string; token: BrandColorName; swatch: string; use: strin
   { name: "Canvas", token: "canvas", swatch: "bg-canvas", use: "Page background", dark: false },
 ];
 
+/** The colours for working screens: text you can read, controls you can see, and warnings. Read from brand/tokens.json too. */
+const WORKING: { name: string; token: BrandColorName; swatch: string; use: string }[] = [
+  { name: "Strong sunrise", token: "saffron-strong", swatch: "bg-saffron-strong", use: "Orange that carries white text, and orange text on white. Sunrise itself is for decoration" },
+  { name: "Faint", token: "faint", swatch: "bg-faint", use: "Hints and timestamps, still 5:1 on white" },
+  { name: "Control border", token: "line-control", swatch: "bg-line-control", use: "The outline of a field, checkbox or switch, 3.5:1 on white" },
+  { name: "Warning", token: "warning", swatch: "bg-warning", use: "A warning's icon and title, with warning ink on a warm tint" },
+  { name: "Success", token: "success", swatch: "bg-success", use: "A tick beside its words" },
+  { name: "Danger", token: "danger", swatch: "bg-danger", use: "Errors, with what went wrong and how to fix it" },
+];
+
 function Colours() {
   return (
     <section id="colours" aria-labelledby="colours-title" className="scroll-mt-24 border-y border-line bg-ground py-10 sm:py-14">
@@ -162,6 +172,21 @@ function Colours() {
             </li>
           ))}
         </ul>
+        <div className="flex flex-col gap-4">
+          <h3 className="font-display text-[22px] font-semibold text-navy">For working screens</h3>
+          <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-6">
+            {WORKING.map((c) => (
+              <li key={c.name} className="flex flex-col overflow-hidden rounded-window border border-line bg-white">
+                <div className={`h-[56px] ${c.swatch}`} />
+                <div className="p-3">
+                  <p className="font-display text-[17px] font-semibold text-navy">{c.name}</p>
+                  <p className="font-mono text-[13px] font-semibold text-muted">{brandColor(c.token).toUpperCase()}</p>
+                  <p className="mt-1 text-[13.5px] leading-snug text-muted">{c.use}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );
@@ -180,12 +205,13 @@ function TypeAndWords() {
   const faces = [
     { name: "Bricolage Grotesque", role: "Headings and the name", sample: "Do more good.", className: "font-display text-[36px] font-bold leading-none tracking-[-0.03em]", href: "https://fonts.google.com/specimen/Bricolage+Grotesque" },
     { name: "Hanken Grotesk", role: "Everything else", sample: "Members, giving, events and classes.", className: "text-[20px] leading-snug", href: "https://fonts.google.com/specimen/Hanken+Grotesk" },
+    { name: "JetBrains Mono", role: "Identifiers only: numbers and codes", sample: "JSH-H-2041 · 0417", className: "font-mono text-[20px] font-medium leading-snug", href: "https://fonts.google.com/specimen/JetBrains+Mono" },
   ];
   return (
     <section id="words" aria-labelledby="words-title" className="scroll-mt-24 py-10 sm:py-14 lg:py-16">
       <div className={`${container} grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12`}>
         <div className="flex flex-col gap-5">
-          <SectionHeading align="left" eyebrow="Type" title="Two faces, both free" titleId="type-title" />
+          <SectionHeading align="left" eyebrow="Type" title="Two faces, and one for numbers" titleId="type-title" />
           <ul className="flex flex-col gap-3">
             {faces.map((f) => (
               <li key={f.name} className="rounded-card border border-line bg-white p-5 sm:p-6">

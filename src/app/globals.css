@@ -323,7 +323,7 @@ body {
   .cc-btn:disabled,
   .cc-btn[aria-disabled="true"] {
     background: var(--color-frame);
-    color: var(--color-faint);
+    color: var(--color-muted);
     border-color: var(--color-frame);
     cursor: not-allowed;
   }

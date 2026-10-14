@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Icon, type IconName } from "@/components/site/icons";
+import { Icon, type IconName } from "@/components/brand/icons";
 import { TIP_YEARLY_CAP_CENTS, usd } from "@/lib/site";
 
 // Illustrative screens drawn in HTML and CSS (no screenshots, no real people). Every figure and name here is sample data.
