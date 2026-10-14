@@ -98,6 +98,23 @@ describe("(a) colours come from the brand kit", () => {
     expect(found).toEqual([]);
   });
 
+  it("saffron is never text, and the type tops out at weight 700 (the kit's README: Colour, Type)", () => {
+    const found: string[] = [];
+    for (const { path, rel } of CODE) {
+      if (rel.startsWith("src/lib/events/")) continue;
+      withoutComments(readFileSync(path, "utf8")).split(/\r?\n/).forEach((line, i) => {
+        if (/\btext-saffron\b(?!-)/.test(line)) found.push(`${rel}:${i + 1}  text-saffron (use text-brown)`);
+        if (/\bfont-(?:extrabold|black)\b/.test(line)) found.push(`${rel}:${i + 1}  weight above 700`);
+      });
+    }
+    for (const rel of ["src/app/globals.css", "src/app/site/site.css"]) {
+      read(rel).split("\n").forEach((line, i) => {
+        if (/font-weight:\s*[89]00\b/.test(line)) found.push(`${rel}:${i + 1}  weight above 700`);
+      });
+    }
+    expect(found).toEqual([]);
+  });
+
   it("the places that cannot read a variable use the kit's values", () => {
     expect(EMAIL_PALETTE).toEqual({
       page: brandColor("canvas"),
