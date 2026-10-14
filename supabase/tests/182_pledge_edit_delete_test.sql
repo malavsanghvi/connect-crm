@@ -140,7 +140,7 @@ select (now() at time zone 'America/Chicago')::date as today \gset
 insert into app.pledges (id, center_id, household_id, source, amount_cents) values
   (:p1, :c, :h1, 'general', 50000),                                                       -- plain, editable
   (:p8, :c, :h1, 'general', 9000),                                                        -- to delete
-  (:p9, :c, :h3, 'general', 15000);                                                       -- another community's
+  (:p9, :d, :h3, 'general', 15000);                                                       -- another community's
 insert into app.pledges (id, center_id, household_id, source, amount_cents, paid_cents, status) values
   (:p2, :c, :h1, 'general', 20000, 8000, 'partially_paid'),                               -- part paid
   (:p10, :c, :h1, 'general', 30000, 5000, 'partially_paid');                              -- part paid, to try deleting
