@@ -45,10 +45,25 @@ export function clientScreen(pathname: string | null | undefined): string | null
   return clean || null;
 }
 
+/**
+ * Pages whose address carries a secret: /invite/<token> (a staff invitation link). The database copies x-client-screen into
+ * audit_log.client_screen on every audited write, so these are recorded as their route, never as the secret (accepting an invitation
+ * is such a write). Only the audit header is changed: the pathname the proxy passes to server components (PATHNAME_HEADER, read by the
+ * 2FA redirect to build ?next=) keeps the real path.
+ */
+const SECRET_PATHS: readonly (readonly [RegExp, string])[] = [[/^\/invite\/[^/?#]+/, "/invite/[token]"]];
+
+/** The route to record for a pathname: the pathname, unless its address carries a secret. */
+export function auditScreen(pathname: string | null | undefined): string | null {
+  if (!pathname) return null;
+  for (const [pattern, route] of SECRET_PATHS) if (pattern.test(pathname)) return pathname.replace(pattern, route);
+  return pathname;
+}
+
 /** The headers for one client: x-client-app, x-request-id, x-client-screen and (optionally) x-audit-reason. */
 export function traceHeaders(opts: { requestId: string; screen?: string | null; reason?: string | null; clientApp?: PortalClientApp }): Record<string, string> {
   const h: Record<string, string> = { "x-client-app": opts.clientApp ?? CLIENT_APP, "x-request-id": opts.requestId };
-  const screen = clientScreen(opts.screen);
+  const screen = clientScreen(auditScreen(opts.screen));
   if (screen) h["x-client-screen"] = screen;
   if (opts.reason && opts.reason.trim()) h["x-audit-reason"] = encodeAuditReason(opts.reason);
   return h;
