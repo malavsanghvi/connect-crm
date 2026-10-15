@@ -31,6 +31,8 @@ type ToSend = {
 };
 
 export const PORTAL_URL_MARK = "%PORTAL_URL%";
+/** The member web app's address (the repository variable MEMBER_APP_URL), for links that open the member app: RSVP without signing in (0823). */
+export const MEMBER_APP_URL_MARK = "%MEMBER_APP_URL%";
 
 /**
  * B88: a demo community is made of invented people with invented addresses. Nothing is ever delivered to one, whatever the
@@ -103,6 +105,18 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
     if (!base) ctx.log.warn("PORTAL_PUBLIC_URL is not set: links in this message stay relative", { message: m.id });
     m.body = m.body.split(PORTAL_URL_MARK).join(base ?? "");
     if (m.subject) m.subject = m.subject.split(PORTAL_URL_MARK).join(base ?? "");
+  }
+  // 0823: a link that opens the member app (the emailed link of an RSVP made without signing in) is written %MEMBER_APP_URL%/<path>. Without
+  // the address the link would be useless, so the message fails honestly (the Messages screen shows why) instead of going out broken.
+  if (`${m.subject ?? ""}${m.body}`.includes(MEMBER_APP_URL_MARK)) {
+    const memberApp = str(env.MEMBER_APP_URL)?.replace(/\/+$/, "") ?? null;
+    if (!memberApp) {
+      const why = "The member web app's address (MEMBER_APP_URL) is not set on the Weaver server, so the link in this email cannot be written.";
+      await record(ctx, m.id, "failed", null, null, why, null);
+      throw new NotConfiguredError(why);
+    }
+    m.body = m.body.split(MEMBER_APP_URL_MARK).join(memberApp);
+    if (m.subject) m.subject = m.subject.split(MEMBER_APP_URL_MARK).join(memberApp);
   }
   let provider = String(m.route.provider ?? m.channel);
   try {

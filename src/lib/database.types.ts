@@ -3470,6 +3470,7 @@ export type Database = {
           flyer_design: Json | null;
           publish_at: string | null;
           publish_failure: string | null;
+          contact_rsvp: string;
         };
         Insert: {
           id?: string;
@@ -3515,6 +3516,7 @@ export type Database = {
           flyer_design?: Json | null;
           publish_at?: string | null;
           publish_failure?: string | null;
+          contact_rsvp?: string;
         };
         Update: {
           id?: string;
@@ -3560,6 +3562,7 @@ export type Database = {
           flyer_design?: Json | null;
           publish_at?: string | null;
           publish_failure?: string | null;
+          contact_rsvp?: string;
         };
         Relationships: [];
       };
@@ -10706,6 +10709,84 @@ export type Database = {
         };
         Relationships: [];
       };
+      rsvp_contact_attempts: {
+        Row: {
+          id: string;
+          kind: string;
+          subject: string;
+          at: string;
+        };
+        Insert: {
+          id?: string;
+          kind: string;
+          subject: string;
+          at?: string;
+        };
+        Update: {
+          id?: string;
+          kind?: string;
+          subject?: string;
+          at?: string;
+        };
+        Relationships: [];
+      };
+      rsvp_contact_handles: {
+        Row: {
+          id: string;
+          center_id: string;
+          event_id: string;
+          household_id: string;
+          matched_person_id: string;
+          mode: string;
+          members: Json;
+          contact_kind: string;
+          contact_hash: string;
+          ip_hash: string;
+          handle_hash: string;
+          created_at: string;
+          expires_at: string;
+          used_at: string | null;
+          rsvp_id: string | null;
+          undo_until: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          event_id: string;
+          household_id: string;
+          matched_person_id: string;
+          mode: string;
+          members: Json;
+          contact_kind: string;
+          contact_hash: string;
+          ip_hash: string;
+          handle_hash: string;
+          created_at?: string;
+          expires_at: string;
+          used_at?: string | null;
+          rsvp_id?: string | null;
+          undo_until?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          event_id?: string;
+          household_id?: string;
+          matched_person_id?: string;
+          mode?: string;
+          members?: Json;
+          contact_kind?: string;
+          contact_hash?: string;
+          ip_hash?: string;
+          handle_hash?: string;
+          created_at?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          rsvp_id?: string | null;
+          undo_until?: string | null;
+        };
+        Relationships: [];
+      };
       rsvp_credit_releases: {
         Row: {
           id: string;
@@ -10757,6 +10838,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      rsvp_manage_links: {
+        Row: {
+          rsvp_id: string;
+          center_id: string;
+          token_hash: string;
+          created_at: string;
+          expires_at: string;
+          last_opened_at: string | null;
+          revoked_at: string | null;
+        };
+        Insert: {
+          rsvp_id: string;
+          center_id: string;
+          token_hash: string;
+          created_at?: string;
+          expires_at: string;
+          last_opened_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Update: {
+          rsvp_id?: string;
+          center_id?: string;
+          token_hash?: string;
+          created_at?: string;
+          expires_at?: string;
+          last_opened_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
       rsvps: {
         Row: {
           id: string;
@@ -10775,6 +10886,9 @@ export type Database = {
           source: string;
           created_at: string;
           updated_at: string;
+          contact_kind: string | null;
+          contact_person_id: string | null;
+          contact_verified_at: string | null;
         };
         Insert: {
           id?: string;
@@ -10793,6 +10907,9 @@ export type Database = {
           source?: string;
           created_at?: string;
           updated_at?: string;
+          contact_kind?: string | null;
+          contact_person_id?: string | null;
+          contact_verified_at?: string | null;
         };
         Update: {
           id?: string;
@@ -10811,6 +10928,9 @@ export type Database = {
           source?: string;
           created_at?: string;
           updated_at?: string;
+          contact_kind?: string | null;
+          contact_person_id?: string | null;
+          contact_verified_at?: string | null;
         };
         Relationships: [];
       };
@@ -14915,6 +15035,24 @@ export type Database = {
         };
         Returns: { key: string; module_key: string; name: string; module_label: string; mark: string; line: string; gets: string[]; needs: Json; members_line: string; data_line: string; price_text: string; price_short: string; included: boolean; catalog_status: string; target_quarter: string; on_note: string; off_note: string; sort: number; state: string; enabled: boolean; granted: boolean; paused: boolean; waiting_for: string[]; source: string; granted_at: string; granted_by_name: string; grant_reason: string; paused_at: string; paused_by_name: string; pause_reason: string; request_id: string; request_note: string; requested_at: string; requested_by_name: string; notified_at: string }[];
       };
+      mask_email: {
+        Args: {
+          p_email: string;
+        };
+        Returns: string;
+      };
+      mask_name: {
+        Args: {
+          p_name: string;
+        };
+        Returns: string;
+      };
+      mask_phone: {
+        Args: {
+          p_phone: string;
+        };
+        Returns: string;
+      };
       match_deadline_kinds: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
@@ -16872,6 +17010,46 @@ export type Database = {
           p_reason?: string;
         };
         Returns: string;
+      };
+      rsvp_contact_cancel: {
+        Args: {
+          p_token: string;
+        };
+        Returns: Json;
+      };
+      rsvp_contact_lookup: {
+        Args: {
+          p_event: string;
+          p_contact: string;
+        };
+        Returns: Json;
+      };
+      rsvp_contact_submit: {
+        Args: {
+          p_handle: string;
+          p_slots: number[];
+          p_assist?: number[];
+        };
+        Returns: Json;
+      };
+      rsvp_contact_undo: {
+        Args: {
+          p_handle: string;
+        };
+        Returns: Json;
+      };
+      rsvp_contact_verify_staff: {
+        Args: {
+          p_rsvp: string;
+          p_reason?: string;
+        };
+        Returns: boolean;
+      };
+      rsvp_contact_view: {
+        Args: {
+          p_token: string;
+        };
+        Returns: Json;
       };
       saathi_feed: {
         Args: {

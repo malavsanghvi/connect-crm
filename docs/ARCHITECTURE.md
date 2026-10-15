@@ -144,6 +144,8 @@ code); it applies to postings sent after it, and a posted entry keeps the docume
   `my_practice_standing`, `opportunity_availability`, `commit_labh`, `create_recurring_gift`,
   `public_kpi_catalog`, `close_boli(p_boli, p_reason)`, `event_live_stats`, `event_recent_checkins`,
   `segment_recipient_count`, `pathshala_term_stats`, `people_list`, `directory_listing`.
+  RSVP without signing in (0822-0823, [RSVP_WITHOUT_LOGIN.md](RSVP_WITHOUT_LOGIN.md)), callable with no session and returning only masked values: `rsvp_contact_lookup`,
+  `rsvp_contact_submit`, `rsvp_contact_undo`, `rsvp_contact_view`, `rsvp_contact_cancel` (staff: `rsvp_contact_verify_staff`; masks: `mask_name`, `mask_email`, `mask_phone`).
 - **Who may use which member-app area** is a database rule too, chosen per community: `app.feature_access_for_me(center)`
   (callable without a session), `app.can_use_feature(center, area)` and the Settings › Access levels RPCs. For live darshan the
   stream's row, and with it the link, is protected by RLS (guests can watch it by default; the link itself is only as private as the
