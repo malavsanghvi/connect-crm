@@ -397,12 +397,12 @@ select pg_temp.assert(:'d_closed'::jsonb ->> 'code' = 'closed' and :'d_done'::js
   'D · a closed RSVP window, a completed event and an event that is over are "closed"');
 select pg_temp.fresh('203.0.113.23');
 set role anon;
-select app.rsvp_contact_lookup(:'ev_code', '+17135550142') as d_code \gset
-select app.rsvp_contact_lookup(:'ev_c3', '+17135550142') as d_master \gset
+select app.rsvp_contact_lookup(:'ev_code', 'nobody822@nowhere.test') as d_code \gset
+select app.rsvp_contact_lookup(:'ev_c3', 'nobody822@nowhere.test') as d_master \gset
 select app.rsvp_contact_lookup(:'ev_susp', '+17135550142') as d_susp \gset
 reset role;
-select pg_temp.assert(:'d_code'::jsonb ->> 'code' = 'unavailable' and :'d_master'::jsonb ->> 'code' = 'unavailable',
-  'D · an event set to "code" (built in the next pull request), and an "open" event in a community that allows only "code", answer like an event with the switch off for now');
+select pg_temp.assert(:'d_code'::jsonb ->> 'step' = 'code' and :'d_master'::jsonb ->> 'step' = 'code',
+  'D · an event set to "code", and an "open" event in a community that allows only "code", ask for the code first (test 824 has the rest)');
 select pg_temp.assert(:'d_susp'::jsonb ->> 'code' = 'unavailable', 'D · a suspended community is closed to guests');
 select pg_temp.assert(not exists (select 1 from app.rsvps where event_id in (:'ev_off', :'ev_paid', :'ev_conf', :'ev_members', :'ev_draft', :'ev_onb', :'ev_closed', :'ev_done', :'ev_past', :'ev_code', :'ev_c3', :'ev_susp')),
   'D · none of those wrote anything');

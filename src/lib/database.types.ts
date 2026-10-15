@@ -10735,8 +10735,8 @@ export type Database = {
           id: string;
           center_id: string;
           event_id: string;
-          household_id: string;
-          matched_person_id: string;
+          household_id: string | null;
+          matched_person_id: string | null;
           mode: string;
           members: Json;
           contact_kind: string;
@@ -10748,13 +10748,18 @@ export type Database = {
           used_at: string | null;
           rsvp_id: string | null;
           undo_until: string | null;
+          verified_at: string | null;
+          code_hash: string | null;
+          code_sent_at: string | null;
+          code_expires_at: string | null;
+          households_matched: number;
         };
         Insert: {
           id?: string;
           center_id: string;
           event_id: string;
-          household_id: string;
-          matched_person_id: string;
+          household_id?: string | null;
+          matched_person_id?: string | null;
           mode: string;
           members: Json;
           contact_kind: string;
@@ -10766,13 +10771,18 @@ export type Database = {
           used_at?: string | null;
           rsvp_id?: string | null;
           undo_until?: string | null;
+          verified_at?: string | null;
+          code_hash?: string | null;
+          code_sent_at?: string | null;
+          code_expires_at?: string | null;
+          households_matched?: number;
         };
         Update: {
           id?: string;
           center_id?: string;
           event_id?: string;
-          household_id?: string;
-          matched_person_id?: string;
+          household_id?: string | null;
+          matched_person_id?: string | null;
           mode?: string;
           members?: Json;
           contact_kind?: string;
@@ -10784,6 +10794,11 @@ export type Database = {
           used_at?: string | null;
           rsvp_id?: string | null;
           undo_until?: string | null;
+          verified_at?: string | null;
+          code_hash?: string | null;
+          code_sent_at?: string | null;
+          code_expires_at?: string | null;
+          households_matched?: number;
         };
         Relationships: [];
       };
@@ -17035,6 +17050,13 @@ export type Database = {
       rsvp_contact_undo: {
         Args: {
           p_handle: string;
+        };
+        Returns: Json;
+      };
+      rsvp_contact_verify: {
+        Args: {
+          p_handle: string;
+          p_code: string;
         };
         Returns: Json;
       };

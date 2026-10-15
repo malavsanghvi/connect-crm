@@ -1,6 +1,6 @@
 # RSVP without signing in (plan)
 
-**Status: approved by the owner 2026-10-15 ("go with the recommendations"), slices 1-3 built** (migrations 0822 and 0823 in the first pull request:
+**Status: approved by the owner 2026-10-15 ("go with the recommendations"), slices 1-3 built** (migrations 0822 and 0823 in the first pull request (#285):
 the masks, the switches, the locked tables, lookup / save / undo / view / cancel in mode `open`, the confirmation email and the `%MEMBER_APP_URL%` link; the
 code mode (design B) in the second pull request). Not yet built: the portal screens (slice 4), the member app screens (5), the manage page in the app (6),
 hardening (7). Owner request, 2026-10-15, verbatim:
@@ -331,7 +331,7 @@ Slices 1 to 3 are one backend track; 4 and 5 can then run in parallel; 6 follows
 
 Migrations `0822_rsvp_contact_core.sql` and `0823_rsvp_contact_submit.sql`, tests `supabase/tests/822_rsvp_contact_test.sql` and `tests/mask.test.ts`,
 `src/lib/mask.ts` (the TypeScript twin of the masks), `worker/src/messaging.ts` (`%MEMBER_APP_URL%`), `.github/workflows/deploy.yml` (passes `MEMBER_APP_URL` to the
-background service). The code mode (design B) is `0824` and is described in section 8 when it merges.
+background service). The code mode (design B) is `0824`, described in section 8.
 
 ### 7.1 For the portal and app builders: the exact calls
 
@@ -430,3 +430,54 @@ commit;
 -- Then restore src/lib/database.types.ts in the three repositories from before this change.
 ```
 Also remove the two lines of `tests/13_modules_audit_test.sql` that name the two unaudited tables, and delete `supabase/tests/822_rsvp_contact_test.sql`.
+
+## 8. As built: 0824 (slice 3, the code mode, design B)
+
+Migration `0824_rsvp_contact_code.sql`, test `supabase/tests/824_rsvp_contact_code_test.sql` (and test 822's section D, which now expects a code step).
+An event set to `code` (or an `open` event in a community that allows only `code`) now works. Nothing about a family is told before the code.
+
+### 8.1 The calls (what changes for the builders)
+
+| Call | Arguments | Success | Codes when `ok` is false |
+|---|---|---|---|
+| `rsvp_contact_lookup` (changed) | as in 7.1 | for a `code` event, for **every** well-formed phone or email, found or not: `{ok, step: "code", handle, expires_in: 600}` (the code works for 10 minutes; the handle for 30). For an `open` event as before | as before, plus `use_email` (a phone number where texting is not set up or the community's 200 code texts a day are used up; it depends on the set-up, never on the contact). **Not** `not_found`, `ambiguous`, `already_rsvpd`, `no_email` or `cannot_send`: those come after the code |
+| `rsvp_contact_verify` (new) | `p_handle text`, `p_code text` (6 digits) | the right code gives the same answer as the `open` lookup: `{ok, step: "choose", handle (the same), expires_in, members: [{slot, label, kind, under_12}], send_to: {email, phone}}`; asking again is harmless | `bad_code` (with `tries_left`), `locked`, `expired`, `rate_limited`; and, only after the right code: `ambiguous`, `already_rsvpd`, `no_email`, `cannot_send`, `full`, `closed`, `demo`, `unavailable` |
+| `rsvp_contact_submit` | as in 7.1 | as in 7.1; a `code` handle must have had its code typed (else `expired`); the RSVP is **verified at once** (`contact_verified_at` set), so it does not count against the unverified share of the places | as in 7.1 |
+
+The app's steps for a `code` event: lookup → code screen ("No code? Check the number, try your email, or sign in." never says whether the contact exists) → verify → the same "who is coming" screen → submit. A `use_email` answer
+sends the visitor to the email tab. "Send a new code" is a new lookup (3 an hour per phone or email).
+
+### 8.2 What is the same for everyone before the code, and what is not
+
+The same answer, keys and shape for: a contact on a family record, an unknown one, a child's, one that opted out, one whose family already has an RSVP, a number on two households. A handle in every case (for a contact that
+is not on an adult's record it points at nothing, `households_matched = 0`). A wrong code on a real handle, on a handle that points at nothing, on one that never existed and on garbage all answer `bad_code` with the same `tries_left`. The same
+counters move for all of them. **What is not the same:** the time it takes (only a real contact queues a message). The limits (3 lookups an hour per contact, 10 per connection, 5 wrong codes then a 15-minute lock on the handle **and** the
+contact, 30 code tries an hour per connection) keep that from being measured; nothing here hides it from someone who can make thousands of calls from many addresses.
+
+### 8.3 Differences from the plan
+
+- A code goes to a contact on an **adult**'s record even if its address opted out of email: it is a transaction (purpose `verification_code`), like a sign-in code. The RSVP's confirmation does follow the opt-out (`cannot_send` after the code).
+- **Texting** needs a connected Twilio connection for the community (`integration_connections`, provider `twilio`, status `connected`), the same one the sender checks; the daily cap is 200 code texts per community (`app.rsvp_contact_limits`).
+- A contact on **two households** gets a code; `ambiguous` is said after it was typed.
+- Someone who can make a handle for a victim's phone or email can use up that contact's 5 wrong tries and lock it for 15 minutes (the same small denial of service as the lookup limit); signing in still works.
+- Sandbox communities: a code that the sender refuses (a sandbox sends only to verified test recipients) is never told to the visitor, who simply gets no code.
+
+### 8.4 Rollback (0824 only; run after, or instead of, the 7.3 block)
+
+```sql
+begin;
+update app.events set contact_rsvp = 'off' where contact_rsvp = 'code';
+update app.centers set rules = jsonb_set(rules, '{rsvp,contact_lookup}', '"off"') where rules #>> '{rsvp,contact_lookup}' = 'code';
+update app.messages set status = 'cancelled', failure_reason = 'Not sent: the code mode was rolled back.' where status = 'queued' and template_key = 'rsvp_contact_code';
+delete from app.rsvp_contact_handles where mode = 'code';
+drop function if exists app.rsvp_contact_verify(text, text), app._rsvp_contact_code_step(app.events, text, text, text, text, text),
+  app._rsvp_contact_family_answer(uuid, uuid, app.events, text), app._rsvp_contact_code_hash(text, uuid, text), app._rsvp_contact_new_code(), app._rsvp_contact_texting_on(uuid);
+alter table app.rsvp_contact_handles drop constraint if exists rsvp_contact_handles_family_check;
+alter table app.rsvp_contact_handles drop column if exists verified_at, drop column if exists code_hash, drop column if exists code_sent_at,
+  drop column if exists code_expires_at, drop column if exists households_matched;
+alter table app.rsvp_contact_handles alter column household_id set not null, alter column matched_person_id set not null;
+delete from app.message_templates where center_id is null and key = 'rsvp_contact_code';
+-- Then run again, from 0822 and 0823, the create-or-replace statements of app.rsvp_contact_limits, app._rsvp_contact_fail, app.rsvp_contact_lookup and app.rsvp_contact_submit.
+delete from public.connect_schema_migrations where version = '0824_rsvp_contact_code';
+commit;
+```
