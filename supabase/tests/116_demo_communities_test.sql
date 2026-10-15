@@ -80,14 +80,14 @@ select (select count(*) from app.people where center_id = :jsh) as jp, (select c
        (select count(*) from auth.users) as users_before \gset
 
 -- ── A. The packs ─────────────────────────────────────────────────────────────
-select pg_temp.assert((select count(*) = 2 and bool_and(not active) and bool_and(content is not null) and bool_and(version = case key when 'demo_faith_jain_v1' then 3 else 2 end)
+select pg_temp.assert((select count(*) = 2 and bool_and(not active) and bool_and(content is not null) and bool_and(version = case key when 'demo_faith_jain_v1' then 4 else 2 end)
                          from app.demo_packs where key in ('demo_faith_jain_v1', 'demo_neutral_club_v1')),
   'both packs are in the catalog as data, and are not offered on Setup > Demo');
-select pg_temp.assert((select content->'center'->>'kind' = 'faith' and content->'center'->>'category_key' = 'jain_center'
+select pg_temp.assert((select content->'center'->>'kind' = 'faith' and content->'center'->>'category_key' = 'faith_other'
                          and content->'center'->>'name' = 'Sunrise Worship Center (Demo)' from app.demo_packs where key = 'demo_faith_jain_v1')
                       and (select content->'center'->>'kind' = 'neutral' and content->'center'->>'category_key' = 'nonprofit_secular'
                          and content->'center'->>'name' = 'Lakeside Neighbors Club (Demo)' from app.demo_packs where key = 'demo_neutral_club_v1'),
-  'the faith pack is a Jain Center, the other a non-faith non-profit, with the names the owner chose');
+  'the faith pack is the Faith community kind (not any one faith, 0820), the other a non-faith non-profit, with the names the owner chose');
 select pg_temp.assert(app.demo_persona_domain() = 'demo.weaverams.org', 'the demo e-mail domain is the reserved one');
 select pg_temp.assert(app.demo_id('11600000-0000-4000-8000-000000000001', 'x') = app.demo_id('11600000-0000-4000-8000-000000000001', 'x')
                       and (select count(*) from app.demo_personas) = 0,
@@ -114,17 +114,17 @@ select pg_temp.assert_raises($$select app.create_demo_community(null)$$, 'Choose
 select app.create_demo_community('faith') as r \gset
 select (:'r'::jsonb)->>'center_id' as fc, (:'r'::jsonb)->>'created' as fc_created \gset
 select pg_temp.assert(:'fc_created' = 'true', 'creating the faith community says it was created');
-select pg_temp.assert((select c.environment = 'sandbox' and c.category_key = 'jain_center' and c.name = 'Sunrise Worship Center (Demo)'
+select pg_temp.assert((select c.environment = 'sandbox' and c.category_key = 'faith_other' and c.name = 'Sunrise Worship Center (Demo)'
                               and c.status = 'onboarding' and c.rules->'demo' = 'true'::jsonb and c.rules->>'demo_kind' = 'faith'
                               and c.rules->>'demo_pack' = 'demo_faith_jain_v1' and app.is_demo_center(c.id)
                          from app.centers c where c.id = :'fc'),
-  'it is a SANDBOX flagged as a demo (never live), in the Jain Center category, named as the owner asked');
+  'it is a SANDBOX flagged as a demo (never live), in the Faith community category, named as the owner asked');
 select pg_temp.assert((select status = 'loaded' and pack_key = 'demo_faith_jain_v1' and requested_by = :admin and last_error is null
-                              and (detail->>'personas')::int = 26 from app.center_demo_state where center_id = :'fc'),
+                              and (detail->>'personas')::int = 25 from app.center_demo_state where center_id = :'fc'),
   'the demo state says the pack is loaded, by whom, and how many demo people were made');
 select pg_temp.assert(pg_temp.pack_vs_rows(:'fc', 'demo_faith_jain_v1') = '', 'every table holds exactly the rows the pack says');
 select pg_temp.assert((select count(*) from app.households where center_id = :'fc') between 11 and 14
-                      and (select count(*) from app.people where center_id = :'fc') between 28 and 36
+                      and (select count(*) from app.people where center_id = :'fc') between 28 and 38
                       and (select count(*) from app.people where center_id = :'fc' and date_of_birth > app.demo_today(:'fc') - interval '18 years') between 4 and 12
                       and (select count(*) from app.people where center_id = :'fc' and date_of_birth <= app.demo_today(:'fc') - interval '18 years') >= 20,
   'about 12 households and 30 people: adults plus a few children');
@@ -136,12 +136,12 @@ select pg_temp.assert((select count(*) >= 10 from app.pledges where center_id = 
                       and (select count(*) >= 3 from app.volunteer_groups where center_id = :'fc')
                       and (select count(*) >= 1 from app.pathshala_terms where center_id = :'fc') and (select count(*) >= 3 from app.pathshala_levels where center_id = :'fc')
                       and (select count(*) >= 3 from app.pathshala_classes where center_id = :'fc') and (select count(*) >= 5 from app.pathshala_enrollments where center_id = :'fc'),
-  'pledges, payments, events with RSVPs and tickets, a store, notices, volunteer groups and a Pathshala term with enrolled children');
-select pg_temp.assert((select count(*) = 26 from app.demo_personas where center_id = :'fc')
-                      and (select count(*) = 26 from app.roles r where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(:'fc'))
+  'pledges, payments, events with RSVPs and tickets, a store, notices, volunteer groups and a religious school term with enrolled children');
+select pg_temp.assert((select count(*) = 25 from app.demo_personas where center_id = :'fc')
+                      and (select count(*) = 25 from app.roles r where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(:'fc'))
                                                        and cardinality(app.role_private_products(r.key)) = 0)   -- 0757: no demo person for a WeCare or CatchTheMatch role
                       and app.demo_missing_roles(:'fc') = '{}'::text[],
-  'one demo person for every role of a Jain Center''s role catalog (26), none missing');
+  'one demo person for every role of the Faith community''s role catalog (25: it has no boli recorder), none missing');
 select pg_temp.assert((select count(*) = count(distinct role_key) and count(*) = count(distinct person_id) and count(*) = count(distinct email) from app.demo_personas where center_id = :'fc'),
   'each demo person has one role, one person and one e-mail');
 select pg_temp.assert(exists (select 1 from app.demo_personas where center_id = :'fc' and role_key = 'center_admin')
@@ -197,7 +197,7 @@ select pg_temp.assert((select count(*) = 21 from app.demo_personas where center_
 select pg_temp.assert((select count(*) = 0 from app.pathshala_terms where center_id = :'nc') and (select count(*) = 0 from app.pathshala_enrollments where center_id = :'nc')
                       and (select count(*) = 0 from app.bolis where center_id = :'nc'),
   'no Pathshala and no bolis in the neutral community');
-select pg_temp.assert((select count(*) = 47 from app.demo_personas) and (select count(distinct email) = 47 from app.demo_personas)
+select pg_temp.assert((select count(*) = 46 from app.demo_personas) and (select count(distinct email) = 46 from app.demo_personas)
                       and (select count(*) = 2 from app.centers where rules->'demo' = 'true'::jsonb)
                       and (select count(*) = :centers_before + 2 from app.centers),
   'the two communities share no e-mail address, and exactly two communities were added');
@@ -256,7 +256,7 @@ update app.households set display_name = 'Renamed by a visitor' where id = (sele
 insert into app.people (center_id, first_name, last_name) values (:'fc', 'Visitor', 'Added');
 update app.events set name = 'Renamed event' where id = (select id from app.events where center_id = :'fc' order by id limit 1);
 delete from app.alerts where center_id = :'fc';
-select pg_temp.assert((select count(*) = 35 from app.people where center_id = :'fc') and (select count(*) = 0 from app.alerts where center_id = :'fc'),
+select pg_temp.assert((select count(*) = 37 from app.people where center_id = :'fc') and (select count(*) = 0 from app.alerts where center_id = :'fc'),
   'the visitor''s changes are in');
 
 select pg_temp.claims(:plain, true);
@@ -286,9 +286,9 @@ select pg_temp.assert(not exists (select 1 from app.households where center_id =
                       and not exists (select 1 from app.events where center_id = :'fc' and name = 'Renamed event')
                       and (select count(*) = 2 from app.alerts where center_id = :'fc'),
   'the visitor''s changes are gone and the deleted notices are back');
-select pg_temp.assert(pg_temp.pack_vs_rows(:'fc', 'demo_faith_jain_v1') = '' and (select count(*) = 26 from app.demo_personas where center_id = :'fc')
+select pg_temp.assert(pg_temp.pack_vs_rows(:'fc', 'demo_faith_jain_v1') = '' and (select count(*) = 25 from app.demo_personas where center_id = :'fc')
                       and app.demo_missing_roles(:'fc') = '{}'::text[],
-  'and the pack''s rows and all 26 demo people are there');
+  'and the pack''s rows and all 25 demo people are there');
 select pg_temp.assert((select status = 'loaded' and operation = 'reset' and last_error is null and cleared_at is not null and requested_by = :admin
                          and (detail->'cleared') is not null from app.center_demo_state where center_id = :'fc'),
   'the demo state records the reset');

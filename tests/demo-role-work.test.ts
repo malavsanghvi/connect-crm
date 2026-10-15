@@ -73,13 +73,13 @@ function portalOf(role: SeedRole, roles: SeedRole[]) {
 }
 
 /** Roles with no queue and no screen: the portal shows them Home, and Home carries a card for their work (the member app, or their assignments). */
-const HOME_CARD_ONLY = ["event_lead", "checkin_volunteer", "boli_recorder", "zone_lead", "community_member", "membership_reference", "primary_adult", "adult_member", "child"];
+const HOME_CARD_ONLY = ["event_lead", "checkin_volunteer", "zone_lead", "community_member", "membership_reference", "primary_adult", "adult_member", "child"];
 
 /** The family roles: they hold no permission at all, and no scoped grant. */
 const FAMILY = ["community_member", "membership_reference", "primary_adult", "adult_member", "child"];
 
 /** What "My assignments" lists for the roles that are held for one event, class or zone. */
-const ASSIGNED_TO: Record<string, string> = { event_lead: "event", checkin_volunteer: "event", boli_recorder: "event", zone_lead: "zone", teacher: "class" };
+const ASSIGNED_TO: Record<string, string> = { event_lead: "event", checkin_volunteer: "event", zone_lead: "zone", teacher: "class" };
 
 /** Roles with a queue on Home "My tasks": the task sources that hold the demo's work for them. */
 const HOME_TASKS: Record<string, string[]> = {
@@ -87,13 +87,13 @@ const HOME_TASKS: Record<string, string[]> = {
   treasurer: ["writeoff", "deposits"],
   finance_volunteer: ["deposits"],
   membership_coordinator: ["membership"],
-  religious_coordinator: ["content", "bolis"],
+  religious_coordinator: ["content"],
   communications_officer: ["newsletter", "inbox", "whatsapp"],
   privacy_officer: ["privacy"],
   store_lead: ["inventory"],
   pathshala_principal: ["pathshala"],
   // The owner holds every permission, so every queue is hers.
-  center_admin: ["writeoff", "deposits", "membership", "newsletter", "inbox", "whatsapp", "content", "inventory", "waivers", "bolis", "pathshala", "privacy"],
+  center_admin: ["writeoff", "deposits", "membership", "newsletter", "inbox", "whatsapp", "content", "inventory", "waivers", "pathshala", "privacy"],
 };
 
 /** The six roles with a screen but no queue and no other card: Home's "Start here" names the screen their permissions point to. */
@@ -132,10 +132,12 @@ describe("the faith demo's people in the portal", () => {
   it("reads the role catalog and the newest faith pack", () => {
     expect(roles.length).toBeGreaterThanOrEqual(30);
     expect(Number(file.slice(0, 4))).toBeGreaterThanOrEqual(797);
-    expect(personas).toHaveLength(26);
+    // 25: one for each role of the Faith community kind. A Faith community has no bolis, so the pack has no boli recorder (0820).
+    expect(personas).toHaveLength(25);
+    expect(personas.map((p) => p.role)).not.toContain("boli_recorder");
   });
 
-  it("sorts all 26 roles: a queue on Home, a screen with their work (and a Start here card), or a Home card", () => {
+  it("sorts all 25 roles: a queue on Home, a screen with their work (and a Start here card), or a Home card", () => {
     const sorted = [...HOME_CARD_ONLY, ...Object.keys(HOME_TASKS), ...Object.keys(SCREEN_ONLY)].sort();
     expect(sorted).toEqual(personas.map((p) => p.role).sort());
   });
@@ -205,7 +207,7 @@ describe("the faith demo's people in the portal", () => {
   });
 
   it("the event, class and zone roles keep the scope they are about", () => {
-    expect(["event_lead", "checkin_volunteer", "boli_recorder"].map((k) => scopeOf(roles.find((r) => r.key === k)!))).toEqual(["event", "event", "event"]);
+    expect(["event_lead", "checkin_volunteer"].map((k) => scopeOf(roles.find((r) => r.key === k)!))).toEqual(["event", "event"]);
     expect(scopeOf(roles.find((r) => r.key === "teacher")!)).toBe("class");
     expect(scopeOf(roles.find((r) => r.key === "zone_lead")!)).toBe("zone");
   });

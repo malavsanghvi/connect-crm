@@ -1,7 +1,7 @@
 # The faith-based demo with QuickBooks: the whole sequence
 
-One demo community, **Sunrise Worship Center (Demo)** (slug `sunrise-worship-demo-sandbox`, a Jain Center), made of invented people, with one demo
-person for each of the 26 roles, and connected to its own **QuickBooks sandbox company**. It starts over every night; its QuickBooks
+One demo community, **Sunrise Worship Center (Demo)** (slug `sunrise-worship-demo-sandbox`, a Faith community: not any one faith, 0820), made of invented people, with one demo
+person for each of the 25 roles, and connected to its own **QuickBooks sandbox company**. It starts over every night; its QuickBooks
 connection and account mapping do not (0785). The machinery is the demo communities of B88 ([DEMO_SIGNIN.md](DEMO_SIGNIN.md),
 migrations 0627-0629, 0678-0679); this page adds the QuickBooks half and the order to do everything in.
 
@@ -19,7 +19,7 @@ migrations 0627-0629, 0678-0679); this page adds the QuickBooks half and the ord
 
 | | |
 | --- | --- |
-| Built | The pack `demo_faith_jain_v1` (13 households, 34 people, 20 pledges, 14 test-mode payments, 4 events with 20 RSVPs, 2 bolis, a store with 5 items and 4 orders, 2 alerts and 4 campaigns, 4 volunteer groups, a Pathshala term with 9 enrolments, one bank account with 4 statement lines, and something waiting for each of the 26 roles: [DEMO_ROLE_WORK.md](DEMO_ROLE_WORK.md)); the 26 demo people; the sign-in at `/demo`; the nightly reset; QuickBooks in a sandbox community (connect, pull, map, test post, poster). |
+| Built | The pack `demo_faith_jain_v1` (13 households, 36 people, 22 pledges, 14 test-mode payments, 4 events with 20 RSVPs, a store with 5 items and 4 orders, 2 alerts and 4 campaigns, 4 volunteer groups, a Learning Center term with 9 enrolments, one bank account with 4 statement lines, and something waiting for each of the 25 roles: [DEMO_ROLE_WORK.md](DEMO_ROLE_WORK.md)); the 25 demo people; the sign-in at `/demo`; the nightly reset; QuickBooks in a sandbox community (connect, pull, map, test post, poster). |
 | Built in this change (0785) | The reset keeps the QuickBooks account mapping and its approvals, and puts each fund's QuickBooks class (and each bank account's QuickBooks account) back on the freshly loaded rows. Before it, the connection survived but the mapping did not, so the poster stopped after the first night. |
 | Not done by anyone yet | The demo community has not been created (Platform › Setup says *Demo communities: 0*), the sign-ins are not set up, the switch is off, and no QuickBooks company is connected to it. These need you (a reason and a fresh 2FA check each; a person I cannot be). |
 | Not built | Recurring gifts, matched bank lines and posted entries in the pack. The one bank account has no QuickBooks account of its own, so it uses the main bank account of the mapping. The 14 payments are history ("already in your books") and are never posted to QuickBooks. See "More sample data" below. |
@@ -36,14 +36,14 @@ so you never see the "connected, but not posting" state.
    Name it so you can tell it apart, e.g. *Weaver Demo - Sunrise Worship Center*.
 2. Open it (**Open** in the Sandboxes list) once, so the company is fully created.
 3. In that company: **Settings › Account and settings › Advanced › Categories › Track classes: On** (one class per transaction),
-   then **Settings › All lists › Classes › New**: `General fund`, `Temple building`, `Pathshala`. The mapping step lets you tag each
+   then **Settings › All lists › Classes › New**: `General fund`, `Building fund`, `Learning Center` (a company that already has classes called `Temple building` and `Pathshala` keeps working: a fund is linked to a class by its id, not its name). The mapping step lets you tag each
    fund with a class; it is optional, but a demo that shows funds reaching QuickBooks as classes is the point.
 4. Nothing to change in the Intuit app itself: the one Weaver app, its Development keys and the redirect URI
    `https://admin.weaverams.org/api/oauth/intuit/callback` are already in place (the JSH sandbox connected through them).
 
 ### 2. Create the community (you; Platform › Setup › Demo sign-in)
 1. <https://admin.weaverams.org/platform/setup> › **Demo sign-in** › **Create the faith-based demo** (reason + fresh 2FA code).
-   Check the page now says *Demo communities: 1* and *26 demo people*.
+   Check the page now says *Demo communities: 1* and *25 demo people*.
 2. Leave **the not-faith demo** for later unless you want it now (the same button; Lakeside Neighbors Club).
 
 ### 3. Give yourself a role in it (you; Supabase › SQL Editor, once)
@@ -78,7 +78,7 @@ The screen numbers its steps. It is the same flow as the JSH sandbox (docs/DEPLO
 4. **Posting and go-live date**: per transaction; **go-live date = today**. Money received before that date never posts, and a demo
    visitor's gift is dated the day they record it.
 5. **Account mapping**: the required accounts (income, bank, undeposited funds, payment clearing, merchant fees, store sales, sales
-   tax) **and the three funds**: *General* → income account, *Temple building* → construction income, *Pathshala* → Pathshala
+   tax) **and the three funds**: *General* → income account, *Building fund* → construction income, *Learning Center* → school
    income; and a class for each fund (Funds → QuickBooks classes). A fund's income account needs a QuickBooks item (Product/Service)
    that books to it; the Intuit sandbox has a *Services* item you can use, or add one per fund in QuickBooks.
 6. **Approve the mapping** (the treasurer role you just took), then **Test post** (a $1.00 sales receipt, refund receipt, deposit and
@@ -98,13 +98,13 @@ mapping you do afterwards survives all later resets.
 ### 6. Check it (Claude can drive the browser with you; a fresh private window)
 | Check | Expect |
 | --- | --- |
-| `/demo` shows *Sunrise Worship Center (Demo)* with its people | 26 people, the administrator first |
+| `/demo` shows *Sunrise Worship Center (Demo)* with its people | 25 people, the administrator first |
 | Start as **Asha Varma** (Center admin) | Banner "You are exploring a demo community as Center admin"; Settings, People, Roles open |
 | Start as **Meera Doshiwal** (Treasurer) › Giving › record a $25 gift | It appears in QuickBooks (the demo's sandbox company) as a sales receipt within about a minute, tagged with the fund's class |
 | Platform › Setup › Demo sign-in › **Start “Sunrise Worship Center (Demo)” over** (or wait for 3 a.m. community time) | The community is rebuilt; **Accounting › QuickBooks setup** still shows *Connected*, mapping approved, check 7 *Ready* |
 | Record another gift after the reset | It posts again |
 
-## The 26 demo people
+## The 25 demo people
 
 Each signs in only through *Try the demo*; the address is `<role>.sunrise@demo.weaverams.org` with the role's underscores as hyphens, for
 example `center-admin.sunrise@demo.weaverams.org` (nobody receives mail there; the password is in the Vault and never shown).
@@ -117,19 +117,18 @@ example `center-admin.sunrise@demo.weaverams.org` (nobody receives mail there; t
 | **Treasurer** | Meera Doshiwal | Records and refunds gifts, matches the bank, QuickBooks mapping, closes each month |
 | Finance volunteer | Kiran Doshiwal | Records offline gifts and matches bank lines; cannot refund |
 | Membership coordinator | Hemant Parmar | Families and memberships, new-family checks, approvals |
-| Religious coordinator | Bharat Kataria | Religious calendar, bolis, practice catalog |
+| Religious coordinator | Bharat Kataria | Religious calendar, services and festivals, the learning catalog |
 | Communications officer | Pooja Salecha | Announcements, newsletters, templates, shared inboxes |
 | Content editor | Nikhil Salecha | Writes guide pages and photos (waits for approval) |
 | Privacy officer | Falguni Singhvi | Export/delete requests, reads the audit log |
 | Volunteer coordinator | Dipak Singhvi | Volunteer groups, shifts, waivers |
-| Event lead | Sanjay Lunawat | Runs one event (Tapasvi) |
+| Event lead | Sanjay Lunawat | Runs one event (the appreciation dinner) |
 | Check-in volunteer | Riya Lunawat | Scans tickets at that event; sees no giving |
 | Kitchen lead | Vijay Bhandari | Headcounts and prep lists |
 | Store lead | Sunil Nahar | Menu, pickup times, orders, stock |
 | Store pickup | Rekha Nahar | Hands out store orders |
-| Boli recorder | Sarla Kataria | Calls the bolis at that event |
 | Pathshala principal | Deepa Chopda | Terms, classes, levels, teachers |
-| Pathshala committee | Manish Chopda | The Pathshala year's checklists and resolutions |
+| Pathshala committee | Manish Chopda | The Learning Center year's checklists and resolutions |
 | Teacher | Anita Bhandari | Attendance and progress for one class |
 | Zone lead | Lalit Rathore | One zone's inbox, contacts and reports |
 | Community member | Priya Wadhwa | Has an account, not a member yet |
@@ -140,7 +139,7 @@ example `center-admin.sunrise@demo.weaverams.org` (nobody receives mail there; t
 
 ## More sample data (not built; say what you want)
 
-The pack covers people, memberships, events, the store, Pathshala, notices, volunteers, a statement to match and the work waiting for
+The pack covers people, memberships, events, the store, the Learning Center, notices, volunteers, a statement to match and the work waiting for
 each role. If the demo should also show, say, **recurring gifts, matched bank lines, pledges due this month, Gyan Path, WeCare or
 CatchTheMatch**, they are added to the pack builder (`supabase/scripts/build-demo-packs.mjs`, then a new
 migration, the pack version bumped). Two rules to keep it honest and the QuickBooks story simple:

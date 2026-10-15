@@ -34,7 +34,7 @@ const CAN = {
   treasurer: "keeps the books: records and refunds gifts, matches the bank, sends statements and closes each month.",
   finance_volunteer: "helps the treasurer by recording gifts received offline and matching bank lines, but cannot refund.",
   membership_coordinator: "looks after families and memberships: checks new families, approves applications and keeps their numbers straight.",
-  religious_coordinator: "plans the religious calendar: bolis, pujans, the practice catalog and the approval of religious content.",
+  religious_coordinator: "plans the religious calendar: services, festivals, the learning catalog and the approval of religious content.",
   communications_officer: "sends announcements and newsletters, answers the shared inboxes and looks after the message templates.",
   content_editor: "writes the guide and pages and adds photos; what they write waits for someone to approve it.",
   privacy_officer: "handles requests to export or delete someone's information and can read the audit log.",
@@ -44,9 +44,9 @@ const CAN = {
   kitchen_lead: "sees the headcounts and the store's prep lists so the kitchen knows how much to make.",
   store_lead: "runs the store: the menu, pickup times, orders and stock.",
   store_pickup: "hands out store orders at pickup and marks them picked up.",
-  boli_recorder: "calls the bolis at an event and records the results in person.",
-  pathshala_principal: "runs the Pathshala: terms, classes, levels, teachers and the committee.",
-  pathshala_committee: "plans the Pathshala year with its checklists and takes part in its resolutions.",
+  boli_recorder: "records the pledges called out in person at an event (a kind of organization that has them).",
+  pathshala_principal: "runs the Learning Center: terms, classes, levels, teachers and the committee.",
+  pathshala_committee: "plans the Learning Center year with its checklists and takes part in its resolutions.",
   teacher: "teaches a class: takes attendance, signs off progress and posts class announcements.",
   zone_lead: "looks after one zone: its inbox, the contact details of its families and its reports.",
   community_member: "has an account but is not a member yet, and can still RSVP, give, shop and learn.",
@@ -283,14 +283,14 @@ function setupOps(spec) {
 function pathshalaOps(spec) {
   const P = spec.pathshala;
   const ops = [];
-  ops.push(t("pathshala_tracks", { id: "@track:jainism", key: "jainism", name: "Jainism" }));
-  ops.push(rows("pathshala_levels", P.levels.map(([n, name, lo, hi]) => ({ id: `@level:jainism${n}`, track_id: "@track:jainism", key: String(n), name, sort_order: n, min_age: lo, max_age: hi }))));
+  ops.push(t("pathshala_tracks", { id: "@track:faith", key: "faith", name: "Faith and practice" }));
+  ops.push(rows("pathshala_levels", P.levels.map(([n, name, lo, hi]) => ({ id: `@level:faith${n}`, track_id: "@track:faith", key: String(n), name, sort_order: n, min_age: lo, max_age: hi }))));
   ops.push(t("pathshala_terms", {
     id: "@term:current", name: P.term, starts_on: d(-42), ends_on: d(196), registration_opens_at: at(-80, "09:00"), registration_closes_at: at(-45, "23:59"),
     membership_required: false, fee_per_child_cents: 15000, fee_per_family_cap_cents: 40000, sibling_discount_pct: 10, no_class_dates: [d(21), d(35)], status: "active",
   }));
   ops.push(rows("pathshala_classes", P.classes.map(([k, level, name, room, cap]) => ({
-    id: `@class:${k}`, term_id: "@term:current", level_id: `@level:jainism${level}`, name, room, capacity: cap, meets_on: "sunday", starts_time: "10:00", ends_time: "11:30",
+    id: `@class:${k}`, term_id: "@term:current", level_id: `@level:faith${level}`, name, room, capacity: cap, meets_on: "sunday", starts_time: "10:00", ends_time: "11:30",
   }))));
   return ops;
 }
@@ -300,14 +300,14 @@ function pathshalaPeopleOps(spec) {
   const ops = [];
   ops.push(t("background_checks", { id: `@bgc:${P.teacher}`, person_id: `@p:${P.teacher}`, provider: "Demo checks", status: "clear", cleared_on: d(-200), expires_on: d(530), recorded_by: "@actor" }));
   ops.push(rows("pathshala_enrollments", P.enrolled.map((e) => ({
-    id: `@enroll:${e.child}`, term_id: "@term:current", student_person_id: `@p:${e.hh}.${e.child}`, household_id: `@h:${e.hh}`, requested_level_id: `@level:jainism${e.level}`,
+    id: `@enroll:${e.child}`, term_id: "@term:current", student_person_id: `@p:${e.hh}.${e.child}`, household_id: `@h:${e.hh}`, requested_level_id: `@level:faith${e.level}`,
     class_id: `@class:${e.cls}`, status: "active", fee_pledge_id: `@pledge:pfee.${e.child}`, registered_by: "@actor", registered_at: "-70d", placed_at: "-50d",
   }))));
   ops.push(t("pathshala_teachers", { class_id: `@class:${P.teachClass}`, person_id: `@p:${P.teacher}`, role: "teacher", background_check_id: `@bgc:${P.teacher}` }));
   // Registrations the principal still has to deal with: one asks for a level that has no class yet (to place), one is on the waitlist of a full class.
   if (P.waiting) {
     ops.push(rows("pathshala_enrollments", P.waiting.map((e) => ({
-      id: `@enroll:${e.child}`, term_id: "@term:current", student_person_id: `@p:${e.hh}.${e.child}`, household_id: `@h:${e.hh}`, requested_level_id: `@level:jainism${e.level}`,
+      id: `@enroll:${e.child}`, term_id: "@term:current", student_person_id: `@p:${e.hh}.${e.child}`, household_id: `@h:${e.hh}`, requested_level_id: `@level:faith${e.level}`,
       status: e.status, registered_by: "@actor", registered_at: at(-e.ago, "10:00"), channel: "app",
       ...(e.status === "waitlisted" ? { waitlisted_at: at(-e.ago, "10:00") } : {}),
     }))));
@@ -333,12 +333,21 @@ function build(spec) {
 }
 
 // ═══ Sunrise Worship Center (Demo) · faith-based ═════════════════════════════════
+// A house of worship that is not any one faith (owner decision 2026-10-15): the platform's own neutral faith experience, category
+// faith_other ("Faith community"). Every word a visitor reads is generic: a weekly gathering, services, festivals, a Learning Center (the
+// school's name there, set on the category by 0820). The one deliberate exception (owner, 2026-10-15): a course may be about Jainism, so the
+// class the Patni children and the other learners attend is "Introduction to Jainism" (COURSE_EXCEPTION below); the greeting, tabs and chrome stay neutral.
+// That kind of organization has no bolis, so the pack has none and no boli recorder (a person of the pack, no longer a demo person).
+// Ids, keys and enum values stay as the platform defines them (the fund key "pathshala" is how the school's fees find their fund, the
+// fund and bank account ids are how the QuickBooks setup survives a reset); only what a person reads changed.
+// center.modules: the modules faith_other leaves for Weaver to switch on (default_off) that this demo needs. app.demo_align_center
+// grants them when the community is made, reset or aligned.
 const faith = {
   tag: "sunrise",
-  center: { kind: "faith", name: "Sunrise Worship Center (Demo)", short_name: "Sunrise Worship Demo", slug: "sunrise-worship-demo", category_key: "jain_center", city: "Lakeview", state: "IL" },
+  center: { kind: "faith", name: "Sunrise Worship Center (Demo)", short_name: "Sunrise Worship Demo", slug: "sunrise-worship-demo", category_key: "faith_other", city: "Lakeview", state: "IL", modules: ["pathshala", "store", "gyan_path", "niva"] },
   scopes: {
-    event_lead: { scope: "ev:tapasvi" }, checkin_volunteer: { scope: "ev:tapasvi" }, boli_recorder: { scope: "ev:tapasvi" },
-    teacher: { scope: "class:j2" }, zone_lead: { scope: "zone:north" },
+    event_lead: { scope: "ev:dinner" }, checkin_volunteer: { scope: "ev:dinner" },
+    teacher: { scope: "class:l2" }, zone_lead: { scope: "zone:north" },
   },
   zones: [["north", "North", ["60101", "60102"]], ["south", "South", ["60111", "60112"]]],
   households: [
@@ -357,7 +366,7 @@ const faith = {
       ["pooja", "Pooja", "Salecha", "f", 38, "primary", "Marketing lead", "communications_officer"], ["nikhil", "Nikhil", "Salecha", "m", 40, "spouse", "Designer", "content_editor"],
       ["jay", "Jay", "Salecha", "m", 10, "child", ""]] },
     { k: "kataria", name: "Kataria household", street: "3 Marigold Place", zip: "60111", zone: "south", dir: true, m: [
-      ["bharat", "Bharat", "Kataria", "m", 61, "primary", "Jeweler", "religious_coordinator"], ["sarla", "Sarla", "Kataria", "f", 59, "spouse", "", "boli_recorder"]] },
+      ["bharat", "Bharat", "Kataria", "m", 61, "primary", "Jeweler", "religious_coordinator"], ["sarla", "Sarla", "Kataria", "f", 59, "spouse", ""]] },
     { k: "chopda", name: "Chopda family", street: "90 Tulsi Lane", zip: "60102", zone: "north", dir: true, m: [
       ["deepa", "Deepa", "Chopda", "f", 45, "primary", "School principal", "pathshala_principal"], ["manish", "Manish", "Chopda", "m", 47, "spouse", "Civil engineer", "pathshala_committee"],
       ["ishaan", "Ishaan", "Chopda", "m", 8, "child", ""]] },
@@ -373,15 +382,16 @@ const faith = {
       ["lalit", "Lalit", "Rathore", "m", 39, "primary", "IT consultant", "zone_lead"], ["kavita", "Kavita", "Rathore", "f", 37, "spouse", "Nurse", "executive_viewer"]] },
     { k: "patni", name: "Patni family", street: "8 Chandan Lane", zip: "60112", zone: "south", dir: true, m: [
       ["tarun", "Tarun", "Patni", "m", 35, "primary", "Data scientist", "primary_adult"], ["nisha", "Nisha", "Patni", "f", 33, "spouse", "Dentist", "adult_member"],
-      ["aarav", "Aarav", "Patni", "m", 5, "child", ""]] },
+      ["aarav", "Aarav", "Patni", "m", 5, "child", ""],
+      ["dev", "Dev", "Patni", "m", 9, "child", ""], ["maya", "Maya", "Patni", "f", 8, "child", ""]] },
     { k: "wadhwa", name: "Wadhwa household", street: "9 Vishal Apartments", zip: "60101", zone: "north", dir: false, m: [
       ["priya", "Priya", "Wadhwa", "f", 29, "primary", "Teacher", "community_member"]] },
   ],
-  funds: [["general", "General fund", false], ["building", "Temple building", true], ["pathshala", "Pathshala", false]],
+  funds: [["general", "General fund", false], ["building", "Building fund", true], ["pathshala", "Learning Center", false]],
   camps: [
-    { k: "annual", fund: "general", name: "Annual appeal", kind: "general", descr: "Keeps the temple open, the lights on and the programs running.", goal: 3000000, from: -300, to: 60 },
-    { k: "building", fund: "building", name: "New derasar fund", kind: "construction", descr: "The new derasar and community hall.", goal: 150000000, from: -400, to: null },
-    { k: "pathshala", fund: "pathshala", name: "Pathshala fees", kind: "pathshala", descr: "Fees per child for this Pathshala term.", from: -60, to: 180 },
+    { k: "annual", fund: "general", name: "Annual appeal", kind: "general", descr: "Keeps the doors open, the lights on and the programs running.", goal: 3000000, from: -300, to: 60 },
+    { k: "building", fund: "building", name: "New building fund", kind: "construction", descr: "The new worship hall and community hall.", goal: 150000000, from: -400, to: null },
+    { k: "pathshala", fund: "pathshala", name: "Learning Center fees", kind: "pathshala", descr: "Fees per child for this Learning Center term.", from: -60, to: 180 },
   ],
   membershipTypes: [
     { k: "community", name: "Community member", fee: 0, spouse: false, ref: false },
@@ -390,7 +400,7 @@ const faith = {
   ],
   // Applications at each stage: Priya's waits for her reference to answer, Tarun's waits for the membership team, Lalit's life membership for the executive committee.
   applications: [
-    { k: "priya", who: "wadhwa.priya", tier: "yearly", ref: "parmar.kusum", status: "awaiting_reference", ago: 2, note: "Kusum and I help at the Sunday satsang." },
+    { k: "priya", who: "wadhwa.priya", tier: "yearly", ref: "parmar.kusum", status: "awaiting_reference", ago: 2, note: "Kusum and I help at the weekly gathering." },
     { k: "tarun", who: "patni.tarun", tier: "yearly", ref: "doshiwal.meera", status: "awaiting_center", ago: 6, note: "Meera is our neighbor and has been a member for years." },
     { k: "lalit", who: "rathore.lalit", tier: "life", ref: "kataria.bharat", status: "awaiting_ec", ago: 9, note: "Bharat has known our family since we joined.",
       centerReason: "Reference confirmed; sent to the executive committee for the life membership." },
@@ -418,10 +428,10 @@ const faith = {
     { ref: "g3", hh: "wadhwa", who: "priya", fund: "general", source: "general", cents: 2500, ago: 12 },
     // A write-off the community's record-keeper asked for: the treasurer is the second, different person who confirms or turns it down.
     { ref: "w1", hh: "nahar", who: "sunil", camp: "annual", source: "general", cents: 10100, ago: 240, writeOff: "The family moved out of the area and asked to be released (demo)." },
-    ...[["anaya", "varma", "asha"], ["ved", "doshiwal", "meera"], ["tia", "lunawat", "sanjay"], ["neel", "lunawat", "sanjay"], ["jay", "salecha", "pooja"], ["ishaan", "chopda", "deepa"], ["mira", "bhandari", "anita"]]
+    ...[["anaya", "varma", "asha"], ["ved", "doshiwal", "meera"], ["tia", "lunawat", "sanjay"], ["neel", "lunawat", "sanjay"], ["jay", "salecha", "pooja"], ["ishaan", "chopda", "deepa"], ["mira", "bhandari", "anita"], ["dev", "patni", "tarun"], ["maya", "patni", "tarun"]]
       .map(([child, hh, who]) => ({
         ref: `pfee.${child}`, hh, who, camp: "pathshala", fund: "pathshala", source: "pathshala_fee", srcRef: `enroll:${child}`,
-        cents: child === "neel" ? 13500 : 15000, ago: 70, due: 14,
+        cents: ["neel", "maya"].includes(child) ? 13500 : 15000, ago: 70, due: 14,
       })),
   ],
   payments: [
@@ -435,72 +445,61 @@ const faith = {
     { ref: "b1b", hh: "kataria", who: "bharat", cents: 125000, method: "ach", ago: 160, pledges: ["b1"], memo: "Building fund" },
     { ref: "b2", hh: "nahar", who: "sunil", cents: 125000, method: "zelle", ago: 280, pledges: ["b2"], memo: "Building fund" },
     { ref: "g1", hh: "rathore", who: "lalit", cents: 2500, method: "cash", ago: 60, pledges: ["g1"] },
-    { ref: "pfee.varma", hh: "varma", who: "asha", cents: 15000, method: "zelle", ago: 55, pledges: ["pfee.anaya"], memo: "Pathshala fees" },
-    { ref: "pfee.doshiwal", hh: "doshiwal", who: "meera", cents: 15000, method: "card", ago: 54, pledges: ["pfee.ved"], memo: "Pathshala fees" },
-    { ref: "pfee.lunawat", hh: "lunawat", who: "sanjay", cents: 28500, method: "check", ago: 53, pledges: ["pfee.tia", "pfee.neel"], check: "3321", memo: "Pathshala fees" },
-    { ref: "pfee.salecha", hh: "salecha", who: "pooja", cents: 15000, method: "zelle", ago: 52, pledges: ["pfee.jay"], memo: "Pathshala fees" },
+    { ref: "pfee.varma", hh: "varma", who: "asha", cents: 15000, method: "zelle", ago: 55, pledges: ["pfee.anaya"], memo: "Learning Center fees" },
+    { ref: "pfee.doshiwal", hh: "doshiwal", who: "meera", cents: 15000, method: "card", ago: 54, pledges: ["pfee.ved"], memo: "Learning Center fees" },
+    { ref: "pfee.lunawat", hh: "lunawat", who: "sanjay", cents: 28500, method: "check", ago: 53, pledges: ["pfee.tia", "pfee.neel"], check: "3321", memo: "Learning Center fees" },
+    { ref: "pfee.salecha", hh: "salecha", who: "pooja", cents: 15000, method: "zelle", ago: 52, pledges: ["pfee.jay"], memo: "Learning Center fees" },
   ],
   events: [
-    { k: "satsang", name: "Sunday satsang and lunch", descr: "Morning aarti, a short talk and a shared lunch.", venue: "Main hall", day: -12, from: "10:00", to: "13:00", cap: 120, audience: "members_and_guests", opens: -30, closes: -13, owner: "lunawat.sanjay", status: "completed" },
+    { k: "weekly", name: "Weekly gathering and lunch", descr: "A short service, a talk and a shared lunch.", venue: "Main hall", day: -12, from: "10:00", to: "13:00", cap: 120, audience: "members_and_guests", opens: -30, closes: -13, owner: "lunawat.sanjay", status: "completed" },
     // Five days away: close enough that the event lead's routine and the check-in list are due, far enough that the volunteers' waivers still matter.
-    { k: "tapasvi", name: "Tapasvi Bahuman and Swamivatsalya", descr: "Honoring this year's tapasvis, followed by a shared meal.", venue: "Main hall", day: 5, from: "10:00", to: "14:00", cap: 200, audience: "members_and_guests", opens: -14, closes: 4, owner: "lunawat.sanjay", status: "published", waitlist: true },
-    { k: "diwali", name: "Diwali puja and new year", descr: "Diwali puja at the derasar, then the new year's darshan and aarti.", venue: "Derasar", day: 40, from: "18:00", to: "21:00", cap: null, audience: "public", opens: -5, closes: 39, owner: "kataria.bharat", status: "published" },
+    { k: "dinner", name: "Annual appreciation dinner", descr: "Honoring this year's volunteers and teachers, followed by a shared meal.", venue: "Main hall", day: 5, from: "10:00", to: "14:00", cap: 200, audience: "members_and_guests", opens: -14, closes: 4, owner: "lunawat.sanjay", status: "published", waitlist: true },
+    { k: "festival", name: "Community festival night", descr: "An evening of music, a short service and a shared meal.", venue: "Worship hall", day: 40, from: "18:00", to: "21:00", cap: null, audience: "public", opens: -5, closes: 39, owner: "kataria.bharat", status: "published" },
     { k: "picnic", name: "Youth picnic", descr: "A picnic for the youth group (being planned).", venue: "Lakeview park", day: 60, from: "11:00", to: "16:00", cap: 60, audience: "members_only", opens: null, closes: null, owner: "salecha.pooja", status: "draft" },
   ],
   rsvps: [
-    ...["varma", "doshiwal", "lunawat", "salecha", "kataria", "chopda", "bhandari"].map((h) => ["satsang", h, "attended"]),
-    ["satsang", "nahar", "no_show"],
-    ["tapasvi", "varma", "confirmed"], ["tapasvi", "doshiwal", "confirmed"], ["tapasvi", "lunawat", "confirmed"], ["tapasvi", "kataria", "confirmed"],
-    ["tapasvi", "salecha", "rsvpd"], ["tapasvi", "chopda", "rsvpd"], ["tapasvi", "bhandari", "rsvpd"], ["tapasvi", "singhvi", "rsvpd"], ["tapasvi", "nahar", "cancelled"],
-    ["diwali", "varma", "rsvpd"], ["diwali", "rathore", "rsvpd"], ["diwali", "patni", "rsvpd"],
+    ...["varma", "doshiwal", "lunawat", "salecha", "kataria", "chopda", "bhandari"].map((h) => ["weekly", h, "attended"]),
+    ["weekly", "nahar", "no_show"],
+    ["dinner", "varma", "confirmed"], ["dinner", "doshiwal", "confirmed"], ["dinner", "lunawat", "confirmed"], ["dinner", "kataria", "confirmed"],
+    ["dinner", "salecha", "rsvpd"], ["dinner", "chopda", "rsvpd"], ["dinner", "bhandari", "rsvpd"], ["dinner", "singhvi", "rsvpd"], ["dinner", "nahar", "cancelled"],
+    ["festival", "varma", "rsvpd"], ["festival", "rathore", "rsvpd"], ["festival", "patni", "rsvpd"],
   ],
   shifts: [
-    { k: "tb_entry", ev: "tapasvi", station: "entry", day: 5, from: "09:00", to: "12:00", cap: 4, notes: "Scan tickets at the door" },
-    { k: "tb_food", ev: "tapasvi", station: "food", day: 5, from: "11:30", to: "14:00", cap: 6 },
-    { k: "tb_parking", ev: "tapasvi", station: "parking", day: 5, from: "09:00", to: "11:00", cap: 4 },
+    { k: "dn_entry", ev: "dinner", station: "entry", day: 5, from: "09:00", to: "12:00", cap: 4, notes: "Scan tickets at the door" },
+    { k: "dn_food", ev: "dinner", station: "food", day: 5, from: "11:30", to: "14:00", cap: 6 },
+    { k: "dn_parking", ev: "dinner", station: "parking", day: 5, from: "09:00", to: "11:00", cap: 4 },
   ],
-  assignments: [["tb_entry", "lunawat.riya", "confirmed"], ["tb_entry", "varma.rohit", "assigned"], ["tb_food", "bhandari.vijay", "confirmed"], ["tb_food", "salecha.nikhil", "assigned"], ["tb_food", "kataria.sarla", "assigned"], ["tb_parking", "nahar.rekha", "assigned"],
+  assignments: [["dn_entry", "lunawat.riya", "confirmed"], ["dn_entry", "varma.rohit", "assigned"], ["dn_food", "bhandari.vijay", "confirmed"], ["dn_food", "salecha.nikhil", "assigned"], ["dn_food", "kataria.sarla", "assigned"], ["dn_parking", "nahar.rekha", "assigned"],
                 // Two people asked to take a parking shift: each has it waiting for them to confirm in the member app.
-                ["tb_parking", "patni.nisha", "assigned"], ["tb_parking", "wadhwa.priya", "assigned"]],
+                ["dn_parking", "patni.nisha", "assigned"], ["dn_parking", "wadhwa.priya", "assigned"]],
   // The checklist for the two coming events: one overdue, some due soon, two nobody owns yet.
   actions: [
-    { k: "sound", ev: "tapasvi", phase: "pre", name: "Confirm the sound system and microphones", owner: "lunawat.sanjay", due: 1, priority: "high", state: "in_progress" },
-    { k: "schedule", ev: "tapasvi", phase: "pre", name: "Print the volunteer schedule for the door", owner: "salecha.pooja", due: -1, priority: "medium", state: "not_started" },
-    { k: "parking", ev: "tapasvi", phase: "pre", name: "Arrange parking marshals and the overflow lot", owner: "nahar.sunil", due: 3, priority: "high", state: "not_started" },
-    { k: "flowers", ev: "tapasvi", phase: "pre", name: "Order flowers and decorations", owner: null, due: 2, priority: "medium", state: "not_started" },
-    { k: "thanks", ev: "tapasvi", phase: "after", name: "Write thank-you notes to the tapasvis", owner: "kataria.bharat", due: 8, priority: "low", state: "not_started" },
-    { k: "pandit", ev: "diwali", phase: "pre", name: "Invite the pandit for the Diwali puja", owner: "kataria.bharat", due: 12, priority: "high", state: "not_started" },
-    { k: "diyas", ev: "diwali", phase: "pre", name: "Order the diyas and rangoli colors", owner: null, due: 20, priority: "medium", state: "not_started" },
+    { k: "sound", ev: "dinner", phase: "pre", name: "Confirm the sound system and microphones", owner: "lunawat.sanjay", due: 1, priority: "high", state: "in_progress" },
+    { k: "schedule", ev: "dinner", phase: "pre", name: "Print the volunteer schedule for the door", owner: "salecha.pooja", due: -1, priority: "medium", state: "not_started" },
+    { k: "parking", ev: "dinner", phase: "pre", name: "Arrange parking marshals and the overflow lot", owner: "nahar.sunil", due: 3, priority: "high", state: "not_started" },
+    { k: "flowers", ev: "dinner", phase: "pre", name: "Order flowers and decorations", owner: null, due: 2, priority: "medium", state: "not_started" },
+    { k: "thanks", ev: "dinner", phase: "after", name: "Write thank-you notes to the honored volunteers", owner: "kataria.bharat", due: 8, priority: "low", state: "not_started" },
+    { k: "speaker", ev: "festival", phase: "pre", name: "Invite the guest speaker for the festival night", owner: "kataria.bharat", due: 12, priority: "high", state: "not_started" },
+    { k: "candles", ev: "festival", phase: "pre", name: "Order the candles and decorations", owner: null, due: 20, priority: "medium", state: "not_started" },
   ],
-  // A digital boli open for pledges that closes in four days, and the in-person one the boli recorder fills in at the Tapasvi event.
-  bolis: [
-    { k: "diwali", ev: "diwali", camp: "building", name: "Diwali puja: lighting of the first lamp", descr: "Pledge to have your family light the first lamp at the Diwali puja.", kind: "digital", floor: 5100, step: 1100, opens: -3, closes: 4,
-      explainer: "The highest pledge lights the first lamp; every family that pledges is welcome to take part. (Demo.)" },
-    { k: "tapasvi", ev: "tapasvi", camp: "building", name: "Tapasvi Bahuman: the first aarti", descr: "Called in the hall on the day; the recorder enters each pledge as it is called.", kind: "in_person", floor: 11100, step: 5100, opens: 5, closes: null },
-  ],
-  boliEntries: [
-    { boli: "diwali", hh: "varma", who: "asha", cents: 11100, label: "Asha V.", ago: 2 },
-    { boli: "diwali", hh: "doshiwal", who: "meera", cents: 15100, label: "Meera D.", ago: 2, time: "21:10" },
-    { boli: "diwali", hh: "kataria", who: "bharat", cents: 25100, label: "Bharat K.", ago: 1, time: "08:40" },
-  ],
-  groups: [["kitchen", "Bhojanshala and kitchen", false], ["teaching", "Pathshala teaching", true], ["events", "Events and decoration", false], ["parking", "Parking and welcome", false]],
+  groups: [["kitchen", "Kitchen and hospitality", false], ["teaching", "Learning Center teaching", true], ["events", "Events and decoration", false], ["parking", "Parking and welcome", false]],
   interests: [["lunawat.riya", "events", "active"], ["bhandari.vijay", "kitchen", "active"], ["salecha.nikhil", "events", "interested"], ["nahar.rekha", "parking", "active"],
              ["rathore.kavita", "kitchen", "interested"], ["varma.rohit", "events", "active"], ["doshiwal.kiran", "teaching", "interested"], ["patni.nisha", "kitchen", "active"]],
   guide: [
-    ["visiting-the-temple", "Visiting the temple", "Everyone is welcome. Remove shoes at the door, silence your phone and sit where you are comfortable.\n\n(Demo content.)", false],
-    ["first-visit-checklist", "Your first visit", "- Arrive a few minutes early\n- Dress modestly\n- Say hello at the office\n- Ask about Pathshala for the children", true],
+    ["visiting-us", "Visiting us", "Everyone is welcome. Silence your phone and sit where you are comfortable.\n\n(Demo content.)", false],
+    ["first-visit-checklist", "Your first visit", "- Arrive a few minutes early\n- Dress modestly\n- Say hello at the office\n- Ask about the Learning Center for the children", true],
     ["parking-and-access", "Parking and access", "The east door is step-free. Overflow parking opens on busy days; volunteers will guide you.\n\n(Demo content.)", false],
   ],
   store: {
-    where: "Temple kitchen",
-    categories: [["mithai", "Mithai"], ["namkeen", "Namkeen"], ["meals", "Meals"]],
+    where: "Community hall kitchen",
+    categories: [["bakery", "Baked goods"], ["snacks", "Snacks"], ["meals", "Meals"]],
     items: [
-      { sku: "101", cat: "mithai", name: "Mohanthal", descr: "Gram-flour fudge with ghee and cardamom", cents: 899, pack: "250 g", taxable: true, gift: true },
-      { sku: "102", cat: "mithai", name: "Kaju katli", descr: "Cashew fudge", cents: 999, pack: "250 g", taxable: true, gift: true },
-      // Counted on the shelf: the orders below take 3 Farsi puri and 2 Chakri out, which leaves both at or under their reorder level.
-      { sku: "201", cat: "namkeen", name: "Farsi puri", descr: "Crisp, flaky puris", cents: 599, pack: "200 g", taxable: true, gift: true, stock: 4, low: 6 },
-      { sku: "202", cat: "namkeen", name: "Chakri", descr: "Rice-flour spirals", cents: 599, pack: "200 g", taxable: true, gift: true, stock: 5, low: 6 },
-      { sku: "301", cat: "meals", name: "Dal dhokli", descr: "Jain dal dhokli, no root vegetables", cents: 899, pack: "one meal", taxable: false },
+      { sku: "101", cat: "bakery", name: "Shortbread", descr: "Butter shortbread rounds", cents: 899, pack: "250 g", taxable: true, gift: true },
+      { sku: "102", cat: "bakery", name: "Almond biscotti", descr: "Twice-baked almond biscotti", cents: 999, pack: "250 g", taxable: true, gift: true },
+      // Counted on the shelf: the orders below take 3 bags of trail mix and 2 of pretzel twists out, which leaves both at or under their reorder level.
+      { sku: "201", cat: "snacks", name: "Trail mix", descr: "Nuts, seeds and dried fruit", cents: 599, pack: "200 g", taxable: true, gift: true, stock: 4, low: 6 },
+      { sku: "202", cat: "snacks", name: "Pretzel twists", descr: "Crisp baked pretzels", cents: 599, pack: "200 g", taxable: true, gift: true, stock: 5, low: 6 },
+      { sku: "301", cat: "meals", name: "Vegetarian lunch plate", descr: "A hot vegetarian lunch", cents: 899, pack: "one meal", taxable: false },
     ],
     orders: [
       { ref: "o1", hh: "varma", who: "asha", win: "past", status: "picked_up", lines: [["101", 2], ["201", 1]] },
@@ -510,34 +509,34 @@ const faith = {
     ],
   },
   alerts: [
-    { sev: "important", title: "Parking for the Tapasvi Bahuman", body: "Please use the overflow lot; volunteers will guide you. (Demo notice.)", from: -1, to: 6 },
-    { sev: "info", title: "Derasar closes early on Friday", body: "For maintenance. (Demo notice.)", from: -40, to: -35 },
+    { sev: "important", title: "Parking for the appreciation dinner", body: "Please use the overflow lot; volunteers will guide you. (Demo notice.)", from: -1, to: 6 },
+    { sev: "info", title: "The building closes early on Friday", body: "For maintenance. (Demo notice.)", from: -40, to: -35 },
   ],
   campaigns: [
-    { k: "news", kind: "newsletter", name: "Monthly newsletter", title: "Sunrise Worship Center newsletter", body: "## This month\n\n- Thank you to every tapasvi\n- The Pathshala term is under way\n- Building fund update\n\n(Demo newsletter.)", channels: ["email"], status: "sent", sentDay: -20, createdDay: -22 },
-    { k: "invite", kind: "event", name: "Tapasvi Bahuman invitation", title: "You're invited: Tapasvi Bahuman and Swamivatsalya", body: "Join us to honor this year's tapasvis. RSVP in the app. (Demo.)", channels: ["push", "email"], status: "sent", sentDay: -5, createdDay: -6 },
-    { k: "draft", kind: "pathshala_update", name: "Pathshala annual day", title: "Save the date: Pathshala annual day", body: "Students will perform; families bring a dish to share. (Demo draft.)", channels: ["push"], status: "draft", sentDay: null, createdDay: 0 },
+    { k: "news", kind: "newsletter", name: "Monthly newsletter", title: "Sunrise Worship Center newsletter", body: "## This month\n\n- Thank you to every volunteer\n- The Learning Center term is under way\n- Building fund update\n\n(Demo newsletter.)", channels: ["email"], status: "sent", sentDay: -20, createdDay: -22 },
+    { k: "invite", kind: "event", name: "Appreciation dinner invitation", title: "You're invited: the annual appreciation dinner", body: "Join us to honor this year's volunteers and teachers. RSVP in the app. (Demo.)", channels: ["push", "email"], status: "sent", sentDay: -5, createdDay: -6 },
+    { k: "draft", kind: "pathshala_update", name: "Learning Center annual day", title: "Save the date: Learning Center annual day", body: "Students will perform; families bring a dish to share. (Demo draft.)", channels: ["push"], status: "draft", sentDay: null, createdDay: 0 },
     // Written by a colleague and waiting for the communications officer's approval; an all-member send needs two different approvers.
-    { k: "diwali", kind: "announcement", name: "Diwali greetings", title: "Happy Diwali from Sunrise Worship Center", body: "Wishing every family a bright Diwali. The puja is on the evening of the festival; the first-lamp boli is open in the app. (Demo.)", channels: ["push", "email"], status: "pending_approval", sentDay: null, createdDay: -1, second: true },
+    { k: "festival", kind: "announcement", name: "Festival greetings", title: "Warm wishes from Sunrise Worship Center", body: "Wishing every family a joyful season. The community festival night is coming up; the details are in the app. (Demo.)", channels: ["push", "email"], status: "pending_approval", sentDay: null, createdDay: -1, second: true },
   ],
   // The shared inboxes (the front office, membership, the school, one for each zone) and what members have asked in them.
-  inboxes: [["office", "Front office", 48, null], ["membership", "Membership", 72, null], ["pathshala", "Pathshala", 72, null], ["zone-north", "North zone", 48, "north"], ["zone-south", "South zone", 48, "south"]],
+  inboxes: [["office", "Front office", 48, null], ["membership", "Membership", 72, null], ["school", "Learning Center", 72, null], ["zone-north", "North zone", 48, "north"], ["zone-south", "South zone", 48, "south"]],
   threads: [
-    { k: "member", inbox: "membership", from: "wadhwa.priya", ago: 2, time: "11:00", subject: "How do I become a member?", body: "Hello, I have been coming to the Sunday satsang for two months. How do I apply for a yearly membership, and who can vouch for me?" },
-    { k: "rsvp", inbox: "office", from: "patni.tarun", ago: 1, time: "19:30", subject: "Can we add a guest to our Diwali RSVP?", body: "My brother is visiting from out of town. Can he come to the Diwali puja with us, and do I change our RSVP in the app?" },
-    { k: "school", inbox: "pathshala", from: "varma.asha", ago: 1, time: "08:15", subject: "Is there Pathshala on the Sunday after Diwali?", body: "Anaya asked whether class meets the Sunday after Diwali or whether there is a break." },
-    { k: "carpool", inbox: "zone-north", from: "wadhwa.priya", ago: 1, time: "15:00", subject: "Is anyone driving from the north zone to the Tapasvi event?", body: "I do not drive on the highway. Is there a carpool from the north zone on the morning of the Tapasvi Bahuman?" },
+    { k: "member", inbox: "membership", from: "wadhwa.priya", ago: 2, time: "11:00", subject: "How do I become a member?", body: "Hello, I have been coming to the weekly gathering for two months. How do I apply for a yearly membership, and who can vouch for me?" },
+    { k: "rsvp", inbox: "office", from: "patni.tarun", ago: 1, time: "19:30", subject: "Can we add a guest to our festival RSVP?", body: "My brother is visiting from out of town. Can he come to the festival night with us, and do I change our RSVP in the app?" },
+    { k: "school", inbox: "school", from: "varma.asha", ago: 1, time: "08:15", subject: "Is there class at the Learning Center on the weekend after the festival?", body: "Anaya asked whether class meets the weekend after the festival or whether there is a break." },
+    { k: "carpool", inbox: "zone-north", from: "wadhwa.priya", ago: 1, time: "15:00", subject: "Is anyone driving from the north zone to the appreciation dinner?", body: "I do not drive on the highway. Is there a carpool from the north zone on the morning of the appreciation dinner?" },
     { k: "gathering", inbox: "zone-north", from: "parmar.hemant", ago: 3, time: "10:20", subject: "Who is hosting this month's north zone family gathering?", body: "Nobody has written yet about this month's gathering. Can the zone lead confirm the host and the day?" },
   ],
   whatsapp: {
-    groups: [["north", "North zone families", "Updates for the families of the north zone.", "zone", "north"], ["seva", "Seva volunteers", "Shift reminders for people who volunteer.", "volunteers", null]],
-    requests: [["north", "wadhwa.priya", "+13125550148", 2], ["seva", "patni.nisha", "+13125550149", 1]],
+    groups: [["north", "North zone families", "Updates for the families of the north zone.", "zone", "north"], ["helpers", "Volunteer helpers", "Shift reminders for people who volunteer.", "volunteers", null]],
+    requests: [["north", "wadhwa.priya", "+13125550148", 2], ["helpers", "patni.nisha", "+13125550149", 1]],
   },
   // Texts waiting on people: one for the religious coordinator to approve, two drafts for the content editor to finish.
   content: [
-    { k: "porisi", kind: "pachchakhan", slug: "porisi-demo", title: "Porisi pachchakhan (demo)", body: "The pachchakhan text, checked by the editor and waiting for the religious coordinator to approve. (Demo.)", meta: { when: "Sunrise + 3 h" }, status: "in_review", ago: 2 },
-    { k: "navkar", kind: "audio_lesson", slug: "navkar-intro-demo", title: "Introduction to the Navkar Mantra (demo)", body: "Notes for the lesson. The recording is still to be made. (Demo.)", meta: { series: "Basics", length_minutes: 12 }, status: "draft", ago: 1 },
-    { k: "navkarsi", kind: "pachchakhan", slug: "navkarsi-demo", title: "Navkarsi pachchakhan (demo)", body: null, meta: { when: "Sunrise + 48 min" }, status: "draft", ago: 3 },
+    { k: "service", kind: "explainer", slug: "weekly-service-demo", title: "What to expect at our weekly service (demo)", body: "A short explainer, checked by the editor and waiting for the religious coordinator to approve. (Demo.)", status: "in_review", ago: 2 },
+    { k: "intro", kind: "audio_lesson", slug: "service-intro-demo", title: "An introduction to our weekly service (demo)", body: "Notes for the lesson. The recording is still to be made. (Demo.)", meta: { series: "Basics", length_minutes: 12 }, status: "draft", ago: 1 },
+    { k: "welcome", kind: "faq", slug: "welcoming-families-demo", title: "Welcoming new families (demo)", body: null, status: "draft", ago: 3 },
   ],
   // [person, kind, status, days since asked, days until due]
   dataRequests: [["wadhwa.priya", "export", "open", 9, 21], ["patni.nisha", "deletion", "in_progress", 22, 8]],
@@ -554,13 +553,15 @@ const faith = {
   },
   pathshala: {
     term: "Fall term (demo)",
-    levels: [[1, "Jainism 1", 5, 7], [2, "Jainism 2", 8, 10], [3, "Jainism 3", 11, 14], [4, "Jainism 4", 15, 18]],
-    classes: [["j1", 1, "Jainism 1 · Room A", "A", 12], ["j2", 2, "Jainism 2 · Room B", "B", 15], ["j3", 3, "Jainism 3 · Room C", "C", 15]],
-    teacher: "bhandari.anita", teachClass: "j2",
+    levels: [[1, "Level 1", 5, 7], [2, "Level 2", 8, 10], [3, "Level 3", 11, 14], [4, "Level 4", 15, 18]],
+    classes: [["l1", 1, "Level 1 · Room A", "A", 12], ["l2", 2, "Introduction to Jainism · Room B", "B", 15], ["l3", 3, "Level 3 · Room C", "C", 15]],
+    teacher: "bhandari.anita", teachClass: "l2",
     enrolled: [
-      { child: "tia", hh: "lunawat", level: 1, cls: "j1" }, { child: "anaya", hh: "varma", level: 2, cls: "j2" }, { child: "jay", hh: "salecha", level: 2, cls: "j2" },
-      { child: "ishaan", hh: "chopda", level: 2, cls: "j2" }, { child: "ved", hh: "doshiwal", level: 3, cls: "j3" }, { child: "mira", hh: "bhandari", level: 3, cls: "j3" },
-      { child: "neel", hh: "lunawat", level: 3, cls: "j3" },
+      { child: "tia", hh: "lunawat", level: 1, cls: "l1" }, { child: "anaya", hh: "varma", level: 2, cls: "l2" }, { child: "jay", hh: "salecha", level: 2, cls: "l2" },
+      { child: "ishaan", hh: "chopda", level: 2, cls: "l2" }, { child: "ved", hh: "doshiwal", level: 3, cls: "l3" }, { child: "mira", hh: "bhandari", level: 3, cls: "l3" },
+      { child: "neel", hh: "lunawat", level: 3, cls: "l3" },
+      // The Patni household (the family of the community member persona, Tarun and Nisha) has two children in the teacher's class.
+      { child: "dev", hh: "patni", level: 2, cls: "l2" }, { child: "maya", hh: "patni", level: 2, cls: "l2" },
     ],
     // Two late registrations (the term's window closed 45 days ago): Aarav is on the waitlist, Zara asks for a level that has no class yet.
     waiting: [{ child: "aarav", hh: "patni", level: 1, status: "waitlisted", ago: 3 }, { child: "zara", hh: "singhvi", level: 4, status: "requested", ago: 2 }],
@@ -789,15 +790,33 @@ function check(name, content, expect) {
 }
 
 const packs = [
-  { key: "demo_faith_jain_v1", spec: faith, title: "Sunrise Worship Center (Demo)", expect: { households: 13, people: 34, personas: 26 },
-    descr: "A small worship center of invented people (in a Jain Center's words: Pathshala, bolis, tapasvis): 13 households, 34 people, pledges and test-mode payments, events with RSVPs, a small store, notices, volunteer groups and a Pathshala term. One demo person for every role, and something waiting for each of them to do (applications, bank lines, a write-off, questions in the inboxes, texts to approve, an event checklist)." },
+  { key: "demo_faith_jain_v1", spec: faith, title: "Sunrise Worship Center (Demo)", expect: { households: 13, people: 36, personas: 25 }, neutral: true,
+    descr: "A small house of worship of invented people, not any one faith (the platform's Faith community kind): 13 households, 36 people, pledges and test-mode payments, events with RSVPs, a small store, notices, volunteer groups and a Learning Center term. One demo person for every role of that kind, and something waiting for each of them to do (applications, bank lines, a write-off, questions in the inboxes, texts to approve, an event checklist)." },
   { key: "demo_neutral_club_v1", spec: club, title: "Lakeside Neighbors Club (Demo)", expect: { households: 12, people: 29, personas: 21 },
     descr: "A neighborhood club that is not faith-based, of invented people: 12 households, 29 people, pledges and test-mode payments, events with RSVPs, a small shop, notices and volunteer groups. One demo person for every role, and something waiting for each of them to do (applications, bank lines, a write-off, questions in the inboxes, texts to approve, an event checklist)." },
 ];
 
+// A pack marked `neutral` (the faith demo, owner decision 2026-10-15) speaks for no one faith: no word of a tradition in anything a person
+// reads. Machine tokens (keys, enum values, ids: no spaces and no capitals) are the platform's own and are not read by anyone.
+// The same list is in supabase/tests/820_demo_faith_neutral_test.sql, which checks what the database really holds.
+const TRADITION_WORDS = /\b(jain\w*|jinendra|derasar|puja\w*|pujan\w*|aarti|tithi|darshan\w*|tapasvi\w*|bahuman|labh|bolis?|seva|pathshala\w*|gyan\w*|sangh\w*|paryushan|mahavir|swadhyay|satsang\w*|pachchakhan|navkar\w*|swamivatsalya|mohanthal|kaju|farsi|chakri|dhokli|bhojanshala|diwali|mithai|namkeen|pandit|rangoli|diyas?|satvik|temples?|mandir|church|mosque|synagogue|gurdwara|tirthankar\w*|samayik|pratikraman|ashtaprakari|porisi|garba|stavan\w*|bhandar|in honor of ba)\b/i;
+const MACHINE_TOKEN = /^[-a-z0-9_@.+:]+$/;
+// The one deliberate exception (owner, 2026-10-15): a course may be about Jainism. Only the name of that class is exempt; nothing else.
+const COURSE_EXCEPTION = /^Introduction to Jainism( · Room [A-Z])?$/;
+function traditionWords(value, where = "$") {
+  if (Array.isArray(value)) return value.flatMap((x, i) => traditionWords(x, `${where}[${i}]`));
+  if (value && typeof value === "object") return Object.entries(value).flatMap(([k, x]) => traditionWords(x, `${where}.${k}`));
+  if (typeof value === "string" && !MACHINE_TOKEN.test(value) && !COURSE_EXCEPTION.test(value) && TRADITION_WORDS.test(value)) return [`${where}: ${value.slice(0, 80)}`];
+  return [];
+}
+
 const built = packs.map((p) => {
   const content = build(p.spec);
   const got = check(p.key, content, p.expect);
+  if (p.neutral) {
+    const bad = traditionWords({ content, title: p.title, descr: p.descr });
+    if (bad.length) throw new Error(`${p.key}: the pack is meant to be neutral but speaks a tradition's words:\n  ${bad.join("\n  ")}`);
+  }
   return { ...p, content, got };
 });
 
@@ -811,7 +830,7 @@ const sq = (s) => `'${s.replace(/'/g, "''")}'`;
 const sql = `-- Demo communities (B88) · 2 of 3: the two packs, as data. GENERATED by supabase/scripts/build-demo-packs.mjs: change the
 -- script and add a new migration; never edit this one. The packs are not offered on Setup > Demo (active = false): a demo
 -- community is created and reset only by app.create_demo_community / app.reset_demo_community (0629).
---   demo_faith_jain_v1      ${built[0].got.households} households, ${built[0].got.people} people, ${built[0].got.personas} demo people (one per role of a Jain Center's role catalog)
+--   demo_faith_jain_v1      ${built[0].got.households} households, ${built[0].got.people} people, ${built[0].got.personas} demo people (one per role of the Faith community kind's role catalog; the key keeps its old name, see 0820)
 --   demo_neutral_club_v1    ${built[1].got.households} households, ${built[1].got.people} people, ${built[1].got.personas} demo people (one per role of a non-faith organization's role catalog)
 set client_min_messages = warning;
 

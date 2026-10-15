@@ -117,3 +117,37 @@ is its negation for demo communities only (false for every other community, so n
 reads (events, guide, store, content, photo albums, timings, roster, campaigns, opportunities, membership types). Switched off, a demo community is gone
 for a guest in all of them; a platform admin still opens it. **Guests never write**: no insert, update or delete policy or grant is touched. What is not
 covered is listed in [MEMBER_APP_DEMO.md](MEMBER_APP_DEMO.md). Test: `supabase/tests/816_demo_guest_look_around_test.sql`.
+
+## The faith demo is not any one faith (0820)
+
+Owner decision, 2026-10-15: *"make everything in the Demo app neutral."* "Sunrise Worship Center (Demo)" was built as a Jain Center (the greeting "Jai Jinendra",
+a "Jain Way" tab, a derasar, bolis, tapasvis, Pathshala classes). It is now a **Faith community**, the platform's own neutral faith experience (category
+`faith_other`: the greeting is *Welcome*, the fourth tab and the school are both the *Learning Center*, the place is a *place of worship*), and nothing a
+visitor reads names one tradition.
+
+- **The pack** (`demo_faith_jain_v1`, version 4, migration 0820; the key keeps its old name because it is an internal identifier no screen shows and the demo
+  community, the state row and the tests point at it): the events are a weekly gathering, an annual appreciation dinner and a community festival night; the
+  fund, campaign, classes, notices, newsletter, inboxes and guide are in generic words; the store sells baked goods, snacks and a vegetarian lunch. Amounts,
+  households (13) and the 34 people are the same; two children are new (below). The builder (`supabase/scripts/build-demo-packs.mjs`) refuses a pack marked neutral that contains a word of
+  a tradition, and `supabase/tests/820_demo_faith_neutral_test.sql` checks what the database really holds.
+- **No bolis, so no boli recorder.** A Faith community does not have the Bolis module (nor My Jain Way or Labh), and the boli recorder role is not part of that
+  kind (`app.roles.category_keys`, 0600). Sarla Kataria, who held it, is still a person of the pack (the Kataria household, the dinner's food shift) but has no
+  demo sign-in any more: **25 demo people**, one for each role the kind has. The public list (the six featured people) is unchanged.
+- **The Learning Center.** In a Faith community the school (the Pathshala module) and the fourth tab ("Jain Way" in a Jain Center, "Learn" in the generic
+  faith community) are both called "Learning Center": the category's `school` and `practice_tab` terms and the module label are set to it (0820), and the
+  member app and the portal read them from the category profile. That is a **platform-wide word for the Faith community category**: there is no per-community override of a kind's words. The
+  category is inactive, so only sandboxes can use it (the faith demo is the one that does), Jain Center keeps "Pathshala", and Church, Mosque and
+  Swaminarayan Temple, which started from it, keep the words they were given.
+- **Two children for the family of the community member.** The Patni household (Tarun, the main adult, and Nisha) has two plain-named children, Dev (9) and
+  Maya (8), enrolled in the class Anita Bhandari teaches, so they are in her roster and attendance list and in the family's member app (Family, Learning). Their
+  two fee pledges ($150.00 and, with the sibling discount, $135.00) are open. That class is the **one deliberate exception to the neutral wording** (owner,
+  2026-10-15): it is named "Introduction to Jainism", because a course may be about Jainism; the greeting, tabs and chrome stay neutral, and the builder and the
+  test allow that one name and nothing else.
+- **The same community, in place.** `app.demo_align_center` brings a demo community in line with its pack's `center` spec without clearing anything: the
+  category, the modules the pack needs and the kind leaves for Weaver to switch on (`pathshala`, `store`, `gyan_path`, `niva`: Weaver's grant, written by the
+  pack), the choices only the old kind offers (the "Jain (no root vegetables)" dietary choice) and the demo people's stories. The migration ran it once on the
+  community that exists (same id, same QuickBooks connection and account mapping, same demo sign-ins), and `app.demo_populate` runs it first on every creation and
+  every reset, so the pack always loads into the community it describes.
+- **When the words change.** The migration changes the kind at once (the greeting, the tabs and the module names in the apps follow the category). The words in
+  the rows (notices, events, the store, classes, messages) are the pack's, so they change when the community is next loaded: **Platform › Setup › Demo
+  sign-in › Start over** loads it now, or the hourly check does it on its own (see the header of 0820).

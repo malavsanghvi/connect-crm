@@ -147,10 +147,10 @@ select pg_temp.assert((select terms->>'greeting' = 'Jai Jinendra' and terms->>'p
                                   and jsonb_typeof(terms->'practice_tab') = 'null' and jsonb_typeof(terms->'school') = 'null'
                                   and terms->>'assistant_context' = 'a chamber of commerce'
                            from app.organization_categories where key = 'chamber_of_commerce')
-                      and (select terms->>'practice_tab' = 'Learn' and terms->>'school' = 'Religious school' and terms->>'learning' = 'Learning path'
+                      and (select terms->>'practice_tab' = 'Learning Center' and terms->>'school' = 'Learning Center' and terms->>'learning' = 'Learning path'
                                   and terms->>'place' = 'place of worship'
                            from app.organization_categories where key = 'faith_other'),
-  'A · the named words: Jain Center keeps today''s words, a chamber says Welcome / Pay / My business, faith-based says Learn');
+  'A · the named words: Jain Center keeps today''s words, a chamber says Welcome / Pay / My business, faith-based says Learning Center (0820)');
 select pg_temp.assert_raises($$insert into app.organization_categories (key, label, faith_based, terms) values ('bad_one', 'Bad', false, '{"greeting":"Hi"}')$$,
   'organization_categories_terms_ok', 'A · terms with missing keys are refused');
 select pg_temp.assert_raises($$insert into app.organization_categories (key, label, faith_based, terms) values ('bad_two', 'Bad', false,
@@ -186,9 +186,9 @@ select pg_temp.assert((select array_agg(module_key order by module_key) from app
                         = array['bolis', 'jain_way', 'labh']
                       and (select array_agg(module_key order by module_key) from app.category_modules where category_key = 'faith_other' and availability = 'default_off')
                         = array['ai', 'care', 'channels', 'gyan_path', 'matching', 'niva', 'pathshala', 'store', 'website']
-                      and (select label from app.category_modules where category_key = 'faith_other' and module_key = 'pathshala') = 'Religious school'
+                      and (select label from app.category_modules where category_key = 'faith_other' and module_key = 'pathshala') = 'Learning Center'
                       and (select label from app.category_modules where category_key = 'faith_other' and module_key = 'gyan_path') = 'Learning path',
-  'A · other faiths never have Bolis or My Jain Way; Pathshala ("Religious school") and Gyan Path ("Learning path") can be switched on');
+  'A · other faiths never have Bolis or My Jain Way; Pathshala ("Learning Center", 0820) and Gyan Path ("Learning path") can be switched on');
 select pg_temp.assert(not exists (select 1 from app.category_modules cm join app.modules m on m.key = cm.module_key where m.core and cm.availability <> 'default_on'),
   'A · a core module is default_on in every category');
 select pg_temp.assert_raises($$update app.category_modules set availability = 'default_off' where category_key = 'chamber_of_commerce' and module_key = 'people'$$,
