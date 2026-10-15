@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clientScreen, encodeAuditReason, newRequestId, traceHeaders, tracingFetch } from "@/lib/supabase/trace";
+import { auditScreen, clientScreen, encodeAuditReason, newRequestId, traceHeaders, tracingFetch } from "@/lib/supabase/trace";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -45,6 +45,28 @@ describe("traceability headers", () => {
     expect(clientScreen("/people/é")).toBe("/people/");
     expect(clientScreen("/" + "a".repeat(300))!.length).toBe(200);
     expect(clientScreen(null)).toBeNull();
+  });
+  it("records a staff invitation page as its route, never the token in the link (the audit log keeps x-client-screen)", async () => {
+    const TOKEN = "Zk3-_abcdefghijklmnopqrstuvwxy12";
+    expect(auditScreen(`/invite/${TOKEN}`)).toBe("/invite/[token]");
+    expect(auditScreen(`/invite/${TOKEN}/`)).toBe("/invite/[token]/");
+    expect(traceHeaders({ requestId: "r", screen: `/invite/${TOKEN}` })["x-client-screen"]).toBe("/invite/[token]");
+    // the same from the browser client on that page
+    const seen: Headers[] = [];
+    const base = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push(new Headers(init?.headers));
+      return new Response("{}");
+    }) as typeof fetch;
+    await tracingFetch(() => `/invite/${TOKEN}`, base)("https://x/rest/v1/a");
+    expect(seen[0].get("x-client-screen")).toBe("/invite/[token]");
+    expect(JSON.stringify([...seen[0].entries()])).not.toContain(TOKEN);
+  });
+  it("leaves every other screen as it is, and the pathname the proxy passes on (the 2FA redirect reads it) unchanged", () => {
+    for (const p of ["/", "/people/abc", "/invite", "/invitations/abc", "/events/8f0c1a2e-1111-4b6a-9d7e-3f2a6b5c4d3e/rsvps", "/ops/e1/checkin"]) expect(auditScreen(p)).toBe(p);
+    expect(auditScreen(null)).toBeNull();
+    expect(auditScreen("")).toBeNull();
+    // PATHNAME_HEADER is built with clientScreen (src/lib/supabase/proxy.ts): the real path, so ?next= keeps working
+    expect(clientScreen("/invite/abcdefghijklmnop")).toBe("/invite/abcdefghijklmnop");
   });
   it("tracingFetch sends a new request id on every call and keeps caller headers", async () => {
     const seen: Headers[] = [];
