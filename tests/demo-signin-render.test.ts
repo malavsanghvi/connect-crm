@@ -26,7 +26,7 @@ const choices = parseChoices({
   communities: [
     {
       kind: "faith",
-      name: "Sunrise Jain Temple (Demo)",
+      name: "Sunrise Worship Center (Demo)",
       id: "9a1b2c3d-0e1f-4a2b-8c3d-4e5f6a7b8c01",
       slug: "sunrise-demo",
       people: [
@@ -83,7 +83,7 @@ describe("the demo page", () => {
     expect(html).toContain("Try the demo");
     expect(html).toContain("Faith-based");
     expect(html).toContain("Not faith-based");
-    expect(html).toContain("Sunrise Jain Temple (Demo)");
+    expect(html).toContain("Sunrise Worship Center (Demo)");
     expect(html).toContain("Lakeside Neighbors Club (Demo)");
     for (const role of ["Administrator", "Treasurer", "Community member · Adult"]) expect(html).toContain(role);
     expect(html).toContain("Runs the temple&#x27;s office and sees everything.");

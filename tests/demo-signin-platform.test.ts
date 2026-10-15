@@ -35,7 +35,7 @@ const status = (over: Record<string, unknown> = {}) => ({
   enabled: false, reason: null, changed_at: null, changed_by: null, people_total: 47, people_ready: 0, live_sessions: 0, started_24h: 0, hours: 2,
   communities: [], ...over,
 });
-const two = [{ id: C1, name: "Sunrise Jain Temple (Demo)", kind: "faith" }, { id: C2, name: "Lakeside Neighbors Club (Demo)", kind: "neutral" }];
+const two = [{ id: C1, name: "Sunrise Worship Center (Demo)", kind: "faith" }, { id: C2, name: "Lakeside Neighbors Club (Demo)", kind: "neutral" }];
 
 async function panel(rpcAnswer: { data: unknown; error: unknown }) {
   const s = { db: { rpc: vi.fn(async () => rpcAnswer) } } as unknown as Parameters<typeof DemoSigninPanel>[0]["session"];
@@ -81,7 +81,7 @@ describe("Platform › Setup › Demo sign-in (the kill switch)", () => {
     expect(on).toContain("Turn the demo off");
     expect(on).not.toContain("Turn the demo on");
     expect(on).toContain("Replace the passwords");
-    expect(on).toContain("Start “Sunrise Jain Temple (Demo)” over");
+    expect(on).toContain("Start “Sunrise Worship Center (Demo)” over");
     const none = render(createElement(DemoSigninControls, { enabled: false, allReady: false, anyReady: false, kindsMissing: ["faith", "neutral"], communities: [] }));
     expect(none).toContain("Create the faith-based demo");
     expect(none).toContain("Create the not faith-based demo");
@@ -91,7 +91,7 @@ describe("Platform › Setup › Demo sign-in (the kill switch)", () => {
   });
 
   it("lets the sign-ins be set up with just one demo community (the faith-based one)", async () => {
-    const one = [{ id: "c1", name: "Sunrise Jain Temple (Demo)", kind: "faith" }];
+    const one = [{ id: "c1", name: "Sunrise Worship Center (Demo)", kind: "faith" }];
     const controls = render(createElement(DemoSigninControls, { enabled: false, allReady: false, anyReady: false, kindsMissing: ["neutral"], communities: one }));
     expect(controls).not.toMatch(/<button[^>]*disabled=""[^>]*>Set up the sign-ins<\/button>/);
     expect(controls).toContain("Set up the sign-ins");

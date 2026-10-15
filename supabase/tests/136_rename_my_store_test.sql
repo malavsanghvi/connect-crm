@@ -41,8 +41,8 @@ select pg_temp.assert(not exists (select 1 from app.category_modules where label
                       and (select label from app.category_modules where category_key = 'chamber_of_commerce' and module_key = 'store') = 'Store'
                       and (select label from app.category_modules where category_key = 'chamber_of_commerce' and module_key = 'giving') = 'Dues & payments'
                       and (select label from app.category_modules where category_key = 'jain_center' and module_key = 'store') is null
-                      and (select label from app.category_modules where category_key = 'faith_other' and module_key = 'pathshala') = 'Religious school',
-  'C · no module label keeps the old name, and the labels an experience chose (Store, Dues & payments, Religious school) are unchanged');
+                      and (select label from app.category_modules where category_key = 'faith_other' and module_key = 'pathshala') = 'Learning Center',
+  'C · no module label keeps the old name, and the labels an experience chose (Store, Dues & payments, Learning Center) are unchanged');
 
 -- D. The notification topic.
 select pg_temp.assert((select name from app.notification_topics where key = 'store') = 'My Store'

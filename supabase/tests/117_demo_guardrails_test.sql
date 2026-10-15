@@ -204,7 +204,7 @@ select pg_temp.assert((:'w9'::jsonb)->>'failed' = '1' and (:'w9'::jsonb)->>'rese
   'a pack that cannot load fails for its own community only');
 select pg_temp.assert((:'w9'::jsonb)->'centers' @> jsonb_build_array(jsonb_build_object('center_id', :'fc', 'status', 'failed')) and (:'w9'::jsonb)::text like '%no_such_table%',
   'the answer names the table that is wrong, in the language of the job log');
-select pg_temp.assert(pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb) = '' and pg_temp.hash_ids(:'fc', 'people') = :'h_people' and (select count(*) = 26 from app.demo_personas where center_id = :'fc'),
+select pg_temp.assert(pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb) = '' and pg_temp.hash_ids(:'fc', 'people') = :'h_people' and (select count(*) = 25 from app.demo_personas where center_id = :'fc'),
   'the failed reset kept every row and every demo person that was there');
 select pg_temp.assert((select status = 'loaded' and last_error like '%no_such_table%' from app.center_demo_state where center_id = :'fc'),
   'the failure is written on the community''s demo state, where a screen can show it');

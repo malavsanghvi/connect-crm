@@ -104,8 +104,8 @@ select app.create_demo_community('faith') as r \gset
 select pg_temp.assert(((:'r'::jsonb)->>'created')::boolean, 'D. a platform admin creates the demo community without a fresh code');
 select app.reset_demo_community(((:'r'::jsonb)->>'center_id')::uuid) as rr \gset
 select pg_temp.assert(((:'rr'::jsonb)->>'center_id') = ((:'r'::jsonb)->>'center_id'), 'D. and starts it over without a fresh code');
-select pg_temp.assert((select count(*) from app.demo_personas where center_id = ((:'r'::jsonb)->>'center_id')::uuid) = 26,
-  'D. with its 26 demo people');
+select pg_temp.assert((select count(*) from app.demo_personas where center_id = ((:'r'::jsonb)->>'center_id')::uuid) = 25,
+  'D. with its 25 demo people');
 select pg_temp.assert((app.demo_signin_setup('Set up the demo sign-ins')->>'created')::int >= 0,
   'D. and sets up the demo sign-ins without a fresh code');
 

@@ -81,7 +81,7 @@ describe("the list of demo people (app.demo_choices)", () => {
       enabled: true,
       communities: [
         { kind: "neutral", name: "Lakeside Neighbors Club (Demo)", id: CID, slug: "lakeside-demo", people: [person(ID2, "Treasurer", "Tara Test")] },
-        { kind: "faith", name: "Sunrise Jain Temple (Demo)", id: CID, slug: "sunrise-demo", people: [person(ID1, "Administrator", "Asha Test")] },
+        { kind: "faith", name: "Sunrise Worship Center (Demo)", id: CID, slug: "sunrise-demo", people: [person(ID1, "Administrator", "Asha Test")] },
       ],
     });
     expect(c.enabled).toBe(true);
