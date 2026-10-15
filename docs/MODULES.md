@@ -442,7 +442,7 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 - **Tables:** notification_topics (global catalog, nothing to switch), notification_preferences,
   channel_optins, push_devices, message_templates, messages, comms_campaigns, comms_templates (saved templates, 0800), inboxes, threads,
   thread_messages, whatsapp_groups, whatsapp_join_requests, alerts (the WhatsApp Business tables moved to
-  CommunityConnect, `channels`, in 0751; WhatsApp group links stay here)
+  Weaver Connect, `channels`, in 0751; WhatsApp group links stay here)
 - **RPCs guarded:** segment_recipient_count, approve_as_second (comms_campaigns), copy_campaign_as_draft,
   save_campaign_as_template, create_campaign_from_template, rename_comms_template, delete_comms_template
   (docs/COMMS_HUB_TEMPLATES.md)
@@ -534,7 +534,7 @@ never reaches production. The card copy is `app.marketplace_products` (0752); re
 |---|---|---|---|---|
 | `ai` | iWeaver | nothing | none (Niva's follow through its chain) | Niva's, by dependency; the AI gate (0755) |
 | `website` | WeaverSite | People | sites, site_pages, site_blocks | site_draft_save, site_draft_get, site_page_set_status, site_draft_data |
-| `channels` | CommunityConnect | Communications | whatsapp_accounts, whatsapp_template_submissions | save_whatsapp_account, submit_whatsapp_template, send_test_message (WhatsApp), worker_message_to_send (a queued WhatsApp message is not sent) |
+| `channels` | Weaver Connect (called CommunityConnect until 0850) | Communications | whatsapp_accounts, whatsapp_template_submissions | save_whatsapp_account, submit_whatsapp_template, send_test_message (WhatsApp), worker_message_to_send (a queued WhatsApp message is not sent) |
 | `care` | WeCare ("Member care" for a faith kind, "Donor care" otherwise) | People | none yet | none yet (not built) |
 | `market` | Community Market (0830; [`STORE_SECTIONS.md`](STORE_SECTIONS.md), [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md)) | Store | none of its own: its rows are `store_categories` and `store_items` with `section = 'market'` (0821), tied to the module by the restrictive policy `market_section_switch` | none (no functions yet) |
 | `matching` | CatchTheMatch | Giving | person_match_employers (0759), match_program_submissions (0766), person_match_programs (0767); the shared directory match_programs and match_program_names (0765) is core platform (it belongs to no community; its readers need CatchTheMatch on somewhere) | matching_can (0757/0758, no platform-admin branch) in every policy and function: record_match_employer, withdraw_match_employer, submit_match_program, decide_match_submission, match_program_candidates, link_match_program, unlink_match_program, match_employers_queue |

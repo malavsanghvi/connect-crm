@@ -27,7 +27,7 @@ describe("module registry", () => {
     expect(MODULES.filter((m) => ["ai", "website", "channels", "care", "matching"].includes(m.key)).map((m) => `${m.key}=${m.label}:${m.dependsOn.join(",")}`)).toEqual([
       "ai=iWeaver:",
       "website=WeaverSite:people",
-      "channels=CommunityConnect:comms",
+      "channels=Weaver Connect:comms",
       "care=WeCare:people",
       "matching=CatchTheMatch:giving",
     ]);

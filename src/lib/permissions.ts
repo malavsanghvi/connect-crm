@@ -715,7 +715,7 @@ export const NAV: NavModule[] = [
       // 0770: receipts, pledge confirmations and registration confirmations, with the community's own wording.
       { href: "/settings/automatic-emails", label: "Automatic emails", access: "automaticEmails" },
       { href: "/settings/texting", label: "Texting", access: "messaging" },
-      // The WhatsApp Business account is CommunityConnect (0751); WhatsApp group links (/comms/whatsapp) stay in Communications.
+      // The WhatsApp Business account is Weaver Connect (0751, renamed in 0850); WhatsApp group links (/comms/whatsapp) stay in Communications.
       { href: "/settings/whatsapp", label: "WhatsApp", access: "messaging", module: "channels" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],

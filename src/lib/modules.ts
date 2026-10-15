@@ -85,7 +85,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "governance", label: "Governance", core: false, dependsOn: ["people"], description: "Resolutions, votes, concerns and comments." },
   { key: "ai", label: "iWeaver", core: false, dependsOn: [], description: "Every AI feature except AI used in onboarding: Niva for members and staff, and AI flyer art." },
   { key: "website", label: "WeaverSite", core: false, dependsOn: ["people"], description: "The organization's website draft, its pages and the private preview." },
-  { key: "channels", label: "CommunityConnect", core: false, dependsOn: ["comms"], description: "WhatsApp Business messages: the account, its templates and sending." },
+  { key: "channels", label: "Weaver Connect", core: false, dependsOn: ["comms"], description: "WhatsApp Business messages: the account, its templates and sending." },
   { key: "care", label: "WeCare", core: false, dependsOn: ["people"], description: "Donor care and member care. Not built yet." },
   { key: "matching", label: "CatchTheMatch", core: false, dependsOn: ["giving"], description: "Employer and grant matching. Not built yet." },
   { key: "market", label: "Community Market", core: false, dependsOn: ["store"], description: "A second section of the store for the community's own non-food products and services, organized in categories." },

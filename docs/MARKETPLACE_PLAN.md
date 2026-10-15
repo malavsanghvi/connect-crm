@@ -68,7 +68,7 @@ product they use today, and a test compares their module states before and after
 | **Special Days and Occasions** (B72) | partly `calendar`; new | coming soon |
 | **Newsletters and Messaging** (B60) | `comms` | available, expanding |
 | **WeaverSite** (working name: the organization's own website; B55, B61, B75; [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) | new module `website` (site tables of 0642) | partly built (private draft), subscription |
-| **CommunityConnect** (Facebook and Instagram for events, WhatsApp Business messages; B54; [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) | new module `channels` (needs `comms`) | WhatsApp sending built, Meta not built; subscription |
+| **Weaver Connect** (called CommunityConnect until 2026-10-15; Facebook and Instagram for events, WhatsApp Business messages; B54; [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) | new module `channels` (needs `comms`) | WhatsApp sending built, Meta not built; subscription |
 | **Pathshala** (B41), **Gyan Path**, **My Jain Way** | `pathshala`, `gyan_path`, `jain_way` | available (shown by kind of organization) |
 | **iWeaver** (every AI feature except AI used in onboarding: Niva for members and admins, AI flyer art, future AI; [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) | new module `ai`; `niva` depends on it | available, subscription |
 | Membership, Volunteers, Surveys, Governance, Calendar, Content and library, Reports and dashboard | the same-named modules | available |

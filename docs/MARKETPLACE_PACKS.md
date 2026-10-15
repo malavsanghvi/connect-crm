@@ -1,10 +1,10 @@
-# Marketplace packs: iWeaver, WeaverSite, CommunityConnect (plan)
+# Marketplace packs: iWeaver, WeaverSite, Weaver Connect (plan)
 
 Status: plan, 2026-10-13. Slice 1 built (migrations 0750 to 0753: the module rows, grandfathering, the catalog, requests;
 Settings › Marketplace and Platform › Communities › Products follow). Backlog **B104**. Owner direction, 2026-10-13: move Niva, AI flyer art and
 every other AI feature (except AI used in onboarding) into an **iWeaver** pack; move the integrated website into
 **WeaverSite** (working name, to be renamed); put Facebook and Instagram for events and WhatsApp for messages into
-**CommunityConnect**. With WeCare ([`WECARE.md`](WECARE.md)) and CatchTheMatch ([`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md))
+**Weaver Connect** (planned on 2026-10-13 as "CommunityConnect"; the owner renamed it on 2026-10-15, migration 0850, label only: the key `channels` did not change, rule P6). With WeCare ([`WECARE.md`](WECARE.md)) and CatchTheMatch ([`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md))
 that makes five Marketplace products. Built for every organization Weaver onboards. It extends
 [`MARKETPLACE_PLAN.md`](MARKETPLACE_PLAN.md) and does not replace it.
 
@@ -25,7 +25,7 @@ Proposed keys (labels are data and can change at any time):
 |---|---|---|
 | iWeaver | `ai` | nothing |
 | WeaverSite | `website` | People |
-| CommunityConnect | `channels` | Communications (`comms`); the Facebook and Instagram part also uses Events |
+| Weaver Connect | `channels` | Communications (`comms`); the Facebook and Instagram part also uses Events |
 | WeCare | `care` (was `wecare` in the plan; permissions become `care.view`, `care.own`, `care.manage`) | People |
 | CatchTheMatch | `matching` (was `catch_the_match`) | Giving |
 | Community Market (a sixth product, owner 2026-10-15, 0830; [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md)) | `market` | Store |
@@ -44,7 +44,7 @@ nothing uses a community's own key):
 | Import column-mapping suggestions (`import.suggest_mapping`) | import permission only | **Stays core**: used in onboarding (Setup step 10) |
 | QuickBooks donor-match suggestions (`qbo.match_suggest_ai`) | `accounting` | **Stays core**: used when QuickBooks history is brought in at onboarding |
 | Provider Test buttons (Platform > Setup) | platform admin | Unchanged: platform only, not a community feature |
-| Every AI feature built from now on (WeCare drafts, CommunityConnect post drafts, event-creation help, the org agent) | | **iWeaver**, plus its own product where there is one (for example WeCare AI needs both `care` and `ai`) |
+| Every AI feature built from now on (WeCare drafts, Weaver Connect post drafts, event-creation help, the org agent) | | **iWeaver**, plus its own product where there is one (for example WeCare AI needs both `care` and `ai`) |
 
 How the gate works:
 
@@ -78,14 +78,14 @@ How the gate works:
 domains must be added one by one through the existing on-demand TLS check (`/api/tenancy/tls-ask`), never with a
 wildcard, `MEMBER_BASE_DOMAIN` or a DNS `*`.
 
-## 4. CommunityConnect (`channels`)
+## 4. Weaver Connect (`channels`)
 
 | Piece | Status today | Goes to |
 |---|---|---|
-| WhatsApp messages through the Business API (Twilio `whatsapp:` sending, `whatsapp_accounts`, `whatsapp_template_submissions`, Settings > WhatsApp) | built, sends only once Meta approved the account (recorded by hand) | **CommunityConnect**: those tables move to `channels` in `module_tables`; the send path asserts `channels` for the WhatsApp channel as well as `comms` (0221) |
+| WhatsApp messages through the Business API (Twilio `whatsapp:` sending, `whatsapp_accounts`, `whatsapp_template_submissions`, Settings > WhatsApp) | built, sends only once Meta approved the account (recorded by hand) | **Weaver Connect**: those tables move to `channels` in `module_tables`; the send path asserts `channels` for the WhatsApp channel as well as `comms` (0221) |
 | WhatsApp group links and the join queue (staff add members by hand; member app guide and onboarding screens) | built, `comms` | **Stays in Communications**: no integration, and moving it would leave installed apps showing an empty screen |
 | Email, SMS, push | built | Stay core / Communications |
-| Facebook Page and Instagram posting for events (the "Coming next" rows in the event publish box) | **not built**: no Meta connection, no tokens | **CommunityConnect** |
+| Facebook Page and Instagram posting for events (the "Coming next" rows in the event publish box) | **not built**: no Meta connection, no tokens | **Weaver Connect** |
 
 Facebook and Instagram, what it takes:
 
@@ -101,7 +101,7 @@ Facebook and Instagram, what it takes:
 ## 5. Moving features without taking them away
 
 - **Grandfathering by use.** The migration grants a pack, with the reason "grandfathered", to every community that
-  uses its features today: iWeaver where Niva is on or flyer art was made in the last 90 days; CommunityConnect where
+  uses its features today: iWeaver where Niva is on or flyer art was made in the last 90 days; Weaver Connect where
   a WhatsApp account is recorded; WeaverSite where a site draft exists. A test compares each community's effective
   modules before and after (as test 79 does for categories and 0740 for grants).
 - **Sandbox communities** (prospects trying Weaver) get iWeaver on as a trial, within the existing sandbox limits.
@@ -117,8 +117,8 @@ Each slice ships on its own; migration and test numbers are reserved when a slic
 | 2 | The AI gate: worker `processJob` check and AI job kinds list, request functions, `authorizeAssistant`; portal buttons and messages | M | No new rule (enforces slice 1) |
 | 3 | Platform > Communities shows the five products with their grant switches; a Marketplace card for each ("Request") | S to M | No |
 | 4 | WeaverSite build-out: publishing, public pages, menus, roles, domains (B55, B61, B75) | L, several PRs | Domains and public reads |
-| 5 | CommunityConnect Meta: connection, posting from the publish box, scheduling, status back on the event | L | **Yes: outside service, tokens**; Meta review first (owner) |
-| 6 | CommunityConnect WhatsApp: Business account sign-up flow instead of status recorded by hand | M | Messaging cost |
+| 5 | Weaver Connect Meta: connection, posting from the publish box, scheduling, status back on the event | L | **Yes: outside service, tokens**; Meta review first (owner) |
+| 6 | Weaver Connect WhatsApp: Business account sign-up flow instead of status recorded by hand | M | Messaging cost |
 
 ## 7. Owner answers (2026-10-13: every recommendation approved)
 

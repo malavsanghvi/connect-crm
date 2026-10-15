@@ -265,9 +265,9 @@ rollback;
 
 -- WhatsApp: pending Meta; module switch.
 begin;
--- 0751: the WhatsApp Business account is CommunityConnect (module `channels`), which every kind starts off; this community
+-- 0751: the WhatsApp Business account is Weaver Connect (module `channels`), which every kind starts off; this community
 -- holds it (test 160 covers a community that does not).
-insert into app.center_module_grants (center_id, module_key, granted, reason) values (:prod, 'channels', true, 'Test 25: WhatsApp needs CommunityConnect (0751)');
+insert into app.center_module_grants (center_id, module_key, granted, reason) values (:prod, 'channels', true, 'Test 25: WhatsApp needs Weaver Connect (0751)');
 select pg_temp.as_user('25000000-0000-4000-8000-0000000000a2');
 set local role authenticated;
 select app.save_whatsapp_account(:prod, null, null, 'Messaging Test Center', '+1 832 555 0101', 'Start WhatsApp') as wa \gset
