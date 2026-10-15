@@ -13,7 +13,9 @@ version 3 (migration 0797), and 0796 fixes how three of the people are signed in
 
 **Who the public list offers (0815).** All 26 people exist and can start a demo, but the list a visitor chooses from (the `/demo` page and the member
 app's "Try the demo") offers six: the administrator, treasurer, membership coordinator, event lead and teacher (non-profit operational roles) and the
-family's main adult (community roles). The list is `app.demo_featured_roles()`; see [DEMO_SIGNIN.md](DEMO_SIGNIN.md).
+family's main adult (community roles). The list is `app.demo_featured_roles()`; see [DEMO_SIGNIN.md](DEMO_SIGNIN.md). Since 2026-10-15 the community role
+does not start in the portal at all: its button on `/demo` opens the member app straight at that person (see [MEMBER_APP_DEMO.md](MEMBER_APP_DEMO.md) "The one-step
+path"). The portal Home card "Your work is in the member app" is still what any family-role account finds when it signs in to the portal.
 
 ## What the portal shows, in one paragraph
 

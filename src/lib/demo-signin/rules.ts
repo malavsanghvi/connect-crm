@@ -72,10 +72,23 @@ export const DEMO_AREAS: readonly DemoArea[] = ["operations", "community"];
 export const AREA_LABEL: Record<DemoArea, string> = { operations: "Non-profit operational roles", community: "Community roles" };
 export const AREA_BLURB: Record<DemoArea, string> = {
   operations: "The people who run the organization. Each one sees only what their role allows.",
-  community: "A member of the community, as a family member would use it.",
+  community: "A member of the community, as a family member would use it: one press opens the member app, already signed in.",
 };
 
+/**
+ * The area whose people do their work in the member app, not in the portal (owner decision 2026-10-15). In `app.demo_featured_roles()` the
+ * "community" area holds family roles only (community member, membership reference, primary adult, adult member, child): the roles that
+ * hold no permission, so the portal gives them nothing but Home and the card "Your work is in the member app" (src/lib/home/member-work.ts).
+ * tests/demo-app-direct-start.test.ts pins that link to the role catalog. The one place: /demo reads it, nothing else lists roles.
+ */
+export const MEMBER_APP_AREA: DemoArea = "community";
+
 export type DemoPerson = { id: string; role: string; name: string; story: string; area: DemoArea };
+
+/** True for a demo person whose work lives in the member app: /demo opens the app straight at them instead of signing the visitor into the portal. */
+export function worksInMemberApp(person: Pick<DemoPerson, "area">): boolean {
+  return person.area === MEMBER_APP_AREA;
+}
 /** `id` and `slug` are the demo community's own, public ones: the member app opens it with them, as a guest, before anyone is chosen. */
 export type DemoCommunity = { kind: DemoKind; name: string; id: string; slug: string; people: DemoPerson[] };
 export type DemoChoices = { enabled: boolean; communities: DemoCommunity[] };

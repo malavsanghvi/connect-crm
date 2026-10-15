@@ -11,18 +11,20 @@ import {
   DEMO_SESSION_HOURS,
   KIND_BLURB,
   KIND_LABEL,
+  MEMBER_APP_AREA,
   endedNotice,
   isDemoClaims,
   peopleByArea,
+  worksInMemberApp,
   type DemoCommunity,
   type DemoKind,
 } from "@/lib/demo-signin/rules";
 import { loadDemoBanner, loadDemoChoices } from "@/lib/demo-signin/server";
 import { readPublicEnv } from "@/lib/env";
-import { memberAppDemoUrl } from "@/lib/site";
+import { memberAppDemoPersonUrl, memberAppDemoUrl } from "@/lib/site";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-import { PersonaCard } from "./persona-card";
+import { MemberAppPersonaCard, PersonaCard } from "./persona-card";
 
 export const metadata: Metadata = { title: "Try the demo" };
 // The people to choose from and the switch come from the database, so this page is never built ahead of time.
@@ -62,6 +64,8 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
     ? (wanted as DemoKind)
     : (available[0] ?? null);
   const community: DemoCommunity | undefined = choices?.communities.find((c) => c.kind === kind);
+  // The people whose work lives in the member app (the community roles) open it straight at them; nothing is started here for them.
+  const hasMemberAppPeople = !!community?.people.some(worksInMemberApp);
 
   return (
     <main className="min-h-screen bg-canvas">
@@ -100,7 +104,9 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
         ) : null}
         {signedInAs ? (
           <Alert tone="warning" title={`You are signed in as ${signedInAs}`}>
-            Starting the demo signs you out in this browser first. Afterwards, sign in again with your own email.
+            {hasMemberAppPeople
+              ? "Starting the demo in a non-profit operational role signs you out in this browser first. Afterwards, sign in again with your own email. The community roles open the member app instead and leave your sign-in here alone."
+              : "Starting the demo signs you out in this browser first. Afterwards, sign in again with your own email."}
           </Alert>
         ) : null}
 
@@ -157,6 +163,16 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
               </h2>
               <p className="mt-1 text-[14px] text-muted">
                 Choose one person and press Start to open {PRODUCT_NAME} as them; your demo lasts {DEMO_SESSION_HOURS} hours.
+                {hasMemberAppPeople ? (
+                  <>
+                    {" "}
+                    Just want to see it as a family would?{" "}
+                    <a href={`#demo-area-${MEMBER_APP_AREA}`} className="crm-link font-semibold" data-testid="demo-jump-community">
+                      Go to the community roles
+                    </a>
+                    : one press opens the member app.
+                  </>
+                ) : null}
               </p>
               {peopleByArea(community).map((group) => (
                 <div key={group.area} className="mt-5" role="group" aria-labelledby={`demo-area-${group.area}`} data-testid={`demo-area-${group.area}`}>
@@ -165,9 +181,9 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
                   </h3>
                   <p className="mt-0.5 text-[13px] text-muted">{group.blurb}</p>
                   <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {group.people.map((p) => (
-                      <PersonaCard key={p.id} person={p} />
-                    ))}
+                    {group.people.map((p) =>
+                      worksInMemberApp(p) ? <MemberAppPersonaCard key={p.id} person={p} href={memberAppDemoPersonUrl(p.id)} /> : <PersonaCard key={p.id} person={p} />,
+                    )}
                   </ul>
                 </div>
               ))}
