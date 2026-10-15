@@ -1,7 +1,7 @@
 -- 0820 (owner decision 2026-10-15, "make everything in the Demo app neutral"): the faith demo community is not any one faith.
 --   A. The pack: version 4, the Faith community kind, 25 demo people, no tradition's word in anything a person reads
 --   B. A new faith demo: the kind, its modules, its words (a Learning Center), no Jain choice, no bolis, no boli recorder; the same money;
---      the Patni family's two children enrolled in the class Anita Bhandari teaches
+--      the Patni family's three children enrolled in the class Anita Bhandari teaches (the youngest placed by the office: his age is outside the class's band)
 --   C. Nothing a visitor reads names a tradition: every row of the community, the demo people's stories, the featured roles
 --   D. The community that exists is aligned in place (same id, same QuickBooks setup, same demo people), and a reset keeps it so (0785 still holds)
 --   E. Who may call what; a community that is not a demo is refused; the club demo is untouched
@@ -101,8 +101,8 @@ insert into auth.users (id, email) values (:admin, 'admin820@platform.test');
 insert into app.accounts (user_id, is_platform_admin) values (:admin, true) on conflict (user_id) do update set is_platform_admin = true;
 
 -- ── A. The pack ──────────────────────────────────────────────────────────────
-select pg_temp.assert((select version = 4 and not active and content is not null from app.demo_packs where key = 'demo_faith_jain_v1'),
-  'A · the faith pack is at version 4, and still not offered on Setup > Demo (its key keeps its old name: an internal identifier no screen shows)');
+select pg_temp.assert((select version = 5 and not active and content is not null from app.demo_packs where key = 'demo_faith_jain_v1'),
+  'A · the faith pack is at version 5 (4 in 0820, 5 in 0840), and still not offered on Setup > Demo (its key keeps its old name: an internal identifier no screen shows)');
 select pg_temp.assert((select content->'center'->>'kind' = 'faith' and content->'center'->>'category_key' = 'faith_other'
                               and content->'center'->>'name' = 'Sunrise Worship Center (Demo)'
                               and content->'center'->'modules' = '["pathshala","store","gyan_path","niva"]'::jsonb
@@ -172,11 +172,11 @@ select pg_temp.assert(exists (select 1 from app.people p join app.household_memb
 select pg_temp.assert((select count(*) = 13 from app.households where center_id = :'fc') and (select count(*) = 36 from app.people where center_id = :'fc')
                       and pg_temp.pack_vs_rows(:'fc', 'demo_faith_jain_v1') = ''
                       and (select count(*) = 0 from app.bolis where center_id = :'fc') and (select count(*) = 0 from app.boli_entries where center_id = :'fc'),
-  'B · the same 13 households and 36 people (34 and the two Patni children), every table holding exactly the rows the pack says, and no boli');
-select pg_temp.assert((select count(*) = 22 and sum(amount_cents) = 1050200 from app.pledges where center_id = :'fc')
+  'B · the same 13 households and 36 people (34 and the two Patni children added by 0820), every table holding exactly the rows the pack says, and no boli');
+select pg_temp.assert((select count(*) = 23 and sum(amount_cents) = 1061700 from app.pledges where center_id = :'fc')
                       and (select count(*) = 14 and sum(amount_cents) = 701200 from app.payments where center_id = :'fc')
                       and (select sum(fee_cents) = 0 + 15100 + 110100 from app.membership_types where center_id = :'fc'),
-  'B · the money is what it was, in whole cents: 14 test-mode payments of $7,012.00, the same membership fees and 22 pledges of $10,502.00 (the 20 of $10,217.00 and the two new fee pledges, $150.00 and $135.00)');
+  'B · the money is what it was, in whole cents: 14 test-mode payments of $7,012.00, the same membership fees and 23 pledges of $10,617.00 (the 20 of $10,217.00 and the three Patni fee pledges, $150.00, $135.00 and $115.00)');
 
 -- The school is a "Learning Center" in a Faith community, a word of that category (platform-wide for it: there is no per-community override of a
 -- kind's words). Jain Center keeps Pathshala; the experiences that started from the faith community keep the words they were given.
@@ -187,31 +187,52 @@ select pg_temp.assert((select terms->>'school' = 'Pathshala' and terms->>'practi
                       and (select count(*) = 1 from app.centers where category_key = 'faith_other'),
   'B · Jain Center keeps Pathshala, Church and Swaminarayan Temple keep their words, and the faith demo is the only community of the Faith community category');
 
--- The Patni household (the family of the community member persona: Tarun, the main adult, and Nisha) has two children, Dev and Maya, enrolled in
--- the class Anita Bhandari teaches, so they are in her roster and attendance list and in the family's member app. That class is the one
--- deliberate exception to the neutral wording: a course may be about Jainism.
+-- The Patni household (the family of the community member persona: Tarun, the main adult, and Nisha) has all three children, Dev, Maya and Aarav,
+-- enrolled in the class Anita Bhandari teaches (0820, 0840), so they are in her roster and attendance list and in the family's member app. That
+-- class is the one deliberate exception to the neutral wording: a course may be about Jainism.
 select h.id as patni_hh from app.households h where h.center_id = :'fc' and h.display_name = 'Patni family' \gset
-select pg_temp.assert((select count(*) = 2 from app.household_members hm join app.people p on p.id = hm.person_id
-                        where hm.household_id = :'patni_hh' and hm.role = 'child' and p.first_name in ('Dev', 'Maya') and p.last_name = 'Patni'
-                          and p.date_of_birth <= app.demo_today(:'fc') - interval '8 years' and p.date_of_birth > app.demo_today(:'fc') - interval '11 years'
+select pg_temp.assert((select count(*) = 3 from app.household_members hm join app.people p on p.id = hm.person_id
+                        where hm.household_id = :'patni_hh' and hm.role = 'child' and p.first_name in ('Dev', 'Maya', 'Aarav') and p.last_name = 'Patni'
                           and p.email is null and p.phone_e164 is null and p.profession is null)
+                      and (select count(*) = 2 from app.household_members hm join app.people p on p.id = hm.person_id
+                            where hm.household_id = :'patni_hh' and hm.role = 'child' and p.first_name in ('Dev', 'Maya')
+                              and p.date_of_birth <= app.demo_today(:'fc') - interval '8 years' and p.date_of_birth > app.demo_today(:'fc') - interval '11 years')
+                      and (select count(*) = 1 from app.household_members hm join app.people p on p.id = hm.person_id
+                            where hm.household_id = :'patni_hh' and hm.role = 'child' and p.first_name = 'Aarav'
+                              and p.date_of_birth <= app.demo_today(:'fc') - interval '5 years' and p.date_of_birth > app.demo_today(:'fc') - interval '6 years')
                       and (select count(*) = 2 from app.household_members hm join app.demo_personas d on d.person_id = hm.person_id
                             where hm.household_id = :'patni_hh' and hm.role in ('primary', 'spouse') and d.role_key in ('primary_adult', 'adult_member')),
-  'B · the Patni household has two plain-named children of class age, besides its two demo adults (the main adult and the adult member)');
-select pg_temp.assert((select count(*) = 2 from app.pathshala_enrollments e
+  'B · the Patni household has three plain-named children (9, 8 and 5), besides its two demo adults (the main adult and the adult member)');
+select pg_temp.assert((select count(*) = 3 from app.pathshala_enrollments e
                          join app.people st on st.id = e.student_person_id
                          join app.pathshala_classes c on c.id = e.class_id
                          join app.pathshala_teachers pt on pt.class_id = c.id
                          join app.people te on te.id = pt.person_id
-                        where e.household_id = :'patni_hh' and st.first_name in ('Dev', 'Maya') and e.status = 'active'
+                        where e.household_id = :'patni_hh' and st.first_name in ('Dev', 'Maya', 'Aarav') and e.status = 'active'
                           and c.name like 'Introduction to Jainism%' and te.first_name = 'Anita' and te.last_name = 'Bhandari'
                           and exists (select 1 from app.pathshala_terms tm where tm.id = e.term_id and tm.status = 'active'))
-                      and (select count(*) = 1 from app.pathshala_classes where center_id = :'fc' and name ilike '%jain%'),
-  'B · both are enrolled (active) in the class Anita Bhandari teaches, "Introduction to Jainism", the only class of the demo that names a tradition');
-select pg_temp.assert((select count(*) = 5 from app.pathshala_enrollments e join app.demo_personas d on d.role_key = 'teacher' and d.center_id = :'fc'
+                      and (select count(*) = 1 from app.pathshala_classes where center_id = :'fc' and name ilike '%jain%')
+                      and not exists (select 1 from app.pathshala_enrollments where center_id = :'fc' and status = 'waitlisted'),
+  'B · all three are enrolled (active) in the class Anita Bhandari teaches, "Introduction to Jainism", the only class of the demo that names a tradition, and nobody is waitlisted any more');
+-- The age conflict, kept in the open: the class's level is for ages 8 to 10 and Aarav is 5. The platform never places a child outside a level's age
+-- band by itself (its registration sends such a child to the office); this is the office's hand placement, and the data says so. Nothing else is placed
+-- outside its band.
+select pg_temp.assert((select e.channel = 'office' and e.notes like '%although he is 5%' and e.notes like '%ages 8 to 10%'
+                              and (select l.key = '1' from app.pathshala_levels l where l.id = e.requested_level_id)
+                              and (select l2.min_age = 8 and l2.max_age = 10 from app.pathshala_classes c join app.pathshala_levels l2 on l2.id = c.level_id where c.id = e.class_id)
+                         from app.pathshala_enrollments e join app.people st on st.id = e.student_person_id
+                        where e.household_id = :'patni_hh' and st.first_name = 'Aarav')
+                      and (select count(*) = 1 from app.pathshala_enrollments e join app.people st on st.id = e.student_person_id
+                             join app.pathshala_classes c on c.id = e.class_id join app.pathshala_levels l on l.id = c.level_id
+                            where e.center_id = :'fc' and e.status = 'active'
+                              and ((l.min_age is not null and extract(year from age(app.demo_today(:'fc'), st.date_of_birth))::int < l.min_age)
+                                   or (l.max_age is not null and extract(year from age(app.demo_today(:'fc'), st.date_of_birth))::int > l.max_age))),
+  'B · Aarav (5) is there by the office''s hand: channel "office", the Level 1 his family asked for, a note that says so, and he is the only learner outside his class''s age band');
+select pg_temp.assert((select count(*) = 6 from app.pathshala_enrollments e join app.demo_personas d on d.role_key = 'teacher' and d.center_id = :'fc'
                         where e.class_id = d.scope_id and e.status = 'active')
-                      and (select d.scope_kind = 'class' from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'teacher'),
-  'B · so the teacher (whose role is for that class) has five learners in her roster, the two Patni children among them');
+                      and (select d.scope_kind = 'class' from app.demo_personas d where d.center_id = :'fc' and d.role_key = 'teacher')
+                      and (select count(*) = 1 from app.pathshala_enrollments where center_id = :'fc' and status = 'requested'),
+  'B · so the teacher (whose role is for that class) has six learners in her roster, the three Patni children among them, and the principal still has Zara''s registration to place');
 select pg_temp.assert((select h.address_line1 is not null and h.city = 'Lakeview' and h.state_region = 'IL' and h.postal_code is not null and h.zone_id is not null
                               and h.household_number is not null and h.directory_opt_in
                          from app.households h where h.id = :'patni_hh')
@@ -222,11 +243,23 @@ select pg_temp.claims(:admin, false);
 select pg_temp.assert((select members like '%Dev%' and members like '%Maya%' and members like '%Aarav%' and primary_member = 'Tarun Patni' and zone is not null
                               and city = 'Lakeview' and household_number is not null
                          from app.household_card(:'patni_hh')),
-  'B · and app.household_card shows the family: its members including Dev and Maya, its main adult, its zone and city');
+  'B · and app.household_card shows the family: its members including Dev, Maya and Aarav, its main adult, its zone and city');
 select pg_temp.no_claims();
-select pg_temp.assert((select count(*) = 2 and sum(pl.amount_cents) = 15000 + 13500 and bool_and(pl.status = 'open' and pl.source = 'pathshala_fee')
-                         from app.pledges pl where pl.household_id = :'patni_hh' and pl.source = 'pathshala_fee'),
-  'B · and their two fee pledges are open: $150.00 and, with the sibling discount, $135.00, in whole cents');
+-- The three fee pledges by the platform's own rule (app._pathshala_price): the first child pays the fee, every later child the sibling discount off it,
+-- and the family cap limits the total. Worked out here from the term's own settings, in whole cents.
+select pg_temp.assert((select array_agg(pl.amount_cents order by pl.amount_cents desc) = array[
+                              tm.fee_per_child_cents::bigint,
+                              tm.fee_per_child_cents - round(tm.fee_per_child_cents * tm.sibling_discount_pct / 100.0)::bigint,
+                              least(tm.fee_per_child_cents - round(tm.fee_per_child_cents * tm.sibling_discount_pct / 100.0)::bigint,
+                                    tm.fee_per_family_cap_cents - tm.fee_per_child_cents
+                                      - (tm.fee_per_child_cents - round(tm.fee_per_child_cents * tm.sibling_discount_pct / 100.0)::bigint))]
+                              and sum(pl.amount_cents) = tm.fee_per_family_cap_cents
+                              and count(*) = 3 and bool_and(pl.status = 'open' and pl.source = 'pathshala_fee' and pl.amount_cents > 0)
+                         from app.pledges pl, app.pathshala_terms tm
+                        where pl.household_id = :'patni_hh' and pl.source = 'pathshala_fee' and tm.center_id = :'fc' and tm.status = 'active'
+                        group by tm.fee_per_child_cents, tm.sibling_discount_pct, tm.fee_per_family_cap_cents)
+                      and (select count(*) = 3 and sum(pl.amount_cents) = 15000 + 13500 + 11500 from app.pledges pl where pl.household_id = :'patni_hh' and pl.source = 'pathshala_fee'),
+  'B · and their three fee pledges are open and follow the platform''s sibling rule and the family cap: $150.00, $135.00 and $115.00, $400.00 in all, in whole cents');
 
 -- ── C. Nothing a visitor reads names a tradition ─────────────────────────────
 select pg_temp.assert(pg_temp.live_hits(:'fc', 'demo_faith_jain_v1') = '', 'C · no row the pack made in the faith demo community names a tradition (found: ' || pg_temp.live_hits(:'fc', 'demo_faith_jain_v1') || ')');

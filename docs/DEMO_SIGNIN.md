@@ -128,7 +128,7 @@ visitor reads names one tradition.
 - **The pack** (`demo_faith_jain_v1`, version 4, migration 0820; the key keeps its old name because it is an internal identifier no screen shows and the demo
   community, the state row and the tests point at it): the events are a weekly gathering, an annual appreciation dinner and a community festival night; the
   fund, campaign, classes, notices, newsletter, inboxes and guide are in generic words; the store sells baked goods, snacks and a vegetarian lunch. Amounts,
-  households (13) and the 34 people are the same; two children are new (below). The builder (`supabase/scripts/build-demo-packs.mjs`) refuses a pack marked neutral that contains a word of
+  households (13) and the 34 people are the same; the Patni family's children are new (below). The builder (`supabase/scripts/build-demo-packs.mjs`) refuses a pack marked neutral that contains a word of
   a tradition, and `supabase/tests/820_demo_faith_neutral_test.sql` checks what the database really holds.
 - **No bolis, so no boli recorder.** A Faith community does not have the Bolis module (nor My Jain Way or Labh), and the boli recorder role is not part of that
   kind (`app.roles.category_keys`, 0600). Sarla Kataria, who held it, is still a person of the pack (the Kataria household, the dinner's food shift) but has no
@@ -138,9 +138,11 @@ visitor reads names one tradition.
   member app and the portal read them from the category profile. That is a **platform-wide word for the Faith community category**: there is no per-community override of a kind's words. The
   category is inactive, so only sandboxes can use it (the faith demo is the one that does), Jain Center keeps "Pathshala", and Church, Mosque and
   Swaminarayan Temple, which started from it, keep the words they were given.
-- **Two children for the family of the community member.** The Patni household (Tarun, the main adult, and Nisha) has two plain-named children, Dev (9) and
-  Maya (8), enrolled in the class Anita Bhandari teaches, so they are in her roster and attendance list and in the family's member app (Family, Learning). Their
-  two fee pledges ($150.00 and, with the sibling discount, $135.00) are open. That class is the **one deliberate exception to the neutral wording** (owner,
+- **Three children for the family of the community member.** The Patni household (Tarun, the main adult, and Nisha) has three plain-named children, Dev (9),
+  Maya (8) and Aarav (5), all enrolled in the class Anita Bhandari teaches, so they are in her roster and attendance list and in the family's member app (Family,
+  Learning). Their three fee pledges follow the platform's sibling rule and the term's family cap, in whole cents: $150.00, $135.00 and $115.00 ($400.00 in all), open.
+  Aarav is 5 and the class's level is for ages 8 to 10: the platform never places such a child by itself (the registration sends him to the office), so his
+  enrollment is the office's hand placement (channel "office", a note, the Level 1 his family asked for) and the level's age band is unchanged (0840). That class is the **one deliberate exception to the neutral wording** (owner,
   2026-10-15): it is named "Introduction to Jainism", because a course may be about Jainism; the greeting, tabs and chrome stay neutral, and the builder and the
   test allow that one name and nothing else.
 - **The same community, in place.** `app.demo_align_center` brings a demo community in line with its pack's `center` spec without clearing anything: the
