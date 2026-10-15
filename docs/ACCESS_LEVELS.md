@@ -80,6 +80,11 @@ choice is a row in `app.center_feature_access`; **no row means the catalog defau
 - **An area is off while its module is off** (`reason: "module_off"`), whatever level is chosen.
 - **Money and personal areas are not in the catalog and are not configurable**: giving, RSVP, the store,
   family, Pathshala and the directory always need at least a signed-in community member.
+  **One exception, owner-approved 2026-10-15 ([RSVP_WITHOUT_LOGIN.md](RSVP_WITHOUT_LOGIN.md), 0822-0823): RSVP.** On an event whose organizer switched
+  "RSVP without signing in" on (off by default, in the community's rules and on the event; free events only), a visitor with no session can RSVP for a family
+  by typing an adult's phone or email: the family comes back masked, nothing with a full name, phone, email or id leaves the database, and the confirmation goes to
+  the email on file. The rest of this list is unchanged: giving, the store, family, Pathshala and the directory still need a signed-in community member, and so
+  does every other part of RSVP (changing it from the app, a donation commitment, a guest's name).
 
 ### Who may use an area
 

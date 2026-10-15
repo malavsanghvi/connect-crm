@@ -1,12 +1,15 @@
 # RSVP without signing in (plan)
 
-**Status: plan only. No feature code and no migration in this change.** Owner request, 2026-10-15, verbatim:
+**Status: approved by the owner 2026-10-15 ("go with the recommendations"), slices 1-3 built** (migrations 0822 and 0823 in the first pull request:
+the masks, the switches, the locked tables, lookup / save / undo / view / cancel in mode `open`, the confirmation email and the `%MEMBER_APP_URL%` link; the
+code mode (design B) in the second pull request). Not yet built: the portal screens (slice 4), the member app screens (5), the manage page in the app (6),
+hardening (7). Owner request, 2026-10-15, verbatim:
 
 > "Mobile app - RSVP - Allow RSVP using just phone number or email - without logging in. If user has not logged in, show all
 > family members with names not fully visible... show Malav as M**AV, minimum of 50% of characters should be *. Show the phone
 > number and email as well where the confirmation email would be sent."
 
-**The owner must approve this before anything is built.** It adds functions that people without a session can call, and that read
+**The owner approved the plan, and approves each pull request that builds it.** It adds functions that people without a session can call, and that read
 people and households (section 6).
 
 ## 0. The short version
@@ -323,3 +326,102 @@ Documents to update when built: `docs/ROLES.md`, `docs/ACCESS_LEVELS.md` (the RS
 | 7 | **Hardening and docs** | abuse tests, the log-settings check, document updates | small |
 
 Slices 1 to 3 are one backend track; 4 and 5 can then run in parallel; 6 follows 5. Each is its own pull request with App checks green (and Database tests where `supabase/**` changes).
+
+## 7. As built: 0822 and 0823 (slices 1 and 2)
+
+Migrations `0822_rsvp_contact_core.sql` and `0823_rsvp_contact_submit.sql`, tests `supabase/tests/822_rsvp_contact_test.sql` and `tests/mask.test.ts`,
+`src/lib/mask.ts` (the TypeScript twin of the masks), `worker/src/messaging.ts` (`%MEMBER_APP_URL%`), `.github/workflows/deploy.yml` (passes `MEMBER_APP_URL` to the
+background service). The code mode (design B) is `0824` and is described in section 8 when it merges.
+
+### 7.1 For the portal and app builders: the exact calls
+
+Everything below is `supabase.schema('app').rpc(name, args)`. The five visitor functions work with no session (role `anon`, also `authenticated`); they answer
+`{ok: true, ...}` or `{ok: false, code, message}` (`message` is a plain-English sentence; the app maps `code` to its own words in each language). They raise only for faults.
+**Nothing returned is an id, a real name, a real phone or a real email.**
+
+| Call | Arguments | Success | Codes when `ok` is false |
+|---|---|---|---|
+| `rsvp_contact_lookup` | `p_event uuid`, `p_contact text` (a phone number in any format, or an email) | `{ok, step: "choose", handle, expires_in: 1800, members: [{slot, label, kind: "adult"\|"child", under_12}], send_to: {email, phone}}` (`handle` is 32 characters; `send_to.email` and `.phone` are masked, `phone` may be null) | `bad_contact`, `not_found`, `ambiguous`, `already_rsvpd`, `no_email`, `cannot_send`, `full`, `closed`, `demo`, `unavailable`, `rate_limited` |
+| `rsvp_contact_submit` | `p_handle text`, `p_slots int[]` (the `slot` numbers ticked, no repeats, at most 24), `p_assist int[]` default `{}` (slots that need help getting around; each must be ticked) | `{ok, status: "rsvpd", count, send_to: {email}, undo_until}` | `bad_selection`, `expired`, `used`, `already_rsvpd`, `full`, `quota`, `no_email`, `cannot_send`, `closed`, `demo`, `unavailable`, `rate_limited` |
+| `rsvp_contact_undo` | `p_handle text` (the handle that saved it, within 15 minutes) | `{ok, status: "cancelled"}` | `expired`, `too_late`, `rate_limited` |
+| `rsvp_contact_view` | `p_token text` (the emailed token, or for 30 minutes the handle that saved the RSVP) | `{ok, event: {name, starts_at, ends_at, venue}, status, can_cancel, people: [{slot, label, kind, status, checked_in, ticket}]}` (`ticket` is the code behind the QR, null once cancelled; opening it with the emailed token marks the RSVP verified) | `expired`, `rate_limited` |
+| `rsvp_contact_cancel` | `p_token text` (the emailed token only) | `{ok, status: "cancelled"}` | `expired`, `closed`, `too_late`, `rate_limited` |
+| `rsvp_contact_verify_staff` | `p_rsvp uuid`, `p_reason text` default null | `true` (signed-in staff: `events.manage` or the event's lead; raises "You don't have access to this area." otherwise) | raises |
+
+The link in the email is `<MEMBER_APP_URL>/rsvp/<token>`: the member app's route `/rsvp/[token]` (outside the route guards, like `e/[id]`) calls `rsvp_contact_view` and
+`rsvp_contact_cancel` with the `<token>`.
+
+Reading what a guest can read (no call needed): `events.contact_rsvp` (`off` | `code` | `open`) is on the event row, which guests already read. Show the button only when it is
+not `off`, the RSVP window is open (`rsvpBlockReason` is null) and the event is free; the functions refuse anything else.
+
+Staff data (the portal): `rsvps.source = 'guest_contact'` is "made without signing in"; **unverified = `contact_verified_at is null`**; `contact_kind` is `phone` or `email`;
+`contact_person_id` is the adult whose contact it matched. The switches: the community's `centers.rules.rsvp.contact_lookup` (`off` | `code` | `open`, `settings.manage`) and the
+event's `events.contact_rsvp` (a trigger refuses a value above the community's, and any value on a paid or confidential event or one that is not open to the public or to members
+and guests; it quietly goes back to `off` if the event later becomes one of those).
+
+### 7.2 Where this differs from the plan above (and why)
+
+- **Own counter table.** The limits count in `app.rsvp_contact_attempts`, not `app.public_rate_events`: that table is audited on every insert (a row in the hash-chained audit log per
+  attempt), which would bury the log under anonymous traffic. The new table is not audited; purged after two days (by whoever calls next, not by the notices sweep).
+- **The handles table is not audited** either (test 13 lists both tables as left out on purpose); the RSVP, its tickets and its emailed link are.
+- **More codes than the plan listed:** `bad_contact` (not a phone or an email), `bad_selection`, `quota` (the unverified share is taken), `too_late`, and `closed` / `demo` / `unavailable` from the gate.
+- **The handle also shows the RSVP.** `rsvp_contact_view` accepts the handle that saved the RSVP for 30 minutes (so "See my tickets" works straight away); it does not verify the RSVP and cannot cancel
+  (only `undo`, 15 minutes). Only the emailed token verifies and cancels.
+- **The lookup checks the family can be served before it shows it:** no second RSVP, an email on file, that email not suppressed, opted out, bounced or limited (3 confirmations a day). The visitor is told
+  before ticking anything, and the save checks again inside its transaction.
+- **A contact is matched on digits / lower-case email** (`app.normalize_recipient`: a bare 10-digit number is read as +1, as everywhere else in Weaver). A stored phone is compared on its digits.
+- **Shared addresses.** Mobile carriers and venue Wi-Fi put many people behind one address; 10 lookups and 5 saves an hour per address can then stop a crowd. Those people can sign in. The numbers are one function,
+  `app.rsvp_contact_limits()`. Someone can also use up a phone number's 3 lookups an hour (a small denial of service on that one contact; signing in still works).
+- **Dates in the email are English** (`Monday, October 19, 2026`, `10:30 AM`); the wording is the community's language when it has written one (the standard text is English).
+
+### 7.3 Rollback (0822 and 0823)
+
+```sql
+begin;
+-- Keep the families' RSVPs; they become office-entered ones. Cancel confirmations that have not gone yet.
+update app.rsvps set source = 'admin' where source = 'guest_contact';
+update app.messages set status = 'cancelled', failure_reason = 'Not sent: RSVP without signing in was rolled back.'
+ where status = 'queued' and template_key in ('rsvp_contact_confirmation', 'rsvp_contact_code');
+drop function if exists app.rsvp_contact_lookup(uuid, text), app.rsvp_contact_submit(text, integer[], integer[]), app.rsvp_contact_undo(text),
+  app.rsvp_contact_view(text), app.rsvp_contact_cancel(text), app.rsvp_contact_verify_staff(uuid, text);
+drop function if exists app._rsvp_contact_resolve(text), app._rsvp_contact_cancel_rsvp(uuid, text), app._rsvp_contact_email_problem(uuid, uuid, text, text),
+  app._rsvp_contact_recipient(uuid, uuid), app._rsvp_contact_family(uuid, date), app._rsvp_contact_find(uuid, text, text), app._rsvp_contact_gate(app.events),
+  app._rsvp_contact_seats(uuid, boolean), app._rsvp_contact_fail(text), app._rsvp_contact_cleanup(), app._rsvp_contact_over(text, text, interval, integer),
+  app._rsvp_contact_hit(text, text, integer), app._rsvp_contact_hash(text, text), app._rsvp_contact_pepper(), app._rsvp_contact_ip(), app.rsvp_contact_limits(),
+  app._rsvp_contact_mode(text, uuid), app._rsvp_contact_master(uuid), app._rsvp_contact_rank(text);
+drop function if exists app.mask_phone(text), app.mask_email(text), app.mask_name(text), app._mask_word(text), app._mask_marks();
+drop trigger if exists events_contact_rsvp_guard on app.events;
+drop function if exists app.events_contact_rsvp_guard();
+drop table if exists app.rsvp_manage_links, app.rsvp_contact_handles, app.rsvp_contact_attempts;
+delete from app.module_tables where table_name in ('rsvp_manage_links', 'rsvp_contact_handles', 'rsvp_contact_attempts');
+alter table app.events drop constraint if exists events_contact_rsvp_check;
+alter table app.events drop column if exists contact_rsvp;
+drop index if exists app.rsvps_unverified_contact_idx;
+alter table app.rsvps drop constraint if exists rsvps_contact_kind_check;
+alter table app.rsvps drop column if exists contact_kind, drop column if exists contact_person_id, drop column if exists contact_verified_at;
+alter table app.rsvps drop constraint if exists rsvps_source_check;
+alter table app.rsvps add constraint rsvps_source_check check (source in ('app', 'guest_web', 'admin', 'walk_in', 'kiosk', 'import'));
+delete from app.message_templates where center_id is null and key in ('rsvp_contact_confirmation', 'rsvp_contact_code');
+-- 0770's trigger function, without the line that skips the new source:
+create or replace function app.rsvps_registered_email() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $fn$
+declare v_auto uuid;
+begin
+  if app._email_in_import() then return null; end if;
+  if new.status not in ('rsvpd', 'confirmed') or new.source = 'import' then return null; end if;
+  if tg_op = 'UPDATE' and old.status in ('rsvpd', 'confirmed') then return null; end if;
+  v_auto := app._email_automation_on(new.center_id, 'registration_confirmed');
+  if v_auto is null then return null; end if;
+  begin
+    perform app._email_compose_later(new.center_id, v_auto, new.id);
+  exception when others then
+    raise warning 'rsvps_registered_email: could not queue the registration email for RSVP %: %', new.id, sqlerrm;
+  end;
+  return null;
+end $fn$;
+delete from public.connect_schema_migrations where version in ('0822_rsvp_contact_core', '0823_rsvp_contact_submit');
+commit;
+-- Optional, in the Vault: the pepper (delete from vault.secrets where name = 'connect/rsvp_contact/pepper').
+-- Then restore src/lib/database.types.ts in the three repositories from before this change.
+```
+Also remove the two lines of `tests/13_modules_audit_test.sql` that name the two unaudited tables, and delete `supabase/tests/822_rsvp_contact_test.sql`.

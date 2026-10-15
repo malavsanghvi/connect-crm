@@ -98,6 +98,9 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 
 - Adults (18+, or no date of birth on file) act for their household: RSVPs,
   pledges, bolis, store orders, recurring gifts, special days, children's profiles.
+- One exception, owner-approved 2026-10-15 ([RSVP_WITHOUT_LOGIN.md](RSVP_WITHOUT_LOGIN.md)): on an event that switched it on, a visitor who is not signed in can RSVP for a
+  family by typing an adult's phone or email (the family is shown masked; the confirmation goes to the email on file). Only an adult's contact opens a family, never a
+  child's; no pledge, no payment. Staff see these RSVPs marked "without signing in" and unverified until the emailed link is opened or they check with the family.
 - Children see events, learning and My Jain Way; never pledges, bolis or payments.
 - Special days, practice logs and standings are private to the person (parents see
   their children's). Staff never see special days except as labh totals.
