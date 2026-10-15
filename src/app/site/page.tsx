@@ -9,15 +9,13 @@ import { EventMock, GivingMock, HandoverMock, HouseholdMock, LearningMock, Phone
 import { ProductTour } from "@/components/site/product-tour";
 import { FaqList, IconTile, SectionHeading, SiteLink, Ticks, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS } from "@/components/site/weavers";
-import { SITE_TAGLINE, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
+import { SITE_TAGLINE, portalUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   // Absolute: the portal's root layout would otherwise add " · Weaver".
   title: { absolute: SITE_TAGLINE },
   alternates: { canonical: "/" },
 };
-
-const CAP = usd(TIP_YEARLY_CAP_CENTS);
 
 /**
  * The home page, kept short (owner review 2026-10-13): the promise, who it is for, the pains Weaver takes away (each with
@@ -473,7 +471,7 @@ function Faq() {
       a: [
         "Yes. Your organization never pays us: no subscription, no setup fee and no cut of what members give. Card payments carry Stripe's processing fee, which goes to Stripe.",
         fundedBy ? `Today Weaver is funded by ${fundedBy}.` : null,
-        `${chipInStarts ? `From ${chipInStarts}, members` : "Members"} will be able to add an optional Chip In, capped at ${CAP} a year per account.`,
+        `${chipInStarts ? `From ${chipInStarts}, members` : "Members"} will be able to add an optional Chip In. It is always one tap to skip, and each account has a yearly limit.`,
       ]
         .filter(Boolean)
         .join(" "),

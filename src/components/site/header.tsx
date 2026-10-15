@@ -4,9 +4,7 @@ import { MobileMenu } from "@/components/site/mobile-menu";
 import { NavDropdown } from "@/components/site/nav-dropdown";
 import { SiteLink, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS } from "@/components/site/weavers";
-import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
-
-const CAP = usd(TIP_YEARLY_CAP_CENTS);
+import { SITE_NAME, portalUrl } from "@/lib/site";
 
 type MenuEntry = { to: string; icon: IconName; title: string; body: string };
 
@@ -24,7 +22,7 @@ export const SOLUTIONS_MENU: MenuEntry[] = WEAVERS.map((w) => ({ to: `/#${w.id}`
 
 export const RESOURCES_MENU: MenuEntry[] = [
   { to: "/#get-ready", icon: "check", title: "How it works", body: "From request to going live" },
-  { to: "/pricing#how-we-stay-free", icon: "heart", title: "How we stay free", body: `Optional Chip Ins, capped at ${CAP} a year` },
+  { to: "/pricing#how-we-stay-free", icon: "heart", title: "How we stay free", body: "Optional Chip Ins, with a yearly limit on each account" },
   { to: "/#security", icon: "shield", title: "Security and privacy", body: "How your community's data is protected" },
   { to: "/#own", icon: "lock", title: "No vendor lock-in", body: "Your data is yours, and leaving is easy" },
   { to: "/brand", icon: "globe", title: "Brand and logos", body: "Our logo, colours and words to download" },

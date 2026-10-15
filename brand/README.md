@@ -31,7 +31,7 @@ Never paraphrase these. Set the promise in `hero` with "For free. Forever." as t
 | Say | Not |
 | --- | --- |
 | pledge | bid |
-| Chip In (optional, capped at $25 a year per account) | tip, fee, donation to Weaver |
+| Chip In (always optional, with a yearly limit on each account) | tip, fee, donation to Weaver |
 | mission-driven organizations | nonprofits (when speaking to everyone) |
 | household card | a family's name on its own |
 | Niva | the bot, the AI |
@@ -39,7 +39,7 @@ Never paraphrase these. Set the promise in `hero` with "For free. Forever." as t
 
 ### Money, people and data
 
-- Write whole dollars in headlines ($25) and keep cents when there are any ($7.50).
+- Write whole dollars in headlines ($150) and keep cents when there are any ($7.50).
 - Never identify a household by its name alone: show the household card, with its IDs, members and last gift.
 - Label every picture of the product "Sample data". Use no real people's names or photos.
 - Speak to every organization. Keep any single faith's words, holidays and examples out of platform copy; the three Weavers below name who it serves.
