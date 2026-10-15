@@ -56,9 +56,12 @@ language sql immutable set search_path = app, public, extensions as $$
     'lookup_event_hour', 300,
     'lookup_all_hour', 2000,
     'submit_ip_hour', 5,
+    'submit_all_hour', 500,
     'token_ip_hour', 60,
+    'token_all_hour', 3000,
     'confirm_address_day', 3,
     'verify_ip_hour', 30,            -- design B: code tries an hour from one connection
+    'verify_all_hour', 3000,         -- design B: code tries an hour in all
     'code_wrong_max', 5,             -- design B: wrong codes before the handle and the contact are locked
     'lock_minutes', 15,
     'code_minutes', 10,
@@ -282,8 +285,13 @@ declare
   h app.rsvp_contact_handles; e app.events; v_gcode text; v_gmode text; v_wrong int; v_ans jsonb;
 begin
   v_ip_h := app._rsvp_contact_hash(v_pepper, app._rsvp_contact_ip());
-  if app._rsvp_contact_over('verify.ip', v_ip_h, interval '1 hour', (v_lim ->> 'verify_ip_hour')::int) then return app._rsvp_contact_fail('rate_limited'); end if;
+  if app._rsvp_contact_over('verify.ip', v_ip_h, interval '1 hour', (v_lim ->> 'verify_ip_hour')::int)
+     or app._rsvp_contact_over('verify.all', 'all', interval '1 hour', (v_lim ->> 'verify_all_hour')::int) then
+    return app._rsvp_contact_fail('rate_limited');
+  end if;
   perform app._rsvp_contact_hit('verify.ip', v_ip_h);
+  perform app._rsvp_contact_hit('verify.all', 'all');
+  perform app._rsvp_contact_cleanup();
 
   -- Wrong tries are counted on whatever string was given as the handle (so a made-up handle is counted like a real one) and, for a real
   -- handle, on its contact (so asking for a new code does not give new tries).
@@ -335,10 +343,12 @@ declare
   v_rsvp uuid; v_token text; v_msg uuid; v_mstatus text; v_undo timestamptz;
 begin
   v_ip_h := app._rsvp_contact_hash(v_pepper, app._rsvp_contact_ip());
-  if app._rsvp_contact_over('submit.ip', v_ip_h, interval '1 hour', (v_lim ->> 'submit_ip_hour')::int) then
+  if app._rsvp_contact_over('submit.ip', v_ip_h, interval '1 hour', (v_lim ->> 'submit_ip_hour')::int)
+     or app._rsvp_contact_over('submit.all', 'all', interval '1 hour', (v_lim ->> 'submit_all_hour')::int) then
     return app._rsvp_contact_fail('rate_limited');
   end if;
   perform app._rsvp_contact_hit('submit.ip', v_ip_h);
+  perform app._rsvp_contact_hit('submit.all', 'all');
   perform app._rsvp_contact_cleanup();
 
   v_n := coalesce(array_length(p_slots, 1), 0);

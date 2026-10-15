@@ -310,6 +310,12 @@ set role anon;
 select app.rsvp_contact_verify(:'h_mira2', '123456') as f_ip \gset
 reset role;
 select pg_temp.assert(:'f_ip'::jsonb ->> 'code' = 'rate_limited', 'F · code tries: 30 an hour from one connection');
+select pg_temp.fresh('198.51.100.2');
+insert into app.rsvp_contact_attempts (kind, subject) select 'verify.all', 'all' from generate_series(1, 3000);
+set role anon;
+select app.rsvp_contact_verify(:'h_mira2', '123456') as f_all \gset
+reset role;
+select pg_temp.assert(:'f_all'::jsonb ->> 'code' = 'rate_limited', 'F · and 3000 an hour in all, from any address');
 select pg_temp.assert(has_function_privilege('anon', 'app.rsvp_contact_verify(text, text)', 'execute')
                       and not has_function_privilege('anon', 'app._rsvp_contact_code_step(app.events, text, text, text, text, text)', 'execute')
                       and not has_function_privilege('anon', 'app._rsvp_contact_family_answer(uuid, uuid, app.events, text)', 'execute')
