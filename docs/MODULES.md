@@ -131,6 +131,8 @@ portal | member | kiosk | job), `client_screen` (`x-client-screen`), `user_agent
 `app.set_audit_context(reason, correlation)` or `set_config('app.audit_reason' | 'app.correlation_id' | 'app.client_app', …, true)`.
 Rows that carry their own reason (write-off, refund, voting override, boli close, reference
 decision, role grant, module switch) supply it when the request did not.
+`client_screen` is the route, never a secret: a screen whose address carries a secret (the member app's `/rsvp/<token>`) is sent as its route (`/rsvp/[token]`);
+`/invite/<token>` in the portal is recorded as `/invite/[token]` (`auditScreen` in `src/lib/supabase/trace.ts`); see `docs/RSVP_WITHOUT_LOGIN.md` section 12.
 
 `record_id` is the row's `id`; for tables without one it is the primary key joined by `:`
 (e.g. `household_members` → `<household_id>:<person_id>`, `accounts` → `<user_id>`).
