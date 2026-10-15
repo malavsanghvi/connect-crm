@@ -601,13 +601,15 @@ select pg_temp.no_claims();
 -- A member of the chamber (a sandbox still onboarding: since 0817 guests do not see it): its access areas and category profile.
 set role authenticated;
 select pg_temp.claims(:chmember);
-select pg_temp.assert(not ((select app.feature_access_for_me(:'chm')->'features') ? 'puja')
-                      and not ((select app.feature_access_for_me(:'chm')->'features') ? 'learn')
-                      and not ((select app.feature_access_for_me(:'chm')->'features') ? 'darshan')
+select pg_temp.assert((select app.feature_access_for_me(:'chm')->'features'->'puja'->>'allowed') = 'false'
+                      and (select app.feature_access_for_me(:'chm')->'features'->'puja'->>'reason') = 'module_off'
+                      and (select app.feature_access_for_me(:'chm')->'features'->'learn'->>'reason') = 'module_off'
+                      and (select app.feature_access_for_me(:'chm')->'features'->'darshan'->>'reason') = 'module_off'
+                      and (select app.feature_access_for_me(:'chm')->'features'->'timings'->>'reason') = 'module_off'
                       and (select app.feature_access_for_me(:'chm')->'features'->'niva'->>'reason') = 'module_off'
                       and ((select app.feature_access_for_me(:'chm')->'features') ? 'listen')
                       and (select (app.feature_access_for_me(:'chm')->'features'->'guide'->>'allowed')::boolean),
-  'C · the member app''s access areas (0600): a chamber has no puja, learn or darshan area at all, Ask Niva is module_off, the library and the guide are there');
+  'C · the member app''s access areas (0600, 0860): a chamber''s puja, learn, darshan and timings are in the answer as not allowed (module_off), so the app hides them; Ask Niva is module_off, the library and the guide are allowed');
 select pg_temp.assert((select app.category_profile(:'chm')->'category'->>'key') = 'chamber_of_commerce'
                       and (select app.category_profile(:'chm')->'category'->'terms'->>'greeting') = 'Welcome'
                       and (select jsonb_typeof(app.category_profile(:'chm')->'category'->'terms'->'practice_tab')) = 'null'
