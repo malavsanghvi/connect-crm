@@ -302,9 +302,11 @@ function pathshalaPeopleOps(spec) {
   ops.push(rows("pathshala_enrollments", P.enrolled.map((e) => ({
     id: `@enroll:${e.child}`, term_id: "@term:current", student_person_id: `@p:${e.hh}.${e.child}`, household_id: `@h:${e.hh}`, requested_level_id: `@level:faith${e.level}`,
     class_id: `@class:${e.cls}`, status: "active", fee_pledge_id: `@pledge:pfee.${e.child}`, registered_by: "@actor", registered_at: "-70d", placed_at: "-50d",
+    // A learner outside the level's age band is never placed by the registration: it goes to the office, who may place them by hand (0590, 0591).
+    ...(e.office ? { channel: "office", notes: e.office, registered_at: at(-e.late, "10:00"), placed_at: at(-(e.late - 1), "10:00") } : {}),
   }))));
   ops.push(t("pathshala_teachers", { class_id: `@class:${P.teachClass}`, person_id: `@p:${P.teacher}`, role: "teacher", background_check_id: `@bgc:${P.teacher}` }));
-  // Registrations the principal still has to deal with: one asks for a level that has no class yet (to place), one is on the waitlist of a full class.
+  // A registration the principal still has to deal with: one asks for a level that has no class yet (to place).
   if (P.waiting) {
     ops.push(rows("pathshala_enrollments", P.waiting.map((e) => ({
       id: `@enroll:${e.child}`, term_id: "@term:current", student_person_id: `@p:${e.hh}.${e.child}`, household_id: `@h:${e.hh}`, requested_level_id: `@level:faith${e.level}`,
@@ -428,10 +430,12 @@ const faith = {
     { ref: "g3", hh: "wadhwa", who: "priya", fund: "general", source: "general", cents: 2500, ago: 12 },
     // A write-off the community's record-keeper asked for: the treasurer is the second, different person who confirms or turns it down.
     { ref: "w1", hh: "nahar", who: "sunil", camp: "annual", source: "general", cents: 10100, ago: 240, writeOff: "The family moved out of the area and asked to be released (demo)." },
-    ...[["anaya", "varma", "asha"], ["ved", "doshiwal", "meera"], ["tia", "lunawat", "sanjay"], ["neel", "lunawat", "sanjay"], ["jay", "salecha", "pooja"], ["ishaan", "chopda", "deepa"], ["mira", "bhandari", "anita"], ["dev", "patni", "tarun"], ["maya", "patni", "tarun"]]
+    ...[["anaya", "varma", "asha"], ["ved", "doshiwal", "meera"], ["tia", "lunawat", "sanjay"], ["neel", "lunawat", "sanjay"], ["jay", "salecha", "pooja"], ["ishaan", "chopda", "deepa"], ["mira", "bhandari", "anita"], ["dev", "patni", "tarun"], ["maya", "patni", "tarun"], ["aarav", "patni", "tarun"]]
       .map(([child, hh, who]) => ({
         ref: `pfee.${child}`, hh, who, camp: "pathshala", fund: "pathshala", source: "pathshala_fee", srcRef: `enroll:${child}`,
-        cents: ["neel", "maya"].includes(child) ? 13500 : 15000, ago: 70, due: 14,
+        // The Patni children by the platform's rule (app._pathshala_price): Dev, the oldest, $150.00; Maya 10% off, $135.00; Aarav 10% off, $135.00,
+        // less $20.00 because the family cap is $400.00 ($150.00 + $135.00 + $135.00 = $420.00), so $115.00.
+        cents: ({ neel: 13500, maya: 13500, aarav: 11500 })[child] ?? 15000, ago: child === "aarav" ? 2 : 70, due: 14,
       })),
   ],
   payments: [
@@ -560,11 +564,15 @@ const faith = {
       { child: "tia", hh: "lunawat", level: 1, cls: "l1" }, { child: "anaya", hh: "varma", level: 2, cls: "l2" }, { child: "jay", hh: "salecha", level: 2, cls: "l2" },
       { child: "ishaan", hh: "chopda", level: 2, cls: "l2" }, { child: "ved", hh: "doshiwal", level: 3, cls: "l3" }, { child: "mira", hh: "bhandari", level: 3, cls: "l3" },
       { child: "neel", hh: "lunawat", level: 3, cls: "l3" },
-      // The Patni household (the family of the community member persona, Tarun and Nisha) has two children in the teacher's class.
+      // The Patni household (the family of the community member persona, Tarun and Nisha) has all three children in the teacher's class.
       { child: "dev", hh: "patni", level: 2, cls: "l2" }, { child: "maya", hh: "patni", level: 2, cls: "l2" },
+      // Aarav (5) joins his brother and sister in the same class (owner, 2026-10-15). The class is for ages 8 to 10 and he asked for Level 1 (ages 5 to 7), so
+      // the office placed him by hand, and the note says so: the age band is not bent, the office decided.
+      { child: "aarav", hh: "patni", level: 1, cls: "l2", late: 3,
+        office: "Placed by the office in this class with his brother and sister, although he is 5 and the class is for ages 8 to 10; the family asked for it. (Demo.)" },
     ],
-    // Two late registrations (the term's window closed 45 days ago): Aarav is on the waitlist, Zara asks for a level that has no class yet.
-    waiting: [{ child: "aarav", hh: "patni", level: 1, status: "waitlisted", ago: 3 }, { child: "zara", hh: "singhvi", level: 4, status: "requested", ago: 2 }],
+    // A late registration (the term's window closed 45 days ago): Zara asks for a level that has no class yet.
+    waiting: [{ child: "zara", hh: "singhvi", level: 4, status: "requested", ago: 2 }],
   },
 };
 
