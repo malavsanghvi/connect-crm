@@ -3,9 +3,9 @@ import { join, relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-// Migration 0813 closes app.centers to guests (only plain columns of active communities) and to signed-in outsiders
+// Migration 0817 closes app.centers to guests (only plain columns of active communities) and to signed-in outsiders
 // (only linked communities). What the portal shows a guest, or a signed-in person of another community, must come
-// through app.community_public (0614). The database rules themselves are proven by supabase/tests/813.
+// through app.community_public (0614). The database rules themselves are proven by supabase/tests/817.
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
 describe("the portal reads a community's public part through app.community_public", () => {
@@ -29,8 +29,8 @@ describe("the portal reads a community's public part through app.community_publi
   });
 });
 
-describe("migration 0813", () => {
-  const sql = read("supabase/migrations/0813_community_lockdown.sql");
+describe("migration 0817", () => {
+  const sql = read("supabase/migrations/0817_community_lockdown.sql");
 
   it("grants a guest the plain columns only", () => {
     expect(sql).toContain("revoke select on app.centers from anon;");
@@ -50,9 +50,26 @@ describe("migration 0813", () => {
       expect(fn).toContain("security definer set search_path = app, public, extensions");
     }
   });
+
+  it("runs after 0816 and keeps its demo rules: a demo community is open exactly while the demo is on", () => {
+    const files = readdirSync(join(process.cwd(), "supabase/migrations")).sort();
+    expect(files.indexOf("0817_community_lockdown.sql")).toBeGreaterThan(files.findIndex((f) => f.startsWith("0816_")));
+    const code = sql
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("--"))
+      .join("\n");
+    // the open question for a community, the guest row policy and the linked row policy all carry the 0816 terms
+    expect(code).toMatch(/create or replace function app\.community_open[\s\S]*?app\.demo_public_open\(c\.id\)[\s\S]*?not app\.demo_closed_to_guests\(c\.id\)/);
+    expect(code).toMatch(/create policy centers_guest_read[\s\S]*?app\.demo_public_open\(id\)[\s\S]*?not app\.demo_closed_to_guests\(id\)/);
+    expect(code).toMatch(/create policy centers_linked_read[\s\S]*?not app\.demo_closed_to_guests\(id\)/);
+    // the leaders and the access areas ask community_open, so the demo rules reach them; 0816's gates are left alone
+    expect(code).toMatch(/create policy org_leaders_public_read[\s\S]*?app\.community_open\(center_id\)/);
+    expect(code).toMatch(/create or replace function app\.access_center_open[\s\S]*?app\.community_open\(c\.id\)/);
+    expect(code).not.toContain("demo_guest_gate");
+  });
 });
 
-// The inventory of who reads the community table over the API (docs/COMMUNITY_PUBLIC_DATA.md › Inventory). After 0813 a guest
+// The inventory of who reads the community table over the API (docs/COMMUNITY_PUBLIC_DATA.md › Inventory). After 0817 a guest
 // reads the plain columns of active communities and a signed-in person only the communities they are linked to, so a NEW file
 // that reads the table must be one of those people's (staff of their own community, a platform admin), or use
 // app.community_public. Adding a file to this list is the moment to check which of them it is.

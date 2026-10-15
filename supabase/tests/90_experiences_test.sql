@@ -73,7 +73,7 @@ insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) v
   ('f9000000-0000-4000-8000-000000000001', :cc, 'Phone', 'totp', 'verified');
 
 -- One preview sandbox of each experience (a sandbox may take an inactive one), as Community Connect would make them.
--- Active, like JSH's sandbox: since 0813 a community still onboarding is shown only to its own people, and these
+-- Active, like JSH's sandbox: since 0817 a community still onboarding is shown only to its own people, and these
 -- tests read the experiences as a guest and without a signed-in user.
 insert into app.centers (id, slug, name, environment, category_key, status) values
   (:c_chm, 'chm90-sandbox', 'Chamber 90',        'sandbox', 'chamber_of_commerce', 'active'),

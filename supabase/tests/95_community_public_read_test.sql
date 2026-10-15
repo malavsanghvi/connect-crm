@@ -1,8 +1,8 @@
 -- 0614: the public part of a community through app.community_public / community_public_by_id / communities_public_list
 -- (docs/COMMUNITY_PUBLIC_DATA.md). A caller who is not linked to a community gets only the allowlisted keys of `rules`
 -- and `branding` and no feature flags; a member, a staff member, the owner and a platform admin get the full row.
--- (Written for 0614, where the readers showed the same communities as the table; 0813 then hid onboarding communities
--- from people who are not linked, and the three assertions about them say so. Test 813 covers 0813.)
+-- (Written for 0614, where the readers showed the same communities as the table; 0817 then hid onboarding communities
+-- from people who are not linked, and the three assertions about them say so. Test 817 covers 0817.)
 --   A. A guest   B. A signed-in person of another community   C. A member, staff, the owner, an expired grant, a platform
 --   admin   D. member_experience hands a guest the allowlisted branding only   E. The picker helper   F. Who may call what
 -- Everything runs in one transaction that is rolled back.
@@ -114,7 +114,7 @@ select pg_temp.assert((select rules = (select rules from app.community_public('p
                          from app.community_public_by_id(:a95)),
   'A · by id: the same public row');
 select pg_temp.assert((select count(*) = 0 from app.community_public('onb95-sandbox')),
-  'A · a sandbox still onboarding is not shown to a guest (0813; test 813 has the rest)');
+  'A · a sandbox still onboarding is not shown to a guest (0817; test 817 has the rest)');
 select pg_temp.assert((select count(*) = 0 from app.community_public('sus95'))
                       and (select count(*) = 0 from app.community_public_by_id(:s95))
                       and (select count(*) = 0 from app.community_public('no-such-95'))
@@ -147,7 +147,7 @@ select pg_temp.assert((select linked and rules = (select c.rules from app.center
                          from app.community_public('pub95')),
   'C · a member gets the full rules, branding and feature flags of their own community');
 select pg_temp.assert((select count(*) = 0 from app.community_public('onb95-sandbox')),
-  'C · but not another community still onboarding (0813)');
+  'C · but not another community still onboarding (0817)');
 select pg_temp.claims(:staff95);
 select pg_temp.assert((select linked and rules ? 'security' and branding ? 'internal_note' from app.community_public_by_id(:b95)),
   'C · a staff role (any scope) links: the full row of the sandbox');

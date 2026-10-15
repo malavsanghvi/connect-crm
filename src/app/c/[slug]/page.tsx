@@ -46,7 +46,7 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   const c = anonClient();
   if (!c) return <Problem title="This dashboard is not available" body="The site is not configured yet." />;
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/i.test(slug)) return <Problem title="Community not found" body={`There is no community at "/c/${slug}".`} />;
-  // The public part of the community (app.community_public, 0614): the table is closed to guests (0813).
+  // The public part of the community (app.community_public, 0614): the table is closed to guests (0817).
   const res = await c.db.rpc("community_public", { p_slug: slug });
   if (res.error) {
     console.error("[public-dashboard] center lookup failed:", res.error);

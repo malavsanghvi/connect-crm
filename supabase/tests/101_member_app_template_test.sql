@@ -53,7 +53,7 @@ $$;
 \set c_jd '''10100000-0000-4000-8000-0000000000c8'''
 
 -- One preview sandbox of each experience (a sandbox may take an inactive one). The Jain Center c_jc follows the same tradition
--- as JSH; c_jd follows the Digambar one. Active, like JSH's sandbox: since 0813 a community still onboarding is shown only to its
+-- as JSH; c_jd follows the Digambar one. Active, like JSH's sandbox: since 0817 a community still onboarding is shown only to its
 -- own people, and this test reads the templates without a signed-in user.
 insert into app.centers (id, slug, name, environment, category_key, status, tradition) values
   (:c_chm, 'chm101-sandbox', 'Chamber 101',      'sandbox', 'chamber_of_commerce', 'active', 'other'),

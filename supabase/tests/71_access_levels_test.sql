@@ -442,7 +442,7 @@ end $$;
 begin;
 select set_config('request.jwt.claims', '{"role":"anon"}', true), set_config('role', 'anon', true);
 select pg_temp.assert((select count(*) from app.centers where id in (:c5, :c6, :c7)) = 0,
-  'a guest reads neither an onboarding (0813), a suspended nor an exited community (the public level follows the same rule)');
+  'a guest reads neither an onboarding (0817), a suspended nor an exited community (the public level follows the same rule)');
 commit;
 select pg_temp.assert(not pg_temp.can_as(null, :c5, 'darshan') and not pg_temp.can_as(null, :c6, 'darshan')
                       and not pg_temp.can_as(null, :c5, 'puja') and not pg_temp.can_as(null, :c6, 'timings') and not pg_temp.can_as(null, :c5, 'guide'),
@@ -451,14 +451,14 @@ select pg_temp.assert(not pg_temp.can_as(:u_stranger, :c5, 'darshan') and not pg
                       and not pg_temp.can_as(:u_none, :c5, 'darshan'),
   'nor can someone signed in who is not part of it');
 select pg_temp.assert(not pg_temp.can_as(null, :c7, 'darshan') and not pg_temp.can_as(:u_stranger, :c7, 'puja'),
-  'an onboarding community is not open to guests or strangers (0813: only to its own people)');
+  'an onboarding community is not open to guests or strangers (0817: only to its own people)');
 select pg_temp.assert(pg_temp.can_as(:u_sm, :c5, 'darshan') and pg_temp.can_as(:u_sm, :c5, 'puja') and pg_temp.can_as(:u_sm, :c5, 'listen'),
   'a person linked to a suspended community keeps its areas, as before');
 select pg_temp.assert(pg_temp.can_as(:u_padmin, :c5, 'darshan') and pg_temp.can_as(:u_padmin, :c6, 'darshan'),
   'and so does a platform admin');
 select pg_temp.assert(pg_temp.seen_s_as(null) = '' and pg_temp.seen_s_as(:u_stranger) = '' and pg_temp.seen_s_as(:u_none) = '',
-  'row level security gives a guest or a stranger no stream of the onboarding (0813), suspended or exited communities');
-select pg_temp.assert(pg_temp.seen_s_as(:u_sm) = 'susp', 'a member of the suspended community reads its stream (not the onboarding one, 0813)');
+  'row level security gives a guest or a stranger no stream of the onboarding (0817), suspended or exited communities');
+select pg_temp.assert(pg_temp.seen_s_as(:u_sm) = 'susp', 'a member of the suspended community reads its stream (not the onboarding one, 0817)');
 select pg_temp.assert(pg_temp.seen_s_as(:u_padmin) = 'exited onboard susp', 'a platform admin reads them all');
 select pg_temp.assert_raises($$select pg_temp.access_as(null, '71000000-0000-4000-8000-0000000000c5')$$, 'not found',
   'a guest asking for the access of a suspended community is told it was not found (its ladder is not shown)');
@@ -468,7 +468,7 @@ select pg_temp.assert(pg_temp.access_as(:u_sm, :c5)->'level'->>'key' = 'communit
                       and pg_temp.access_as(:u_padmin, :c7)->'features'->'darshan'->>'allowed' = 'true',
   'while a member of it and a platform admin get their answer (an onboarding one too, for the platform admin)');
 select pg_temp.assert_raises($$select pg_temp.access_as(null, '71000000-0000-4000-8000-0000000000c7')$$, 'not found',
-  'a guest asking about an onboarding community is told it was not found (0813)');
+  'a guest asking about an onboarding community is told it was not found (0817)');
 
 -- ── Choosing a level for an area ─────────────────────────────────────────────
 begin;

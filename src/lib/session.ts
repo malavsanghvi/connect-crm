@@ -131,7 +131,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
     console.error("[session] could not load the center:", centerRes.error);
     return { status: "error", message: `Could not load the center "${slug}" — ${explainError(centerRes.error)}` };
   }
-  // Signed in but not part of this community (0813 shows the table row only to linked people): its public part, so
+  // Signed in but not part of this community (0817 shows the table row only to linked people): its public part, so
   // the portal says "no access" rather than "not found". The settings are then only the public keys.
   let center: CenterInfo | null = centerRes.data;
   if (!center) {
