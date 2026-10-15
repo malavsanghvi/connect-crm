@@ -68,9 +68,9 @@ select pg_temp.assert((select relrowsecurity from pg_class where oid = 'app.mark
   'A · the catalog is read by every signed-in person and written by no one through the API; it is core platform data');
 select pg_temp.assert((select array_agg(key || '=' || coalesce(module_key, '-') || ':' || status order by sort) from app.marketplace_products)
                         = array['giving=giving:available', 'events=events:available', 'comms=comms:available', 'accounting=accounting:available',
-                                'ai=ai:available', 'store=store:available', 'care=care:not_built', 'matching=matching:not_built',
+                                'ai=ai:available', 'store=store:available', 'market=market:available', 'care=care:not_built', 'matching=matching:not_built',
                                 'website=website:available', 'channels=channels:available', 'gala=-:not_built'],
-  'A · eleven products, each keyed by its module (Gala has none yet); WeCare, CatchTheMatch and Gala are not built yet');
+  'A · twelve products, each keyed by its module (Gala has none yet); WeCare, CatchTheMatch and Gala are not built yet (the Community Market, 0830, is available)');
 select pg_temp.assert((select array_agg(key order by sort) from app.marketplace_products where included) = array['giving', 'events', 'comms', 'store']
                       and not exists (select 1 from app.marketplace_products where not included and key <> 'matching' and price_text <> 'Price not set yet')
                       and (select price_text from app.marketplace_products where key = 'matching')
@@ -133,9 +133,9 @@ values (:chm, 'chm161-sandbox', 'Chamber 161', 'sandbox', 'chamber_of_commerce',
 -- ══ B. The read ══════════════════════════════════════════════════════════════
 select pg_temp.claims(:admin);
 select pg_temp.assert((select array_agg(key || '=' || state order by sort) from app.marketplace_states(:c))
-                        = array['giving=included', 'events=included', 'comms=included', 'accounting=on', 'ai=available', 'store=included',
+                        = array['giving=included', 'events=included', 'comms=included', 'accounting=on', 'ai=available', 'store=included', 'market=available',
                                 'care=not_built', 'matching=not_built', 'website=available', 'channels=available', 'gala=not_built'],
-  'B · a Jain Center: Giving, Events, Communications and the Store included; Accounting on; the five products off until requested or built');
+  'B · a Jain Center: Giving, Events, Communications and the Store included; Accounting on; the six products off until requested or built (the Community Market, 0830, among them)');
 select pg_temp.assert((select source = 'kind_default' and granted and enabled and granted_at is null from app.marketplace_states(:c) where key = 'accounting')
                       and (select source = 'none' and not granted and not enabled from app.marketplace_states(:c) where key = 'website')
                       and (select module_label = 'Member care' and name = 'WeCare' from app.marketplace_states(:c) where key = 'care')
@@ -195,7 +195,7 @@ select pg_temp.assert((select count(*) from app.marketplace_requests where cente
   'C · the community''s settings manager reads its requests and interest');
 select pg_temp.claims(:member);
 select pg_temp.assert((select count(*) from app.marketplace_requests) = 0 and (select count(*) from app.marketplace_interest) = 0
-                      and (select count(*) from app.marketplace_products) = 11,
+                      and (select count(*) from app.marketplace_products) = 12,
   'C · a member reads the catalog but no requests');
 select pg_temp.assert_raises(format($$select app.marketplace_request(%L, 'ai', 'Please')$$, :c),
   'Requesting a product needs the settings.manage permission.', 'C · a member cannot request a product (it needs settings.manage)');

@@ -52,7 +52,7 @@ export default async function KitchenPage({ params }: { params: Promise<{ eventI
     let storeNote: string | null = null;
     let orders: { id: string; order_number: string; status: string; pickup_window_id: string | null }[] = [];
     let lines: { order_id: string; item_id: string; quantity: number }[] = [];
-    let items: { id: string; name: string }[] = [];
+    let items: { id: string; name: string; section: string }[] = [];
     const w = windows.error ? [] : (windows.data ?? []);
     if (windows.error) {
       console.error("[kitchen] pickup windows unavailable:", windows.error);
@@ -82,7 +82,7 @@ export default async function KitchenPage({ params }: { params: Promise<{ eventI
           } else lines = l.data ?? [];
           const ids = [...new Set(lines.map((x) => x.item_id))];
           if (ids.length) {
-            const it = await db.from("store_items").select("id, name").in("id", ids);
+            const it = await db.from("store_items").select("id, name, section").in("id", ids);
             if (it.error) {
               console.error("[kitchen] item names unavailable:", it.error);
               storeNote = "Item names couldn't be loaded.";
@@ -104,7 +104,10 @@ export default async function KitchenPage({ params }: { params: Promise<{ eventI
   const noSlot = attendees.filter((a) => a.checked_in_at && !a.lunch_slot_id).length;
   const served = attendees.filter((a) => a.served_food_at).length;
   const prep = new Map<string, number>();
+  // The Community Market's items (0830) are not the kitchen's: a T-shirt in an order is not on the prep list. Unknown items are kept.
+  const notFood = new Set(items.filter((i) => i.section !== "food").map((i) => i.id));
   for (const l of lines) {
+    if (notFood.has(l.item_id)) continue;
     const o = orders.find((x) => x.id === l.order_id);
     if (o && o.status !== "ready") prep.set(l.item_id, (prep.get(l.item_id) ?? 0) + l.quantity);
   }

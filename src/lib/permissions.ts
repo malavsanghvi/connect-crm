@@ -349,6 +349,13 @@ export const ACCESS = {
   store: ["store.view", "store.manage"],
   storeManage: ["store.manage"],
   /**
+   * The Community Market (0830): who may open its page (the store's staff and the market's own roles; the page also needs the module
+   * on), and who may add, edit and remove its categories and listings (the store's manager, or market.manage; both are in the
+   * database's policies on store_categories and store_items). Convenience only: the database decides.
+   */
+  marketView: ["store.view", "store.manage", "market.view", "market.manage", "market.moderate"],
+  marketManage: ["store.manage", "market.manage"],
+  /**
    * My Store › Orders by pickup (the prep list by pickup slot). The kitchen lead (kitchen.view) reads it too: the database already
    * lets them read the orders, their lines and the pickup slots (store_orders_pickup, store_lines_kitchen, pickup_windows_kitchen),
    * and they move nothing (storePickup is store.manage or store.pickup only).
@@ -542,6 +549,8 @@ export const NAV: NavModule[] = [
       { href: "/store", label: "Inventory", access: "store" },
       { href: "/store/menu", label: "Menu & pickup", access: "store" },
       { href: "/store/orders", label: "Orders by pickup", access: "storeOrders" },
+      // The Community Market (0830): only while Weaver has granted it to this community.
+      { href: "/store/market", label: "Community Market", access: "marketView", module: "market" },
     ],
     paths: ["/store"],
   },

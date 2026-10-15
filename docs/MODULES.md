@@ -316,9 +316,11 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 - **Permissions:** store.view, store.manage, store.pickup
 - **Sections (0821, [`STORE_SECTIONS.md`](STORE_SECTIONS.md)):** the store is organised in sections above its categories. `store_categories`
   and `store_items` carry `section` (`food` or `market`, default `food`); every row that existed is in **Food**, the portal's Menu &
-  pickup and Inventory pages show Food as the section, and a second section appears only when it holds something (nothing can put
-  anything in it yet). The Community Market is planned in [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md), not built. Same tables, same
-  policies, no new module.
+  pickup and Inventory pages show Food as the section, and the Community Market (module `market`, 0830, a Marketplace product off until
+  Weaver grants it; below) appears as a second tab only while it is on and holds something. Store › Community Market (`/store/market`)
+  is its page. Its rows are these same tables with `section = 'market'`; the plan for what comes next is
+  [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md).
+- **Permissions (0830):** market.view, market.manage, market.moderate (the role `market_lead`); `store.manage` also runs the market's listings.
 - **Switching off:** items, orders and inventory are hidden and read-only.
 
 ## Pathshala (depends on People)
@@ -534,6 +536,7 @@ never reaches production. The card copy is `app.marketplace_products` (0752); re
 | `website` | WeaverSite | People | sites, site_pages, site_blocks | site_draft_save, site_draft_get, site_page_set_status, site_draft_data |
 | `channels` | CommunityConnect | Communications | whatsapp_accounts, whatsapp_template_submissions | save_whatsapp_account, submit_whatsapp_template, send_test_message (WhatsApp), worker_message_to_send (a queued WhatsApp message is not sent) |
 | `care` | WeCare ("Member care" for a faith kind, "Donor care" otherwise) | People | none yet | none yet (not built) |
+| `market` | Community Market (0830; [`STORE_SECTIONS.md`](STORE_SECTIONS.md), [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md)) | Store | none of its own: its rows are `store_categories` and `store_items` with `section = 'market'` (0821), tied to the module by the restrictive policy `market_section_switch` | none (no functions yet) |
 | `matching` | CatchTheMatch | Giving | person_match_employers (0759), match_program_submissions (0766), person_match_programs (0767); the shared directory match_programs and match_program_names (0765) is core platform (it belongs to no community; its readers need CatchTheMatch on somewhere) | matching_can (0757/0758, no platform-admin branch) in every policy and function: record_match_employer, withdraw_match_employer, submit_match_program, decide_match_submission, match_program_candidates, link_match_program, unlink_match_program, match_employers_queue |
 
 ## Core platform (not a module)

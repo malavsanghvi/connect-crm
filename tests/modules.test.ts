@@ -17,9 +17,9 @@ import { NAV, canOpenTab, visibleNav } from "@/lib/permissions";
 const admin = { permissions: [] as string[], isPlatformAdmin: true };
 
 describe("module registry", () => {
-  it("lists the contract's 18 keys, Giving's 7 add-ons and the five Marketplace products once each, with only people core", () => {
+  it("lists the contract's 18 keys, Giving's 7 add-ons and the six Marketplace products (the Community Market, 0830, is the sixth) once each, with only people core", () => {
     expect(MODULES.map((m) => m.key)).toEqual([...MODULE_KEYS]);
-    expect(new Set(MODULE_KEYS).size).toBe(30);
+    expect(new Set(MODULE_KEYS).size).toBe(31);
     expect(MODULES.filter((m) => m.core).map((m) => m.key)).toEqual(["people"]);
     for (const m of MODULES) for (const d of m.dependsOn) expect(isModuleKey(d)).toBe(true);
   });

@@ -12,10 +12,10 @@ import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { isLowStock } from "@/lib/store";
-import { sectionView } from "@/lib/store-sections";
+import { marketModuleOn, sectionView } from "@/lib/store-sections";
 
 import { recordMovementAction } from "./actions";
-import { StoreSectionBar } from "./section-bar";
+import { sectionHrefs, StoreSectionBar } from "./section-bar";
 import { QuickAdjust } from "./quick-adjust";
 
 export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => kindTerm(k, "store", "My Store"), "My Store");
@@ -57,7 +57,7 @@ export default async function StoreInventoryPage({ searchParams }: { searchParam
   // The store is in sections (0821): the stock of the section the page is on. A name in "Recent changes" is looked up across every
   // section, so a stock change on an item in another section still shows its name.
   if (categories.error) console.error("[store] categories for the section tabs unavailable:", categories.error);
-  const view = sectionView(categories.data ?? [], items.data ?? [], param(sp, "section"));
+  const view = sectionView(categories.data ?? [], items.data ?? [], param(sp, "section"), { marketOn: marketModuleOn(session) && canAccess(session, "marketView") });
   const list = view.items;
   const name = new Map((items.data ?? []).map((i) => [i.id, i.name]));
   const tracked = list.filter((i) => i.track_inventory);
@@ -65,7 +65,7 @@ export default async function StoreInventoryPage({ searchParams }: { searchParam
   return (
     <>
       {header}
-      <StoreSectionBar path="/store" sections={view.sections} current={view.current} />
+      <StoreSectionBar hrefs={sectionHrefs("/store")} sections={view.sections} current={view.current} />
       <BlockGrid>
         <Card span={12} title="Inventory" description={`In the ${view.label} section · stock of ingredients packs and packaging per item`} padded={false}>
           {items.error ? (

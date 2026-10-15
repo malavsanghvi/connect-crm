@@ -143,9 +143,11 @@ select pg_temp.assert(pg_temp.sec('store_items', :it_m1) = 'market' and (select 
   'C13 deleting a category leaves its items uncategorised and in the section they were in');
 
 -- ── D. Who reads and writes is unchanged ─────────────────────────────────────────────
+-- 0821 changed no policy. (0830 then added the Community Market's four, by name, which are the only ones that mention it.)
 select pg_temp.assert(not exists (select 1 from pg_policies where schemaname = 'app' and tablename in ('store_categories', 'store_items')
+                                    and policyname not in ('market_section_switch', 'store_categories_market_write', 'store_items_market_write', 'store_items_market_read')
                                     and (coalesce(qual, '') ilike '%section%' or coalesce(with_check, '') ilike '%section%')),
-  'D1 no policy on the two tables mentions the section');
+  'D1 no policy of the two tables mentions the section, except the Community Market''s own (0830)');
 
 select pg_temp.sign_in(:u_lead);
 insert into app.store_categories (id, center_id, name, section) values (:cat_lead, :c, 'Lead category 821', 'food');
@@ -171,7 +173,7 @@ select pg_temp.assert(pg_temp.sec('store_categories', :cat_lead) = 'food' and pg
 
 -- A guest: an open community's active items and all its categories, as before; the section comes with the row.
 insert into app.store_items (id, center_id, name, price_cents, status) values (:it_paused, :c, 'Paused item 821', 400, 'paused');
-select set_config('request.jwt.claims', '', true);
+select set_config('request.jwt.claims', '', true), set_config('request.jwt.claim.sub', '', true);
 set role anon;
 select pg_temp.assert((select count(*) from app.store_items where center_id = :c and status = 'active') >= 4
                       and not exists (select 1 from app.store_items where center_id = :c and status <> 'active'),
@@ -179,8 +181,14 @@ select pg_temp.assert((select count(*) from app.store_items where center_id = :c
 select pg_temp.assert((select count(*) from app.store_categories where center_id = :c) >= 2
                       and (select bool_and(section in ('food', 'market')) from app.store_categories where center_id = :c),
   'D7 a guest reads the categories, each with its section');
+-- 0830: a market row is hidden from everyone but a platform admin until Weaver grants the Community Market to the community.
+select pg_temp.assert((select count(*) from app.store_items where center_id = :c and section = 'market' and status = 'active') = 0,
+  'D8 a guest reads no market item of a community that does not have the Community Market (0830)');
+reset role;
+insert into app.center_module_grants (center_id, module_key, granted, reason, granted_by) values (:c, 'market', true, 'test 821', null);
+set role anon;
 select pg_temp.assert((select count(*) from app.store_items where center_id = :c and section = 'market' and status = 'active') = 2,
-  'D8 a guest can read a market item at the database level, exactly as any other active item (the apps decide what to show)');
+  'D9 once it is granted, a guest reads a market item at the database level exactly as any other active item (the apps decide what to show)');
 reset role;
 
 rollback;

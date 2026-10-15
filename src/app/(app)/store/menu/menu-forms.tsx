@@ -44,12 +44,15 @@ export function MenuTable({
   currency,
   manage,
   customDefs = [],
+  noun = "item",
 }: {
   items: MenuItem[];
   categories: Category[];
   currency: string;
   manage: boolean;
   customDefs?: CustomFieldDef[];
+  /** What a row is called: an item on the menu, a listing in the Community Market. */
+  noun?: "item" | "listing";
 }) {
   const [open, setOpen] = useState<MenuItem | null>(null);
   const cat = new Map(categories.map((c) => [c.id, c.name]));
@@ -60,7 +63,7 @@ export function MenuTable({
           <thead>
             <tr>
               <th>SKU</th>
-              <th>Item</th>
+              <th>{noun === "listing" ? "Listing" : "Item"}</th>
               <th>Category</th>
               <th>Description</th>
               <th className="num">Price</th>
@@ -100,8 +103,13 @@ export function MenuTable({
           </tbody>
         </table>
       </TableWrap>
-      <Drawer open={open !== null} onClose={() => setOpen(null)} kicker={`MENU ITEM${open?.sku ? ` · ${open.sku}` : ""}`} title={open?.name ?? ""}>
-        {open ? <ItemForm key={open.id} item={open} categories={categories} /> : null}
+      <Drawer
+        open={open !== null}
+        onClose={() => setOpen(null)}
+        kicker={`${noun === "listing" ? "LISTING" : "MENU ITEM"}${open?.sku ? ` · ${open.sku}` : ""}`}
+        title={open?.name ?? ""}
+      >
+        {open ? <ItemForm key={open.id} item={open} categories={categories} noun={noun} /> : null}
         {open && customRows(customDefs, open.custom).length > 0 ? (
           <DrawerSection title="More details">
             <CustomFieldsEditor rows={customRows(customDefs, open.custom)} entity="store_items" recordId={open.id} editable={manage} currency={currency} />
@@ -116,14 +124,25 @@ export function MenuTable({
  * `section` is the store section a NEW item is added to (the one the page is on); `categories` are that section's. An existing item keeps
  * the section it is in: it changes only by changing its category (the database moves it), so editing never posts a section.
  */
-export function ItemForm({ item, categories, section }: { item: MenuItem | null; categories: Category[]; section?: StoreSection }) {
+export function ItemForm({
+  item,
+  categories,
+  section,
+  noun = "item",
+}: {
+  item: MenuItem | null;
+  categories: Category[];
+  section?: StoreSection;
+  /** What the row is called: an item on the menu, a listing in the Community Market. */
+  noun?: "item" | "listing";
+}) {
   const [taxable, setTaxable] = useState(item?.taxable ?? true);
   const [track, setTrack] = useState(item?.track_inventory ?? false);
   const [gift, setGift] = useState(item?.gift_pack ?? true);
   const [status, setStatus] = useState(item?.status ?? "active");
   const p = item ? `it-${item.id.slice(0, 6)}` : "it-new";
   return (
-    <ActionForm action={saveItemAction.bind(null, item?.id ?? null)} submitLabel={item ? "Save item" : "Add item"} pendingLabel="Saving…" resetOnSuccess={!item}>
+    <ActionForm action={saveItemAction.bind(null, item?.id ?? null)} submitLabel={item ? `Save ${noun}` : `Add ${noun}`} pendingLabel="Saving…" resetOnSuccess={!item}>
       {!item && section ? <input type="hidden" name="section" value={section} /> : null}
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -183,7 +202,7 @@ export function ItemForm({ item, categories, section }: { item: MenuItem | null;
             value={status}
             onChange={setStatus}
             options={[
-              { value: "active", label: "Active (on the menu)" },
+              { value: "active", label: noun === "listing" ? "Active (shown to members)" : "Active (on the menu)" },
               { value: "paused", label: "Paused" },
               { value: "retired", label: "Retired" },
             ]}

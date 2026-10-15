@@ -28,6 +28,7 @@ Proposed keys (labels are data and can change at any time):
 | CommunityConnect | `channels` | Communications (`comms`); the Facebook and Instagram part also uses Events |
 | WeCare | `care` (was `wecare` in the plan; permissions become `care.view`, `care.own`, `care.manage`) | People |
 | CatchTheMatch | `matching` (was `catch_the_match`) | Giving |
+| Community Market (a sixth product, owner 2026-10-15, 0830; [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md)) | `market` | Store |
 
 ## 2. iWeaver (`ai`)
 

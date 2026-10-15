@@ -99,8 +99,8 @@ select pg_temp.assert((select version = 1 and jsonb_array_length(contents) >= 15
   'the community pack is in the catalog with its contents per module');
 select pg_temp.assert((select count(distinct m->>'module') from app.demo_packs p, jsonb_array_elements(p.contents) m where p.key = 'community')
                       = (select count(*) from app.modules where key not in ('giving_counts', 'giving_statements', 'giving_insights',
-                                                                           'ai', 'website', 'channels', 'care', 'matching')),
-  'the pack has data for every module except Offering counts, Statements and Insights (0741) and the five Marketplace products (0750): it makes none of their rows');
+                                                                           'ai', 'website', 'channels', 'care', 'matching', 'market')),
+  'the pack has data for every module except Offering counts, Statements and Insights (0741) and the six Marketplace products (0750, 0830): it makes none of their rows');
 select pg_temp.assert(jsonb_array_length(app.demo_pack_steps('community')) = 11, 'a load runs in eleven steps');
 select pg_temp.assert(app.demo_id('29000000-0000-4000-8000-000000000099', 'x') = app.demo_id('29000000-0000-4000-8000-000000000099', 'x')
                       and app.demo_id('29000000-0000-4000-8000-000000000099', 'x') <> app.demo_id('29000000-0000-4000-8000-000000000098', 'x'),

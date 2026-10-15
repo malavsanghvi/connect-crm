@@ -28,6 +28,7 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | Accounting | `accounting.manage`, `accounting.close` |
 | Bolis | `bolis.view`, `bolis.manage`, `bolis.record` |
 | Store | `store.view`, `store.manage`, `store.pickup`, `kitchen.view` |
+| Community Market (0830; a Marketplace product, off until Weaver grants it) | `market.view`, `market.manage`, `market.moderate` |
 | Content | `content.view`, `content.draft`, `content.manage`, `content.approve` |
 | Communications | `comms.view`, `comms.send`, `comms.approve`, `comms.inbox` |
 | Pathshala | `pathshala.view`, `pathshala.manage`, `pathshala.teach` |
@@ -64,6 +65,7 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | Operational | `pathshala_committee` | Pathshala | Year planning, checklists, resolutions |
 | Operational | `teacher` | Own classes | Attendance, sign-offs, class announcements |
 | Operational | `zone_lead` | One zone | Zone inbox, zone families |
+| Center | `market_lead` | Center | Community Market (0830): its categories and listings, and starting it. The store lead keeps Food and can also run the market's listings. A demo community needs no demo person for it unless it has the market |
 | Center | `care_lead` | Center | WeCare: every care record, relationship owners, playbooks, care settings (amounts only with a giving role) |
 | Center | `relationship_owner` | Center | WeCare: the care records of the households they own |
 | Center | `matching_lead` | Center | CatchTheMatch: claims, employers on file, match history, settings |

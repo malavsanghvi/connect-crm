@@ -21,7 +21,7 @@ export type FakeDbOptions = {
   failRpc?: Record<string, DbError>;
 };
 
-export type FakeCall = { table: string; op: "select" | "update"; patch?: Row; ids: unknown[] };
+export type FakeCall = { table: string; op: "select" | "update" | "delete"; patch?: Row; ids: unknown[] };
 
 /** A chainable stand-in for the Supabase query builder: it filters on eq/in/is/neq/gte/lte/gt and ignores the rest. */
 export function fakeDb(opts: FakeDbOptions = {}) {
@@ -29,7 +29,7 @@ export function fakeDb(opts: FakeDbOptions = {}) {
   const rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
 
   function from(table: string) {
-    const state = { rows: [...(opts.tables?.[table] ?? [])], op: "select" as "select" | "update", patch: undefined as Row | undefined, single: false, head: false, count: false };
+    const state = { rows: [...(opts.tables?.[table] ?? [])], op: "select" as "select" | "update" | "delete", patch: undefined as Row | undefined, single: false, head: false, count: false };
     const filter = (fn: (r: Row) => boolean) => {
       state.rows = state.rows.filter(fn);
       return builder;
@@ -37,6 +37,16 @@ export function fakeDb(opts: FakeDbOptions = {}) {
     const finish = () => {
       const failure = opts.failTables?.[table];
       if (failure) return { data: null, error: failure, count: null };
+      if (state.op === "delete") {
+        // The rows the filters kept are removed from the table, and come back (as a delete ... returning would).
+        const all = opts.tables?.[table] ?? [];
+        for (const r of state.rows) {
+          const at = all.indexOf(r);
+          if (at >= 0) all.splice(at, 1);
+        }
+        calls.push({ table, op: "delete", ids: state.rows.map((r) => r.id) });
+        return { data: state.rows, error: null, count: state.rows.length };
+      }
       if (state.op === "update") {
         const refused = opts.failUpdates?.[table];
         if (refused) return { data: null, error: refused, count: null };
@@ -63,6 +73,11 @@ export function fakeDb(opts: FakeDbOptions = {}) {
               return (patch: Row) => {
                 state.op = "update";
                 state.patch = patch;
+                return builder;
+              };
+            case "delete":
+              return () => {
+                state.op = "delete";
                 return builder;
               };
             case "maybeSingle":

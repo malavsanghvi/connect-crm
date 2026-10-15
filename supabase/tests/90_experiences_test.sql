@@ -312,7 +312,7 @@ select pg_temp.assert(pg_temp.keys(:'v_jsh'::jsonb) = 'access,center,default_pat
                       and (:'v_jsh'::jsonb)->'center'->>'slug' = 'jsh' and ((:'v_jsh'::jsonb)->>'unchanged')::boolean = false,
   'F · JSH reads as a Jain Center: its words, its family, its wording pack, nothing extra');
 select pg_temp.assert(not exists (select 1 from jsonb_each((:'v_jsh'::jsonb)->'modules') m
-                                   where (m.value->>'availability' <> 'default_on' and m.key <> all (array['ai', 'website', 'channels', 'care', 'matching']))
+                                   where (m.value->>'availability' <> 'default_on' and m.key <> all (array['ai', 'website', 'channels', 'care', 'matching', 'market']))
                                       or (m.value->>'enabled')::boolean is distinct from app.module_enabled(:jsh, m.key))
                       and (select count(*) from jsonb_each((:'v_jsh'::jsonb)->'modules')) = (select count(*) from app.modules)
                       and ((:'v_jsh'::jsonb)->'flags'->>'labh')::boolean and ((:'v_jsh'::jsonb)->'flags'->>'school')::boolean = app.module_enabled(:jsh, 'pathshala')

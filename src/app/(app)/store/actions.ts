@@ -11,13 +11,22 @@ import { parseAmountToCents } from "@/lib/money";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction } from "@/lib/session";
 import { signedDelta } from "@/lib/store";
-import { asStoreSection, DEFAULT_STORE_SECTION, STORE_SECTION_LABELS, STORE_SECTION_OPEN, type StoreSection } from "@/lib/store-sections";
+import {
+  asStoreSection,
+  DEFAULT_STORE_SECTION,
+  MARKET_STARTER_CATEGORIES,
+  marketModuleOn,
+  sectionOpen,
+  STORE_SECTION_LABELS,
+  type StoreSection,
+} from "@/lib/store-sections";
 
 // Sales, not giving: nothing here creates pledges or touches funds.
 
 function refresh() {
   revalidatePath("/store");
   revalidatePath("/store/menu");
+  revalidatePath("/store/market");
   revalidatePath("/store/orders");
 }
 
@@ -54,28 +63,37 @@ export async function moveOrderAction(orderId: string, _prev: ActionResult | nul
 // ---------------------------------------------------------------------------
 /**
  * The section a new category or item is created in (0821): the one the form carries, which is the section the page was on. A form that
- * names none (a page left open from before sections) writes to Food, as every row did. A section that is not open for new rows (the
- * Community Market, until it is built) is refused in plain words rather than written: a row there would reach installed member apps
- * that do not group by section.
+ * names none (a page left open from before sections) writes to Food, as every row did. A section the form names that does not exist
+ * is refused in plain words.
  */
-function newRowSection(fd: FormData, doing: string): { section: StoreSection } | { error: string } {
+function askedSection(fd: FormData, doing: string): { section: StoreSection } | { error: string } {
   const asked = text(fd, "section");
   if (!asked) return { section: DEFAULT_STORE_SECTION };
   const section = asStoreSection(asked);
-  if (!section) return { error: `Could not ${doing} — that store section does not exist.` };
-  if (!STORE_SECTION_OPEN[section]) return { error: `Could not ${doing} — the ${STORE_SECTION_LABELS[section]} section is not open for new entries yet.` };
-  return { section };
+  return section ? { section } : { error: `Could not ${doing} — that store section does not exist.` };
+}
+
+/**
+ * The Community Market takes new rows only while the community has it on (0830; the database refuses a market row otherwise). Said in
+ * plain words, with where to ask, before anything is written.
+ */
+function notOn(doing: string): string {
+  return `Could not ${doing} — the ${STORE_SECTION_LABELS.market} is not on for your community. An administrator can ask for it in Settings › Marketplace.`;
 }
 
 export async function saveCategoryAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  const auth = await authorizeAction("storeManage", "add the category");
+  const doing = "add the category";
+  const asked = askedSection(fd, doing);
+  // Food is the store manager's; the Community Market is also market.manage's (0830).
+  const auth = await authorizeAction("section" in asked && asked.section === "market" ? "marketManage" : "storeManage", doing);
   if (!auth.ok) return auth;
   const name = text(fd, "name");
   if (!name) return { ok: false, error: "Could not add the category — give it a name." };
   const order = wholeNumber(text(fd, "sort_order"));
   if (Number.isNaN(order)) return { ok: false, error: "Could not add the category — the order must be a whole number." };
-  const where = newRowSection(fd, "add the category");
+  const where = asked;
   if ("error" in where) return { ok: false, error: where.error };
+  if (!sectionOpen(where.section, marketModuleOn(auth.session))) return { ok: false, error: notOn(doing) };
   const { error } = await auth.session.db
     .from("store_categories")
     .insert({ center_id: auth.session.center.id, name: name.slice(0, 80), sort_order: order ?? 0, section: where.section });
@@ -86,7 +104,10 @@ export async function saveCategoryAction(_prev: ActionResult | null, fd: FormDat
 
 export async function saveItemAction(itemId: string | null, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const doing = itemId ? "save the item" : "add the item";
-  const auth = await authorizeAction("storeManage", doing);
+  // A new item is the store manager's in Food and also market.manage's in the Community Market (0830). Saving an existing item may be
+  // either person's; the database lets market.manage change only a market item.
+  const asked = itemId ? null : askedSection(fd, doing);
+  const auth = await authorizeAction(itemId || (asked && "section" in asked && asked.section === "market") ? "marketManage" : "storeManage", doing);
   if (!auth.ok) return auth;
   const { db, center } = auth.session;
   const name = text(fd, "name");
@@ -118,13 +139,88 @@ export async function saveItemAction(itemId: string | null, _prev: ActionResult 
     if (!data?.length) return { ok: false, error: `Could not ${doing} — it was not found.` };
   } else {
     // A new item goes in the section the page was on; the database moves it to its category's section if it has a category (0821).
-    const where = newRowSection(fd, doing);
+    const where = asked ?? askedSection(fd, doing);
     if ("error" in where) return { ok: false, error: where.error };
+    if (!sectionOpen(where.section, marketModuleOn(auth.session))) return { ok: false, error: notOn(doing) };
     const { error } = await db.from("store_items").insert({ ...values, section: where.section, center_id: center.id });
     if (error) return failure(`Could not ${doing}`, error);
+    refresh();
+    return { ok: true, message: where.section === "market" ? `"${name}" added to the ${STORE_SECTION_LABELS.market}.` : `"${name}" added to the menu.` };
   }
   refresh();
-  return { ok: true, message: itemId ? `"${name}" saved.` : `"${name}" added to the menu.` };
+  return { ok: true, message: `"${name}" saved.` };
+}
+
+// ---------------------------------------------------------------------------
+// The Community Market (0830): starting it, and its categories. Its listings are store items filed in the market section (saveItemAction).
+// ---------------------------------------------------------------------------
+/**
+ * Start the Community Market: add the starter categories (src/lib/store-sections.ts MARKET_STARTER_CATEGORIES) that this community does
+ * not already have a category of the same name for. A name that a Food category already uses is skipped and said so (a category name is
+ * unique in a community). The categories are the community's to rename or remove afterwards.
+ */
+export async function startMarketAction(): Promise<ActionResult> {
+  const doing = "start the Community Market";
+  const auth = await authorizeAction("marketManage", doing);
+  if (!auth.ok) return auth;
+  const { db, center } = auth.session;
+  if (!marketModuleOn(auth.session)) return { ok: false, error: notOn(doing) };
+  const existing = await db.from("store_categories").select("name, section").eq("center_id", center.id);
+  if (existing.error) return failure(`Could not ${doing}`, existing.error);
+  const have = existing.data ?? [];
+  const taken = new Set(have.map((c) => c.name.trim().toLowerCase()));
+  const toAdd = MARKET_STARTER_CATEGORIES.filter((n) => !taken.has(n.toLowerCase()));
+  const skipped = MARKET_STARTER_CATEGORIES.filter((n) => taken.has(n.toLowerCase()));
+  if (toAdd.length === 0) return { ok: true, message: "The starter categories are already there." };
+  const first = have.filter((c) => c.section === "market").length;
+  const { error } = await db
+    .from("store_categories")
+    .insert(toAdd.map((name, i) => ({ center_id: center.id, name, sort_order: first + i + 1, section: "market" as const })));
+  if (error) return failure(`Could not ${doing}`, error);
+  refresh();
+  const added = `Added ${toAdd.length} starter ${toAdd.length === 1 ? "category" : "categories"} to the ${STORE_SECTION_LABELS.market}.`;
+  return { ok: true, message: skipped.length ? `${added} Left out because the name is already used: ${skipped.join(", ")}.` : added };
+}
+
+/** Rename or re-order a Community Market category. Food's categories are not edited here (the market's page is the only caller). */
+export async function saveMarketCategoryAction(categoryId: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const doing = "save the category";
+  const auth = await authorizeAction("marketManage", doing);
+  if (!auth.ok) return auth;
+  if (!isUuid(categoryId)) return { ok: false, error: `Could not ${doing} — unknown category.` };
+  const name = text(fd, "name");
+  if (!name) return { ok: false, error: `Could not ${doing} — give it a name.` };
+  const order = wholeNumber(text(fd, "sort_order"));
+  if (Number.isNaN(order)) return { ok: false, error: `Could not ${doing} — the order must be a whole number.` };
+  const { db, center } = auth.session;
+  const { data, error } = await db
+    .from("store_categories")
+    .update({ name: name.slice(0, 80), sort_order: order ?? 0 })
+    .eq("id", categoryId)
+    .eq("center_id", center.id)
+    .eq("section", "market")
+    .select("id");
+  if (error) return failure(`Could not ${doing}`, error);
+  if (!data?.length) return { ok: false, error: `Could not ${doing} — it was not found in the ${STORE_SECTION_LABELS.market}.` };
+  refresh();
+  return { ok: true, message: `Category "${name}" saved.` };
+}
+
+/**
+ * Remove a Community Market category. Its listings are kept: they lose the category and stay in the market (the database leaves an item
+ * where it was, 0821). This deletes only the category's name.
+ */
+export async function removeMarketCategoryAction(categoryId: string): Promise<ActionResult> {
+  const doing = "remove the category";
+  const auth = await authorizeAction("marketManage", doing);
+  if (!auth.ok) return auth;
+  if (!isUuid(categoryId)) return { ok: false, error: `Could not ${doing} — unknown category.` };
+  const { db, center } = auth.session;
+  const { data, error } = await db.from("store_categories").delete().eq("id", categoryId).eq("center_id", center.id).eq("section", "market").select("id, name");
+  if (error) return failure(`Could not ${doing}`, error);
+  if (!data?.length) return { ok: false, error: `Could not ${doing} — it was not found in the ${STORE_SECTION_LABELS.market}.` };
+  refresh();
+  return { ok: true, message: `Category "${data[0].name}" removed. Its listings are kept, without a category.` };
 }
 
 export async function saveWindowAction(windowId: string | null, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {

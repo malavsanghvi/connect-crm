@@ -1,8 +1,10 @@
 # Community Market: people offer products and services inside the store (plan)
 
-Status: plan, 2026-10-15. **Nothing is built** except the first half of the store reorganisation: the store has sections and the
-Food section holds everything that exists ([`STORE_SECTIONS.md`](STORE_SECTIONS.md), migration 0821). The second section does not
-exist for anyone: no tab, no teaser, no "coming soon". This document is the plan for it.
+Status: plan, 2026-10-15. **The owner accepted every recommendation (CM1 to CM24, section 16) on 2026-10-15 ("go with the
+recommendations"). Slice 1 is built** (migration 0830, test 830; [`STORE_SECTIONS.md`](STORE_SECTIONS.md) section 7): the module, the
+permissions and role, the policies, and the portal's Community Market for the community's own listings. **Slice 2 onward is still a
+plan and each needs the owner's approval before it is built** (permissions, RLS and money). The Community Market does not exist for a
+community until Weaver grants it: no tab, no teaser, no "coming soon" for anyone else. The store's sections are 0821.
 
 Owner request, 2026-10-15 (verbatim): *"in the store - reorg a bit.. Have Food section and put all current food items in there.
 then say Marketplace style people can offer their services there - For example Memories book printing, laser engraving pieces, Gift
@@ -68,8 +70,8 @@ words are data each community sets.
 ### 3.1 The one dependency on the member app
 
 Installed member apps read every active store item and every category with no notion of sections. A `market` row written to
-`store_items` would show among the food in an old app. That is why the portal refuses to create market rows today
-(`STORE_SECTION_OPEN`), and why the module is **off by default**: only a community for which Weaver has deliberately switched the
+`store_items` would show among the food in an old app. That is why the portal creates market rows only while the module is
+on (`sectionOpen()`, slice 1) and the database hides them from a community without it (the policy `market_section_switch`), and why the module is **off by default**: only a community for which Weaver has deliberately switched the
 Community Market on is affected, and Weaver can first check the app situation for that community. Seller listings live in **their own
 tables** (section 11) that no installed app reads, so only slice 1 (the community's own products, which are `store_items`) has this
 dependency. The order of work in [`STORE_SECTIONS.md`](STORE_SECTIONS.md) section 4.5 applies: the app that groups by section ships
@@ -374,7 +376,7 @@ before it is built, because it changes money rules, permissions or RLS.
 | Slice | What | DB | Portal | Member app | Size | Owner OK |
 |---|---|---|---|---|---|---|
 | 0 | **Store sections** (built) | 0821 | Food heading | contract documented | S | No (no money, permission or policy change) |
-| 1 | **Community products, organized.** The community files its own non-food products in the Community Market, with the starter categories and a featured shelf; the product switch exists | The `market` module row (`default_off` for every kind, test), the product card, a restrictive policy tying `section = 'market'` rows to the module, a category starter function | Open `STORE_SECTION_OPEN.market` when the module is on; category and featured screens; the kitchen display shows food lines only | Reads `section` (a prior app release), the switch, category chips, search over items | M | **Yes: module, RLS** |
+| 1 | **BUILT (0830).** **Community products, organized.** The community files its own non-food products in the Community Market, with the starter categories and a featured shelf; the product switch exists | The `market` module row (`default_off` for every kind, test), the product card, a restrictive policy tying `section = 'market'` rows to the module, a category starter function | Creation opens when the module is on (`sectionOpen()`); the Community Market page, categories and listings; the kitchen prep list shows food lines only; the featured shelf is NOT built (it needs a column and the app's agreement) | Reads `section` (a prior app release), the switch, category chips, search over items | M | **Yes: module, RLS** |
 | 2 | **Sellers and listings, inquiry only.** Applications and approval; listings of all four kinds with photos; review queue; browse, search, "Ask about this"; reports and takedowns; the notice and the seller terms | Tables `market_sellers`, `market_listings`, photos, `market_inquiries`, `market_messages`, `market_reports`; the three permissions and the role; notification topics; the bucket; functions for every write | Store › Community Market: Sellers, Listings, Reports, Settings; the seller terms and notice in `legal_documents` | Browse, listing page, ask, my listings, my inbox, apply to sell, report | L, several PRs | **Yes: permissions, RLS** (money: none) |
 | 3 | **Orders as a record, and reviews.** Quote, accept, make, deliver, complete, review | `market_orders`, `market_order_events`, `market_reviews`; status functions | Orders overview | Quote, accept, order status, review | M | **Yes: RLS** (money: none, price recorded in cents, not collected) |
 | 4 | **Pay through the community.** Fee, tax, refunds, payouts, QuickBooks, receipts | Payments `source`, due-to-seller ledger, payouts, account roles, refund link | Payments, payouts and mapping screens for the treasurer | Pay in the order | L | **Yes: money rules, permissions, RLS.** After a lawyer, an accountant and the store-sale postings (B59 item 2) |
@@ -398,7 +400,8 @@ would list things that no installed app can show.
 
 ## 16. Decisions for the owner
 
-Each has my recommendation first. Nothing is built until the owner answers the ones the first slice needs (CM1, CM2, CM3, CM17).
+Each has my recommendation first. **Accepted by the owner on 2026-10-15 ("go with the recommendations"): all of CM1 to CM24.** Slice 1 is
+built on that; every later slice still needs the owner's approval of its money rules, permissions and RLS before it is built.
 
 | # | Question | Recommendation |
 |---|---|---|
