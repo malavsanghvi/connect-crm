@@ -31,6 +31,9 @@ const NEVER: [string, RegExp][] = [
   ["twenty-five", /twenty[- ]five/i],
   ["a cap on the Chip In", /\bcapped at\b|\b(?:yearly|annual) cap\b|\bcap reached\b|\bthe cap\b|\bwe cap\b/i],
   ["the removed constant", /TIP_YEARLY_CAP|YEARLY_CAP|CAP_CENTS/],
+  // A platform admin sets an organization's limit (JSH's is $50 a year per account); it is data, never written on a public page.
+  ["a dollar amount a year or per account", /\$\s?\d[\d,.]*\s*(?:a|per|\/)\s*(?:calendar\s+)?(?:year|yr|account)\b/i],
+  ["a dollar amount next to the yearly limit", /(?:yearly|annual)\s+limit[^.<]{0,60}\$\s?\d|\blimit\s+(?:of|is|at)\s+\$\s?\d/i],
 ];
 
 const WEBSITE_DIRS = ["src/app/site", "src/components/site"];
@@ -82,7 +85,9 @@ describe("the pricing page promises only the optional Chip In and a yearly limit
     expect(page).toContain("Always optional: one tap on “No Chip In” and they pay exactly what you charged");
     expect(page).toContain("Added on top of the amount you set, never taken out of it");
     expect(page).toContain("Paying never requires a Chip In.");
-    expect(page).toContain("A suggested Chip In will appear at checkout.");
+    // Nothing is pre-selected: "No Chip In" is the default (owner 2026-10-15, docs/PAYMENT_ADDONS.md decision 3), in the future tense.
+    expect(page).toContain("Suggested amounts will appear at checkout. “No Chip In” is selected unless the member picks an amount, and going back to it is one tap.");
+    expect(page).toContain("“No Chip In” is selected unless they pick an amount, so they pay exactly what you charged.");
   });
 
   it("says the organization never pays Weaver and Weaver takes no percentage", () => {
@@ -100,7 +105,7 @@ describe("the pricing page promises only the optional Chip In and a yearly limit
 
   it("shows the checkout cases instead of a table that ends at a limit", () => {
     expect(page).toContain("What happens at checkout");
-    for (const when of ["Chooses “No Chip In”", "Adds a Chip In", "Has reached their yearly limit"]) expect(page).toContain(when);
+    for (const when of ["Leaves “No Chip In” selected", "Adds a Chip In", "Has reached their yearly limit"]) expect(page).toContain(when);
     expect(page).not.toContain("Chip Ins so far");
   });
 
@@ -110,13 +115,26 @@ describe("the pricing page promises only the optional Chip In and a yearly limit
 });
 
 describe("the checkout sketch", () => {
-  const sketch = plain(html(createElement(TipCheckoutMock)));
+  const markup = html(createElement(TipCheckoutMock));
+  const sketch = plain(markup);
 
   it("offers 'No Chip In' and shows no limit and no running total", () => {
     expect(sketch).toContain("Checkout · example");
     expect(sketch).toContain("No Chip In");
     expect(sketch).toContain("Each account has a yearly limit, and once it is reached we stop asking.");
     expect(sketch).not.toMatch(/Chip Ins this year|progressbar|\d of \$/i);
+  });
+
+  it("pre-selects nothing: 'No Chip In' is the one selected choice and the total is what the organization charged", () => {
+    // The selected choice is drawn navy on white text; every suggested amount is drawn plain.
+    const selected = [...markup.matchAll(/class="[^"]*border-navy bg-navy text-white[^"]*">([^<]*)</g)].map((m) => m[1]);
+    expect(selected).toEqual(["No Chip In"]);
+    expect(sketch).toContain("No Chip In (selected)");
+    expect(sketch.match(/\(selected\)/g)).toHaveLength(1);
+    for (const amount of ["$2", "$5", "$10"]) expect(sketch).toContain(amount);
+    expect(sketch).toContain("Nothing is added unless you pick an amount");
+    expect(sketch).toContain("Total today $150.00");
+    expect(sketch).not.toContain("$155.00");
   });
 });
 

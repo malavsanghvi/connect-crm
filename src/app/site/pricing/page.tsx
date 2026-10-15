@@ -119,7 +119,7 @@ function Step({ n, title, body }: { n: string; title: string; body: ReactNode })
  * decision 2026-10-15), so the page states no number, and in every case the organization pays us nothing.
  */
 const CHECKOUT_CASES: { when: string; pays: string; you: string }[] = [
-  { when: "Chooses “No Chip In”", pays: "Exactly what you charged", you: "Nothing" },
+  { when: "Leaves “No Chip In” selected", pays: "Exactly what you charged", you: "Nothing" },
   { when: "Adds a Chip In", pays: "What you charged, plus their Chip In", you: "Nothing: the Chip In is added on top" },
   { when: "Has reached their yearly limit", pays: "Exactly what you charged; we do not ask", you: "Nothing" },
 ];
@@ -139,7 +139,7 @@ function HowWeStayFree() {
           <Step
             n="2"
             title="They see an optional Chip In"
-            body="A suggested Chip In will appear at checkout. They can change it or skip it in one tap. Paying never requires a Chip In."
+            body="Suggested amounts will appear at checkout. “No Chip In” is selected unless the member picks an amount, and going back to it is one tap. Paying never requires a Chip In."
           />
           <Step
             n="3"
@@ -261,7 +261,7 @@ function Faq() {
             },
             {
               q: "What if a member does not want to Chip In?",
-              a: "They choose “No Chip In” and pay exactly what you charged. Their payment is not slower, and nothing about their membership changes.",
+              a: "“No Chip In” is selected unless they pick an amount, so they pay exactly what you charged. Their payment is not slower, and nothing about their membership changes.",
             },
             {
               q: "Why is there a yearly limit?",
