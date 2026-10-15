@@ -1,6 +1,8 @@
 // The Family page's Events tab, as rows. Pure: the loader hands in what the database returned for one household and this decides what the
 // tab says. Read-only. A party is counted, never named: the seats of an RSVP can include children, and nothing here needs their names.
 
+import { CONTACT_SOURCE_LABEL, isUnverifiedContactRsvp } from "@/lib/rsvp-contact";
+
 export const RSVP_STATUSES = ["invited", "rsvpd", "confirmed", "cancelled", "waitlisted", "no_show", "attended"] as const;
 export type RsvpStatus = (typeof RSVP_STATUSES)[number];
 
@@ -24,9 +26,11 @@ const SOURCES: Record<string, string> = {
   walk_in: "Walk-in",
   kiosk: "Kiosk",
   import: "Imported",
+  guest_contact: CONTACT_SOURCE_LABEL,
 };
 
-export type RsvpInput = { id: string; event_id: string; status: string; source: string | null; created_at: string };
+/** `contact_verified_at` is read for RSVPs made without signing in (source guest_contact): empty means nobody has proved the phone or email yet. */
+export type RsvpInput = { id: string; event_id: string; status: string; source: string | null; created_at: string; contact_verified_at?: string | null };
 export type EventInput = { id: string; name: string; starts_at: string | null };
 export type AttendeeInput = { rsvp_id: string; status: string; checked_in_at: string | null };
 
@@ -46,6 +50,8 @@ export type EventLine = {
   /** How many of those seats were checked in at the door. */
   checkedIn: number;
   source: string | null;
+  /** Made without signing in and not yet checked with the family (docs/RSVP_WITHOUT_LOGIN.md): staff should not trust it as much as one made in the app. */
+  unverified: boolean;
 };
 
 export const EVENT_NOT_VISIBLE = "An event your role cannot open";
@@ -85,6 +91,7 @@ export function buildEventLines(rsvps: readonly RsvpInput[], events: readonly Ev
       party: seats?.seats ?? 0,
       checkedIn: seats?.checkedIn ?? 0,
       source: r.source ? (SOURCES[r.source] ?? r.source.replace(/_/g, " ")) : null,
+      unverified: isUnverifiedContactRsvp(r),
     };
   });
   return lines.sort((a, b) => {

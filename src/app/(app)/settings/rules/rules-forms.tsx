@@ -7,6 +7,7 @@ import { InfoBox } from "@/components/ui";
 import { brandColor } from "@/lib/brand-colors";
 import { validateRulesJson } from "@/lib/center-rules";
 import { SHOW_BY_OPTIONS } from "@/lib/giving-glance/levels";
+import { COMMUNITY_MODE_NOTE, CONTACT_MODE_LABEL, CONTACT_MODES, isContactMode } from "@/lib/rsvp-contact";
 import type { RuleSettings } from "@/lib/settings-rules";
 
 import { countChanges, FieldGrid, SettingField, SettingsForm } from "../_components/settings-form";
@@ -164,6 +165,7 @@ export function LunchForm({ settings, ...c }: Common & { settings: RuleSettings 
     slot_minutes: String(settings.lunch.slotMinutes),
     reminder_minutes_before: String(settings.lunch.reminderMinutesBefore),
     confirmation_hours_before: String(settings.rsvp.confirmationHoursBefore),
+    rsvp_contact_lookup: settings.rsvp.contactLookup as string,
   };
   const [v, setV] = useState(initial);
   return (
@@ -218,6 +220,20 @@ export function LunchForm({ settings, ...c }: Common & { settings: RuleSettings 
             value={v.confirmation_hours_before}
             onChange={(x) => setV({ ...v, confirmation_hours_before: x })}
             options={numberChips([24, 48, 72], settings.rsvp.confirmationHoursBefore, (n) => `${n} hours before`)}
+            disabled={c.readOnly}
+          />
+        </SettingField>
+        <SettingField
+          label="RSVP without signing in"
+          wide
+          hint={`${COMMUNITY_MODE_NOTE[isContactMode(v.rsvp_contact_lookup) ? v.rsvp_contact_lookup : "off"]} It does nothing until an event turns it on (Events › the event › RSVPs), and only for free events. Applies in the member app.`}
+        >
+          <ChipGroup
+            name="rsvp_contact_lookup"
+            label="RSVP without signing in"
+            value={v.rsvp_contact_lookup}
+            onChange={(x) => setV({ ...v, rsvp_contact_lookup: x })}
+            options={CONTACT_MODES.map((m) => ({ value: m, label: CONTACT_MODE_LABEL[m] }))}
             disabled={c.readOnly}
           />
         </SettingField>

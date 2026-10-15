@@ -44,7 +44,17 @@ export function EventsTable({ lines, timeZone, olderLeftOut = false }: { lines: 
                   </td>
                   <td className="num">{l.party > 0 ? l.party : "—"}</td>
                   <td className="num">{l.party > 0 ? `${l.checkedIn} of ${l.party}` : "—"}</td>
-                  <td className="text-[0.8125rem]">{l.source ?? "—"}</td>
+                  <td className="text-[0.8125rem]">
+                    {l.source ?? "—"}
+                    {l.unverified ? (
+                      <>
+                        {" "}
+                        <Badge tone="warning" title="Nobody has proved this phone or email yet. It becomes verified when the family opens its confirmation email, or when staff mark it verified on the event.">
+                          Unverified
+                        </Badge>
+                      </>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

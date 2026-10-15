@@ -18,6 +18,7 @@
 import { isPlainObject } from "@/lib/center-rules";
 import type { Json } from "@/lib/database.types";
 import { givingShowBy, type GivingShowBy } from "@/lib/giving-glance/levels";
+import { isContactMode, readContactLookup, type ContactMode } from "@/lib/rsvp-contact";
 import { kindHas, moduleNotOffered } from "@/lib/kind";
 import type { KindLike } from "@/lib/wording";
 
@@ -52,7 +53,8 @@ export type RuleSettings = {
   boliSoftCloseMinutes: number;
   boliStepCents: number;
   lunch: { slotMinutes: number; familyWithChildUnder12AtStart: boolean; seniorAtStart: boolean; reminderMinutesBefore: number };
-  rsvp: { confirmationHoursBefore: number; nudgeHourLocal: number };
+  /** contactLookup: the most open way an event may let a visitor who is not signed in RSVP (rules.rsvp.contact_lookup; 0822). */
+  rsvp: { confirmationHoursBefore: number; nudgeHourLocal: number; contactLookup: ContactMode };
   store: { giftPackCents: number; cancelHoursBeforePickup: number };
   points: {
     anumodanaPoints: number;
@@ -77,7 +79,7 @@ export const RULE_DEFAULTS: RuleSettings = {
   boliSoftCloseMinutes: 0,
   boliStepCents: 2100,
   lunch: { slotMinutes: 15, familyWithChildUnder12AtStart: true, seniorAtStart: true, reminderMinutesBefore: 5 },
-  rsvp: { confirmationHoursBefore: 24, nudgeHourLocal: 18 },
+  rsvp: { confirmationHoursBefore: 24, nudgeHourLocal: 18, contactLookup: "off" },
   store: { giftPackCents: 299, cancelHoursBeforePickup: 24 },
   points: { anumodanaPoints: 5, anumodanaDailyCap: 5, supportPoints: 3, dayCompleteBonus: 20, streakRestDaysPerMonth: 1, behindAfterDays: 3, gyanPracticeDailyCap: 10 },
 };
@@ -103,6 +105,7 @@ export function readRuleSettings(rules: Json): RuleSettings {
     rsvp: {
       confirmationHoursBefore: int(r("rsvp", "confirmation_hours_before"), d.rsvp.confirmationHoursBefore),
       nudgeHourLocal: int(r("rsvp", "nudge_hour_local"), d.rsvp.nudgeHourLocal),
+      contactLookup: readContactLookup(rules),
     },
     store: {
       giftPackCents: int(r("store", "gift_pack_cents"), d.store.giftPackCents),
@@ -465,6 +468,9 @@ export function parseSection(section: RulesSection, read: Read): ParsedSection {
         remind: wholeNumber(read, "reminder_minutes_before", "The lunch reminder", 0, 120),
         rsvp: wholeNumber(read, "confirmation_hours_before", "The RSVP confirmation", 0, 720),
       });
+      // "RSVP without signing in": only written when the form sent it, so a save from a form without it leaves the setting as it is.
+      const contact = read("rsvp_contact_lookup");
+      if (contact !== null && !isContactMode(contact)) errors.push("Choose Off, With a code or Without a code for RSVP without signing in.");
       if (errors.length) return fail(errors);
       return {
         ok: true,
@@ -475,7 +481,7 @@ export function parseSection(section: RulesSection, read: Read): ParsedSection {
             senior_at_start: on(read, "senior_at_start"),
             reminder_minutes_before: ok.remind,
           },
-          rsvp: { confirmation_hours_before: ok.rsvp },
+          rsvp: { confirmation_hours_before: ok.rsvp, ...(contact !== null ? { contact_lookup: contact } : {}) },
         },
       };
     }

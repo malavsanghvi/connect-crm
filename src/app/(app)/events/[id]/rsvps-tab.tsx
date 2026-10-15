@@ -1,16 +1,19 @@
 import { ActionForm } from "@/components/action-form";
 import { ActionButton } from "@/components/events/action-button";
 import { LoadProblem } from "@/components/events/load-problem";
-import { BlockGrid, Card, ChipLinks, EmptyState, KpiGrid, Stat } from "@/components/ui";
+import { Badge, BlockGrid, Card, ChipLinks, EmptyState, KpiGrid, Stat } from "@/components/ui";
 import type { Tables } from "@/lib/database.types";
 import { allRows, load, rows } from "@/lib/data/events";
 import { householdsById } from "@/lib/data/lookups";
 import { eventAreas, type EventAccess } from "@/lib/events/access";
 import { formatDateTime, formatTime, humanize } from "@/lib/events/format";
 import { eventReport } from "@/lib/events/report";
+import { CONTACT_SOURCE, CONTACT_SOURCE_LABEL, isUnverifiedContactRsvp, readContactLookup } from "@/lib/rsvp-contact";
 import type { CrmSession } from "@/lib/session";
 
 import { addGuestRsvp, setRsvpStatus } from "../actions";
+import { verifyContactRsvp } from "../contact-rsvp-actions";
+import { ContactRsvpCard } from "./contact-rsvp-card";
 
 const STATUSES = ["rsvpd", "confirmed", "attended", "waitlisted", "no_show", "cancelled", "invited"];
 
@@ -26,7 +29,20 @@ function statusClass(s: string) {
   return "font-semibold text-muted";
 }
 
-export async function RsvpsTab({ event, session, access, status }: { event: Tables<"events">; session: CrmSession; access: EventAccess; status: string | null }) {
+/** via: "contact" = only RSVPs made without signing in; "unverified" = those nobody has checked with the family yet. */
+export async function RsvpsTab({
+  event,
+  session,
+  access,
+  status,
+  via = null,
+}: {
+  event: Tables<"events">;
+  session: CrmSession;
+  access: EventAccess;
+  status: string | null;
+  via?: string | null;
+}) {
   const { db, center } = session;
   const tz = center.time_zone;
   const res = await load(async () => {
@@ -48,7 +64,15 @@ export async function RsvpsTab({ event, session, access, status }: { event: Tabl
   const report = eventReport(rsvps, attendees);
   const canEdit = eventAreas.edit(access, event.id);
   const canChange = eventAreas.rsvps(access, event.id);
-  const shown = status ? rsvps.filter((r) => r.status === status) : rsvps;
+  const contactRsvps = rsvps.filter((r) => r.source === CONTACT_SOURCE);
+  const unverified = rsvps.filter((r) => isUnverifiedContactRsvp(r) && r.status !== "cancelled");
+  const viaFilter = via === "contact" || via === "unverified" ? via : null;
+  const shown = rsvps
+    .filter((r) => !status || r.status === status)
+    .filter((r) => (viaFilter === "contact" ? r.source === CONTACT_SOURCE : viaFilter === "unverified" ? isUnverifiedContactRsvp(r) && r.status !== "cancelled" : true));
+  const community = readContactLookup(session.center.rules);
+  // The side column: the event's switch for RSVP without signing in (shown to anyone who can see the RSVPs once it is allowed or on), and the staff's guest-RSVP form.
+  const hasSide = canEdit || community !== "off" || event.contact_rsvp !== "off";
   const label = (r: (typeof rsvps)[number]) => {
     const hh = r.household_id ? households.get(r.household_id)?.display_name : null;
     if (hh) return hh;
@@ -56,6 +80,7 @@ export async function RsvpsTab({ event, session, access, status }: { event: Tabl
     const first = attendees.find((a) => a.rsvp_id === r.id);
     return first ? `${first.display_name}'s party` : "RSVP";
   };
+  const viaQuery = viaFilter ? `&via=${viaFilter}` : "";
   const base = `/events/${event.id}?tab=rsvps`;
 
   return (
@@ -77,12 +102,23 @@ export async function RsvpsTab({ event, session, access, status }: { event: Tabl
         label="RSVP status"
         active={status ?? ""}
         items={[
-          { key: "", label: `All (${rsvps.length})`, href: base },
-          ...STATUSES.filter((s) => report.households[s]).map((s) => ({ key: s, label: `${statusLabel(s)} (${report.households[s]})`, href: `${base}&rsvp=${s}` })),
+          { key: "", label: `All (${rsvps.length})`, href: `${base}${viaQuery}` },
+          ...STATUSES.filter((s) => report.households[s]).map((s) => ({ key: s, label: `${statusLabel(s)} (${report.households[s]})`, href: `${base}&rsvp=${s}${viaQuery}` })),
         ]}
       />
+      {contactRsvps.length > 0 ? (
+        <ChipLinks
+          label="How the RSVP was made"
+          active={viaFilter ?? ""}
+          items={[
+            { key: "", label: "Any way", href: status ? `${base}&rsvp=${status}` : base },
+            { key: "contact", label: `${CONTACT_SOURCE_LABEL} (${contactRsvps.length})`, href: `${base}${status ? `&rsvp=${status}` : ""}&via=contact` },
+            { key: "unverified", label: `Unverified (${unverified.length})`, href: `${base}${status ? `&rsvp=${status}` : ""}&via=unverified` },
+          ]}
+        />
+      ) : null}
       <BlockGrid>
-        <div className={`col-span-12 ${canEdit ? "lg:col-span-8" : ""}`}>
+        <div className={`col-span-12 ${hasSide ? "lg:col-span-8" : ""}`}>
           {shown.length === 0 ? (
             <Card>
               <EmptyState title="No RSVPs here yet" />
@@ -103,14 +139,25 @@ export async function RsvpsTab({ event, session, access, status }: { event: Tabl
                         <p className="text-[14px] font-bold text-ink">{label(r)}</p>
                         <p className="text-xs text-muted">
                           {people.length} {people.length === 1 ? "person" : "people"}
-                          {r.source !== "app" ? ` · via ${humanize(r.source)}` : ""}
+                          {r.source !== "app" ? ` · via ${r.source === CONTACT_SOURCE ? CONTACT_SOURCE_LABEL.toLowerCase() : humanize(r.source)}` : ""}
                           {r.guest_phone_e164 ? ` · ${r.guest_phone_e164}` : ""}
                           {r.commitment_mode && r.commitment_mode !== "none" ? ` · commitment ${humanize(r.commitment_mode)}` : ""}
                           {r.confirmed_at ? ` · confirmed ${formatDateTime(r.confirmed_at, tz)}` : ""}
                         </p>
                         {flags.length > 0 ? <p className="mt-1 text-xs font-bold text-brown">Flags: {flags.join(", ")}</p> : null}
                       </div>
-                      <span className={`text-[13px] ${statusClass(r.status)}`}>{statusLabel(r.status)}</span>
+                      <span className="flex flex-wrap items-center justify-end gap-2 text-[13px]">
+                        {isUnverifiedContactRsvp(r) ? (
+                          <Badge tone="warning" title="Nobody has proved this phone or email yet. It becomes verified when the family opens the link in its confirmation email, or when you mark it verified.">
+                            Unverified
+                          </Badge>
+                        ) : r.source === CONTACT_SOURCE ? (
+                          <Badge tone="success" title="The family opened its confirmation email, typed a code, or staff marked it verified.">
+                            Verified
+                          </Badge>
+                        ) : null}
+                        <span className={statusClass(r.status)}>{statusLabel(r.status)}</span>
+                      </span>
                     </div>
                     <details className="mt-2">
                       <summary className="cursor-pointer text-[13px] font-bold text-navy">People</summary>
@@ -137,6 +184,14 @@ export async function RsvpsTab({ event, session, access, status }: { event: Tabl
                     </details>
                     {canChange ? (
                       <div className="mt-3 flex flex-wrap gap-2">
+                        {canEdit && isUnverifiedContactRsvp(r) && r.status !== "cancelled" ? (
+                          <ActionButton
+                            action={verifyContactRsvp.bind(null, event.id, r.id)}
+                            label="Mark verified"
+                            variant="primary"
+                            confirm={`Mark the RSVP for ${label(r)} verified? Do this once you have checked with the family.`}
+                          />
+                        ) : null}
                         {r.status !== "confirmed" && r.status !== "attended" && r.status !== "cancelled" ? (
                           <ActionButton action={setRsvpStatus.bind(null, event.id, r.id)} fields={{ status: "confirmed" }} label="Confirm" variant="ok" />
                         ) : null}
@@ -166,43 +221,48 @@ export async function RsvpsTab({ event, session, access, status }: { event: Tabl
             </ul>
           )}
         </div>
-        {canEdit ? (
-          <Card span={4} title="Add a guest RSVP" description="For people without the app — added as an office RSVP.">
-            <ActionForm action={addGuestRsvp.bind(null, event.id)} submitLabel="Add RSVP" resetOnSuccess>
-              <div className="mb-3 flex flex-col gap-3">
-                <div>
-                  <label htmlFor="g-name" className="crm-label">
-                    Party name
-                  </label>
-                  <input id="g-name" name="guest_name" className="crm-input" placeholder="e.g. Shah family" />
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="g-phone" className="crm-label">
-                      Mobile
+        {hasSide ? (
+          <div className="col-span-12 flex flex-col gap-4 lg:col-span-4">
+            <ContactRsvpCard event={event} community={community} canEdit={canEdit} />
+            {canEdit ? (
+              <Card title="Add a guest RSVP" description="For people without the app — added as an office RSVP.">
+                <ActionForm action={addGuestRsvp.bind(null, event.id)} submitLabel="Add RSVP" resetOnSuccess>
+                  <div className="mb-3 flex flex-col gap-3">
+                    <div>
+                      <label htmlFor="g-name" className="crm-label">
+                        Party name
+                      </label>
+                      <input id="g-name" name="guest_name" className="crm-input" placeholder="e.g. Shah family" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="g-phone" className="crm-label">
+                          Mobile
+                        </label>
+                        <input id="g-phone" name="guest_phone" type="tel" className="crm-input" />
+                      </div>
+                      <div>
+                        <label htmlFor="g-email" className="crm-label">
+                          Email
+                        </label>
+                        <input id="g-email" name="guest_email" type="email" className="crm-input" />
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="g-party" className="crm-label">
+                        People
+                      </label>
+                      <textarea id="g-party" name="party" rows={4} required className="crm-input" placeholder={"Priya Shah\nAnya Shah, child"} />
+                      <p className="crm-hint">One per line. Add &ldquo;, child&rdquo;, &ldquo;, senior&rdquo; or &ldquo;, assistance&rdquo; after a name.</p>
+                    </div>
+                    <label className="flex min-h-9 items-center gap-2 text-[13px]">
+                      <input type="checkbox" name="confirmed" className="h-4 w-4 accent-navy" /> Already confirmed
                     </label>
-                    <input id="g-phone" name="guest_phone" type="tel" className="crm-input" />
                   </div>
-                  <div>
-                    <label htmlFor="g-email" className="crm-label">
-                      Email
-                    </label>
-                    <input id="g-email" name="guest_email" type="email" className="crm-input" />
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="g-party" className="crm-label">
-                    People
-                  </label>
-                  <textarea id="g-party" name="party" rows={4} required className="crm-input" placeholder={"Priya Shah\nAnya Shah, child"} />
-                  <p className="crm-hint">One per line. Add &ldquo;, child&rdquo;, &ldquo;, senior&rdquo; or &ldquo;, assistance&rdquo; after a name.</p>
-                </div>
-                <label className="flex min-h-9 items-center gap-2 text-[13px]">
-                  <input type="checkbox" name="confirmed" className="h-4 w-4 accent-navy" /> Already confirmed
-                </label>
-              </div>
-            </ActionForm>
-          </Card>
+                </ActionForm>
+              </Card>
+            ) : null}
+          </div>
         ) : null}
       </BlockGrid>
     </div>
