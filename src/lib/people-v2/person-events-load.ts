@@ -36,7 +36,7 @@ export async function loadPersonEvents(session: Pick<CrmSession, "db" | "center"
 
   const rsvps = [];
   for (const ids of chunk([...new Set(seats.map((s) => s.rsvp_id))])) {
-    const res = await db.from("rsvps").select("id, event_id, status, source, created_at").eq("center_id", center.id).in("id", ids);
+    const res = await db.from("rsvps").select("id, event_id, status, source, created_at, contact_verified_at").eq("center_id", center.id).in("id", ids);
     if (res.error) return failed("the RSVPs these tickets are on", res.error);
     rsvps.push(...(res.data ?? []));
   }

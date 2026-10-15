@@ -1,5 +1,6 @@
 import type { Json } from "@/lib/database.types";
 import { givingRuleProblems } from "@/lib/giving-glance/levels";
+import { rsvpContactRuleProblems } from "@/lib/rsvp-contact";
 import { HOME_SHORTCUT_KEYS } from "@/lib/home-shortcuts";
 
 // centers.rules is a per-center rule bag (0001 comment + seed). Helpers here
@@ -113,6 +114,7 @@ const RULE_CHECKS: Check[] = [
   { path: "rsvp", kind: "object" },
   { path: "rsvp.confirmation_hours_before", kind: "int", min: 0, max: 720 },
   { path: "rsvp.nudge_hour_local", kind: "int", min: 0, max: 23 },
+  { path: "rsvp.contact_lookup", kind: "string" },
   { path: "store", kind: "object" },
   { path: "store.gift_pack_cents", kind: "int", min: 0 },
   { path: "store.cancel_hours_before_pickup", kind: "int", min: 0, max: 720 },
@@ -206,6 +208,8 @@ export function validateRulesJson(text: string): RulesValidation {
   }
   // rules.giving.show_by: whether "Giving at a glance" reads giving by household or by person.
   errors.push(...givingRuleProblems(get(parsed, ["giving"])));
+  // rules.rsvp.contact_lookup: how open RSVP without signing in may be (off, code, open).
+  errors.push(...rsvpContactRuleProblems(get(parsed, ["rsvp"])));
   errors.push(...storeRuleProblems(get(parsed, ["store"])));
   errors.push(...assistantRuleProblems(get(parsed, ["assistant"])));
   const basis = get(parsed, ["accounting", "basis"]);

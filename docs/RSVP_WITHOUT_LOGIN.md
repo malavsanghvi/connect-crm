@@ -2,7 +2,7 @@
 
 **Status: approved by the owner 2026-10-15 ("go with the recommendations"), slices 1-3 built** (migrations 0822 and 0823 in the first pull request (#285):
 the masks, the switches, the locked tables, lookup / save / undo / view / cancel in mode `open`, the confirmation email and the `%MEMBER_APP_URL%` link; the
-code mode (design B) in the second pull request). Not yet built: the portal screens (slice 4), the member app screens (5), the manage page in the app (6),
+code mode (design B) in the second pull request), slice 4 (the portal screens, section 9). Not yet built: the member app screens (5), the manage page in the app (6),
 hardening (7). Owner request, 2026-10-15, verbatim:
 
 > "Mobile app - RSVP - Allow RSVP using just phone number or email - without logging in. If user has not logged in, show all
@@ -481,3 +481,16 @@ delete from app.message_templates where center_id is null and key = 'rsvp_contac
 delete from public.connect_schema_migrations where version = '0824_rsvp_contact_code';
 commit;
 ```
+
+## 9. As built: the portal (slice 4)
+
+No migration and no change to who can do what: the portal only calls what 0822 to 0824 already allow, as the signed-in person (row level security and the database's own checks still decide).
+
+| Where | What |
+|---|---|
+| Settings › Rules › Lunch and RSVP (`settings.manage`) | "RSVP without signing in": **Off**, **With a code**, **Without a code**, saved as `rsvp.contact_lookup`. Said in words: with a code shows the masked family only after a 6-digit code; without a code shows it straight after the phone number or email is typed. The JSON editor (Advanced) refuses any other value. |
+| Event › RSVPs tab, side card "RSVP without signing in" | The event's own switch (`events.contact_rsvp`), for event managers and the event's lead (`eventAreas.edit`); everyone who can see the RSVPs sees where it stands. Only the choices the community allows can be picked. A paid, confidential or non-public event, or a community that has not allowed it, gets the reason in words and no control. The card explains the places held (25% of the places, at least 1, or 40 with no limit) and where the confirmation goes. |
+| Event › RSVPs tab, list | **Unverified** / **Verified** badge on RSVPs made without signing in, a "How the RSVP was made" filter (Any way, Without signing in, Unverified), and **Mark verified** (`app.rsvp_contact_verify_staff(p_rsvp, p_reason)`, role checked again by the database, reason kept in the audit log). |
+| Family page › Events | Lines made this way read "Without signing in", with an **Unverified** badge until the family opens the link in the confirmation email, types a code, or staff mark it verified. |
+
+Errors are shown next to what the person did ("Could not change RSVP without signing in — ..."), with the technical detail logged on the server. Where the database turns an event's switch back off (the event stopped qualifying), the card says why instead of "Saved".

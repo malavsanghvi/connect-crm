@@ -157,7 +157,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         <MoreDetails session={session} entity="events" recordId={event.id} editable={canEdit} variant="card" className="mt-4" />
       ) : null}
       {tab === "checklist" ? <ChecklistTab event={event} session={session} access={access} /> : null}
-      {tab === "rsvps" ? <RsvpsTab event={event} session={session} access={access} status={param(sp, "rsvp") ?? null} /> : null}
+      {tab === "rsvps" ? <RsvpsTab event={event} session={session} access={access} status={param(sp, "rsvp") ?? null} via={param(sp, "via") ?? null} /> : null}
       {tab === "volunteers" ? <VolunteersTab event={event} session={session} access={access} /> : null}
       {tab === "lunch" ? <LunchTab event={event} session={session} access={access} /> : null}
       {tab === "survey" ? <SurveyTab event={event} session={session} access={access} /> : null}

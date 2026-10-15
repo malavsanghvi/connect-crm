@@ -21,7 +21,7 @@ export async function EventsTab({ session, householdId, add }: { session: CrmSes
 
   const rsvpRes = await db
     .from("rsvps")
-    .select("id, event_id, status, source, created_at")
+    .select("id, event_id, status, source, created_at, contact_verified_at")
     .eq("center_id", center.id)
     .eq("household_id", householdId)
     .order("created_at", { ascending: false })
