@@ -78,6 +78,10 @@ choice is a row in `app.center_feature_access`; **no row means the catalog defau
   members-only in storage and their data is personal. The database refuses a choice below the floor and
   ignores one that somehow got into the table (it is lifted to the floor).
 - **An area is off while its module is off** (`reason: "module_off"`), whatever level is chosen.
+- **An area the community's kind of organization does not have is off too** (0600 `category_keys`; 0860): live darshan, virtual puja and today's
+  timings belong to a Jain Center only, Gyan Path lessons (`learn`) to a Jain Center and the faith communities. For any other kind the area
+  is not listed in Settings › Access levels, `app.can_use_feature` is false, and the member app's answer carries it as
+  `{ "allowed": false, "reason": "module_off" }` (see below), so the app hides it. A Jain Center's answer is the same as it always was.
 - **Money and personal areas are not in the catalog and are not configurable**: giving, RSVP, the store,
   family, Pathshala and the directory always need at least a signed-in community member.
   **One exception, owner-approved 2026-10-15 ([RSVP_WITHOUT_LOGIN.md](RSVP_WITHOUT_LOGIN.md), 0822-0823): RSVP.** On an event whose organizer switched
@@ -171,6 +175,17 @@ module. A sandbox reset keeps a community's access settings, like its module swi
 `reason`: **`sign_in`** = the caller is not signed in and the area needs more than public; **`level`** =
 signed in but below the minimum; **`module_off`** = the area's module is switched off (takes precedence).
 Labels are the community's own, so "Life member" in one community can be "Patron" in another.
+
+**Every area of the catalog is in the answer, for every community.** An area the community's kind does not have (above) is there as
+`{ "allowed": false, "reason": "module_off", "min_level": … }`, for every caller, guests and staff alike. Before 0860 the answer left such an
+area out, and the member app reads an area the answer does not mention as allowed (the rule from before access levels), so a faith or
+neutral community could still be shown a darshan tile ("the live stream is offline"), the puja door and today's timings. The member app
+(connect-mobile 1.20.1 and later) hides an area the answer marks not allowed; an older build keeps what it showed. Only a removal: nothing
+is granted to anyone, and no policy, permission or money rule changed. `member_experience` embeds this answer, so its `access` and its stamp
+change once for those kinds (a Jain Center's do not).
+
+Rollback of 0860 (nothing is written by it, so this is all): redefine `app.feature_access_for_me` from 0600's body, which is printed in the
+comment at the top of `supabase/migrations/0860_access_kind_hidden_areas.sql`.
 
 ## Settings › Access levels
 

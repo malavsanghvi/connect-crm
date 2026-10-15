@@ -217,15 +217,32 @@ select pg_temp.assert((select count(*) from app.roles where app.catalog_shows(ca
                       and (select array_agg(key order by key) from app.roles where not app.catalog_shows(category_keys, 'church')) = array['boli_recorder']
                       and (select array_agg(key order by key) from app.roles where not app.catalog_shows(category_keys, 'mosque')) = array['boli_recorder'],
   'C · roles: a Jain Center has them all; a chamber and the neutral experience have no religious coordinator, boli recorder or Pathshala roles; a faith community has all but the boli recorder');
+select pg_temp.assert((select string_agg(key, ',' order by key) from app.access_features where app.catalog_shows(category_keys, 'jain_center')) = 'darshan,guide,learn,listen,look,niva,puja,timings'
+                      and (select string_agg(key, ',' order by key) from app.access_features where app.catalog_shows(category_keys, 'chamber_of_commerce')) = 'guide,listen,look,niva'
+                      and (select string_agg(key, ',' order by key) from app.access_features where app.catalog_shows(category_keys, 'nonprofit_secular')) = 'guide,listen,look,niva'
+                      and (select string_agg(key, ',' order by key) from app.access_features where app.catalog_shows(category_keys, 'faith_other')) = 'guide,learn,listen,look,niva'
+                      and (select string_agg(key, ',' order by key) from app.access_features where app.catalog_shows(category_keys, 'church')) = 'guide,learn,listen,look,niva'
+                      and (select string_agg(key, ',' order by key) from app.access_features where app.catalog_shows(category_keys, 'mosque')) = 'guide,learn,listen,look,niva'
+                      and (select string_agg(key, ',' order by key) from app.access_features where app.catalog_shows(category_keys, 'swaminarayan_temple')) = 'guide,learn,listen,look,niva',
+  'C · access areas: a Jain Center has all eight; a chamber and the neutral experience have the guide, listen, look and Ask Niva; a faith community adds learn');
+-- 0860: the member app's answer lists every area for every experience; an area the experience does not have is there as not allowed (module_off),
+-- which is how the app knows to hide it (it used to read an area that was left out as allowed).
 select pg_temp.assert(pg_temp.keys(app.member_experience(:jsh)->'access'->'features') = 'darshan,guide,learn,listen,look,niva,puja,timings'
                       and pg_temp.keys(app.member_experience(:c_jc)->'access'->'features') = 'darshan,guide,learn,listen,look,niva,puja,timings'
-                      and pg_temp.keys(app.member_experience(:c_chm)->'access'->'features') = 'guide,listen,look,niva'
-                      and pg_temp.keys(app.member_experience(:c_npo)->'access'->'features') = 'guide,listen,look,niva'
-                      and pg_temp.keys(app.member_experience(:c_fth)->'access'->'features') = 'guide,learn,listen,look,niva'
-                      and pg_temp.keys(app.member_experience(:c_chr)->'access'->'features') = 'guide,learn,listen,look,niva'
-                      and pg_temp.keys(app.member_experience(:c_mos)->'access'->'features') = 'guide,learn,listen,look,niva'
-                      and pg_temp.keys(app.member_experience(:c_swm)->'access'->'features') = 'guide,learn,listen,look,niva',
-  'C · access areas: a Jain Center has all eight; a chamber and the neutral experience have the guide, listen, look and Ask Niva; a faith community adds learn');
+                      and pg_temp.keys(app.member_experience(:c_chm)->'access'->'features') = 'darshan,guide,learn,listen,look,niva,puja,timings'
+                      and pg_temp.keys(app.member_experience(:c_npo)->'access'->'features') = 'darshan,guide,learn,listen,look,niva,puja,timings'
+                      and pg_temp.keys(app.member_experience(:c_fth)->'access'->'features') = 'darshan,guide,learn,listen,look,niva,puja,timings'
+                      and pg_temp.keys(app.member_experience(:c_chr)->'access'->'features') = 'darshan,guide,learn,listen,look,niva,puja,timings'
+                      and pg_temp.keys(app.member_experience(:c_mos)->'access'->'features') = 'darshan,guide,learn,listen,look,niva,puja,timings'
+                      and pg_temp.keys(app.member_experience(:c_swm)->'access'->'features') = 'darshan,guide,learn,listen,look,niva,puja,timings'
+                      and not exists (select 1
+                                        from (values (:c_chm, 'chamber_of_commerce'), (:c_npo, 'nonprofit_secular'), (:c_fth, 'faith_other'), (:c_chr, 'church'),
+                                                     (:c_mos, 'mosque'), (:c_swm, 'swaminarayan_temple'), (:c_jc, 'jain_center')) v(id, cat)
+                                        cross join app.access_features a
+                                       where not app.catalog_shows(a.category_keys, v.cat)
+                                         and (app.member_experience(v.id::uuid)->'access'->'features'->a.key->>'allowed' is distinct from 'false'
+                                              or app.member_experience(v.id::uuid)->'access'->'features'->a.key->>'reason' is distinct from 'module_off')),
+  'C · and the member app''s answer (0860) lists all eight areas for every experience, with the ones the experience does not have as not allowed / module_off');
 select pg_temp.assert(app.can_use_feature(:jsh, 'darshan') and not app.can_use_feature(:c_chm, 'darshan') and not app.can_use_feature(:c_fth, 'darshan')
                       and not app.can_use_feature(:c_chm, 'timings') and app.can_use_feature(:c_chm, 'guide'),
   'C · and an area an experience does not have is closed, not only hidden');
