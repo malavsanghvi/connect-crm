@@ -372,6 +372,11 @@ and guests; it quietly goes back to `off` if the event later becomes one of thos
 - **A contact is matched on digits / lower-case email** (`app.normalize_recipient`: a bare 10-digit number is read as +1, as everywhere else in Weaver). A stored phone is compared on its digits.
 - **Shared addresses.** Mobile carriers and venue Wi-Fi put many people behind one address; 10 lookups and 5 saves an hour per address can then stop a crowd. Those people can sign in. The numbers are one function,
   `app.rsvp_contact_limits()`. Someone can also use up a phone number's 3 lookups an hour (a small denial of service on that one contact; signing in still works).
+- **Caps that do not depend on the address.** The address a request comes from can be forged by a caller who adds their own `x-forwarded-for`, so the per-address limits alone are weak. The counters are
+  therefore also capped in all: 2,000 lookups, 500 saves and 3,000 views / cancels / undos an hour (and 3,000 code tries when the code mode is on), and a contact, an event and a community's daily code texts
+  have their own caps. The address that is counted is `cf-connecting-ip` when the platform sets it (Cloudflare overwrites it, so it cannot be forged), else the first of `x-forwarded-for` as the audit log
+  reads it. **Check on the hosted project that `cf-connecting-ip` reaches the database** (a request to any function with a `cf-connecting-ip` header set by the platform); if it does not, the per-address limits
+  stay as weak as above.
 - **Dates in the email are English** (`Monday, October 19, 2026`, `10:30 AM`); the wording is the community's language when it has written one (the standard text is English).
 
 ### 7.3 Rollback (0822 and 0823)
