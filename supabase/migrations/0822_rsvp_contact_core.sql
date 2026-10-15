@@ -290,7 +290,10 @@ language sql immutable set search_path = app, public, extensions as $$
     'lookup_event_hour', 300,        -- lookups an hour for one event
     'lookup_all_hour', 2000,         -- lookups an hour in all
     'submit_ip_hour', 5,             -- saves an hour from one connection
+    'submit_all_hour', 500,          -- saves an hour in all (so a flood from many addresses cannot grow the counters without end)
     'token_ip_hour', 60,             -- views, cancels and undos an hour from one connection
+    'token_all_hour', 3000,          -- views, cancels and undos an hour in all
+    'verify_all_hour', 3000,         -- design B: code tries an hour in all
     'confirm_address_day', 3,        -- confirmation emails a day to one address
     'code_contact_hour', 3,          -- design B: codes an hour to one contact
     'code_ip_hour', 10,              -- design B: code requests an hour from one connection
@@ -306,11 +309,24 @@ language sql immutable set search_path = app, public, extensions as $$
 $$;
 
 -- The connection, as text; an IPv6 visitor is counted by their /64.
+-- Behind Cloudflare the platform overwrites `cf-connecting-ip` with the real address, which a caller cannot forge; so it comes first. Without it, the
+-- first address of x-forwarded-for as the audit log reads it (a caller who sends their own can change that one, which is why the limits that
+-- do not depend on the address -- per contact, per event, in all -- are the ones that hold).
 create or replace function app._rsvp_contact_ip() returns text
-language sql volatile set search_path = app, public, extensions as $$
-  select coalesce((select case when family(x.i) = 6 then host(network(set_masklen(x.i, 64))) else host(x.i) end
-                     from (select app.caller_ip(null) as i) x where x.i is not null), 'unknown')
-$$;
+language plpgsql volatile set search_path = app, public, extensions as $$
+declare v inet; h jsonb; cf text;
+begin
+  begin
+    h := nullif(current_setting('request.headers', true), '')::jsonb;
+    cf := nullif(btrim(h ->> 'cf-connecting-ip'), '');
+    if cf is not null then v := cf::inet; end if;
+  exception when others then
+    v := null;
+  end;
+  v := coalesce(v, app.caller_ip(null));
+  if v is null then return 'unknown'; end if;
+  return case when family(v) = 6 then host(network(set_masklen(v, 64))) else host(v) end;
+end $$;
 
 -- The pepper for the keyed hashes: a random value made on first use and kept in the Vault.
 create or replace function app._rsvp_contact_pepper() returns text
@@ -622,8 +638,13 @@ language plpgsql security definer set search_path = app, public, extensions as $
 declare v_lim jsonb := app.rsvp_contact_limits(); v_ip_h text; h app.rsvp_contact_handles; v_result text;
 begin
   v_ip_h := app._rsvp_contact_hash(app._rsvp_contact_pepper(), app._rsvp_contact_ip());
-  if app._rsvp_contact_over('token.ip', v_ip_h, interval '1 hour', (v_lim ->> 'token_ip_hour')::int) then return app._rsvp_contact_fail('rate_limited'); end if;
+  if app._rsvp_contact_over('token.ip', v_ip_h, interval '1 hour', (v_lim ->> 'token_ip_hour')::int)
+     or app._rsvp_contact_over('token.all', 'all', interval '1 hour', (v_lim ->> 'token_all_hour')::int) then
+    return app._rsvp_contact_fail('rate_limited');
+  end if;
   perform app._rsvp_contact_hit('token.ip', v_ip_h);
+  perform app._rsvp_contact_hit('token.all', 'all');
+  perform app._rsvp_contact_cleanup();
   if p_handle is null or p_handle !~ '^[A-Za-z0-9_-]{32}$' then return app._rsvp_contact_fail('expired'); end if;
   select * into h from app.rsvp_contact_handles where handle_hash = encode(digest(p_handle, 'sha256'), 'hex');
   if h.id is null or h.rsvp_id is null or h.undo_until is null or h.undo_until <= now() then return app._rsvp_contact_fail('expired'); end if;
@@ -655,8 +676,13 @@ declare
   r app.rsvps; e app.events; v_tz text; v_date date; v_people jsonb; v_over boolean; v_can boolean;
 begin
   v_ip_h := app._rsvp_contact_hash(app._rsvp_contact_pepper(), app._rsvp_contact_ip());
-  if app._rsvp_contact_over('token.ip', v_ip_h, interval '1 hour', (v_lim ->> 'token_ip_hour')::int) then return app._rsvp_contact_fail('rate_limited'); end if;
+  if app._rsvp_contact_over('token.ip', v_ip_h, interval '1 hour', (v_lim ->> 'token_ip_hour')::int)
+     or app._rsvp_contact_over('token.all', 'all', interval '1 hour', (v_lim ->> 'token_all_hour')::int) then
+    return app._rsvp_contact_fail('rate_limited');
+  end if;
   perform app._rsvp_contact_hit('token.ip', v_ip_h);
+  perform app._rsvp_contact_hit('token.all', 'all');
+  perform app._rsvp_contact_cleanup();
   select x.o_rsvp, x.o_via into v_rsvp, v_via from app._rsvp_contact_resolve(p_token) x;
   if v_rsvp is null then return app._rsvp_contact_fail('expired'); end if;
   select * into r from app.rsvps where id = v_rsvp;
@@ -689,8 +715,13 @@ language plpgsql security definer set search_path = app, public, extensions as $
 declare v_lim jsonb := app.rsvp_contact_limits(); v_ip_h text; v_rsvp uuid; v_via text; r app.rsvps; e app.events; v_result text;
 begin
   v_ip_h := app._rsvp_contact_hash(app._rsvp_contact_pepper(), app._rsvp_contact_ip());
-  if app._rsvp_contact_over('token.ip', v_ip_h, interval '1 hour', (v_lim ->> 'token_ip_hour')::int) then return app._rsvp_contact_fail('rate_limited'); end if;
+  if app._rsvp_contact_over('token.ip', v_ip_h, interval '1 hour', (v_lim ->> 'token_ip_hour')::int)
+     or app._rsvp_contact_over('token.all', 'all', interval '1 hour', (v_lim ->> 'token_all_hour')::int) then
+    return app._rsvp_contact_fail('rate_limited');
+  end if;
   perform app._rsvp_contact_hit('token.ip', v_ip_h);
+  perform app._rsvp_contact_hit('token.all', 'all');
+  perform app._rsvp_contact_cleanup();
   select x.o_rsvp, x.o_via into v_rsvp, v_via from app._rsvp_contact_resolve(p_token) x;
   -- Cancelling needs the emailed link (the handle can only undo, within 15 minutes).
   if v_rsvp is null or v_via <> 'link' then return app._rsvp_contact_fail('expired'); end if;

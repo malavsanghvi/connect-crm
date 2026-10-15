@@ -770,6 +770,28 @@ select app.rsvp_contact_undo(:'h_tom') as t3 \gset
 reset role;
 select pg_temp.assert(:'t1'::jsonb ->> 'code' = 'rate_limited' and :'t2'::jsonb ->> 'code' = 'rate_limited' and :'t3'::jsonb ->> 'code' = 'rate_limited',
   'H · viewing, cancelling and undoing: 60 an hour from one connection');
+-- The same, in all: a flood from many addresses is stopped by the caps that do not depend on the address.
+select pg_temp.fresh('198.51.100.20');
+insert into app.rsvp_contact_attempts (kind, subject) select 'submit.all', 'all' from generate_series(1, 500);
+insert into app.rsvp_contact_attempts (kind, subject) select 'token.all', 'all' from generate_series(1, 3000);
+set role anon;
+select app.rsvp_contact_submit(:'h_quota2', '{1}', '{}') as sa1 \gset
+select app.rsvp_contact_view(:'tok_tom') as ta1 \gset
+select app.rsvp_contact_cancel(:'tok_tom') as ta2 \gset
+select app.rsvp_contact_undo(:'h_tom') as ta3 \gset
+reset role;
+select pg_temp.assert(:'sa1'::jsonb ->> 'code' = 'rate_limited' and :'ta1'::jsonb ->> 'code' = 'rate_limited' and :'ta2'::jsonb ->> 'code' = 'rate_limited'
+                      and :'ta3'::jsonb ->> 'code' = 'rate_limited',
+  'H · saving (500 an hour) and viewing, cancelling and undoing (3000 an hour) are also capped in all, whatever address they come from');
+-- Which address is counted: Cloudflare''s, when the platform sets it; otherwise the first of x-forwarded-for; a made-up one is ignored.
+select set_config('request.headers', '{"x-forwarded-for": "9.9.9.9, 10.0.0.1", "cf-connecting-ip": "198.51.100.77"}', true);
+select pg_temp.assert(app._rsvp_contact_ip() = '198.51.100.77', 'H · the platform''s own connecting address comes first');
+select set_config('request.headers', '{"x-forwarded-for": "9.9.9.9, 10.0.0.1", "cf-connecting-ip": "not an address"}', true);
+select pg_temp.assert(app._rsvp_contact_ip() = '9.9.9.9', 'H · a connecting address that is not an address is ignored');
+select set_config('request.headers', '{"x-forwarded-for": "9.9.9.9"}', true);
+select pg_temp.assert(app._rsvp_contact_ip() = '9.9.9.9', 'H · without it, the first address of x-forwarded-for');
+select set_config('request.headers', '', true);
+select pg_temp.assert(app._rsvp_contact_ip() = 'unknown', 'H · and with no header at all, one shared "unknown"');
 -- Confirmation emails: 3 a day to one address.
 select pg_temp.fresh('198.51.100.12');
 insert into app.rsvp_contact_attempts (kind, subject) select 'confirm.address', app._rsvp_contact_hash(app._rsvp_contact_pepper(), 'kim822@family.test') from generate_series(1, 3);

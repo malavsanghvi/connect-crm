@@ -61,10 +61,12 @@ declare
   v_rsvp uuid; v_token text; v_msg uuid; v_mstatus text; v_undo timestamptz;
 begin
   v_ip_h := app._rsvp_contact_hash(v_pepper, app._rsvp_contact_ip());
-  if app._rsvp_contact_over('submit.ip', v_ip_h, interval '1 hour', (v_lim ->> 'submit_ip_hour')::int) then
+  if app._rsvp_contact_over('submit.ip', v_ip_h, interval '1 hour', (v_lim ->> 'submit_ip_hour')::int)
+     or app._rsvp_contact_over('submit.all', 'all', interval '1 hour', (v_lim ->> 'submit_all_hour')::int) then
     return app._rsvp_contact_fail('rate_limited');
   end if;
   perform app._rsvp_contact_hit('submit.ip', v_ip_h);
+  perform app._rsvp_contact_hit('submit.all', 'all');
   perform app._rsvp_contact_cleanup();
 
   -- The ticked people: slots, no repeats, at most 24; "needs help" only for someone ticked.
