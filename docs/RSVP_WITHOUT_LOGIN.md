@@ -1,0 +1,325 @@
+# RSVP without signing in (plan)
+
+**Status: plan only. No feature code and no migration in this change.** Owner request, 2026-10-15, verbatim:
+
+> "Mobile app - RSVP - Allow RSVP using just phone number or email - without logging in. If user has not logged in, show all
+> family members with names not fully visible... show Malav as M**AV, minimum of 50% of characters should be *. Show the phone
+> number and email as well where the confirmation email would be sent."
+
+**The owner must approve this before anything is built.** It adds functions that people without a session can call, and that read
+people and households (section 6).
+
+## 0. The short version
+
+- A visitor on an event types a phone number or an email. If it belongs to an adult on a family record, the app shows the family
+  with **masked names** and the **masked phone and email** the confirmation will go to. The visitor ticks who is coming and
+  confirms. A confirmation goes to the email **on file** (never to anything typed) with a link to see tickets or cancel.
+- The owner's example contradicts the owner's rule: **M\*\*AV hides 2 of 5 characters (40%), not 50%.** Hiding at least half of
+  "Malav" means showing at most 2 letters: **M\*\*\*v** (section 4).
+- Two designs (5.4). **A**: exactly what was asked, the masked family shows right after typing. **B**: the same screens, but the
+  masked family shows only after a 6-digit code sent to that phone or email. **Recommendation: B by default**, A selectable per event.
+- Off by default (a community switch, then a switch per event). Free events only. Never any money.
+- Seven slices in order (6.3). Slice 1 changes who can call what, so the owner's OK is asked in its pull request.
+
+## 1. How RSVP works today
+
+| Topic | Today | Where |
+|---|---|---|
+| Tables | `rsvps` (one per family and event: `household_id`, `status`, `source` = app / guest_web / admin / walk_in / kiosk / import, guest name / phone / email columns); `attendees` (one per person: `person_id`, `is_child_under_12`, `is_senior`, `needs_assistance`, `ticket_token` from a trigger, `lunch_slot_id`); `events` (`status`, `audience`, `capacity`, `waitlist_enabled`, RSVP window, `lunch_*`, `is_paid`, `confidential`) | `0004_events.sql` |
+| Who may RSVP for whom | An adult (18+, or no date of birth) of the household, for that household and its named guests. RLS lets a signed-in adult insert only `source = 'app'`; attendees only before check-in | `0010_rls.sql`, `docs/ROLES.md` |
+| The rules function | `app.submit_rsvp`: event published or live, window open, audience eligibility (life members / Pathshala families / members), at least one person, **one live RSVP per family**, **capacity** (waitlist or "this event is full"), optional pledge | `0018_mobile_gaps.sql`, `0104_module_rpc_guards.sql` line 933 |
+| Cancel and change | `app.cancel_my_rsvp` (releases seats, revokes tickets, optional pledge and credit), `app.raise_rsvp_commitment`; staff: `app.event_set_rsvp_status`, Events › RSVPs tab, add-by-staff, walk-ins, door lookup by phone (masks names for staff) | `0542`, `0543`, `0654`, `src/app/ops/[eventId]/actions.ts` |
+| Lunch and counts | Nothing about lunch is chosen at RSVP. Slots are assigned at **check-in** from each attendee's two flags (set from date of birth on the event date). Seats = attendees on RSVPs not cancelled or waitlisted | `assign_lunch_for_rsvp`, `move_lunch_slot` |
+| Money | Only an optional commitment (a pledge), adults only, needs Giving. `is_paid` and the prices are **settings only**: no ticket payment exists at RSVP | `docs/EVENT_CREATION.md` |
+| Messages | Automatic email `registration_confirmed` (off until a community switches it on) to the household's adults with an email, or `guest_email` when there is no household; "please confirm" push needs a login with a registered phone | `0770`, `0598`, `worker/src/handlers/messaging.compose.ts` |
+
+**In the member app** (connect-mobile, read only for this plan):
+
+- `src/lib/api/events.ts` `saveRsvp` **does not call `submit_rsvp`**: it inserts `rsvps` then `attendees` straight through RLS, and the pledge through the giving API.
+- Event screen `src/app/(app)/event/[id]/index.tsx`: a signed-in adult sees `RsvpForm`. A guest sees (lines 137-148) "Sign in to RSVP for your
+  family." and a Sign in button that remembers the event (`src/features/return-to-event.tsx`) and leaves guest mode.
+- **Guest mode**: Welcome → "Just visiting? Explore as a guest" (`src/app/(auth)/welcome.tsx`, `setGuest(true)`, `src/providers/app.tsx`). A guest is the
+  anon client and reads only events allowed by `events_public_read`: audience `public` or `members_and_guests`, published / rsvp_closed / live, not
+  confidential (0010, 0578). A flyer's QR link `/e/<id>` (`src/app/e/[id].tsx`) puts a signed-out visitor in guest mode on that event. In a demo
+  community a guest looks around read-only and RSVP sends them to sign in (`docs/MEMBER_APP_DEMO.md`).
+- After RSVP: `event/[id]/tickets.tsx` (a QR per person, lunch) and `event/[id]/confirm.tsx`.
+
+**Found while reading, and it shapes the plan:**
+
+1. **The app never checks capacity** (only `submit_rsvp` does, and the app does not call it). A door that cannot trust its client must check it.
+2. **No unique index** stops two live RSVPs for one family and event; code checks it.
+3. `guest_*` columns and `source = 'guest_web'` exist ("Guest page" in the portal) but **nothing writes `guest_web`**. That is for people on no record; this plan is for families on a record (decision 13).
+4. `docs/ACCESS_LEVELS.md` says RSVP "always needs at least a signed-in community member". This plan changes that for events that opt in.
+5. A family RSVP'd this way has no login: no "please confirm" push and no ticket screen. The emailed link stands in for both.
+
+## 2. The proposed flow (member app)
+
+**When the button shows.** A guest on an event sees, under the existing sign-in card, a second button **"RSVP without signing in"** only when the event's
+`contact_rsvp` is `code` or `open` (the event row is already readable by guests), the RSVP window is open, and the event is free. Otherwise the screen is
+exactly today's.
+
+1. **Find your family.** "Enter the mobile number or email address we have for your family. We will show you who is on your family record, with names
+   partly hidden." (Design B: "...We will send a 6-digit code to it.") Tabs "Mobile number" | "Email", one field, **Continue**. Links: "Sign in instead",
+   "New here? Join the community".
+2. **Enter the code (design B).** "If that number is on a family record, we sent a 6-digit code to it. It works for 10 minutes." Send a new code after
+   60 seconds (3 at most). "No code? Check the number, try your email, or sign in." It never says whether the contact exists.
+3. **Who is coming.** The app's existing checkbox rows, all ticked the first time:
+
+   ```
+   [x]  M***v S**h     Adult
+   [x]  P***a S**h     Adult
+   [x]  Child 1        Child · under 12
+   Your confirmation will be sent to   m***@g***.com
+   Phone on file                       +1 *** *** **87
+   Names and numbers are partly hidden on purpose.   Not your family? Go back.
+   [ RSVP for 3 people ]
+   ```
+
+   The optional "Needs help getting around" toggle appears where the event allows it (no free text). If lunch is on: "Lunch is served after the program. Your
+   time is set when you check in." No donation section, no "Add a guest". At zero ticks: "Select at least one person who is coming."
+4. **Saving.** The existing step screen: finding your family, registering 3 people, issuing tickets, sending your confirmation.
+5. **Done.** "You are registered for <event>. We sent a confirmation to m***@g***.com. It has the link to see your tickets, change your plans or cancel."
+   Buttons: **See my tickets**, **Undo this RSVP** (15 minutes), Done.
+6. **Manage** (the emailed link, and "See my tickets"): route `/rsvp/<token>`, outside the route guards like `e/[id]` and `join/[code]`. The event, the people
+   (masked, same rule), status, a QR per person, and **"We can't make it"** (cancel, with "Cancel this RSVP for 3 people?"). Opening it marks the RSVP
+   verified. No "add people" in v1: sign in, or the office.
+
+**Not signed in: what is read, and the next step** (plain English; business outcomes come back as `{ok:false, code}` and the app maps each code to a
+sentence in all three languages; only real faults raise):
+
+| Situation | The person reads | Buttons |
+|---|---|---|
+| Nothing found (A) | "We could not find a family record with that number. Check it, try your email instead, or sign in. If your family is new here, join first." | Try again · Sign in · Join |
+| Number on two families | "That number is on more than one family record, so we cannot tell which is yours. Try your email, sign in, or ask the office." | Sign in |
+| Family already has an RSVP | "Your family already has an RSVP for this event. To change it, use the link in your confirmation email, or sign in." (no names) | Sign in |
+| No email on file, or it cannot be sent to (bounced, opted out, sandbox) | "We found your family, but we could not send a confirmation to the email we have, so we did not save your RSVP. Please sign in or call the office." | Sign in |
+| Demo community | "This is a demo. RSVPs are not saved and nothing is sent." | none |
+| Event full | "<Event> is full." (a no-login RSVP never waitlists in v1) | Back |
+| Too many tries | "Too many tries from this phone. Please wait a few minutes, or sign in." | Sign in |
+| Page waited too long, or a network fault | "This page timed out. Start again." / the app's usual "We couldn't save your RSVP. Check your internet connection and try again." | Start again · Try again |
+
+**People already signed in see no change.** The button renders only when `!member`; `submit_rsvp`, the direct inserts, RLS and the confirm / tickets screens are untouched.
+
+## 3. Backend design
+
+### 3.1 Switches and storage
+
+- **Community master** `centers.rules.rsvp.contact_lookup` = `off` (default) | `code` | `open`: the most open mode any event may use. Settings › Rules › Lunch
+  and RSVP, `settings.manage`. Read only inside the new functions (guests cannot read `rules`, 0817).
+- **Per event** `events.contact_rsvp text not null default 'off'` (`off` | `code` | `open`). A trigger refuses a value above the master, and any value on a
+  paid event, a confidential event, or an audience other than `public` / `members_and_guests`. Changed by `events.manage` or the event's lead.
+- **`app.rsvp_contact_handles`** (new; RLS on, no policy, privileges revoked from anon and authenticated, like the 0770 email tables): household, matched
+  person, recipient person, mode, `members` (ordered person ids; position = the "slot"), `contact_hash`, `handle_hash`, `code_hash`, `code_attempts`,
+  `verified_at`, `rsvp_id`, `used_at`, `expires_at` (30 minutes), `ip_hash`.
+- **`app.rsvp_manage_links`** (new, same locking): `rsvp_id`, `token_hash`, `expires_at` (event end + 2 days), `last_opened_at`, `revoked_at`. Only a SHA-256 of
+  the token is stored, as for staff invitations (0152).
+- **`app.rsvps`**: `source` gains `guest_contact`; new `contact_kind`, `contact_person_id` (staff-only), `contact_verified_at`.
+  **Unverified = `source = 'guest_contact' and contact_verified_at is null`.**
+- **Counters**: `app.public_rate_events` with `app.rate_limited` / `rate_note` (0200); numbers in one function `app.rsvp_contact_limits()` like
+  `demo_signin_limits` (0678). Phone and email hashes are **keyed** (HMAC, pepper in the Vault): a plain SHA-256 of a phone number can be reversed by
+  trying every number. Every function uses `set search_path = app, public, extensions` (CLAUDE.md, 0019).
+
+### 3.2 The functions (anon-callable)
+
+All `security definer`, `revoke ... from public`, `grant execute ... to anon, authenticated, service_role`. They answer `{ok:true, ...}` or
+`{ok:false, code, message}` (the pattern of `worker_demo_begin`, 0679). **No function takes an address to send to.**
+
+| Function | Arguments | Returns |
+|---|---|---|
+| `app.rsvp_contact_lookup` | `p_event`, `p_contact` | **A:** `{step:'choose', handle, expires_in, members:[{slot, label, kind, under_12}], send_to:{email, phone}}` or a code (`not_found`, `ambiguous`, `already_rsvpd`, `no_email`, `full`, `closed`, `rate_limited`, `demo`, `unavailable`). **B:** `{step:'code', handle}` for any well-formed contact, found or not |
+| `app.rsvp_contact_verify` | `p_handle`, `p_code` | B only: the "choose" answer, or `bad_code` (tries left) / `expired` / `locked` |
+| `app.rsvp_contact_submit` | `p_handle`, `p_slots int[]`, `p_assist int[]` | `{status, count, send_to:{email}, undo_until}` or a code (`full`, `expired`, `used`, `already_rsvpd`, `cannot_send`, `rate_limited`) |
+| `app.rsvp_contact_undo` | `p_handle` | cancels the RSVP made with that handle, within 15 minutes |
+| `app.rsvp_contact_view` / `_cancel` | `p_token` | view: event, masked people with slots, ticket QR tokens, status (marks verified); cancel: release seats, revoke tickets |
+| `app.rsvp_contact_verify_staff` | `p_rsvp` | `events.manage` or the event's lead: mark verified, with a reason, audited |
+
+Helpers (not granted to callers): `app.mask_name`, `app.mask_email`, `app.mask_phone` (section 4), `app._rsvp_contact_find`.
+
+### 3.3 From a lookup to an opaque handle
+
+1. **Gate.** The event exists, is published or live, audience `public` / `members_and_guests`, not confidential, free, window open; `app.community_open` (0817);
+   Events module on; the event's mode is not above the master; not a demo community.
+2. **Limits** (5.2) before any work.
+3. **Find.** Normalise (email lower-case; phone with `app.normalize_recipient('sms', ...)`, 0161). Match `people.phone_e164`, `people.email` or `person_emails.email` of
+   **adults only** (`not app.person_is_minor`), not deceased, not merged, current household members. A child's phone never opens a family. Zero families =
+   `not_found`; two or more = `ambiguous` and nothing is chosen for the visitor.
+4. **Handle.** 24 random bytes (`extensions.gen_random_bytes`), base64url; only its SHA-256 is stored. The row freezes the household, the ordered members and the
+   address the confirmation will use. The visitor gets the handle and **slots (1, 2, 3), never a person, household, RSVP or attendee id.** Single use, one event, 30 minutes.
+5. **Submit.** Looks the handle up by hash, re-checks step 1, locks the event row (`for update`), counts seats, then writes. A slot not in the handle, a used or expired handle,
+   or another event's handle is refused.
+6. **Cleanup.** The next lookup deletes expired handles (100 at a time), and the existing 5-minute notices sweep gets one added call.
+
+### 3.4 What an RSVP made this way stores
+
+- `rsvps`: `source = 'guest_contact'`, `household_id` = the matched household, **`submitted_by_person_id` null** (nobody signed in), `contact_person_id`, `contact_verified_at` null
+  (set when the code was passed in B, when the emailed link is opened, or by staff), `commitment_mode = 'none'`, no pledge, status `rsvpd`.
+- `attendees`: the household member, the real name (staff see it), the two flags **worked out by the database** from date of birth on the event date, `needs_assistance` from the
+  toggle, no free text. Tickets from the existing trigger.
+- **Quota:** unverified contact RSVPs hold at most 25% of `capacity` (40 seats if there is no capacity); verified ones stop counting.
+- **Audit:** `app.set_audit_context('RSVP made without signing in; the contact typed matched a family record')` and an `rsvp.contact_submitted` entry. No phone or email in the audit
+  log or the handle table.
+- **Staff see it:** Events › RSVPs: badge "Without signing in · unverified", a filter, **Mark verified**, Cancel; the Family page's Events tab label
+  (`src/lib/people-v2/family-events.ts`). Door check-in is unchanged (QR, or `checkin_lookup_phone`).
+
+### 3.5 Where the confirmation goes
+
+- **To one address, chosen inside the database**: the matched person's email on file, else the primary adult's. What the visitor typed is only used to find the family.
+- **By the existing path:** `rsvp_contact_submit` calls `app.enqueue_notice` (0598) in the same transaction: email, template `rsvp_contact_confirmation`, purpose `notification`,
+  topic `events`. The manage token is passed as `token`, which `enqueue_notice` already keeps in the Vault and masks in the queue; `messaging.send` sends it. The email has the
+  event, date, place, the number of people (no names) and the link.
+- **The link**: the worker only knows the portal's address (`%PORTAL_URL%`). The slice adds a `%MEMBER_APP_URL%` mark in `worker/src/messaging.ts` (the member web app's
+  address, repository variable `MEMBER_APP_URL`, which flyer QR codes already use; the worker needs it in its environment).
+- **No RSVP without a confirmation.** If `enqueue_notice` refuses (no email, suppressed after a bounce, opted out, sandbox recipient rule) the transaction rolls back and the
+  visitor reads the sentence in section 2. The sender already refuses demo communities.
+- **No second email**: `rsvps_registered_email` (0770) is redefined to skip `guest_contact`.
+- **Codes (B)**: template `rsvp_contact_code`, purpose `verification_code`, sent only to a contact on file: by email, or by text where texting is set up for the community
+  (otherwise a phone is not accepted in B and the screen says to use the email). 6 digits, 10 minutes.
+
+### 3.6 Tests
+
+**Database** (`supabase/tests/<n>_rsvp_contact_test.sql`, run as `anon`, in the style of test 95):
+
+- masks match the section 4 table and, over generated strings, hide at least half of every word;
+- anon can call the functions but cannot select the new tables, `rsvps`, `attendees`, `people` or `households`;
+- **no leak**: each function's output as text holds none of the real names, full email or full phone, and no uuid of a person, household, RSVP or attendee;
+- every miss (a child's phone, deceased, merged, left) gives the same `not_found`; two households give `ambiguous` and no members;
+- submit writes what 3.4 says and refuses a foreign slot and a reused, expired or other-event handle; the rules (closed, not open, draft, paid, audience, confidential,
+  switches, demo, suspended community, full by exactly one, a second RSVP for the family, the 25% quota);
+- confirmation: one message, `to_address` is the stored email even when a phone was typed; no email, suppressed or opted out leaves **no RSVP**; the token is in the
+  Vault and not in `messages.payload`;
+- manage: view marks verified, cancel releases seats and revokes tickets, wrong / expired / revoked tokens answer alike;
+- design B: same answer found or not, code only to a contact on file, 5 wrong tries lock, expiry; each limit answers `rate_limited`, not an error;
+- staff permissions; **signed-in paths unchanged** (tests 01, 45, 106).
+
+**Unit.** connect-crm (vitest): `tests/mask.test.ts` runs the TypeScript reference rule against the same table; the portal switch validation; a worker test for the `%MEMBER_APP_URL%`
+mark. connect-mobile: a pure state machine from each `code` to a screen and a sentence (every code has a sentence in en / gu / hi; the existing i18n test keeps the languages equal),
+the phone / email validity check, and that the app only displays strings the database returned (it never masks anything itself).
+
+### 3.7 Migrations
+
+The highest merged migration is **0817**. **The builder must pick the next free numbers above 0820** after listing `supabase/migrations` and the open pull requests
+(`gh pr list`), one migration per slice, never editing an applied one. After each: `supabase/tests/run_local.sh`, regenerate `src/lib/database.types.ts`
+(`node supabase/scripts/gen-types.mjs`) and copy it to connect-admin and connect-mobile.
+
+## 4. The masking rule
+
+**The owner's example does not meet the owner's rule.** "M**AV" shows 3 of 5 characters, so 40% are stars. At least 50% stars on 5 characters needs at least 3 stars, so at
+most 2 letters can show. Proposed rule:
+
+- A **unit** is one visible character: a letter or digit with its combining marks (text is normalised first, so accents and Indic vowel signs are never split from their letter).
+- A **word** is a run of units between separators (space, hyphen, apostrophe, period, comma). Separators show as they are and are not counted.
+- For **n units**: n = 1 shows `*`; n = 2 or 3 shows the first unit then stars; **n >= 4 shows the first and the last unit** and stars between. Visible units never exceed
+  floor(n/2), so at least half of every word, and so of the whole name, is hidden. Stars keep the word's length (as the example does). Case is kept: `M***v`, not `M***V`.
+- **Adults**: first name (preferred name if set) and last name, each masked. **Children**: "Child 1", "Child 2" (oldest first) with an "under 12" tag when it applies, **no letters of the
+  name and no age** (decision 5). A **single-member household is shown** like any other. Deceased, merged and past members are left out.
+- **Email**: the local part shows its first character then `***` (just `***` if it has one character); each domain label except the last shows its first character then `***`; the last
+  label stays. **Phone** (E.164): `+1` and the last 2 digits for a US or Canada number, otherwise `+` and the last 2 digits. Fixed `***` does not reveal an email's length.
+
+| Input | Shown | | Input | Shown |
+|---|---|---|---|---|
+| Malav | `M***v` (3 of 5 hidden; `M**AV` hides 2) | | José | `J**é` |
+| Al, Jo | `A*`, `J*` | | Zoë | `Z**` |
+| A | `*` | | 李伟, 王小明 | `李*`, `王**` |
+| Raj | `R**` | | محمد | `م**د` |
+| Anil | `A**l` | | माला, માલવ | `मा*`, `મા**` |
+| Priya Shah | `P***a S**h` | | name@gmail.com | `n***@g***.com` |
+| Mary Ann | `M**y A**` | | a@gmail.com | `***@g***.com` |
+| Jean-Luc | `J**n-L**` | | malav.sanghavi@mail.company.co.uk | `m***@m***.c***.c***.uk` |
+| O'Brien | `*'B***n` | | +1 (312) 555-0187 | `+1 *** *** **87` |
+| J. R. R. | `*. *. *.` | | +442071234567 | `+**********67` |
+
+**Where it lives.** The real work is in the database, because the real value must never reach the phone: `app.mask_name`, `app.mask_email`, `app.mask_phone` (immutable, read no
+table). A pure TypeScript reference (`src/lib/mask.ts`, `Intl.Segmenter` for units) has the same signatures and is tested against the same table, so a change to the rule changes both.
+
+## 5. Threat model
+
+### 5.1 Risks and mitigations
+
+| Risk | What could happen | Mitigation | Left over |
+|---|---|---|---|
+| Who is a member | Anyone types numbers or emails and learns which are on a record | A: cannot be hidden, it is the feature; limits. B: lookup answers alike found or not; a code goes only to a contact on file | A leaks membership to anyone who guesses a number |
+| Names and contacts from masked output | The masked output shows a family's shape | At most 2 letters per word; children by number, no letters, no age; fixed email stars; last 2 phone digits | A: head count, name lengths and ends, first letter of email and domain, last 2 digits, whether a child is under 12. B: the same, to someone holding the contact |
+| Filling capacity, or RSVP for someone else | A bot or person RSVPs families who did not ask | One live RSVP per family and event; unverified quota 25%; the real owner gets the email with a one-tap cancel; staff see "unverified" and can cancel in bulk; free events; B needs the contact | In A, someone with a real number can RSVP that family once |
+| Bots | Many lookups or submits | Keyed counters (5.2); single-use short handle; event row locked while counting; no free text; request size limits | No CAPTCHA in the system. The IP comes from request headers whose first value can be forged, so **the per-IP limit alone is weak**; the per-contact, per-event and global limits are the real brakes |
+| Children's data | A child's name or age shown to a stranger | Never by name; only an adult's contact opens a family; flags set by the database; no pledge, no free text | The count of children and "under 12" |
+| Timing and response differences | Different answers or speeds tell found from not found | B: same shape and same work (always hash, always write a handle, code queued not sent inline), one `not_found` for every miss | A shows it by design |
+| Logs and PII | Contacts end up in logs | Contacts only as keyed hashes; never in error text, audit text or handle rows; handles purged; the builder checks the hosted project's log settings for request bodies | The gateway may keep request metadata |
+| Email abuse | We email a family that did not ask | One confirmation per RSVP; one RSVP per family and event; 3 emails a day per address; codes only to contacts on file; the email says how to cancel | One unwanted email per event |
+| Text cost (B) | Code texts to numbers an attacker controls | Only numbers already on file; 3 an hour per number; a daily cap per community | A cost the community carries |
+| Leaked link | A forwarded email lets someone open the RSVP | Ends 2 days after the event; view and cancel only; masked names | Whoever holds the email can cancel |
+
+### 5.2 Limits (starting numbers, one function)
+
+Lookups: 10 an hour per IP (a miss counts double), 3 an hour per contact, 300 an hour per event, 2,000 an hour in all. Code requests: 3 an hour per contact; 5 wrong codes lock that contact for
+15 minutes. Submits: 5 an hour per IP. A visitor's own limit is checked **before** any global lock (as 0679 does). Every limit answers `rate_limited` with a sentence.
+
+### 5.3 Switch, and paid events
+
+Off by default in both places. The master is set by `settings.manage`; an event by `events.manage` or its lead, never above the master. **Free events only**: a paid seat needs to know who
+is paying, and today there is no ticket payment at RSVP at all. Nobody can make a pledge this way.
+
+### 5.4 Design A or design B
+
+| | **A: as asked** | **B: masked family after a code** |
+|---|---|---|
+| Steps | contact, tick, confirm | contact, code, tick, confirm |
+| A stranger with only a phone or email learns | whether it is on a record, and the masked family | nothing, unless they hold that contact |
+| Spam and capacity filling | once per family with a real number | needs the contact; quota as a second guard |
+| Cost | none | an email or text per attempt, only to contacts on file |
+| Needs working | email | email, and text for phones |
+| Extra work | none | code fields, two messages, one screen, tests |
+
+B is close to signing in, so why not sign in? The handle belongs to one event, lasts 30 minutes, creates no account and no session on the phone, skips family matching, onboarding and the legal
+steps, and shows only masked names. **Recommendation: B by default, with A (`open`) selectable per event only when the community's master allows it,** and the portal saying plainly what A shows to
+anyone who types a number. The functions are written once around the handle, so this is a setting, not two builds.
+
+## 6. Permissions, decisions and slices
+
+### 6.1 What this touches (the owner approves before any build)
+
+No existing RLS policy is loosened. The new functions run as the table owner for anonymous callers, so they bypass RLS by design and are protected only by their own checks. The change:
+**people without a session can now cause writes to `rsvps` and `attendees`, and read a masked view of people and households.**
+
+| Object | By the new functions | Change |
+|---|---|---|
+| `app.events`, `app.centers` (`rules`) | read | `contact_rsvp` column + trigger; rule `rsvp.contact_lookup` |
+| `app.people`, `household_members`, `households`, `person_emails` | read (find, mask) | none |
+| `app.rsvps`, `app.attendees` | insert, update status | new columns, `source` value `guest_contact`; no policy changed |
+| `app.rsvp_contact_handles`, `app.rsvp_manage_links`, `app.public_rate_events` | read / write | two new locked tables |
+| `app.messages`, `jobs`, `message_templates`, Vault (through `app.enqueue_notice`), `audit_log` | write | two new templates |
+| Functions | 7 new anon-callable, 3 mask helpers | `rsvps_registered_email` skips the new source |
+| Outside the database | worker `messaging.ts`; portal Settings › Rules and event builder; member app screens | |
+
+Documents to update when built: `docs/ROLES.md`, `docs/ACCESS_LEVELS.md` (the RSVP line), `docs/ARCHITECTURE.md` (RPC list), `docs/SETTINGS_RULES.md`, `docs/HANDOVER_RECEIPT.md`.
+
+### 6.2 Decisions for the owner (each with my recommendation)
+
+1. **Design.** A (as asked), B (code first), or both selectable? *B by default, A selectable per event behind the community master.*
+2. **Switches.** Community master and per-event switch, both off by default; master by `settings.manage`, event by `events.manage` or its lead. *Yes.*
+3. **Scope.** Free events only, audience `public` or `members_and_guests`, never a donation or pledge. *Yes.*
+4. **Masking.** Replace "M**AV" with "first and last letter at most, at least half hidden" (`M***v`); `n***@g***.com`; last 2 phone digits. *Yes.*
+5. **Children and one-person families.** Children as "Child 1, Child 2" with "under 12", no name letters, no age; single-member households shown. *Yes.*
+6. **No full name without a session.** The manage page, the email and every anonymous answer show masked names or counts only. *Yes.*
+7. **The household card.** The founder rule says a household is never confirmed by name alone and shows its `household_card`; an anonymous screen cannot show its numbers, zone, gifts or
+   balance. This flow confirms by an exact contact match and shows masked members; staff always see the full card. *Approve the exception.*
+8. **Who can open a family.** Only an adult's phone or email, only one household; a child's number or a number on two households is refused. *Yes.*
+9. **No email, no RSVP.** If no email is on file, or the confirmation cannot be queued, nothing is saved. *Yes.*
+10. **Unverified RSVPs.** Quota 25% of capacity; verified by the emailed link or by staff; no automatic release. Alternative: release after 48 hours. *As stated.*
+11. **Limits and text cost.** The numbers in 5.2 and a daily text cap per community. *As stated; changeable later in one place.*
+12. **Where the manage page lives.** The member app (`/rsvp/<token>`, needs `%MEMBER_APP_URL%` in the worker) or a public portal page. *The app.*
+13. **Left out of v1.** Naming extra guests, waitlisting, adding people later, and people on no record (the `guest_web` columns would serve a later plan). *Leave out.*
+14. **Approve the permission change** in 6.1 and the documents it updates. *Required before slice 1 merges.*
+
+### 6.3 Slices, in build order
+
+| # | Slice | Contents | Size |
+|---|---|---|---|
+| 1 | **Database** (owner's OK in its PR) | mask functions, `contact_rsvp` + master rule + trigger, two tables, `rsvps` columns, limits, lookup / submit / undo / view / cancel in mode `open`, database tests | large |
+| 2 | **Messaging** | templates `rsvp_contact_confirmation` and `rsvp_contact_code`, `%MEMBER_APP_URL%` mark, skip in `rsvps_registered_email`, worker and database tests | medium |
+| 3 | **Code mode (B)** | verify function, attempts and lockout, email and text codes, tests | medium |
+| 4 | **Portal** | Settings › Rules master switch, event builder switch with a plain explanation, RSVPs tab badge / filter / Mark verified, Family page label | medium |
+| 5 | **App screens** | find, code, who is coming, saving, done, state machine, en / gu / hi strings, tests; types copied to connect-admin and connect-mobile | large |
+| 6 | **Manage page** | `/rsvp/<token>` with tickets and cancel | medium |
+| 7 | **Hardening and docs** | abuse tests, the log-settings check, document updates | small |
+
+Slices 1 to 3 are one backend track; 4 and 5 can then run in parallel; 6 follows 5. Each is its own pull request with App checks green (and Database tests where `supabase/**` changes).
