@@ -58,7 +58,7 @@ select app.demo_id(:'fc', 'ev:dinner') as ev_din, app.demo_id(:'fc', 'class:l2')
 
 -- ══ A. Who is who ═══════════════════════════════════════════════════════════
 select pg_temp.assert(app.module_enabled(:'fc', 'pathshala') and app.module_enabled(:'fc', 'store') and not app.module_enabled(:'fc', 'bolis'),
-  'A · the faith community has its religious school and its store (the pack asks Weaver''s grant for them) and no Bolis (a Faith community has none)');
+  'A · the faith community has its Learning Center and its store (the pack asks Weaver''s grant for them) and no Bolis (a Faith community has none)');
 select pg_temp.assert((:'setup'::jsonb ->> 'created')::int = 46 and jsonb_array_length(:'setup'::jsonb -> 'refused') = 0,
   'A · every demo person (25 of the faith community and 21 of the other) got a sign-in');
 select pg_temp.assert((select count(*) = 25 from app.demo_personas p join app.demo_auth_users a on a.email = p.email where p.center_id = :'fc')
@@ -206,7 +206,7 @@ select v.role_key, v.what, v.door, format(v.q, :'fc', :'ev_din', :'cls_l2', :'zo
    $q$select count(*) from app.volunteer_assignments where status = 'assigned'$q$, 1),
   ('child', 'events to see', 'none',
    $q$select count(*) from app.events where center_id = %1$L and status = 'published' and starts_at > now()$q$, 2),
-  ('child', 'a religious school registration for her level, waiting to be placed', 'none',
+  ('child', 'a Learning Center registration for her level, waiting to be placed', 'none',
    $q$select count(*) from app.pathshala_enrollments where center_id = %1$L and status = 'requested'$q$, 1),
   ('child', 'a notice to read', 'none',
    $q$select count(*) from app.alerts where center_id = %1$L and starts_at <= now() and (ends_at is null or ends_at > now())$q$, 1)
@@ -352,7 +352,7 @@ select pg_temp.run_work('F');
 select pg_temp.as_none();
 
 -- ══ G. The other demo community (a club that is not faith-based, 21 roles) has the same ══════════════════
--- The questions are the faith community's, minus what a club does not have (the religious school). Its event is the spring clean-up day, five days away.
+-- The questions are the faith community's, minus what a club does not have (the Learning Center). Its event is the spring clean-up day, five days away.
 -- A community that is not faith-based has the Store module off until Weaver's team grants it (0594: default_off; 0740: a grant). The club's shop is in
 -- the pack, but nobody can see it, and so its store lead, pickup volunteer and kitchen lead have nothing, until the module is granted to the club demo
 -- (Platform > Centers > the club demo > Modules). The grant is kept across resets (a clear leaves center_module_grants alone), so it is one step

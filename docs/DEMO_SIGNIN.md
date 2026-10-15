@@ -122,7 +122,7 @@ covered is listed in [MEMBER_APP_DEMO.md](MEMBER_APP_DEMO.md). Test: `supabase/t
 
 Owner decision, 2026-10-15: *"make everything in the Demo app neutral."* "Sunrise Worship Center (Demo)" was built as a Jain Center (the greeting "Jai Jinendra",
 a "Jain Way" tab, a derasar, bolis, tapasvis, Pathshala classes). It is now a **Faith community**, the platform's own neutral faith experience (category
-`faith_other`: the greeting is *Welcome*, the practice tab is *Learn*, the school is a *Learning Center*, the place is a *place of worship*), and nothing a
+`faith_other`: the greeting is *Welcome*, the fourth tab and the school are both the *Learning Center*, the place is a *place of worship*), and nothing a
 visitor reads names one tradition.
 
 - **The pack** (`demo_faith_jain_v1`, version 4, migration 0820; the key keeps its old name because it is an internal identifier no screen shows and the demo
@@ -133,8 +133,9 @@ visitor reads names one tradition.
 - **No bolis, so no boli recorder.** A Faith community does not have the Bolis module (nor My Jain Way or Labh), and the boli recorder role is not part of that
   kind (`app.roles.category_keys`, 0600). Sarla Kataria, who held it, is still a person of the pack (the Kataria household, the dinner's food shift) but has no
   demo sign-in any more: **25 demo people**, one for each role the kind has. The public list (the six featured people) is unchanged.
-- **The Learning Center.** In a Faith community the school (the Pathshala module) is called "Learning Center": the category's school term and its module
-  label are set to it (0820). That is a **platform-wide word for the Faith community category**: there is no per-community override of a kind's words. The
+- **The Learning Center.** In a Faith community the school (the Pathshala module) and the fourth tab ("Jain Way" in a Jain Center, "Learn" in the generic
+  faith community) are both called "Learning Center": the category's `school` and `practice_tab` terms and the module label are set to it (0820), and the
+  member app and the portal read them from the category profile. That is a **platform-wide word for the Faith community category**: there is no per-community override of a kind's words. The
   category is inactive, so only sandboxes can use it (the faith demo is the one that does), Jain Center keeps "Pathshala", and Church, Mosque and
   Swaminarayan Temple, which started from it, keep the words they were given.
 - **Two children for the family of the community member.** The Patni household (Tarun, the main adult, and Nisha) has two plain-named children, Dev (9) and

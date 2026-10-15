@@ -133,10 +133,18 @@ select pg_temp.assert((select c.category_key = 'faith_other' and c.tradition::te
                               and c.rules->>'demo_pack' = 'demo_faith_jain_v1' and c.rules->>'demo_kind' = 'faith'
                          from app.centers c where c.id = :'fc'),
   'B · the faith demo is a sandbox flagged as a demo, in the Faith community category (it keeps no tradition), made from the same pack');
-select pg_temp.assert((select k.terms->>'greeting' = 'Welcome' and k.terms->>'practice_tab' = 'Learn' and k.terms->>'school' = 'Learning Center'
+select pg_temp.assert((select k.terms->>'greeting' = 'Welcome' and k.terms->>'practice_tab' = 'Learning Center' and k.terms->>'school' = 'Learning Center'
                               and k.terms->>'place' = 'place of worship' and k.terms->>'store' = 'Store' and k.terms->>'learning' = 'Learning path'
                          from app.centers c join app.organization_categories k on k.key = c.category_key where c.id = :'fc'),
-  'B · so its words are the platform''s neutral ones: Welcome, Learn, Learning Center, place of worship, Store');
+  'B · so its words are the platform''s neutral ones: Welcome, a Learning Center for the fourth tab and for the school, place of worship, Store');
+-- What the apps read: the category profile and the member experience of the demo community (a platform admin opens it).
+select pg_temp.claims(:admin, false);
+select pg_temp.assert((app.category_profile(:'fc') #>> '{category,terms,practice_tab}') = 'Learning Center' and (app.category_profile(:'fc') #>> '{category,terms,school}') = 'Learning Center'
+                      and (app.category_profile(:'fc') #>> '{category,terms,greeting}') = 'Welcome' and (app.category_profile(:'fc') #>> '{modules,pathshala,label}') = 'Learning Center'
+                      and (app.member_experience(:'fc') #>> '{experience,terms,practice_tab}') = 'Learning Center' and (app.member_experience(:'fc') #>> '{experience,terms,school}') = 'Learning Center'
+                      and (app.member_experience(:'fc') #>> '{modules,pathshala,label}') = 'Learning Center',
+  'B · the demo''s category profile reads Learning Center for the fourth tab (practice_tab) and for the school, and the Pathshala module is named so: that is what the member app and the portal show');
+select pg_temp.no_claims();
 select pg_temp.assert(app.module_enabled(:'fc', 'pathshala') and app.module_enabled(:'fc', 'store') and app.module_enabled(:'fc', 'gyan_path') and app.module_enabled(:'fc', 'niva')
                       and (select count(*) = 4 from app.center_module_grants g where g.center_id = :'fc' and g.module_key in ('pathshala', 'store', 'gyan_path', 'niva')
                                 and g.granted and g.granted_by is null and g.reason like 'Demo community:%'),
@@ -172,7 +180,7 @@ select pg_temp.assert((select count(*) = 22 and sum(amount_cents) = 1050200 from
 
 -- The school is a "Learning Center" in a Faith community, a word of that category (platform-wide for it: there is no per-community override of a
 -- kind's words). Jain Center keeps Pathshala; the experiences that started from the faith community keep the words they were given.
-select pg_temp.assert((select terms->>'school' = 'Pathshala' from app.organization_categories where key = 'jain_center')
+select pg_temp.assert((select terms->>'school' = 'Pathshala' and terms->>'practice_tab' = 'Jain Way' from app.organization_categories where key = 'jain_center')
                       and (select label is null from app.category_modules where category_key = 'jain_center' and module_key = 'pathshala')
                       and (select terms->>'school' = 'Sunday school' from app.organization_categories where key = 'church')
                       and (select terms->>'school' = 'Religious school' from app.organization_categories where key = 'swaminarayan_temple')

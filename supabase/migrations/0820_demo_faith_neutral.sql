@@ -2,7 +2,7 @@
 --
 -- "Sunrise Worship Center (Demo)" was built as a Jain Center: the member app greeted "Jai Jinendra", showed a "Jain Way" tab, a derasar,
 -- bolis, tapasvis, Pathshala classes and mithai in the store. It now uses the platform's own neutral faith experience, the category
--- faith_other ("Faith community": the greeting is Welcome, the practice tab is Learn, the school is a Learning Center, the place is a
+-- faith_other ("Faith community": the greeting is Welcome, the practice tab and the school are the Learning Center, the place is a
 -- place of worship), and nothing a visitor reads names one tradition.
 --
 -- Five parts, in one transaction:
@@ -19,8 +19,8 @@
 --      fund) are unchanged. The key demo_faith_jain_v1 is KEPT: it is an internal identifier no screen shows, the demo community points
 --      at it (rules.demo_pack, center_demo_state.pack_key) and so do the tests, and renaming it would mean rewriting the live row's
 --      rules and leaving a dead pack behind, for no change a visitor could see.
---   1b. The school's name. In a Faith community the Pathshala module is called "Learning Center" (owner, 2026-10-15): the category's school term
---      and its module label are set to it. THIS IS A PLATFORM-WIDE WORD FOR THE FAITH COMMUNITY CATEGORY (there is no per-community override of a
+--   1b. The school's name and the fourth tab's. In a Faith community the Pathshala module is called "Learning Center" and so is the tab a Jain
+--      Center calls "Jain Way" (owner, 2026-10-15): the category's school and practice_tab terms and the module label are set to it. THIS IS A PLATFORM-WIDE WORD FOR THE FAITH COMMUNITY CATEGORY (there is no per-community override of a
 --      kind's words): the category is inactive, so only sandboxes can use it (the faith demo is the one that does); Jain Center keeps
 --      "Pathshala", and Church, Mosque and Swaminarayan Temple, which started from it, keep the words they were given.
 --   2. app.demo_align_center(center): brings a demo community in line with its pack's `center` spec without clearing anything: the
@@ -177,12 +177,13 @@ insert into app.demo_packs (key, version, title, description, contents, active, 
 on conflict (key) do update set version = excluded.version, title = excluded.title, description = excluded.description,
   contents = excluded.contents, active = excluded.active, content = excluded.content;
 
--- ── 1b. The school is a "Learning Center" in a Faith community ──────────────────────────────────────────────────────────────────
--- The category's own word for the school (the member app and the portal read terms.school and the module label) and the module's name in
--- the navigation. A platform-wide word for the category (see the header); nothing else about any category changes.
+-- ── 1b. The school and the practice tab are "Learning Center" in a Faith community ──────────────────────────────────────────────────────────────────
+-- The category's own words for the school (terms.school and the module label the portal navigation shows) and for the fourth tab, which a
+-- Jain Center calls "Jain Way" and a Faith community called "Learn" (terms.practice_tab): both are "Learning Center" (owner, 2026-10-15). The
+-- apps read these from the category profile. Platform-wide words for the category (see the header); nothing else about any category changes.
 update app.organization_categories
-   set terms = jsonb_set(terms, '{school}', to_jsonb('Learning Center'::text))
- where key = 'faith_other' and terms ->> 'school' is distinct from 'Learning Center';
+   set terms = terms || jsonb_build_object('school', 'Learning Center', 'practice_tab', 'Learning Center')
+ where key = 'faith_other' and (terms ->> 'school' is distinct from 'Learning Center' or terms ->> 'practice_tab' is distinct from 'Learning Center');
 update app.category_modules set label = 'Learning Center'
  where category_key = 'faith_other' and module_key = 'pathshala' and label is distinct from 'Learning Center';
 

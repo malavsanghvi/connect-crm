@@ -59,7 +59,7 @@ export type DemoKind = "faith" | "neutral";
 export const DEMO_KINDS: readonly DemoKind[] = ["faith", "neutral"];
 export const KIND_LABEL: Record<DemoKind, string> = { faith: "Faith-based", neutral: "Not faith-based" };
 export const KIND_BLURB: Record<DemoKind, string> = {
-  faith: "A house of worship, not any one faith, with a religious school, pledges, events and its store.",
+  faith: "A house of worship, not any one faith, with a Learning Center, pledges, events and its store.",
   neutral: "A neighbourhood club with events, giving, a directory and notices.",
 };
 

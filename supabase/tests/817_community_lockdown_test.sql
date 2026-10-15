@@ -355,7 +355,7 @@ select pg_temp.assert((select count(*) = 1 from app.centers where id = :'fc817':
 select pg_temp.assert_raises(format('select rules from app.centers where id = %L', :'fc817'), 'permission denied', 'J · but not its rules');
 select pg_temp.assert_raises(format('select * from app.centers where id = %L', :'fc817'), 'permission denied', 'J · nor the whole row');
 select pg_temp.assert((select jsonb_typeof(app.feature_access_for_me(:'fc817'::uuid)) = 'object') and (select app.member_experience(:'fc817'::uuid) is not null)
-                      and (select app.category_profile(:'fc817'::uuid) ? 'category') and app.can_use_feature(:'fc817'::uuid, 'timings'),
+                      and (select app.category_profile(:'fc817'::uuid) ? 'category') and app.can_use_feature(:'fc817'::uuid, 'guide'),
   'J · its areas, experience and profile answer (no "not found")');
 select pg_temp.assert((select count(*) = :n_events from app.events where center_id = :'fc817'::uuid)
                       and (select count(*) = :n_store from app.store_items where center_id = :'fc817'::uuid)
@@ -416,7 +416,7 @@ select pg_temp.assert((select count(*) = 0 from app.events where center_id = :'f
   'J · nor read its events, store items or guide pages');
 select pg_temp.assert_raises(format('select app.feature_access_for_me(%L::uuid)', :'fc817'), 'not found', 'J · its areas are "not found"');
 select pg_temp.assert_raises(format('select app.member_experience(%L::uuid)', :'fc817'), 'not found', 'J · and so is its experience');
-select pg_temp.assert(not app.can_use_feature(:'fc817'::uuid, 'timings'), 'J · and no area of it can be used');
+select pg_temp.assert(not app.can_use_feature(:'fc817'::uuid, 'guide'), 'J · and no area of it can be used');
 select pg_temp.assert((select count(*) = 1 from app.community_public('pub817')) and (select count(*) = :n_jsh_events from app.events where center_id = :jsh)
                       and not (app.demo_choices() -> 'enabled')::boolean,
   'J · the live communities are untouched, and the list says the demo is off');

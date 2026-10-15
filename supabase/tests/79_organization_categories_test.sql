@@ -147,10 +147,10 @@ select pg_temp.assert((select terms->>'greeting' = 'Jai Jinendra' and terms->>'p
                                   and jsonb_typeof(terms->'practice_tab') = 'null' and jsonb_typeof(terms->'school') = 'null'
                                   and terms->>'assistant_context' = 'a chamber of commerce'
                            from app.organization_categories where key = 'chamber_of_commerce')
-                      and (select terms->>'practice_tab' = 'Learn' and terms->>'school' = 'Learning Center' and terms->>'learning' = 'Learning path'
+                      and (select terms->>'practice_tab' = 'Learning Center' and terms->>'school' = 'Learning Center' and terms->>'learning' = 'Learning path'
                                   and terms->>'place' = 'place of worship'
                            from app.organization_categories where key = 'faith_other'),
-  'A · the named words: Jain Center keeps today''s words, a chamber says Welcome / Pay / My business, faith-based says Learn');
+  'A · the named words: Jain Center keeps today''s words, a chamber says Welcome / Pay / My business, faith-based says Learning Center (0820)');
 select pg_temp.assert_raises($$insert into app.organization_categories (key, label, faith_based, terms) values ('bad_one', 'Bad', false, '{"greeting":"Hi"}')$$,
   'organization_categories_terms_ok', 'A · terms with missing keys are refused');
 select pg_temp.assert_raises($$insert into app.organization_categories (key, label, faith_based, terms) values ('bad_two', 'Bad', false,
