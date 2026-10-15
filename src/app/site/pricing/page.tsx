@@ -5,13 +5,11 @@ import { Icon } from "@/components/brand/icons";
 import { TipCheckoutMock } from "@/components/site/mockups";
 import { Eyebrow, FaqList, SectionHeading, SiteLink, Ticks, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS } from "@/components/site/weavers";
-import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
-
-const CAP = usd(TIP_YEARLY_CAP_CENTS);
+import { SITE_NAME, portalUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: { absolute: `Pricing: totally free, forever · ${SITE_NAME}` },
-  description: `${SITE_NAME} is free for your organization, forever: no subscription, no setup fee, no per-member charge. Members may add a small optional Chip In, capped at ${CAP} a year per account.`,
+  description: `${SITE_NAME} is free for your organization, forever: no subscription, no setup fee, no per-member charge. Members will be able to add an optional Chip In, with a yearly limit on each account.`,
   alternates: { canonical: "/pricing" },
   openGraph: { url: "/pricing" },
 };
@@ -116,12 +114,14 @@ function Step({ n, title, body }: { n: string; title: string; body: ReactNode })
   );
 }
 
-const EXAMPLE: { what: string; cents: number; tip: number; total: number }[] = [
-  { what: "Family membership for the year", cents: 15_000, tip: 500, total: 500 },
-  { what: "Event tickets", cents: 6_000, tip: 300, total: 800 },
-  { what: "Pledge payment", cents: 50_100, tip: 1_000, total: 1_800 },
-  { what: "Donation", cents: 25_000, tip: 700, total: TIP_YEARLY_CAP_CENTS },
-  { what: "Any payment after that, this year", cents: 10_000, tip: 0, total: TIP_YEARLY_CAP_CENTS },
+/**
+ * The three things that can happen at checkout. No amounts on purpose: the yearly limit is a per-organization setting (owner
+ * decision 2026-10-15), so the page states no number, and in every case the organization pays us nothing.
+ */
+const CHECKOUT_CASES: { when: string; pays: string; you: string }[] = [
+  { when: "Leaves “No Chip In” selected", pays: "Exactly what you charged", you: "Nothing" },
+  { when: "Adds a Chip In", pays: "What you charged, plus their Chip In", you: "Nothing: the Chip In is added on top" },
+  { when: "Has reached their yearly limit", pays: "Exactly what you charged; we do not ask", you: "Nothing" },
 ];
 
 function HowWeStayFree() {
@@ -131,7 +131,7 @@ function HowWeStayFree() {
         <SectionHeading
           eyebrow="How we stay free"
           title="We run on the generosity of your members"
-          lead={`${SITE_NAME} is free for your organization because the people it serves chip in. When a member pays dues, buys a ticket or gives, we suggest a small optional Chip In to help keep the platform free and the experience great. That is the whole model.`}
+          lead={`${SITE_NAME} is free for your organization because the people it serves can chip in. When a member pays dues, buys a ticket or gives, we will offer an optional Chip In to help keep the platform free and the experience great. That is the whole model.`}
         />
 
         <ol className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -139,7 +139,7 @@ function HowWeStayFree() {
           <Step
             n="2"
             title="They see an optional Chip In"
-            body="A small suggested Chip In appears at checkout. They can change it or skip it in one tap. Paying never requires a Chip In."
+            body="Suggested amounts will appear at checkout. “No Chip In” is selected unless the member picks an amount, and going back to it is one tap. Paying never requires a Chip In."
           />
           <Step
             n="3"
@@ -152,17 +152,17 @@ function HowWeStayFree() {
           <div className="flex flex-col items-start gap-6">
             <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-brown">Our promise to your members</span>
             <h3 className="font-display text-[32px] font-semibold leading-[1.1] tracking-[-0.01em] text-navy sm:text-[42px]">
-              Never more than {CAP} a year, per account
+              Always optional, with a yearly limit on every account
             </h3>
             <p className="text-[17px] leading-relaxed text-muted">
-              We cap Chip Ins at {CAP} per account per year, in total across every transaction. Once an account reaches {CAP}, we stop asking until the next year. A member who gives all year long is never asked for more, and your organization never has to pay.
+              Every account has a yearly limit on Chip Ins, counted per calendar year across every transaction and set separately for each organization. Once an account reaches it, we stop asking until the next year. A member who gives all year long is never asked for more, and your organization never has to pay.
             </p>
             <Ticks
               items={[
                 "Always optional: one tap on “No Chip In” and they pay exactly what you charged",
-                `Capped at ${CAP} per account per year, however often they pay`,
+                "A yearly limit on every account, however often they pay",
                 "Added on top of the amount you set, never taken out of it",
-                "We take no percentage of what your members pay you",
+                "Your organization never pays us, and we take no percentage of what your members pay you",
               ]}
             />
           </div>
@@ -170,28 +170,28 @@ function HowWeStayFree() {
         </div>
 
         <div className="mx-auto w-full max-w-[860px]">
-          <h3 className="text-center font-display text-[26px] font-semibold text-navy">What the cap looks like over a year</h3>
-          <p className="mt-2 text-center text-[15px] text-muted">An example for one account. The amounts are illustrative.</p>
+          <h3 className="text-center font-display text-[26px] font-semibold text-navy">What happens at checkout</h3>
+          <p className="mt-2 text-center text-[15px] text-muted">Three cases. Whatever a member chooses, the price your organization set does not change.</p>
           <div className="mt-6 overflow-x-auto rounded-window border border-line bg-white">
             <table className="w-full min-w-[560px] border-collapse text-left text-[15px]">
-              <caption className="sr-only">Example of one account&apos;s optional Chip Ins over a year, ending at the {CAP} cap</caption>
+              <caption className="sr-only">What a member pays, and what your organization pays us, in each of the three cases at checkout</caption>
               <thead>
                 <tr className="bg-canvas text-[12px] font-bold uppercase tracking-wide text-muted">
-                  <th scope="col" className="px-5 py-3">Payment</th>
-                  <th scope="col" className="px-5 py-3 text-right">Amount</th>
-                  <th scope="col" className="px-5 py-3 text-right">Optional Chip In</th>
-                  <th scope="col" className="px-5 py-3 text-right">Chip Ins so far</th>
+                  <th scope="col" className="px-5 py-3">When a member</th>
+                  <th scope="col" className="px-5 py-3">They pay</th>
+                  <th scope="col" className="px-5 py-3">Your organization pays us</th>
                 </tr>
               </thead>
               <tbody>
-                {EXAMPLE.map((row) => (
-                  <tr key={row.what} className="border-t border-line-soft">
-                    <th scope="row" className="px-5 py-3.5 font-semibold text-ink">{row.what}</th>
-                    <td className="px-5 py-3.5 text-right tabular-nums text-ink-2">{usd(row.cents)}</td>
-                    <td className="px-5 py-3.5 text-right font-bold tabular-nums text-navy">{row.tip === 0 ? "None asked" : usd(row.tip)}</td>
-                    <td className="px-5 py-3.5 text-right tabular-nums text-ink-2">
-                      {usd(row.total)} of {CAP}
-                      {row.total === TIP_YEARLY_CAP_CENTS ? <span className="ml-2 rounded-lg bg-success-50 px-2 py-0.5 text-[11px] font-bold uppercase text-success-900">Cap reached</span> : null}
+                {CHECKOUT_CASES.map((row) => (
+                  <tr key={row.when} className="border-t border-line-soft">
+                    <th scope="row" className="px-5 py-3.5 font-semibold text-ink">{row.when}</th>
+                    <td className="px-5 py-3.5 text-ink-2">{row.pays}</td>
+                    <td className="px-5 py-3.5 font-bold text-success-900">
+                      <span className="inline-flex items-center gap-2">
+                        <Icon name="check" className="h-4 w-4 flex-none" strokeWidth={3} />
+                        {row.you}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -257,15 +257,15 @@ function Faq() {
           items={[
             {
               q: "Is it really free? What is the catch?",
-              a: `There is no catch. Your organization never pays us. ${SITE_NAME} is supported by small, optional Chip Ins from members, capped at ${CAP} a year per account.`,
+              a: `There is no catch. Your organization never pays us. ${SITE_NAME} is supported by optional Chip Ins that members will be able to add, with a yearly limit on each account.`,
             },
             {
               q: "What if a member does not want to Chip In?",
-              a: "They choose “No Chip In” and pay exactly what you charged. Their payment is not slower, and nothing about their membership changes.",
+              a: "“No Chip In” is selected unless they pick an amount, so they pay exactly what you charged. Their payment is not slower, and nothing about their membership changes.",
             },
             {
-              q: `Why is there a ${CAP} cap?`,
-              a: "We never want generosity to feel like a bill. The cap guarantees that no account is asked for more than the limit in a year, however many times it pays.",
+              q: "Why is there a yearly limit?",
+              a: "We never want generosity to feel like a bill. Each account has a limit on Chip Ins, counted per calendar year across every payment and set separately for each organization. Once an account reaches it, we stop asking until the next year, however many times it pays. Until a limit is set for an organization, its members are not asked for a Chip In at all.",
             },
             {
               q: "Do you take a percentage of payments?",

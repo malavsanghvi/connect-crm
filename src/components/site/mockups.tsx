@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 import { Icon, type IconName } from "@/components/brand/icons";
-import { TIP_YEARLY_CAP_CENTS, usd } from "@/lib/site";
 
 // Illustrative screens drawn in HTML and CSS (no screenshots, no real people). Every figure and name here is sample data.
 
@@ -284,9 +283,12 @@ export function FloatChip({ icon, tone, title, body, className = "", delay = "0s
   );
 }
 
-/** The optional Chip In at checkout, with the yearly cap. A sketch of the promise on the pricing page, not a screenshot. */
+/**
+ * The optional Chip In at checkout. A sketch of the promise on the pricing page, not a screenshot. It shows no yearly limit and
+ * no running total: the limit is a per-organization setting that is not built yet, so the mock states no number for it.
+ * Nothing is pre-selected: "No Chip In" is the default (owner 2026-10-15, docs/PAYMENT_ADDONS.md decision 3).
+ */
 export function TipCheckoutMock({ className = "" }: { className?: string }) {
-  const cap = usd(TIP_YEARLY_CAP_CENTS);
   return (
     <div className={`overflow-hidden rounded-card border border-line bg-white shadow-window ${className}`}>
       <div className="border-b border-line-soft bg-ground px-5 py-4">
@@ -303,9 +305,9 @@ export function TipCheckoutMock({ className = "" }: { className?: string }) {
         </div>
         <div className="grid grid-cols-4 gap-2" role="presentation">
           {[
-            { label: "No Chip In", on: false },
+            { label: "No Chip In", on: true },
             { label: "$2", on: false },
-            { label: "$5", on: true },
+            { label: "$5", on: false },
             { label: "$10", on: false },
           ].map(({ label, on }) => (
             <span
@@ -313,22 +315,17 @@ export function TipCheckoutMock({ className = "" }: { className?: string }) {
               className={`flex min-h-[44px] items-center justify-center rounded-xl border-2 text-[14px] font-bold ${on ? "border-navy bg-navy text-white" : "border-line-input bg-white text-navy"}`}
             >
               {label}
+              {on ? <span className="sr-only"> (selected)</span> : null}
             </span>
           ))}
         </div>
         <div className="rounded-xl bg-saffron-50 p-3.5">
-          <div className="flex items-center justify-between text-[12px] font-bold text-brown">
-            <span>Your Chip Ins this year</span>
-            <span>$15 of {cap}</span>
-          </div>
-          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white">
-            <div className="h-full w-[60%] rounded-full bg-saffron" />
-          </div>
-          <p className="mt-2 text-[12px] leading-snug text-brown">We never ask for more than {cap} a year from one account, across every payment.</p>
+          <p className="text-[12px] font-bold text-brown">Nothing is added unless you pick an amount</p>
+          <p className="mt-1 text-[12px] leading-snug text-brown">A Chip In goes on top, and the price your community set does not change. Each account has a yearly limit, and once it is reached we stop asking.</p>
         </div>
         <div className="flex items-center justify-between border-t border-line-soft pt-4">
           <span className="text-[14px] font-bold text-ink">Total today</span>
-          <span className="font-display text-[22px] font-semibold text-navy">$155.00</span>
+          <span className="font-display text-[22px] font-semibold text-navy">$150.00</span>
         </div>
       </div>
     </div>

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { PUBLIC_PATHS, isPublicPath } from "@/lib/supabase/proxy";
 import { WEAVERS, WEAVER_NAMES } from "@/components/site/weavers";
-import { DEFAULT_SITE_DOMAIN, SITE_NOT_FOUND_HTML, SITE_PAGES, TIP_YEARLY_CAP_CENTS, isPublicSiteHost, portalUrl, publicSiteDomain, siteOrigin, siteRoute, usd } from "@/lib/site";
+import * as siteModule from "@/lib/site";
+import { DEFAULT_SITE_DOMAIN, SITE_NOT_FOUND_HTML, SITE_PAGES, isPublicSiteHost, portalUrl, publicSiteDomain, siteOrigin, siteRoute, usd } from "@/lib/site";
 import { normalizeSiteDomain, siteRewrites } from "@/lib/site-hosts";
 
 import nextConfig from "../next.config";
@@ -11,10 +12,8 @@ const www = "www.weaverams.org";
 const base = { domain: "weaverams.org", https: true } as const;
 
 describe("the Chip In promise", () => {
-  it("is $25 a year, held as integer cents", () => {
-    expect(TIP_YEARLY_CAP_CENTS).toBe(2500);
-    expect(Number.isInteger(TIP_YEARLY_CAP_CENTS)).toBe(true);
-    expect(usd(TIP_YEARLY_CAP_CENTS)).toBe("$25");
+  it("has no fixed dollar limit in code: the yearly limit is a per-organization setting (owner 2026-10-15; the pages are guarded in site-chip-in.test.ts)", () => {
+    expect(Object.keys(siteModule).filter((name) => /CAP_CENTS|TIP_|CHIP_IN|YEARLY/i.test(name))).toEqual([]);
   });
   it("usd shows whole dollars bare and cents with two digits", () => {
     expect(usd(15_000)).toBe("$150");

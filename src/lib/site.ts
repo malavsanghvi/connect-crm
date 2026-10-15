@@ -1,4 +1,4 @@
-// The public website (www.weaverams.org): its name, the Chip In promise, and which
+// The public website (www.weaverams.org): its name and tagline, and which
 // requests belong to it. Pure functions only; src/proxy.ts applies the routing and
 // tests/site.test.ts covers it.
 //
@@ -21,13 +21,12 @@ export const SITE_TAGLINE = "Do more good. Weaver handles the operations. For fr
 export const SITE_DESCRIPTION =
   "Weaver takes members, giving, events, classes and the books off your volunteers' plates. AI does the busywork. People make the final decisions. Free for your organization, with no lock-in.";
 
-/**
- * The optional Chip In: the most one account is ever asked to add, in total across every transaction in
- * a year (owner decision 2026-10-07). Integer cents like every amount; format only at the edge.
- */
-export const TIP_YEARLY_CAP_CENTS = 2_500;
+// The optional Chip In has NO fixed dollar limit in code or on the website (owner decision 2026-10-15, docs/DECISIONS.md).
+// The yearly limit per account is a per-organization setting, counted per calendar year and changed only by a platform admin
+// (not built yet: docs/BACKLOG.md B51). Until a platform admin sets it for an organization, no Chip In is asked of that
+// organization's members. Do not add a constant for it here: the website states no number.
 
-/** Whole dollars for headlines ("$25"); amounts with cents keep both digits ("$7.50"). */
+/** Whole dollars for headlines ("$150"); amounts with cents keep both digits ("$7.50"). */
 export function usd(cents: number): string {
   const whole = Math.trunc(cents / 100);
   const rest = Math.abs(cents % 100);
