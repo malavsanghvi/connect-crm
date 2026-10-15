@@ -318,7 +318,8 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
   and `store_items` carry `section` (`food` or `market`, default `food`); every row that existed is in **Food**, the portal's Menu &
   pickup and Inventory pages show Food as the section, and the Community Market (module `market`, 0830, a Marketplace product off until
   Weaver grants it; below) appears as a second tab only while it is on and holds something. Store › Community Market (`/store/market`)
-  is its page. Its rows are these same tables with `section = 'market'`; the plan for what comes next is
+  is its page. Its rows are these same tables with `section = 'market'`; in slice 1 they are shown read-only in the member app and are not orderable
+  (the app enforces it, no database rule does; whether they may be ordered is an open owner question, `STORE_SECTIONS.md` section 8); the plan for what comes next is
   [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md).
 - **Permissions (0830):** market.view, market.manage, market.moderate (the role `market_lead`); `store.manage` also runs the market's listings.
 - **Switching off:** items, orders and inventory are hidden and read-only.
