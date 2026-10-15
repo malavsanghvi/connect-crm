@@ -6,9 +6,9 @@
 // The password never leaves the server; a failure at any step ends in a plain sentence next to what the visitor did, and the real
 // reason is logged.
 
-import { failure, type ActionResult } from "@/lib/errors";
+import { failure } from "@/lib/errors";
 
-import { isDemoEmail, isUuid, parseBegin, refusalMessage, sessionIdFromAccessToken } from "./rules";
+import { failCodeFor, isDemoEmail, isUuid, parseBegin, refusalMessage, sessionIdFromAccessToken, type StartFailCode } from "./rules";
 
 export type StartDeps = {
   /** A hash of the visitor's address (never the address itself). */
@@ -27,29 +27,39 @@ export type StartDeps = {
 
 const DOING = "Could not start the demo";
 
+/**
+ * What a start comes to. A failure always carries a plain sentence (`error`) and, for a caller that is not the portal's own page (the
+ * member app), a `code` it can tell apart. A success says where the demo community is, when the session ends, and who the visitor is.
+ */
+export type StartResult =
+  | { ok: true; error?: undefined; data: { centerSlug: string; expiresAt: string; role: string; name: string } }
+  | { ok: false; error: string; code: StartFailCode };
+
+const failed = (error: string, code: StartFailCode = "failed"): StartResult => ({ ok: false, error, code });
+
 export async function startDemoSession(
   input: { personaId: unknown; ip: string | null },
   deps: StartDeps,
-): Promise<ActionResult<{ centerSlug: string; expiresAt: string }>> {
-  if (!isUuid(input.personaId)) return { ok: false, error: `${DOING} — choose a person to explore as first.` };
+): Promise<StartResult> {
+  if (!isUuid(input.personaId)) return failed(`${DOING} — choose a person to explore as first.`, "unknown_person");
   const persona = input.personaId.toLowerCase();
 
   let raw: unknown;
   try {
     raw = await deps.begin(persona, deps.hashIp(input.ip));
   } catch (error) {
-    return failure(DOING, error);
+    return failed(failure(DOING, error).error);
   }
   const begin = parseBegin(raw);
   if (!begin) {
     console.error("[demo] the database answered with something unreadable (its keys):", raw && typeof raw === "object" ? Object.keys(raw) : typeof raw);
-    return { ok: false, error: `${DOING} — the server gave an answer we could not read. Please try again in a minute.` };
+    return failed(`${DOING} — the server gave an answer we could not read. Please try again in a minute.`);
   }
-  if (!begin.ok) return { ok: false, error: `${DOING} — ${refusalMessage(begin.code)}` };
+  if (!begin.ok) return failed(`${DOING} — ${refusalMessage(begin.code)}`, failCodeFor(begin.code));
   // The database only ever hands over a demo person's sign-in. Refuse anything else here too, whatever the answer says.
   if (!isDemoEmail(begin.email)) {
     console.error("[demo] the database named a sign-in that is not on the demo domain; nothing was signed in");
-    return { ok: false, error: `${DOING} — that is not a demo person, so nothing was signed in.` };
+    return failed(`${DOING} — that is not a demo person, so nothing was signed in.`);
   }
 
   try {
@@ -66,7 +76,7 @@ export async function startDemoSession(
   }
   if (!signed.ok) {
     console.error("[demo] the demo sign-in did not work:", signed.detail);
-    return { ok: false, error: `${DOING} — the demo sign-in did not work. Please try again in a minute. If it keeps happening, tell the Weaver team.` };
+    return failed(`${DOING} — the demo sign-in did not work. Please try again in a minute. If it keeps happening, tell the Weaver team.`);
   }
 
   const authSessionId = sessionIdFromAccessToken(signed.accessToken);
@@ -84,7 +94,7 @@ export async function startDemoSession(
     } catch (error) {
       console.error("[demo] could not sign the unrecorded session out:", error);
     }
-    return { ok: false, error: `${DOING} — the session could not be recorded. Nothing was started. Please try again.` };
+    return failed(`${DOING} — the session could not be recorded. Nothing was started. Please try again.`);
   }
-  return { ok: true, data: { centerSlug: begin.centerSlug, expiresAt: begin.expiresAt } };
+  return { ok: true, data: { centerSlug: begin.centerSlug, expiresAt: begin.expiresAt, role: begin.role, name: begin.name } };
 }

@@ -14,6 +14,7 @@ import {
   parseBanner,
   parseBegin,
   parseChoices,
+  peopleByArea,
   refusalMessage,
   sessionIdFromAccessToken,
   timeLeftText,
@@ -72,19 +73,21 @@ describe("the reserved demo address", () => {
 });
 
 describe("the list of demo people (app.demo_choices)", () => {
-  const person = (id: string, role: string, name: string, story = "A sentence.") => ({ id, role, name, story });
+  const person = (id: string, role: string, name: string, story = "A sentence.", area = "operations") => ({ id, role, name, story, area });
+  const CID = "9a1b2c3d-0e1f-4a2b-8c3d-4e5f6a7b8c01";
 
   it("reads both communities, faith-based first, with their people", () => {
     const c = parseChoices({
       enabled: true,
       communities: [
-        { kind: "neutral", name: "Lakeside Neighbors Club (Demo)", people: [person(ID2, "Treasurer", "Tara Test")] },
-        { kind: "faith", name: "Sunrise Jain Temple (Demo)", people: [person(ID1, "Administrator", "Asha Test")] },
+        { kind: "neutral", name: "Lakeside Neighbors Club (Demo)", id: CID, slug: "lakeside-demo", people: [person(ID2, "Treasurer", "Tara Test")] },
+        { kind: "faith", name: "Sunrise Jain Temple (Demo)", id: CID, slug: "sunrise-demo", people: [person(ID1, "Administrator", "Asha Test")] },
       ],
     });
     expect(c.enabled).toBe(true);
     expect(c.communities.map((x) => x.kind)).toEqual(["faith", "neutral"]);
-    expect(c.communities[0]!.people[0]).toEqual({ id: ID1, role: "Administrator", name: "Asha Test", story: "A sentence." });
+    expect(c.communities[0]!.people[0]).toEqual({ id: ID1, role: "Administrator", name: "Asha Test", story: "A sentence.", area: "operations" });
+    expect(c.communities[0]).toMatchObject({ id: CID, slug: "sunrise-demo" });
   });
 
   it("is off unless the database says true, and never invents anything", () => {
@@ -98,8 +101,8 @@ describe("the list of demo people (app.demo_choices)", () => {
       enabled: true,
       communities: [
         { kind: "chamber", name: "x", people: [person(ID1, "Administrator", "Asha")] },
-        { kind: "faith", name: "F", people: [person("nope", "Administrator", "Asha"), person(ID2, "", "Nobody"), person(ID2, "Member", "Mira")] },
-        { kind: "neutral", name: "N", people: [] },
+        { kind: "faith", name: "F", id: CID, slug: "f", people: [person("nope", "Administrator", "Asha"), person(ID2, "", "Nobody"), person(ID2, "Member", "Mira")] },
+        { kind: "neutral", name: "N", id: CID, slug: "n", people: [] },
         "garbage",
       ],
     });
@@ -110,9 +113,49 @@ describe("the list of demo people (app.demo_choices)", () => {
   it("does not pass an e-mail address along even if one were sent", () => {
     const c = parseChoices({
       enabled: true,
-      communities: [{ kind: "faith", name: "F", people: [{ ...person(ID1, "Administrator", "Asha"), email: "asha@demo.weaverams.org" }] }],
+      communities: [{ kind: "faith", name: "F", id: CID, slug: "f", people: [{ ...person(ID1, "Administrator", "Asha"), email: "asha@demo.weaverams.org" }] }],
     });
     expect(JSON.stringify(c)).not.toContain("weaverams.org");
+  });
+
+  it("reads each person's area (operations or community) and leaves out a person whose area is missing or unknown", () => {
+    const c = parseChoices({
+      enabled: true,
+      communities: [
+        { kind: "faith", name: "F", id: CID, slug: "f", people: [
+          person(ID1, "Treasurer", "Tara", "x", "operations"),
+          person(ID2, "Community member · Adult", "Tarun", "x", "community"),
+          person("5b3f1c7e-0d0c-4a8e-9a55-0f1d2c3b4a53", "Teacher", "Tess", "x", "staff"),
+          { id: "5b3f1c7e-0d0c-4a8e-9a55-0f1d2c3b4a54", role: "Event lead", name: "Eve", story: "x" },
+        ] },
+      ],
+    });
+    expect(c.communities[0]!.people.map((p) => [p.name, p.area])).toEqual([["Tara", "operations"], ["Tarun", "community"]]);
+  });
+
+  it("keeps a community's public id and slug, and leaves out one that has neither", () => {
+    const c = parseChoices({
+      enabled: true,
+      communities: [
+        { kind: "faith", name: "F", id: CID, slug: "sunrise-demo", people: [person(ID1, "Treasurer", "Tara")] },
+        { kind: "neutral", name: "N", people: [person(ID2, "Treasurer", "Tara")] },
+        { kind: "neutral", name: "N", id: "not-an-id", slug: "n", people: [person(ID2, "Treasurer", "Tara")] },
+        { kind: "neutral", name: "N", id: CID, slug: "", people: [person(ID2, "Treasurer", "Tara")] },
+      ],
+    });
+    expect(c.communities).toHaveLength(1);
+    expect(c.communities[0]).toMatchObject({ kind: "faith", id: CID, slug: "sunrise-demo" });
+  });
+
+  it("arranges a community's people in the two areas, operations first, the database's order kept, an empty area left out", () => {
+    const mk = (id: string, name: string, area: "operations" | "community") => ({ id, role: "R", name, story: "s", area });
+    const groups = peopleByArea({ people: [mk(ID1, "A", "community"), mk(ID2, "B", "operations"), mk(ID1, "C", "operations")] });
+    expect(groups.map((g) => [g.area, g.label, g.people.map((p) => p.name)])).toEqual([
+      ["operations", "Non-profit operational roles", ["B", "C"]],
+      ["community", "Community roles", ["A"]],
+    ]);
+    expect(peopleByArea({ people: [mk(ID1, "A", "community")] }).map((g) => g.area)).toEqual(["community"]);
+    expect(peopleByArea({ people: [] })).toEqual([]);
   });
 });
 

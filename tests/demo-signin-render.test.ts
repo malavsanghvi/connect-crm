@@ -27,16 +27,20 @@ const choices = parseChoices({
     {
       kind: "faith",
       name: "Sunrise Jain Temple (Demo)",
+      id: "9a1b2c3d-0e1f-4a2b-8c3d-4e5f6a7b8c01",
+      slug: "sunrise-demo",
       people: [
-        { id: P(1), role: "Administrator", name: "Asha Test", story: "Runs the temple's office and sees everything." },
-        { id: P(2), role: "Treasurer", name: "Tara Test", story: "Records payments and closes the month." },
-        { id: P(3), role: "Member", name: "Mira Test", story: "Gives, registers for events and reads notices." },
+        { id: P(1), role: "Administrator", name: "Asha Test", story: "Runs the temple's office and sees everything.", area: "operations" },
+        { id: P(2), role: "Treasurer", name: "Tara Test", story: "Records payments and closes the month.", area: "operations" },
+        { id: P(3), role: "Community member · Adult", name: "Mira Test", story: "Gives, registers for events and reads notices.", area: "community" },
       ],
     },
     {
       kind: "neutral",
       name: "Lakeside Neighbors Club (Demo)",
-      people: [{ id: P(4), role: "Event lead", name: "Eli Test", story: "Plans the summer picnic." }],
+      id: "9a1b2c3d-0e1f-4a2b-8c3d-4e5f6a7b8c02",
+      slug: "lakeside-demo",
+      people: [{ id: P(4), role: "Event lead", name: "Eli Test", story: "Plans the summer picnic.", area: "operations" }],
     },
   ],
 });
@@ -81,13 +85,54 @@ describe("the demo page", () => {
     expect(html).toContain("Not faith-based");
     expect(html).toContain("Sunrise Jain Temple (Demo)");
     expect(html).toContain("Lakeside Neighbors Club (Demo)");
-    for (const role of ["Administrator", "Treasurer", "Member"]) expect(html).toContain(role);
+    for (const role of ["Administrator", "Treasurer", "Community member · Adult"]) expect(html).toContain(role);
     expect(html).toContain("Runs the temple&#x27;s office and sees everything.");
     expect(html.match(/data-testid="demo-person"/g)).toHaveLength(3);
     expect(html.match(/>Start</g)).toHaveLength(3);
     expect(html).not.toContain("Eli Test");
     expect(html).toContain('aria-current="true"');
     expect(html).toContain('href="/demo?kind=neutral"');
+  });
+
+  it("arranges the chosen community's people in two areas, operational roles first, each under a plain heading", async () => {
+    const html = await page();
+    expect(html).toContain("Non-profit operational roles");
+    expect(html).toContain("Community roles");
+    expect(html.indexOf("Non-profit operational roles")).toBeLessThan(html.indexOf("Community roles"));
+    const ops = html.slice(html.indexOf('data-testid="demo-area-operations"'), html.indexOf('data-testid="demo-area-community"'));
+    const community = html.slice(html.indexOf('data-testid="demo-area-community"'));
+    // The cards sit under their own heading, in the database's order, with the same card (role, name, sentence, Start).
+    expect(ops.match(/data-testid="demo-person"/g)).toHaveLength(2);
+    expect(ops.indexOf("Asha Test")).toBeLessThan(ops.indexOf("Tara Test"));
+    expect(ops).not.toContain("Mira Test");
+    expect(community.match(/data-testid="demo-person"/g)).toHaveLength(1);
+    expect(community).toContain("Mira Test");
+    expect(community).toContain("Community member · Adult");
+    expect(community).toContain("Gives, registers for events and reads notices.");
+    expect(html.match(/<h3[^>]*>/g)).toHaveLength(2);
+    expect(html).toContain('aria-labelledby="demo-area-operations"');
+    expect(html).toContain('aria-labelledby="demo-area-community"');
+  });
+
+  it("shows only the area a community has people in", async () => {
+    const html = await page({ kind: "neutral" });
+    expect(html).toContain("Non-profit operational roles");
+    expect(html).not.toContain("Community roles");
+    expect(html.match(/<h3[^>]*>/g)).toHaveLength(1);
+  });
+
+  it("leaves out a person whose area the database did not give, rather than guessing", () => {
+    const c = parseChoices({
+      enabled: true,
+      communities: [
+        { kind: "faith", name: "F", id: "9a1b2c3d-0e1f-4a2b-8c3d-4e5f6a7b8c01", slug: "f", people: [
+          { id: P(1), role: "Treasurer", name: "Tara", story: "x" },
+          { id: P(2), role: "Teacher", name: "Tess", story: "x", area: "elsewhere" },
+          { id: P(3), role: "Event lead", name: "Eve", story: "x", area: "operations" },
+        ] },
+      ],
+    });
+    expect(c.communities[0]!.people.map((p) => p.name)).toEqual(["Eve"]);
   });
 
   it("shows the other community's people when it is chosen", async () => {
@@ -106,7 +151,7 @@ describe("the demo page", () => {
   it("sends the chosen person's id, never an address", async () => {
     const html = await page();
     expect(html).toContain(`name="persona" value="${P(1)}"`);
-    expect(html).not.toContain("weaverams.org");
+    expect(html).not.toContain("demo.weaverams.org");
     expect(html).not.toContain("@");
   });
 
