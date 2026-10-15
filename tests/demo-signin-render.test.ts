@@ -88,7 +88,9 @@ describe("the demo page", () => {
     for (const role of ["Administrator", "Treasurer", "Community member · Adult"]) expect(html).toContain(role);
     expect(html).toContain("Runs the temple&#x27;s office and sees everything.");
     expect(html.match(/data-testid="demo-person"/g)).toHaveLength(3);
-    expect(html.match(/>Start</g)).toHaveLength(3);
+    // Two portal roles start here; the community role opens the member app instead (tests/demo-app-direct-start.test.ts).
+    expect(html.match(/>Start</g)).toHaveLength(2);
+    expect(html.match(/>Open the member app</g)).toHaveLength(1);
     expect(html).not.toContain("Eli Test");
     expect(html).toContain('aria-current="true"');
     expect(html).toContain('href="/demo?kind=neutral"');

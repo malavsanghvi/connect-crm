@@ -15,6 +15,47 @@ The portal gives the app two endpoints. They say what the portal's `/demo` page 
 4. Choosing one → `POST /api/demo/session` → the app stores the returned session like a normal sign-in → a signed-in demo for two hours.
 5. **Leave the demo** (`rpc demo_leave`) or **Switch role** (`rpc demo_leave`, back to step 3).
 
+That is the long way round, for a visitor who opened the app's own "Try the demo". A visitor who comes from the portal's `/demo` page or from the
+website takes the one-step path below instead.
+
+## The one-step path: straight to a family's Home (owner decision 2026-10-15)
+
+The owner asked for the Community member button in the demo to "directly drop the user on the demo mobile app's home page, ... as if they have
+logged in", with a family as the setup. So the portal and the website do not start anything for these people: they link to the member app, and the
+app does steps 1 to 4 above by itself.
+
+| Link | What the app does |
+| --- | --- |
+| `https://app.weaverams.org/demo?persona=<persona id>` | Starts the demo as **exactly that person** (`POST /api/demo/session` with the id) and lands on their signed-in Home. The id is one the `/demo` page already uses, the `id` of a person in `GET /api/demo/choices`. |
+| `https://app.weaverams.org/demo?as=family` | Starts as the **community-area** person of the first demo community (`area: "community"` in the list; the faith-based one comes first), landing on the signed-in family Home. Add `&community=<slug>` (the community's `slug` from the list) to pick a demo community. |
+
+The address is the member app's own: `memberAppUrl()` in `src/lib/site.ts` (`NEXT_PUBLIC_MEMBER_APP_URL`, default `https://app.<domain>`), so the
+links follow a deployment that serves the app elsewhere. The helpers are `memberAppDemoPersonUrl(personaId)` and `memberAppDemoFamilyUrl(community?)`,
+next to `memberAppDemoUrl()`; the persona id is URL-encoded, so nothing but an id can ride in the address.
+
+**Where the links are**
+
+- **The portal's `/demo` page.** The people of the **community area** (`MEMBER_APP_AREA`, `src/lib/demo-signin/rules.ts`; today the family's main adult,
+  "Community member · Adult") have a card with an **Open the member app** link, in place of **Start**, marked "Quickest way in: opens the member app".
+  The link opens in the same tab. It is a plain link, so it starts no portal session and signs the visitor out of nothing (the portal's note that
+  starting the demo signs you out applies to the non-profit operational roles only, and the page says so). Every other role is unchanged: **Start**
+  posts to the portal and lands on the portal's Home. Which people open the app is not a second list of roles: it is the `community` area of
+  `app.demo_featured_roles()`, and `tests/demo-app-direct-start.test.ts` checks that area against the role catalog (the family roles, which hold no
+  permission and so are the ones whose Home says "Your work is in the member app").
+- **The website's Experience band** (`src/components/site/experience-band.tsx`): the quiet link under "Start the demo" reads "Or step into the member app
+  as a family" and opens `<member app>/demo?as=family`. The band's promises hold for it too: invented people, nothing real is ever sent, payments
+  are only for practice, and the demo starts over every night.
+- The header sentence of `/demo` ("Try the member app in your browser") still opens `<member app>/demo` with no parameter: the app's own long way round.
+
+**What the app needs to do** (a separate connect-mobile change): read `persona` or `as` (and `community`) on the `/demo` route; call
+`POST /api/demo/session` for the person (for `as=family`, call `GET /api/demo/choices` first and take the first person of the `community` area of the
+chosen community); store the returned session like a normal sign-in; go to the signed-in Home. If the demo is off, the limit is hit, the id is not
+known (`unknown_person`) or the start fails, show the endpoint's `error` as it is and fall back to the app's own chooser. **Until that change is live
+the app ignores the parameters**, so these links land on the app's own "Try the demo" chooser, exactly like the link without parameters.
+
+Nothing changes in the endpoints, the CORS list, the guardrails or the database for this path: it is a link, and the start is the same
+`startDemoSession` core described below and in [DEMO_SIGNIN.md](DEMO_SIGNIN.md).
+
 ## Where
 
 The portal's address, `https://admin.weaverams.org` in production (the same host as the web demo). Nothing here needs a cookie or a portal

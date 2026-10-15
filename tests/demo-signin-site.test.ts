@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { PORTAL_PATH_PREFIXES, memberAppDemoUrl, memberAppUrl, portalUrl, siteRoute } from "@/lib/site";
+import { PORTAL_PATH_PREFIXES, memberAppDemoFamilyUrl, memberAppDemoPersonUrl, memberAppDemoUrl, memberAppUrl, portalUrl, siteRoute } from "@/lib/site";
 
 // The pages of the website are rendered by the server as a whole (their header suspends), so, as the in-page link tests do, this reads
 // their source: each page has the button, pointing at the portal's /demo, beside Get started free.
@@ -44,13 +44,37 @@ describe("Try the demo on the public website", () => {
     expect(read("src/app/demo/page.tsx")).toContain("in less than a minute");
   });
 
-  it("the band has a second, quieter link under the Start button to the member app's own demo", () => {
+  it("the band has a second, quieter link under the Start button that steps into the member app's demo as a family", () => {
     const band = read("src/components/site/experience-band.tsx");
-    expect(band).toMatch(/<a\s+href=\{memberAppDemoUrl\(\)\}[\s\S]{0,300}?>\s*Or see the member app in your browser\s*<\/a>/);
+    expect(band).toMatch(/<a\s+href=\{memberAppDemoFamilyUrl\(\)\}[\s\S]{0,300}?>\s*Or step into the member app as a family\s*<\/a>/);
+    expect(band).not.toContain("Or see the member app in your browser");
     // Quieter: the big gold button comes first, and the link is not a button.
-    expect(band.indexOf("Start the demo")).toBeLessThan(band.indexOf("Or see the member app in your browser"));
-    const link = band.slice(band.indexOf("href={memberAppDemoUrl()}") - 20, band.indexOf("Or see the member app in your browser"));
+    expect(band.indexOf("Start the demo")).toBeLessThan(band.indexOf("Or step into the member app as a family"));
+    const link = band.slice(band.indexOf("href={memberAppDemoFamilyUrl()}") - 20, band.indexOf("Or step into the member app as a family"));
     expect(link).not.toContain("buttonStyles");
+    // What the band claims stays true for it: the same invented people, nothing real is sent, practice payments.
+    expect(band).toContain("Everything in the demo is invented");
+    expect(band).toContain("nothing real is ever sent");
+  });
+
+  it("the band's member app link is <member app>/demo?as=family, and a community can be named", () => {
+    expect(memberAppDemoFamilyUrl(null, null, "weaverams.org")).toBe("https://app.weaverams.org/demo?as=family");
+    expect(memberAppDemoFamilyUrl(undefined, "", "weaverams.org")).toBe("https://app.weaverams.org/demo?as=family");
+    expect(memberAppDemoFamilyUrl("", "https://app.weaverams.org/", "weaverams.org")).toBe("https://app.weaverams.org/demo?as=family");
+    expect(memberAppDemoFamilyUrl("sunrise-demo", "https://app.weaverams.org", "weaverams.org")).toBe("https://app.weaverams.org/demo?as=family&community=sunrise-demo");
+    expect(memberAppDemoFamilyUrl("a b&c", "https://members.example.org", "weaverams.org")).toBe("https://members.example.org/demo?as=family&community=a%20b%26c");
+    // An address that is not http(s) never reaches a link.
+    expect(memberAppDemoFamilyUrl(null, "javascript:alert(1)", "example.org")).toBe("https://app.example.org/demo?as=family");
+  });
+
+  it("a demo person's member app link is <member app>/demo?persona=<id>, the id encoded", () => {
+    const id = "6c4a2d8f-0d0c-4a8e-9a55-0f1d2c3b4a52";
+    expect(memberAppDemoPersonUrl(id, null, "weaverams.org")).toBe(`https://app.weaverams.org/demo?persona=${id}`);
+    expect(memberAppDemoPersonUrl(id, "https://app.weaverams.org/", "weaverams.org")).toBe(`https://app.weaverams.org/demo?persona=${id}`);
+    expect(memberAppDemoPersonUrl(` ${id} `, "https://members.example.org", "weaverams.org")).toBe(`https://members.example.org/demo?persona=${id}`);
+    // Nothing but an id can ride in the address.
+    expect(memberAppDemoPersonUrl("x&as=family#top", null, "weaverams.org")).toBe("https://app.weaverams.org/demo?persona=x%26as%3Dfamily%23top");
+    expect(memberAppDemoPersonUrl(id, "not a url", "example.org")).toBe(`https://app.example.org/demo?persona=${id}`);
   });
 
   it("the demo page points to the member app's demo in one sentence", () => {

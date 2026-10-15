@@ -76,6 +76,16 @@ The list is `app.demo_featured_roles()`, the only place to change it (for exampl
 This changes only what the public list offers: the pack still has one demo person per role (`app.demo_missing_roles` requires it), every person keeps
 their sign-in, `app.worker_demo_begin` is unchanged, and the portal banner's "Switch role" opens the same page.
 
+### The community roles open the member app, not the portal (owner decision 2026-10-15)
+
+On `/demo` the two areas behave differently. The people of the **Non-profit operational roles** area have **Start**, which POSTs to the portal
+(`startDemoAction`), signs the visitor out of any real portal account in this browser first, and lands on the portal's Home. The people of the
+**Community roles** area (`MEMBER_APP_AREA` in `src/lib/demo-signin/rules.ts`, the family roles whose work lives in the member app) have an **Open the member app**
+link instead, to `<member app>/demo?persona=<persona id>` (`memberAppDemoPersonUrl`), which opens in the same tab and starts the demo in the member app as
+exactly that person, on their signed-in Home. That link starts **no portal session** and signs the visitor out of **nothing**, so the "Starting the demo signs you out in this browser first" note on the page is
+worded for the operational roles only. The member app's start is the `POST /api/demo/session` below, with the same guardrails. The contract with the app,
+the second link (`?as=family`, used by the website) and the fallback are in [MEMBER_APP_DEMO.md](MEMBER_APP_DEMO.md) "The one-step path".
+
 ## The member app (docs/MEMBER_APP_DEMO.md)
 
 The member app's "Try the demo" (a separate pull request in connect-mobile) calls two HTTP endpoints of the portal, in `src/app/api/demo/`:

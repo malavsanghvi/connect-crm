@@ -66,6 +66,33 @@ export function memberAppDemoUrl(configured: string | null | undefined = process
   return `${memberAppUrl(configured, domain)}${MEMBER_APP_DEMO_PATH}`;
 }
 
+/**
+ * The member app's one-tap demo for ONE demo person (the contract with connect-mobile, docs/MEMBER_APP_DEMO.md "The one-step path"):
+ * `<app>/demo?persona=<persona id>` starts the demo as exactly that person and lands on their signed-in Home. The id is one the /demo
+ * page (and GET /api/demo/choices) already uses; it is encoded, so nothing but an id can ride in the address. Until the app handles the
+ * parameter, /demo ignores it and shows the app's own chooser.
+ */
+export function memberAppDemoPersonUrl(
+  personaId: string,
+  configured: string | null | undefined = process.env.NEXT_PUBLIC_MEMBER_APP_URL,
+  domain: string = publicSiteDomain(),
+): string {
+  return `${memberAppDemoUrl(configured, domain)}?persona=${encodeURIComponent(personaId.trim())}`;
+}
+
+/**
+ * The member app's one-tap demo as a family: `<app>/demo?as=family` starts as the community-area person of the first demo community;
+ * `community` (a demo community's web name, as GET /api/demo/choices gives it) picks another one. Used by the website's Experience band.
+ */
+export function memberAppDemoFamilyUrl(
+  community: string | null | undefined = null,
+  configured: string | null | undefined = process.env.NEXT_PUBLIC_MEMBER_APP_URL,
+  domain: string = publicSiteDomain(),
+): string {
+  const slug = (community ?? "").trim();
+  return `${memberAppDemoUrl(configured, domain)}?as=family${slug ? `&community=${encodeURIComponent(slug)}` : ""}`;
+}
+
 /** True for the website's own names: the bare domain and www. */
 export function isPublicSiteHost(rawHost: string | null | undefined, domain: string = publicSiteDomain()): boolean {
   const host = hostName(rawHost);
