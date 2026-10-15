@@ -48,7 +48,7 @@ end $$;
 \set admin '''85000000-0000-4000-8000-000000000002'''
 \set p_admin '''85000000-0000-4000-8000-0000000000a1'''
 \set h1 '''85000000-0000-4000-8000-0000000000b1'''
-\
+
 -- ══ A. The catalog ═══════════════════════════════════════════════════════════
 select pg_temp.assert((select label = 'Weaver Connect' and not core and depends_on = '{comms}' from app.modules where key = 'channels')
                       and not exists (select 1 from app.modules where label ilike '%communityconnect%' or label ilike '%community connect%'),
@@ -88,8 +88,8 @@ insert into app.accounts (user_id, is_platform_admin) values (:plat, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values
   ('85000000-0000-4000-8000-0000000000f1', :plat, 'Phone', 'totp', 'verified');
-insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
-  (:c, 'wc850', 'Temple 850', 'T850', 'TX', 'active', 'America/Chicago');
+insert into app.centers (id, slug, name, short_name, state_region, status, time_zone, rules) values
+  (:c, 'wc850', 'Temple 850', 'T850', 'TX', 'active', 'America/Chicago', '{}');
 insert into app.role_grants (center_id, user_id, role_key, reason) values (:c, :admin, 'center_admin', 'weaver connect test 850');
 insert into app.households (id, center_id, display_name) values (:h1, :c, 'Kumar850, Sam');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values (:p_admin, :c, 'Sam', 'Kumar850', date '1975-01-01');
