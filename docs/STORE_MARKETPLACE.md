@@ -2,8 +2,9 @@
 
 Status: plan, 2026-10-15. **The owner accepted every recommendation (CM1 to CM24, section 16) on 2026-10-15 ("go with the
 recommendations"). Slice 1 is built** (migration 0830, test 830; [`STORE_SECTIONS.md`](STORE_SECTIONS.md) section 7): the module, the
-permissions and role, the policies, and the portal's Community Market for the community's own listings. **Slice 2 onward is still a
-plan and each needs the owner's approval before it is built** (permissions, RLS and money). The Community Market does not exist for a
+permissions and role, the policies, and the portal's Community Market for the community's own listings, which the member app shows
+**read-only and not orderable** (CM8; whether they may be ordered is open, CM25; CM14's members-only default is open, CM26). **Slice 2
+onward is still a plan and each needs the owner's approval before it is built** (permissions, RLS and money). The Community Market does not exist for a
 community until Weaver grants it: no tab, no teaser, no "coming soon" for anyone else. The store's sections are 0821.
 
 Owner request, 2026-10-15 (verbatim): *"in the store - reorg a bit.. Have Food section and put all current food items in there.
@@ -55,7 +56,7 @@ words are data each community sets.
 | Piece | What it gives this plan |
 |---|---|
 | Store sections (0821, [`STORE_SECTIONS.md`](STORE_SECTIONS.md)) | `section` on `store_categories` and `store_items`; Food holds everything; the portal shows Food and a second section only if it holds something; the contract the member app reads. The community's own non-food products can already be filed in the `market` section by a later slice. |
-| The Store module (`store`, tables `store_categories`, `store_items`, `pickup_windows`, `store_orders`, `store_order_lines`, `inventory_movements`; permissions `store.view`, `store.manage`, `store.pickup`) | Categories, items, photos (a private bucket), pickup, cart and checkout through the payment sheet (context `store`) or "pay at pickup", stock, the kitchen display. The community's own products use all of it unchanged. |
+| The Store module (`store`, tables `store_categories`, `store_items`, `pickup_windows`, `store_orders`, `store_order_lines`, `inventory_movements`; permissions `store.view`, `store.manage`, `store.pickup`) | Categories, items, photos (a private bucket), pickup, cart and checkout through the payment sheet (context `store`) or "pay at pickup", stock, the kitchen display. All of it is Food's today. The community's own market listings are rows of the same tables, but in slice 1 they are shown **read-only and are not orderable** through the cart and pickup (the member app enforces it; no database rule does; whether they may be ordered is open, CM25). |
 | Module switches and the Marketplace packs ([`MODULES.md`](MODULES.md), [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) | `app.modules`, `category_modules` (`default_off`), `set_module_grant`, `center_module_grants`, `module_tables` (a test fails if a table is missing), restrictive `module_switch` policies, `assert_module_enabled`, `marketplace_states` and the Settings › Marketplace card, requests and "tell me when it is ready". |
 | Payment plugins ([`PAYMENTS_PLAN.md`](PAYMENTS_PLAN.md)) | Card, Apple Pay, Google Pay, ACH, PayPal, Zelle, check, cash and more, switched on per organization in Settings › Payments; one Stripe Connect account per organization; `member_payment_methods` for what the app may offer; card data never touches Weaver. |
 | Refunds and approvals (`payment_refunds`, `giving.manage`, `giving.approve` as second approver) | The existing way a refund is requested and approved, with a reason. |
@@ -81,7 +82,7 @@ first.
 
 | Seller | Who | Approved by | Notes |
 |---|---|---|---|
-| **The community itself** | The organization, selling its own non-food products: T-shirts, books, gift articles, calendars | Nobody (a person with `store.manage` or `market.manage` lists them) | These are ordinary store items filed in the `market` section, so the cart, pickup, stock and tax handling the store already has apply. This is slice 1. |
+| **The community itself** | The organization, selling its own non-food products: T-shirts, books, gift articles, calendars | Nobody (a person with `store.manage` or `market.manage` lists them) | These are rows of `store_items` filed in the `market` section. **In slice 1 (built, 0830) they are shown read-only and cannot be ordered**; whether the community's own listings may use the store's cart, pickup, stock and tax handling is an open owner question (CM25). Listings by every other kind of seller are never store items. |
 | **A member** | An adult in a household of the community, selling something they make or do: a maker, a photographer, a tutor | A person with `market.manage`, after an application | The common case. The seller is the adult, never a child (a child's craft business is run by a parent as the seller). |
 | **An approved vendor** | A business or person who is not a member: a local print shop, an engraver, a frame shop | A person with `market.manage`, after an application or an invitation | Needs a Weaver sign-in. Staff create the person with the existing add-person flow so identity, the audit trail and the household card keep working; the vendor is invited by email. |
 
@@ -212,7 +213,7 @@ or touches a fund, and no market sale is ever a tax-deductible donation or appea
 
 | Slice | Who pays whom | Does Weaver or the community touch the money? |
 |---|---|---|
-| 1: the community's own products | The buyer pays the community, **exactly as the Food store works today** (the payment sheet or "pay at pickup"; staff add sales tax at pickup, 0120) | The community, as today. No new rule. |
+| 1: the community's own products (built, 0830) | **Nobody pays: the listings are read-only and not orderable** (CM8: no money moves in slices 1 to 3). The member app enforces it; no database rule does (see 15). If the owner answers CM25 yes, the buyer would pay the community exactly as the Food store works today (the payment sheet or "pay at pickup"; staff add sales tax at pickup, 0120), with the sales-tax and QuickBooks questions of CM25. | None in slice 1. If CM25 is yes: the community, as today, plus the questions in CM25. |
 | 2: inquiries | The buyer and seller settle **directly** (their own Zelle, cash, check, card reader) | **No.** |
 | 3: orders as a record | Same: **directly with the seller** | **No.** The order records the agreed price in cents; it does not collect it. |
 | 4: pay through the community | The buyer pays the **community** with the plugins it already has; the community owes the seller; the community pays the seller (check or ACH, recorded) | **Yes.** Needs the owner, a lawyer and an accountant first. |
@@ -355,8 +356,10 @@ in the Community Market. The demo's seller messages and orders are test data, re
 
 ### 12.5 The Food section
 
-Unchanged. Ordering, pickup slots, the kitchen display and the prep list are Food's. When community products share the cart with
-food (slice 1), the kitchen display must show food lines only; a T-shirt must not appear on a prep list (a task of slice 1).
+Unchanged. Ordering, pickup slots, the kitchen display and the prep list are Food's. In slice 1 a market listing is not orderable, so
+nothing of the market reaches a kitchen; the portal's prep list and the event-day kitchen display still show Food's lines only, as a
+safeguard. If the owner opens ordering of the community's own listings (CM25), connect-admin's kitchen display and store page need the
+same Food-only filter.
 
 ## 13. Any kind of organization
 
@@ -376,7 +379,7 @@ before it is built, because it changes money rules, permissions or RLS.
 | Slice | What | DB | Portal | Member app | Size | Owner OK |
 |---|---|---|---|---|---|---|
 | 0 | **Store sections** (built) | 0821 | Food heading | contract documented | S | No (no money, permission or policy change) |
-| 1 | **BUILT (0830).** **Community products, organized.** The community files its own non-food products in the Community Market, with the starter categories and a featured shelf; the product switch exists | The `market` module row (`default_off` for every kind, test), the product card, a restrictive policy tying `section = 'market'` rows to the module, a category starter function | Creation opens when the module is on (`sectionOpen()`); the Community Market page, categories and listings; the kitchen prep list shows food lines only; the featured shelf is NOT built (it needs a column and the app's agreement) | Reads `section` (a prior app release), the switch, category chips, search over items | M | **Yes: module, RLS** |
+| 1 | **BUILT (0830).** **Community products, organized.** The community files its own non-food products in the Community Market, with the starter categories and a featured shelf; the product switch exists | The `market` module row (`default_off` for every kind, test), the product card, a restrictive policy tying `section = 'market'` rows to the module, a category starter function | Creation opens when the module is on (`sectionOpen()`); the Community Market page, categories and listings; the kitchen prep list shows food lines only (a safeguard); the featured shelf is NOT built (it needs a column and the app's agreement) | Reads `section`, the switch, category chips; **listings shown read-only, no Add button, the cart refuses them** (connect-mobile 1.22.0); search over items is not built | M | **Yes: module, RLS** |
 | 2 | **Sellers and listings, inquiry only.** Applications and approval; listings of all four kinds with photos; review queue; browse, search, "Ask about this"; reports and takedowns; the notice and the seller terms | Tables `market_sellers`, `market_listings`, photos, `market_inquiries`, `market_messages`, `market_reports`; the three permissions and the role; notification topics; the bucket; functions for every write | Store › Community Market: Sellers, Listings, Reports, Settings; the seller terms and notice in `legal_documents` | Browse, listing page, ask, my listings, my inbox, apply to sell, report | L, several PRs | **Yes: permissions, RLS** (money: none) |
 | 3 | **Orders as a record, and reviews.** Quote, accept, make, deliver, complete, review | `market_orders`, `market_order_events`, `market_reviews`; status functions | Orders overview | Quote, accept, order status, review | M | **Yes: RLS** (money: none, price recorded in cents, not collected) |
 | 4 | **Pay through the community.** Fee, tax, refunds, payouts, QuickBooks, receipts | Payments `source`, due-to-seller ledger, payouts, account roles, refund link | Payments, payouts and mapping screens for the treasurer | Pay in the order | L | **Yes: money rules, permissions, RLS.** After a lawyer, an accountant and the store-sale postings (B59 item 2) |
@@ -389,7 +392,16 @@ would list things that no installed app can show.
 
 ## 15. What is not built, and honest limits
 
-- **Nothing in this plan is built.** The only thing that exists is the Food section and the empty second section's key.
+- **Only slice 1 is built** (0830): the module, the permissions, the policies and the portal's page for the community's own listings,
+  shown read-only in the member app. Everything from slice 2 on is a plan.
+- **In slice 1 the app, not the database, keeps a market listing out of an order.** No database rule blocks an order line that names a
+  market item: the pricing trigger on order lines (0120) checks only that the item exists and is active and ignores the section and the
+  module. So slice 1 relies on the member app (no Add button, the cart refuses a market item) and on the module being **off by default
+  for every community**; only a community Weaver deliberately granted the market to is exposed, and only to a member who calls the API
+  directly. A database rule is an owner decision (money and RLS), tracked as CM25 and in `STORE_SECTIONS.md` section 8.
+- **CM14 (members only by default, through Access levels) is not implemented in slice 1.** Today it is the app's behavior (it shows the
+  market to signed-in members) and the store's "Store visible to" setting; the database lets a guest who queries directly read an
+  active market item as it lets them read an active Food item. The Access-levels area comes with seller listings (CM26).
 - No money moves in slices 1 to 3 other than what the Food store already does. The community and Weaver cannot refund a payment a
   buyer made directly to a seller, and the app says so.
 - Weaver cannot verify that a seller is who they say, only that the community's staff approved them. Photos and messages can be
@@ -402,6 +414,7 @@ would list things that no installed app can show.
 
 Each has my recommendation first. **Accepted by the owner on 2026-10-15 ("go with the recommendations"): all of CM1 to CM24.** Slice 1 is
 built on that; every later slice still needs the owner's approval of its money rules, permissions and RLS before it is built.
+**CM25 and CM26 were raised after slice 1 was built and are open.**
 
 | # | Question | Recommendation |
 |---|---|---|
@@ -418,7 +431,7 @@ built on that; every later slice still needs the owner's approval of its money r
 | CM11 | **Sales tax.** | None computed in slices 1 to 3 (sellers are responsible; the screen says so). For slice 4, **a lawyer and the community's accountant decide before building.** |
 | CM12 | **Refunds and disputes.** | Slices 2 to 3: the community's moderators mediate, no money. Slice 4: the existing refund approval, reversing the due-to-seller amount. |
 | CM13 | **Seller payouts.** | Slice 4: the treasurer pays by check or ACH and records it, second approver. **No automated payouts or seller accounts at a payment provider** unless volume and advice justify it. |
-| CM14 | **Who can see the market?** Guests, members only, or per community? | **Members only by default, per community through Access levels.** The Food store stays as it is (guests may see it). |
+| CM14 | **Who can see the market?** Guests, members only, or per community? | **Members only by default, per community through Access levels.** The Food store stays as it is (guests may see it). *Accepted; **not implemented in slice 1** (CM26).* |
 | CM15 | **Permissions and role.** `market.view`, `market.manage`, `market.moderate` and a Community Market lead role; the store lead keeps the Food section and the community's own products. | **Yes**, as in section 11.1. |
 | CM16 | **Platform admin access to messages and buyers' details.** | **No** for message bodies and buyer details; the normal audited rules for the rest. |
 | CM17 | **The old-app problem.** Ship the member app that groups by section before the first community turns the market on; accept the short period when an old app shows market products among the food. | **Yes.** The module is off by default so only a deliberately switched-on community is affected; Weaver checks the app situation for that community first. |
@@ -429,6 +442,8 @@ built on that; every later slice still needs the owner's approval of its money r
 | CM22 | **Where sellers work.** The member app and its web version; no seller portal. | **Yes.** |
 | CM23 | **Demos.** A few invented sellers and listings in both demo packs when slice 2 lands; the neutral demo's Club shop moves into the Community Market in slice 1. | **Yes.** |
 | CM24 | **Build order against other priorities.** Slice 1 can start now (no seller, no money); slice 2 after slice 1's app is out; slice 4 after Marketplace billing, the store-sale postings and the advice. | **Yes.** |
+| CM25 | **OPEN. May the community's own listings (slice 1) be ordered through the existing store checkout?** Today they are shown read-only and are not orderable (CM8: no money moves in slices 1 to 3); the member app enforces it, and **no database rule does**, so slice 1 relies on the app and on the module being off by default. Saying yes would involve: orders for market items reaching the kitchen and pickup lists (the slot, the cutoff and the "ready" notice are Food's); the Food-only filters in the portal (done) and in connect-admin (kitchen display and store page, not done); **sales tax** (a member's order carries 0 today and staff add tax at pickup, 0120); **QuickBooks posting of store sales** (not built, B59 item 2); the store sales reports (0670, 0672); stock and gift-pack rules; the member app (an Add button and the cart rule); and a database rule on order lines saying which sections they may name (a money-rule and RLS change). | **Not yet.** Keep the listings read-only until paying through the community is designed (slice 4), then decide once for all sellers. If the owner wants a community's own T-shirts and books orderable sooner, put them in Food, which already works end to end. |
+| CM26 | **OPEN. CM14 (members only by default, through Access levels) is not implemented in slice 1.** The market has no Access-levels area yet; the member app shows it to signed-in members and the store's "Store visible to" setting applies, but no database rule keeps a guest who queries directly from reading an active market item (as for Food). | Add the market as an Access-levels area (default: members) with the seller listings in slice 2, which have tables of their own. Until then accept that "members only" is the app's behavior. |
 
 **Reminder:** money rules, permissions and RLS need the owner's approval before anything is built. This plan is the request for that
 approval; it does not assume it.
