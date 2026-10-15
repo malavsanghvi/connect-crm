@@ -142,6 +142,15 @@ export const ENTITLEMENT_GROUPS: EntitlementGroup[] = [
     ],
   },
   {
+    // Module `market` (0830): a Marketplace product. In this slice the community's own listings; sellers come later.
+    name: "Community Market",
+    items: [
+      { key: "market.view", label: "See the Community Market, including paused listings" },
+      { key: "market.manage", label: "Create, edit, pause and remove the market's categories and listings; start the market" },
+      { key: "market.moderate", label: "Review listings and reports (the review queue arrives with sellers)" },
+    ],
+  },
+  {
     name: "Settings",
     items: [
       { key: "settings.manage", label: "Rules and configuration" },
@@ -191,10 +200,11 @@ const GROUP_MODULE: Readonly<Record<string, string>> = {
   Pathshala: "pathshala",
   WeCare: "care",
   CatchTheMatch: "matching",
+  "Community Market": "market",
 };
 
 /** Groups that are a Marketplace product of their own: shown only while the community has that product on. */
-const PRODUCT_GROUPS: ReadonlySet<string> = new Set(["WeCare", "CatchTheMatch"]);
+const PRODUCT_GROUPS: ReadonlySet<string> = new Set(["WeCare", "CatchTheMatch", "Community Market"]);
 
 /**
  * The permission groups to show for this organization's kind: no Bolis group where the kind has no bolis, no Pathshala

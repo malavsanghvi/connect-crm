@@ -97,21 +97,26 @@ export default async function StoreOrdersPage({ searchParams }: { searchParams: 
     }
   }
   const cycleOrderIds = new Set(orders.filter((o) => o.pickup_window_id && cycle.some((w) => w.id === o.pickup_window_id)).map((o) => o.id));
-  const prep = prepList(
-    orders.filter((o) => cycleOrderIds.has(o.id)),
-    lines,
-  );
-  const top = topItems(prep);
   const itemIds = [...new Set(lines.map((l) => l.item_id))];
   const names = new Map<string, string>();
+  // Items of the Community Market (0830) are not the kitchen's: the prep list is Food's. An item whose section is not known is kept.
+  const notFood = new Set<string>();
   for (const part of chunk(itemIds)) {
-    const it = await db.from("store_items").select("id, name").in("id", part);
+    const it = await db.from("store_items").select("id, name, section").in("id", part);
     if (it.error) {
       console.error("[store] item names for orders unavailable:", it.error);
       break;
     }
-    for (const i of it.data ?? []) names.set(i.id, i.name);
+    for (const i of it.data ?? []) {
+      names.set(i.id, i.name);
+      if (i.section !== "food") notFood.add(i.id);
+    }
   }
+  const prep = prepList(
+    orders.filter((o) => cycleOrderIds.has(o.id)),
+    lines.filter((l) => !notFood.has(l.item_id)),
+  );
+  const top = topItems(prep);
   const itemName = (id: string) => names.get(id) ?? "Item";
   let selectedWindow = selected ? cycle.find((w) => w.id === selected) : undefined;
   if (selected && !selectedWindow) {

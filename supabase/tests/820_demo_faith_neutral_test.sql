@@ -161,7 +161,7 @@ select pg_temp.assert(not exists (select 1 from app.dietary_options where center
   'B · it offers no "Jain (no root vegetables)" dietary choice');
 select pg_temp.assert((select count(*) = 25 from app.demo_personas where center_id = :'fc')
                       and (select count(*) = 25 from app.roles r where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(:'fc'))
-                                                       and cardinality(app.role_private_products(r.key)) = 0)
+                                                       and cardinality(app.role_private_products(r.key)) = 0 and r.key <> 'market_lead')
                       and app.demo_missing_roles(:'fc') = '{}'::text[]
                       and not exists (select 1 from app.demo_personas where center_id = :'fc' and role_key = 'boli_recorder'),
   'B · 25 demo people, one for every role of the Faith community (none missing), and no boli recorder');

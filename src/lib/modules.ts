@@ -51,6 +51,8 @@ export const MODULE_KEYS = [
   "channels",
   "care",
   "matching",
+  // The Community Market (0830): a second section of the store; off for every kind until Weaver grants it.
+  "market",
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
@@ -86,6 +88,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "channels", label: "CommunityConnect", core: false, dependsOn: ["comms"], description: "WhatsApp Business messages: the account, its templates and sending." },
   { key: "care", label: "WeCare", core: false, dependsOn: ["people"], description: "Donor care and member care. Not built yet." },
   { key: "matching", label: "CatchTheMatch", core: false, dependsOn: ["giving"], description: "Employer and grant matching. Not built yet." },
+  { key: "market", label: "Community Market", core: false, dependsOn: ["store"], description: "A second section of the store for the community's own non-food products and services, organized in categories." },
 ];
 
 const BY_KEY = new Map(MODULES.map((m) => [m.key, m]));
@@ -200,7 +203,7 @@ export function missingToEnable(key: string, states: readonly ModuleState[]): st
 }
 
 /** The Marketplace products (0750): Weaver turns them on (an administrator requests one); the community pauses and resumes them. */
-export const PRODUCT_MODULES: readonly ModuleKey[] = ["ai", "website", "channels", "care", "matching"];
+export const PRODUCT_MODULES: readonly ModuleKey[] = ["ai", "website", "channels", "care", "matching", "market"];
 
 export function isProductModule(key: string): boolean {
   return (PRODUCT_MODULES as readonly string[]).includes(key);

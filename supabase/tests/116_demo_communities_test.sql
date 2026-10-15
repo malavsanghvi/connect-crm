@@ -139,7 +139,7 @@ select pg_temp.assert((select count(*) >= 10 from app.pledges where center_id = 
   'pledges, payments, events with RSVPs and tickets, a store, notices, volunteer groups and a religious school term with enrolled children');
 select pg_temp.assert((select count(*) = 25 from app.demo_personas where center_id = :'fc')
                       and (select count(*) = 25 from app.roles r where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(:'fc'))
-                                                       and cardinality(app.role_private_products(r.key)) = 0)   -- 0757: no demo person for a WeCare or CatchTheMatch role
+                                                       and cardinality(app.role_private_products(r.key)) = 0 and r.key <> 'market_lead')   -- 0757: no demo person for a WeCare or CatchTheMatch role; 0830: nor for the Community Market lead (the demos do not have the market)
                       and app.demo_missing_roles(:'fc') = '{}'::text[],
   'one demo person for every role of the Faith community''s role catalog (25: it has no boli recorder), none missing');
 select pg_temp.assert((select count(*) = count(distinct role_key) and count(*) = count(distinct person_id) and count(*) = count(distinct email) from app.demo_personas where center_id = :'fc'),
@@ -189,7 +189,7 @@ select pg_temp.assert((select count(*) between 11 and 14 from app.households whe
   'about 12 households and 30 people, with giving, events, a store and notices');
 select pg_temp.assert((select count(*) = 21 from app.demo_personas where center_id = :'nc')
                       and (select count(*) = 21 from app.roles r where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(:'nc'))
-                                                       and cardinality(app.role_private_products(r.key)) = 0)
+                                                       and cardinality(app.role_private_products(r.key)) = 0 and r.key <> 'market_lead')
                       and app.demo_missing_roles(:'nc') = '{}'::text[]
                       and not exists (select 1 from app.demo_personas where center_id = :'nc'
                                        and role_key in ('boli_recorder','religious_coordinator','pathshala_principal','pathshala_committee','teacher')),
