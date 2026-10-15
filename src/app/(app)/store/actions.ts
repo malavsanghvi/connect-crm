@@ -11,6 +11,7 @@ import { parseAmountToCents } from "@/lib/money";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction } from "@/lib/session";
 import { signedDelta } from "@/lib/store";
+import { asStoreSection, DEFAULT_STORE_SECTION, STORE_SECTION_LABELS, STORE_SECTION_OPEN, type StoreSection } from "@/lib/store-sections";
 
 // Sales, not giving: nothing here creates pledges or touches funds.
 
@@ -51,6 +52,21 @@ export async function moveOrderAction(orderId: string, _prev: ActionResult | nul
 // ---------------------------------------------------------------------------
 // Menu
 // ---------------------------------------------------------------------------
+/**
+ * The section a new category or item is created in (0821): the one the form carries, which is the section the page was on. A form that
+ * names none (a page left open from before sections) writes to Food, as every row did. A section that is not open for new rows (the
+ * Community Market, until it is built) is refused in plain words rather than written: a row there would reach installed member apps
+ * that do not group by section.
+ */
+function newRowSection(fd: FormData, doing: string): { section: StoreSection } | { error: string } {
+  const asked = text(fd, "section");
+  if (!asked) return { section: DEFAULT_STORE_SECTION };
+  const section = asStoreSection(asked);
+  if (!section) return { error: `Could not ${doing} — that store section does not exist.` };
+  if (!STORE_SECTION_OPEN[section]) return { error: `Could not ${doing} — the ${STORE_SECTION_LABELS[section]} section is not open for new entries yet.` };
+  return { section };
+}
+
 export async function saveCategoryAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("storeManage", "add the category");
   if (!auth.ok) return auth;
@@ -58,7 +74,11 @@ export async function saveCategoryAction(_prev: ActionResult | null, fd: FormDat
   if (!name) return { ok: false, error: "Could not add the category — give it a name." };
   const order = wholeNumber(text(fd, "sort_order"));
   if (Number.isNaN(order)) return { ok: false, error: "Could not add the category — the order must be a whole number." };
-  const { error } = await auth.session.db.from("store_categories").insert({ center_id: auth.session.center.id, name: name.slice(0, 80), sort_order: order ?? 0 });
+  const where = newRowSection(fd, "add the category");
+  if ("error" in where) return { ok: false, error: where.error };
+  const { error } = await auth.session.db
+    .from("store_categories")
+    .insert({ center_id: auth.session.center.id, name: name.slice(0, 80), sort_order: order ?? 0, section: where.section });
   if (error) return failure("Could not add the category", error);
   refresh();
   return { ok: true, message: `Category "${name}" added.` };
@@ -97,7 +117,10 @@ export async function saveItemAction(itemId: string | null, _prev: ActionResult 
     if (error) return failure(`Could not ${doing}`, error);
     if (!data?.length) return { ok: false, error: `Could not ${doing} — it was not found.` };
   } else {
-    const { error } = await db.from("store_items").insert({ ...values, center_id: center.id });
+    // A new item goes in the section the page was on; the database moves it to its category's section if it has a category (0821).
+    const where = newRowSection(fd, doing);
+    if ("error" in where) return { ok: false, error: where.error };
+    const { error } = await db.from("store_items").insert({ ...values, section: where.section, center_id: center.id });
     if (error) return failure(`Could not ${doing}`, error);
   }
   refresh();

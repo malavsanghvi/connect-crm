@@ -11484,6 +11484,7 @@ export type Database = {
           name: string;
           sort_order: number;
           custom: Json;
+          section: string;
         };
         Insert: {
           id?: string;
@@ -11491,6 +11492,7 @@ export type Database = {
           name: string;
           sort_order?: number;
           custom?: Json;
+          section?: string;
         };
         Update: {
           id?: string;
@@ -11498,6 +11500,7 @@ export type Database = {
           name?: string;
           sort_order?: number;
           custom?: Json;
+          section?: string;
         };
         Relationships: [];
       };
@@ -11522,6 +11525,7 @@ export type Database = {
           updated_at: string;
           gift_pack: boolean;
           custom: Json;
+          section: string;
         };
         Insert: {
           id?: string;
@@ -11543,6 +11547,7 @@ export type Database = {
           updated_at?: string;
           gift_pack?: boolean;
           custom?: Json;
+          section?: string;
         };
         Update: {
           id?: string;
@@ -11564,6 +11569,7 @@ export type Database = {
           updated_at?: string;
           gift_pack?: boolean;
           custom?: Json;
+          section?: string;
         };
         Relationships: [];
       };

@@ -314,6 +314,11 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 - **Portal:** /store, /store/menu, /store/orders
 - **Member app:** store, cart
 - **Permissions:** store.view, store.manage, store.pickup
+- **Sections (0821, [`STORE_SECTIONS.md`](STORE_SECTIONS.md)):** the store is organised in sections above its categories. `store_categories`
+  and `store_items` carry `section` (`food` or `market`, default `food`); every row that existed is in **Food**, the portal's Menu &
+  pickup and Inventory pages show Food as the section, and a second section appears only when it holds something (nothing can put
+  anything in it yet). The Community Market is planned in [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md), not built. Same tables, same
+  policies, no new module.
 - **Switching off:** items, orders and inventory are hidden and read-only.
 
 ## Pathshala (depends on People)

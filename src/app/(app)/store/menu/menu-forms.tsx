@@ -11,6 +11,7 @@ import { buttonClass, DrawerSection, InfoBox, StatusText, TableWrap } from "@/co
 import { formatWeeklyCutoff, WEEKDAYS, type StoreRules } from "@/lib/center-rules";
 import { utcToLocal } from "@/lib/local-time";
 import { formatCents } from "@/lib/money";
+import type { StoreSection } from "@/lib/store-sections";
 
 import { saveItemAction, saveStoreSettingsAction, saveWindowAction } from "../actions";
 
@@ -111,7 +112,11 @@ export function MenuTable({
   );
 }
 
-export function ItemForm({ item, categories }: { item: MenuItem | null; categories: Category[] }) {
+/**
+ * `section` is the store section a NEW item is added to (the one the page is on); `categories` are that section's. An existing item keeps
+ * the section it is in: it changes only by changing its category (the database moves it), so editing never posts a section.
+ */
+export function ItemForm({ item, categories, section }: { item: MenuItem | null; categories: Category[]; section?: StoreSection }) {
   const [taxable, setTaxable] = useState(item?.taxable ?? true);
   const [track, setTrack] = useState(item?.track_inventory ?? false);
   const [gift, setGift] = useState(item?.gift_pack ?? true);
@@ -119,6 +124,7 @@ export function ItemForm({ item, categories }: { item: MenuItem | null; categori
   const p = item ? `it-${item.id.slice(0, 6)}` : "it-new";
   return (
     <ActionForm action={saveItemAction.bind(null, item?.id ?? null)} submitLabel={item ? "Save item" : "Add item"} pendingLabel="Saving…" resetOnSuccess={!item}>
+      {!item && section ? <input type="hidden" name="section" value={section} /> : null}
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor={`${p}-name`} className="crm-label">
