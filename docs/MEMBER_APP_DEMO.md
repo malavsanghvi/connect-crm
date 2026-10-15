@@ -115,7 +115,7 @@ While the demo is **on**, the demo communities are open to guests (people who ar
 Covered, so the guest Home, events, guide and store work for a demo community as for a live one, and all disappear for a guest when the demo is
 switched off: the community by web name and by id (`community_public`, `community_public_by_id`, via `app.community_open`), the areas and the
 experience (`feature_access_for_me`, `can_use_feature`, `category_profile`, `member_experience`, `resolve_template`, via `app.access_center_open`), the
-public profile and leaders, the community row for old builds that read the table (policy `centers_public_read`), and the public rows of
+public profile and leaders, the community row for old builds that read the table (policy `centers_public_read`; since 0817, which closes the table to guests, the policy `centers_guest_read`: the plain columns of an active community, and of a demo community exactly while `app.demo_public_open` is true), and the public rows of
 `events`, `guide_sections`, `store_items`, `store_categories`, `pickup_windows`, `content_items` (darshan, listen, learn), `photo_albums`,
 `daily_timings`, `role_roster`, `campaigns`, `opportunities` and `membership_types` (a restrictive `demo_guest_gate` policy for the role `anon`).
 

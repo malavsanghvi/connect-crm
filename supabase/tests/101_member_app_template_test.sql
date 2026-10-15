@@ -53,16 +53,17 @@ $$;
 \set c_jd '''10100000-0000-4000-8000-0000000000c8'''
 
 -- One preview sandbox of each experience (a sandbox may take an inactive one). The Jain Center c_jc follows the same tradition
--- as JSH; c_jd follows the Digambar one.
+-- as JSH; c_jd follows the Digambar one. Active, like JSH's sandbox: since 0817 a community still onboarding is shown only to its
+-- own people, and this test reads the templates without a signed-in user.
 insert into app.centers (id, slug, name, environment, category_key, status, tradition) values
-  (:c_chm, 'chm101-sandbox', 'Chamber 101',      'sandbox', 'chamber_of_commerce', 'onboarding', 'other'),
-  (:c_npo, 'npo101-sandbox', 'Community 101',    'sandbox', 'nonprofit_secular',   'onboarding', 'other'),
-  (:c_fth, 'fth101-sandbox', 'Faith 101',        'sandbox', 'faith_other',         'onboarding', 'other'),
-  (:c_chr, 'chr101-sandbox', 'Church 101',       'sandbox', 'church',              'onboarding', 'other'),
-  (:c_mos, 'mos101-sandbox', 'Mosque 101',       'sandbox', 'mosque',              'onboarding', 'other'),
-  (:c_swm, 'swm101-sandbox', 'Swaminarayan 101', 'sandbox', 'swaminarayan_temple', 'onboarding', 'other'),
-  (:c_jc,  'jc101-sandbox',  'Jain Center 101',  'sandbox', 'jain_center',         'onboarding', 'shvetambar_murtipujak'),
-  (:c_jd,  'jd101-sandbox',  'Jain Digambar 101', 'sandbox', 'jain_center',        'onboarding', 'digambar');
+  (:c_chm, 'chm101-sandbox', 'Chamber 101',      'sandbox', 'chamber_of_commerce', 'active', 'other'),
+  (:c_npo, 'npo101-sandbox', 'Community 101',    'sandbox', 'nonprofit_secular',   'active', 'other'),
+  (:c_fth, 'fth101-sandbox', 'Faith 101',        'sandbox', 'faith_other',         'active', 'other'),
+  (:c_chr, 'chr101-sandbox', 'Church 101',       'sandbox', 'church',              'active', 'other'),
+  (:c_mos, 'mos101-sandbox', 'Mosque 101',       'sandbox', 'mosque',              'active', 'other'),
+  (:c_swm, 'swm101-sandbox', 'Swaminarayan 101', 'sandbox', 'swaminarayan_temple', 'active', 'other'),
+  (:c_jc,  'jc101-sandbox',  'Jain Center 101',  'sandbox', 'jain_center',         'active', 'shvetambar_murtipujak'),
+  (:c_jd,  'jd101-sandbox',  'Jain Digambar 101', 'sandbox', 'jain_center',        'active', 'digambar');
 
 -- ══ A. The shape check ══════════════════════════════════════════════════════
 select pg_temp.assert(app.template_problems(null) = '{}' and app.template_problems('null'::jsonb) = '{}'
