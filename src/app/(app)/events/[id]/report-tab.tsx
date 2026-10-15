@@ -40,7 +40,7 @@ export async function ReportTab({ event, session }: { event: Tables<"events">; s
     <BlockGrid>
       <Card span={12}>
         <KpiGrid cols={4}>
-          <Stat label="RSVP'd" value={r.rsvpdPeople} hint={`${r.householdsTotal} households`} tone="maroon" />
+          <Stat label="RSVP'd" value={r.rsvpdPeople} hint={`${r.householdsTotal} households`} tone="navy" />
           <Stat label="Confirmed" value={r.confirmedPeople} tone="navy" />
           <Stat label="Checked in" value={r.checkedIn} hint={`${r.walkIns} walk-ins (${r.walkInHouseholds} parties)`} tone="success" />
           <Stat label="Served lunch" value={r.served} hint={`${r.giftsGiven} gifts given`} tone="brown" />

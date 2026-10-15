@@ -13,7 +13,7 @@ export function PhotoLightbox({ src, alt }: { src: string; alt: string }) {
       <button
         type="button"
         onClick={() => ref.current?.showModal()}
-        className="block overflow-hidden rounded-lg border border-line bg-[#F6F2EA] transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy"
+        className="block overflow-hidden rounded-lg border border-line bg-canvas transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy"
         aria-label={`Open ${alt} full size`}
         title="Open full size"
       >
@@ -23,7 +23,7 @@ export function PhotoLightbox({ src, alt }: { src: string; alt: string }) {
       <dialog
         ref={ref}
         aria-label={alt}
-        className="m-auto max-h-[92vh] max-w-[92vw] rounded-xl border border-line bg-white p-3 shadow-xl backdrop:bg-[rgba(20,18,14,0.6)]"
+        className="m-auto max-h-[92vh] max-w-[92vw] rounded-xl border border-line bg-white p-3 shadow-xl backdrop:bg-ink/60"
         onClick={(e) => {
           // A click on the backdrop (the dialog itself, not its content) closes it.
           if (e.target === ref.current) ref.current?.close();

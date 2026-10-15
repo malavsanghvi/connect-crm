@@ -86,7 +86,7 @@ export default async function ConcernsPage({ searchParams }: { searchParams: Pro
                     <Card>
                       <div className="flex flex-wrap items-center gap-2">
                         <PBadge tone={c.status === "closed" ? "success" : c.status === "in_progress" ? "navy" : "warning"}>{humanize(c.status)}</PBadge>
-                        <PBadge tone="purple">{humanize(c.source)}</PBadge>
+                        <PBadge tone="navy">{humanize(c.source)}</PBadge>
                         {c.class_id && <PBadge tone="muted">{classes.find((x) => x.id === c.class_id)?.name ?? "Class"}</PBadge>}
                       </div>
                       <h3 className="mt-2 font-display text-lg font-semibold">{c.title}</h3>
@@ -154,7 +154,7 @@ export default async function ConcernsPage({ searchParams }: { searchParams: Pro
                             </ActionForm>
                           </Details>
                           {canAct && !c.linked_action_id && (
-                            <Details summary="⚡ Create action">
+                            <Details summary="Create action">
                               <ActionForm buttonsClassName="mt-3" action={createActionFromConcern.bind(null, c.id)} submitLabel="Create action" variant="primary">
                                 <FormGrid>
                                   <PField label="Action" className="sm:col-span-2">

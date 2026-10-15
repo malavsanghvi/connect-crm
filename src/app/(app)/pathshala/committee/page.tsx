@@ -80,8 +80,8 @@ export default async function CommitteeDashboard() {
       <KpiGrid cols={4}>
         <PStat label="Overdue" value={dash.overdue.length} tone="danger" />
         <PStat label="Due ≤ 3 days" value={dash.dueSoon.length} tone="warning" />
-        <PStat label="Unassigned" value={dash.unassigned.length} sub="in the next 2 weeks" tone="maroon" />
-        <PStat label="Events ≤ 2 weeks" value={dash.eventsSoon.length} tone="purple" />
+        <PStat label="Unassigned" value={dash.unassigned.length} sub="in the next 2 weeks" tone="navy" />
+        <PStat label="Events ≤ 2 weeks" value={dash.eventsSoon.length} tone="navy" />
       </KpiGrid>
       {dash.allClear ? (
         <EmptyState title="All clear">Nothing at risk in the next two weeks.</EmptyState>

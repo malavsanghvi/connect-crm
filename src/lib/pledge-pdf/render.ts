@@ -27,7 +27,7 @@ function toColor(hex: string, fallback: [number, number, number]): Color {
 /** The colour mixed with white: `amount` of the colour (0 to 1). */
 function tint(hex: string, amount: number): Color {
   const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
-  const n = m ? parseInt(m[1]!, 16) : 0x1b2c5c;
+  const n = m ? parseInt(m[1]!, 16) : 0x2b2a8a;
   const mix = (c: number) => (255 - (255 - c) * amount) / 255;
   return rgb(mix((n >> 16) & 255), mix((n >> 8) & 255), mix(n & 255));
 }
@@ -68,11 +68,12 @@ export async function renderPledgePdf(view: PledgeDocView, logo: PdfLogo | null)
   const [pw, ph] = view.paper === "a4" ? [595.28, 841.89] : [612, 792];
   const contentW = pw - MARGIN * 2;
 
-  const primary = toColor(view.brand.primary, [0.106, 0.173, 0.361]);
-  const accent = toColor(view.brand.accent, [0.788, 0.451, 0.11]);
-  const ink = rgb(0.12, 0.11, 0.09);
-  const muted = rgb(0.37, 0.35, 0.32);
-  const hairline = rgb(0.89, 0.85, 0.78);
+  // The fallbacks and the neutral inks are the brand kit's navy, brown, ink, muted and line (brand/tokens.json), as 0 to 1 values.
+  const primary = toColor(view.brand.primary, [0.169, 0.165, 0.541]);
+  const accent = toColor(view.brand.accent, [0.659, 0.251, 0.051]);
+  const ink = toColor("#1e1d5c", [0.118, 0.114, 0.361]);
+  const muted = toColor("#555a79", [0.333, 0.353, 0.475]);
+  const hairline = toColor("#eee3d9", [0.933, 0.89, 0.851]);
   const panel = tint(view.brand.primary, 0.07);
 
   pdf.setTitle(`Pledge ${view.number} · ${view.communityName}`);

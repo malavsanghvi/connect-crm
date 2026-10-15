@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ActionForm } from "@/components/action-form";
+import { DEFAULT_COMMUNITY_PALETTE } from "@/lib/brand-colors";
 import { contrastVerdict, parseHexColor, textOn } from "@/lib/setup";
 
 import { saveBrandColorsAction } from "../actions";
@@ -20,13 +21,13 @@ function ColorField({ name, label, value, onChange }: { name: string; label: str
         <input
           type="color"
           aria-label={`${label} picker`}
-          value={valid ? `#${value.replace(/^#/, "").toLowerCase()}` : "#000000"}
+          value={valid ? `#${value.replace(/^#/, "").toLowerCase()}` : DEFAULT_COMMUNITY_PALETTE.primary}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="h-10 w-12 cursor-pointer rounded-[8px] border border-line-input bg-white p-1"
+          className="h-10 w-12 cursor-pointer rounded-tag border border-line-control bg-white p-1"
         />
         <input id={`color-${name}`} name={name} className="crm-input w-32 font-mono uppercase" value={value} onChange={(e) => onChange(e.target.value)} maxLength={7} />
       </div>
-      {!valid ? <p className="crm-hint text-danger">Use a hex code like #1B2C5C.</p> : null}
+      {!valid ? <p className="crm-hint text-danger">Use a hex code like #2B2A8A.</p> : null}
     </div>
   );
 }
@@ -48,7 +49,7 @@ function Mark({ url, name, bg, fg, size }: { url: string | null; name: string; b
     return <img src={url} alt={`${name} logo`} style={{ height: size, width: "auto" }} />;
   }
   return (
-    <span style={{ height: size, minWidth: size, background: bg, color: fg, fontSize: Math.round(size * 0.34) }} className="inline-flex items-center justify-center rounded-[8px] px-1 font-extrabold">
+    <span style={{ height: size, minWidth: size, background: bg, color: fg, fontSize: Math.round(size * 0.34) }} className="inline-flex items-center justify-center rounded-tag px-1 font-bold">
       {name.slice(0, 4).toUpperCase()}
     </span>
   );
@@ -58,11 +59,11 @@ function Mark({ url, name, bg, fg, size }: { url: string | null; name: string; b
  * Brand colors with a live WCAG contrast check and a live preview of the
  * portal header, the member app header, an email header and a statement header.
  */
-export function BrandColors({ initial, logos, name, shortName, greeting = "Jai Jinendra" }: { initial: { primary: string; accent: string }; logos: Logos; name: string; shortName: string; greeting?: string }) {
+export function BrandColors({ initial, logos, name, shortName, greeting = "Welcome" }: { initial: { primary: string; accent: string }; logos: Logos; name: string; shortName: string; greeting?: string }) {
   const [primary, setPrimary] = useState(initial.primary);
   const [accent, setAccent] = useState(initial.accent);
-  const p = parseHexColor(primary) ? `#${primary.replace(/^#/, "")}` : "#1B2C5C";
-  const a = parseHexColor(accent) ? `#${accent.replace(/^#/, "")}` : "#C9731C";
+  const p = parseHexColor(primary) ? `#${primary.replace(/^#/, "")}` : DEFAULT_COMMUNITY_PALETTE.primary;
+  const a = parseHexColor(accent) ? `#${accent.replace(/^#/, "")}` : DEFAULT_COMMUNITY_PALETTE.accent;
   const onP = textOn(p);
   const onA = textOn(a);
 
@@ -86,7 +87,7 @@ export function BrandColors({ initial, logos, name, shortName, greeting = "Jai J
         <p className="crm-label">Preview</p>
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Portal header</p>
-          <div className="flex items-center gap-3 rounded-[10px] border border-line bg-white px-3 py-2">
+          <div className="flex items-center gap-3 rounded-field border border-line bg-white px-3 py-2">
             <Mark url={logos.mark ?? logos.logo} name={shortName} bg={p} fg={onP} size={30} />
             <span className="text-[14px] font-bold text-ink">Weaver</span>
             <span className="ml-auto rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: p, color: onP }}>
@@ -99,14 +100,14 @@ export function BrandColors({ initial, logos, name, shortName, greeting = "Jai J
           <div className="flex max-w-[320px] items-center gap-2.5 rounded-[18px] px-3 py-3" style={{ background: p, color: onP }}>
             <Mark url={logos.logoDark ?? logos.mark ?? logos.logo} name={shortName} bg={a} fg={onA} size={34} />
             <div className="leading-tight">
-              <p className="text-[13px] font-extrabold uppercase tracking-wide">{name}</p>
+              <p className="text-[13px] font-bold uppercase tracking-wide">{name}</p>
               <p className="text-[11px] opacity-80">{greeting}</p>
             </div>
           </div>
         </div>
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Email header</p>
-          <div className="max-w-[420px] overflow-hidden rounded-[10px] border border-line bg-white">
+          <div className="max-w-[420px] overflow-hidden rounded-field border border-line bg-white">
             {logos.emailHeader ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logos.emailHeader} alt={`${name} email header`} className="block w-full" />

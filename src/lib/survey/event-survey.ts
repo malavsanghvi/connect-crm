@@ -58,7 +58,7 @@ export function describeEventSurvey(s: EventSurveyRow, eventStatus: string, now:
   }
   if (s.status === "open") {
     if (s.opens_at && Date.parse(s.opens_at) > t) {
-      return { ...base, stage: "scheduled", label: "Scheduled", tone: "purple", detail: "It opens in the member app at the time shown below." };
+      return { ...base, stage: "scheduled", label: "Scheduled", tone: "navy", detail: "It opens in the member app at the time shown below." };
     }
     return {
       ...base,
@@ -93,7 +93,7 @@ export function describeEventSurvey(s: EventSurveyRow, eventStatus: string, now:
       ...editable,
       stage: "waiting",
       label: "Draft",
-      tone: "purple",
+      tone: "navy",
       detail:
         "Waiting for the event. When you mark it completed, the survey opens by itself: adults with the app on a phone get a push and a reminder on day 1 and day 2 until they answer, and everyone invited sees it on Home.",
     };

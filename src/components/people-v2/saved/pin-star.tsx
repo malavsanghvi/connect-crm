@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon } from "@/components/brand/icons";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
@@ -62,9 +63,7 @@ export function PinStar({ pin, familyName }: { pin: PinInfo; familyName: string 
         title={unknown ? "Pinning is not available just now" : pinned ? "Unpin this family" : "Pin this family to the top of the People home"}
         className={`grid size-11 place-items-center rounded-full hover:bg-[var(--v2-blue-tint)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)] disabled:cursor-not-allowed ${pinned ? "text-[var(--v2-sun-ink)]" : "text-muted"} ${busy ? "opacity-60" : ""}`}
       >
-        <svg viewBox="0 0 24 24" width="22" height="22" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.7l5.9-.8z" />
-        </svg>
+        <Icon name="star" size={22} filled={Boolean(pinned)} />
       </button>
       {message || pin.loadError ? (
         <span

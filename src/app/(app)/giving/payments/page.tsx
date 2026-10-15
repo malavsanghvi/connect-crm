@@ -649,7 +649,7 @@ async function PaymentsPage({ searchParams }: { searchParams: Promise<RawSearchP
                           {p.receipt_number ?? "—"}
                           {p.is_opening_balance ? (
                             <div className="font-sans" title={OPENING_BALANCE_HINT}>
-                              <Badge tone="purple">{OPENING_BALANCE_LABEL}</Badge>
+                              <Badge tone="navy">{OPENING_BALANCE_LABEL}</Badge>
                             </div>
                           ) : null}
                           <div className="font-sans">

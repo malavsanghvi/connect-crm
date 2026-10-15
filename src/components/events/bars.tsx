@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 
-export type BarItem = { label: string; value: ReactNode; ratio: number; tone?: "navy" | "purple" | "danger" | "success" };
+export type BarItem = { label: string; value: ReactNode; ratio: number; tone?: "navy" | "danger" | "success" };
 
-const FILL = { navy: "bg-navy", purple: "bg-purple", danger: "bg-danger", success: "bg-success" } as const;
+const FILL = { navy: "bg-navy", danger: "bg-danger", success: "bg-success" } as const;
 
 /**
  * Horizontal bars, as the prototype's "bars" block: label, a 12px rounded
- * track (#F1E8D8) with a coloured fill, and the value on the right.
+ * track (the kit's "track") with a coloured fill, and the value on the right.
  */
 export function BarList({ items, labelWidth = "11rem" }: { items: BarItem[]; labelWidth?: string }) {
   return (

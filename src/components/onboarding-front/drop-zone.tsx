@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { useId, useRef, useState, type DragEvent } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { readFileFacts } from "@/lib/onboarding-front/read-file";
 import { droppedSummary, plural, recogniseFile, unreadableFile, type DroppedFile, type Recognition, type RecogniseContext } from "@/lib/onboarding-front/recognise";
 
@@ -49,7 +50,7 @@ function Next({ name, rec, links }: { name: string; rec: Recognition; links: Dro
 export function FileRow({ file, links }: { file: DroppedFile; links: DropLinks }) {
   const { rec } = file;
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-[10px] rounded-[12px] border border-line bg-white px-4 py-[14px]">
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-[10px] rounded-field border border-line bg-white px-4 py-[14px]">
       <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="break-all font-mono text-[13px] text-ink">{file.name}</span>
@@ -128,11 +129,7 @@ export function DropZone({ context, links, initial = [] }: { context: RecogniseC
         }}
         className={`flex flex-col items-center gap-3 rounded-[14px] border-2 border-dashed px-5 py-7 text-center transition-colors ${over ? "border-navy bg-navy-50" : "border-navy-300 bg-ground"}`}
       >
-        <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-navy">
-          <path d="M12 16V4" />
-          <path d="M7 9l5-5 5 5" />
-          <path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" />
-        </svg>
+        <Icon name="upload" size={40} className="text-navy" />
         <div id={titleId} className="text-[18px] font-bold text-ink">
           Drop spreadsheets, exports or PDFs here
         </div>

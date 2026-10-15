@@ -9,6 +9,8 @@
 // invitations, public dashboards, the APIs) to the portal's address.
 // Any other host reaches the same pages at /site, which is how they are previewed.
 
+import { brandColor } from "@/lib/brand-colors";
+import { brandPageStyle } from "@/lib/brand-html";
 import { DEFAULT_SITE_DOMAIN, SITE_PAGES, normalizeSiteDomain } from "@/lib/site-hosts";
 import { hostName } from "@/lib/tenancy";
 
@@ -17,7 +19,7 @@ export { DEFAULT_SITE_DOMAIN, SITE_PAGES };
 export const SITE_NAME = "Weaver";
 export const SITE_TAGLINE = "Do more good. Weaver handles the operations. For free. Forever.";
 export const SITE_DESCRIPTION =
-  "Weaver takes members, giving, events, classes and the books off your volunteers' plates. AI does the busywork and people make the final decisions. Free for your organization, with no lock-in.";
+  "Weaver takes members, giving, events, classes and the books off your volunteers' plates. AI does the busywork. People make the final decisions. Free for your organization, with no lock-in.";
 
 /**
  * The optional Chip In: the most one account is ever asked to add, in total across every transaction in
@@ -45,6 +47,23 @@ export function siteOrigin(domain: string = publicSiteDomain()): string {
 export function portalUrl(path = "", configured: string | null | undefined = process.env.NEXT_PUBLIC_PORTAL_URL, domain: string = publicSiteDomain()): string {
   const base = (configured ?? "").trim().replace(/\/+$/, "") || `https://admin.${domain}`;
   return `${base}${path}`;
+}
+
+/**
+ * The member web app's address: NEXT_PUBLIC_MEMBER_APP_URL (the repository variable MEMBER_APP_URL, docs/DEPLOY.md "Member addresses")
+ * when it is an http(s) address, else app.<domain>. No trailing slash.
+ */
+export function memberAppUrl(configured: string | null | undefined = process.env.NEXT_PUBLIC_MEMBER_APP_URL, domain: string = publicSiteDomain()): string {
+  const base = (configured ?? "").trim().replace(/\/+$/, "");
+  return /^https?:\/\/[^\s/?#]+(?:\/[^\s?#]*)?$/i.test(base) ? base : `https://app.${domain}`;
+}
+
+/** The page of the member web app that starts its demo (connect-mobile, route /demo; docs/MEMBER_APP_DEMO.md). */
+export const MEMBER_APP_DEMO_PATH = "/demo";
+
+/** Where the website sends a visitor who would rather try the member app in the browser. */
+export function memberAppDemoUrl(configured: string | null | undefined = process.env.NEXT_PUBLIC_MEMBER_APP_URL, domain: string = publicSiteDomain()): string {
+  return `${memberAppUrl(configured, domain)}${MEMBER_APP_DEMO_PATH}`;
 }
 
 /** True for the website's own names: the bare domain and www. */
@@ -113,4 +132,4 @@ export function siteRoute(input: {
 }
 
 /** The 404 page for an address on the website's host that is not part of it (the proxy answers it directly). */
-export const SITE_NOT_FOUND_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Page not found · ${SITE_NAME}</title></head><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#F6F2EA;color:#1B2C5C;font-family:system-ui,sans-serif;text-align:center"><main style="padding:24px"><p style="margin:0;font-size:72px;font-weight:700;color:#C9731C">404</p><h1 style="margin:8px 0">We could not find that page</h1><p><a href="/" style="color:#1B2C5C;font-weight:700">Back to the home page</a></p></main></body></html>`;
+export const SITE_NOT_FOUND_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Page not found · ${SITE_NAME}</title></head><body style="${brandPageStyle()};margin:0;min-height:100vh;display:grid;place-items:center;text-align:center"><main style="padding:24px"><p style="margin:0;font-size:72px;font-weight:700;color:${brandColor("brown")}">404</p><h1 style="margin:8px 0;color:${brandColor("navy")}">We could not find that page</h1><p><a href="/" style="color:${brandColor("navy")};font-weight:700">Back to the home page</a></p></main></body></html>`;

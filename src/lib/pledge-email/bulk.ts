@@ -39,7 +39,7 @@ export type EmailSummary = {
   waiting: number;
   noEmail: number;
   failed: number;
-  /** Not emailed on purpose or by rule: unticked, history, switched off, waiting for the treasurer's approval, or held back by the sender. */
+  /** Not emailed on purpose or by rule: unticked, imported or with its own messages, switched off, waiting for the treasurer's approval, or held back by the sender. */
   notEmailed: number;
 };
 
@@ -89,7 +89,7 @@ export function emailProblemLines(list: readonly PledgeEmailStatus[], label: (e:
           : e.state === "declined"
             ? `${head}: not emailed, as you chose.`
             : e.state === "history"
-              ? `${head}: not emailed${why ? `, ${why}` : ": it counts as history"}.`
+              ? `${head}: not emailed${why ? `, ${why}` : ": it was brought in from another system, or has its own messages"}.`
               : `${head}: not emailed${why ? `, ${why}` : ""}.`;
     out.push({ state: e.state, text });
   }

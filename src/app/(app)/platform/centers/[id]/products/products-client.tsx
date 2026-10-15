@@ -129,7 +129,7 @@ export function ProductsClient({
               return (
                 <li key={p.key} data-product={p.key} className="py-3">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span aria-hidden="true" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-navy text-[13px] font-bold text-white">
+                    <span aria-hidden="true" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-field bg-navy text-[13px] font-bold text-white">
                       {p.mark}
                     </span>
                     <div className="min-w-[12rem] flex-1">
@@ -156,7 +156,7 @@ export function ProductsClient({
                       id={`switch-${p.key}`}
                       role="group"
                       aria-label={`${turningOn ? "Turn on" : "Turn off"} ${p.name} for ${centerName}`}
-                      className="mt-3 space-y-3 rounded-[12px] border border-line bg-highlight p-3">
+                      className="mt-3 space-y-3 rounded-field border border-line bg-highlight p-3">
                       <h3 className="text-[13px] font-bold text-ink">
                         {turningOn ? "Turn on" : "Turn off"} {p.name} for {centerName}
                       </h3>
@@ -171,7 +171,7 @@ export function ProductsClient({
                           ))}
                         </div>
                       ) : null}
-                      <p className="rounded-[10px] border border-line bg-white px-3 py-2 text-[13px] text-ink-2">{dialogNote(p, turningOn)}</p>
+                      <p className="rounded-field border border-line bg-white px-3 py-2 text-[13px] text-ink-2">{dialogNote(p, turningOn)}</p>
                       <div className="space-y-1">
                         <label htmlFor={reasonId} className="block text-[13px] font-bold text-ink">
                           Reason (saved in the audit log)
@@ -233,7 +233,7 @@ export function ProductsClient({
             ) : (
               <ul className="mt-3 space-y-3">
                 {requests.map((p) => (
-                  <li key={p.key} className="space-y-1 rounded-[12px] border border-line p-3 text-[13px]" data-request={p.key}>
+                  <li key={p.key} className="space-y-1 rounded-field border border-line p-3 text-[13px]" data-request={p.key}>
                     <strong className="block text-ink">{p.name}</strong>
                     <span className="block text-muted">{requestedLine(p, timeZone, " (community admin)")}</span>
                     {p.requestNote ? <span className="block italic text-ink-2">“{p.requestNote}”</span> : null}

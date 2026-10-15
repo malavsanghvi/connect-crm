@@ -2,7 +2,7 @@
 
 Anyone can open a demo community as one of its demo people (an administrator, a treasurer, a member ...) with no code and no real
 email: the **Try the demo** button on the website and on the portal sign-in page opens `/demo`, where the visitor chooses a kind of
-community, then a person, and presses Start. Nothing in a demo is real; the communities start over every night (job `demo.reset`).
+community, then a person (six are offered, in two areas: see "Who is offered"), and presses Start. Nothing in a demo is real; the communities start over every night (job `demo.reset`).
 
 ## How it works without a service-role key
 
@@ -66,8 +66,44 @@ One thing a visitor can still do from their own browser is sign the shared demo 
 ends the other visitors' sessions of the same demo person; each is sent back to the demo page on its next click and starts again.
 They cannot change the sign-in itself (password, address, phone) or keep a session of their own that is not on record.
 
-## Not built here
+## Who is offered (0815)
 
-The member app's "Try the demo" (a separate pull request in connect-mobile): it calls an HTTP endpoint that returns the session
-tokens instead of setting a cookie (`POST /api/demo/session`, same `startDemoSession` core and the same limits), then stores them
-like a normal sign-in; the app's banner reads `app.demo_session_state()`.
+The public list of demo people (`app.demo_choices()`, the portal's `/demo` page and `GET /api/demo/choices`) offers only the **featured** people
+(owner decision 2026-10-14), arranged in two areas: **Non-profit operational roles** (the community's administrator, treasurer, membership coordinator,
+event lead and teacher, in that order) and **Community roles** (the family's main adult, shown as "Community member · Adult"). Each person in the list
+carries their `area` (`operations` or `community`) and each community its public `id` and `slug`. A community with none of a role lacks it.
+The list is `app.demo_featured_roles()`, the only place to change it (for example to offer the family's other adults instead of the main adult).
+This changes only what the public list offers: the pack still has one demo person per role (`app.demo_missing_roles` requires it), every person keeps
+their sign-in, `app.worker_demo_begin` is unchanged, and the portal banner's "Switch role" opens the same page.
+
+## The member app (docs/MEMBER_APP_DEMO.md)
+
+The member app's "Try the demo" (a separate pull request in connect-mobile) calls two HTTP endpoints of the portal, in `src/app/api/demo/`:
+
+- `GET /api/demo/choices` is the list above as JSON (with the community `id` and `slug`, so the app can open the community as a guest first).
+- `POST /api/demo/session` with `{ "persona": "<id from the list>" }` runs the **same `startDemoSession` core** as the `/demo` page (the switch, the
+  person check, the two-hour session, the limits per visitor address and for the platform, the audit entries, the Auth session tied to the demo session
+  with `worker_demo_attach` and `auth.sessions.not_after`), but returns the Auth session (`access_token`, `refresh_token`, `expires_in`, `expires_at`,
+  `token_type`) in the answer instead of setting a cookie, with `{ ends_at, role, name, community }`. Failures answer `{ ok: false, error, code }`, `code`
+  being `off`, `limit`, `unknown_person` or `failed`, with the same sentences the web flow shows. The caller's own cookies are never read, set or cleared,
+  and an earlier demo session is not ended by a start (the app ends its own with `demo_leave`).
+- Both answer `Cache-Control: no-store` and CORS only for the member app's own address (`https://app.weaverams.org`; local Expo addresses only outside
+  production); a request from a web page on another site is refused. The proxy leaves `/api/demo/*` alone (no session, no redirect, no demo check of a
+  cookie). The app then keeps the session like a normal sign-in, ends a demo with `rpc demo_leave` and watches `rpc demo_session_state` through the
+  Supabase client (both are granted to signed-in people and work with the token from outside the portal).
+- **What a person with the token can do** is what a visitor of the web demo can do (above), and no more: the session is theirs openly instead of in a
+  cookie. They act as that demo person, in that one demo community, until the two hours end (`not_after`, the state check the app makes, the sweep every
+  demo start and the hourly job make) plus at most the rest of the access token's life; nothing they do survives the nightly reset. They can still sign the
+  shared demo person out everywhere. The guardrails live in the database, not in the app, so a changed app or a hand-made request gets no more.
+
+### A guest-style look around first (0816)
+
+The app first lets a visitor look around the chosen demo community **as a guest, with no sign-in** (Home with the public events, the guide, the store),
+and then offers "Be someone in the demo". For that, a demo community is open to guests while the demo switch is on, **and only then**:
+`app.demo_public_open(center)` (a flagged demo sandbox, onboarding or active, while the switch is on) is the one question, and `app.demo_closed_to_guests(center)`
+is its negation for demo communities only (false for every other community, so no other community's rule changes). It is used in the gates a guest passes:
+`app.community_open` (the community by web name and id), `app.access_center_open` (the areas and the experience), `app.public_org_profile`, the policies
+`centers_public_read` and `org_leaders_public_read`, and a restrictive `demo_guest_gate` policy for the role `anon` on the public tables the look-around
+reads (events, guide, store, content, photo albums, timings, roster, campaigns, opportunities, membership types). Switched off, a demo community is gone
+for a guest in all of them; a platform admin still opens it. **Guests never write**: no insert, update or delete policy or grant is touched. What is not
+covered is listed in [MEMBER_APP_DEMO.md](MEMBER_APP_DEMO.md). Test: `supabase/tests/816_demo_guest_look_around_test.sql`.

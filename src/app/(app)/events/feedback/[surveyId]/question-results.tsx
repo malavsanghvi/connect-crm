@@ -19,7 +19,7 @@ export function QuestionResultCard({ result, responses }: { result: QuestionResu
     const top = Math.max(1, ...result.distribution.map((d) => d.count));
     return (
       <Card span={6} title={result.label} description={hint}>
-        <p className="mb-3 text-[26px] font-extrabold leading-none text-navy">
+        <p className="mb-3 text-[26px] font-bold leading-none text-navy">
           {result.average !== null ? result.average.toFixed(1) : "—"} <span className="text-[13px] font-semibold text-muted">out of 5</span>
         </p>
         <BarList
@@ -28,7 +28,7 @@ export function QuestionResultCard({ result, responses }: { result: QuestionResu
             label: `${d.value} ${d.value === 1 ? "star" : "stars"}`,
             value: d.count,
             ratio: d.count / top,
-            tone: d.value <= 2 ? "danger" : "purple",
+            tone: d.value <= 2 ? "danger" : "navy",
           }))}
         />
       </Card>
@@ -38,7 +38,7 @@ export function QuestionResultCard({ result, responses }: { result: QuestionResu
     const n = Math.max(1, result.answers);
     return (
       <Card span={6} title={result.label} description={hint}>
-        <p className="mb-3 text-[26px] font-extrabold leading-none text-navy">
+        <p className="mb-3 text-[26px] font-bold leading-none text-navy">
           {formatNps(result.nps)} <span className="text-[13px] font-semibold text-muted">net promoter score</span>
         </p>
         <BarList

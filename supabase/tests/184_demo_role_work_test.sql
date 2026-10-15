@@ -5,6 +5,7 @@
 --   A. who is who: the owner, the scopes     B. each role's work, found through its own door (the permission, or the role, that opens the screen)
 --   C. the nine roles that have no portal screen (Home gives them a card: the member app, or their assignments) are listed and checked, not skipped
 --   C2. what those Home cards read, asked as each of those people; the kitchen lead's prep list, which kitchen.view opens in the portal
+--   C3. the six roles that hold a screen but no queue (Home gives them a "Start here" card) hold the permission that card sends them by
 --   D. what a child never sees     E. a reset keeps all of it      F. the work is still there after a reset, for every role
 -- Every failure is collected and reported together, so one run names everything that is missing.
 -- Everything runs in one transaction that is rolled back.
@@ -312,6 +313,27 @@ select pg_temp.assert(app.has_permission(:'fc', 'kitchen.view')
                       and (select count(*) >= 2 from app.store_order_lines l join app.store_orders o on o.id = l.order_id where o.center_id = :'fc' and o.status in ('placed', 'preparing', 'ready'))
                       and (select count(*) >= 1 from app.store_items where center_id = :'fc' and status = 'active'),
   'C2 · the kitchen lead holds kitchen.view, which opens Orders by pickup: the database lets him read the pickup slots, the orders with their lines and the item names');
+select pg_temp.as_none();
+
+-- ══ C3. Start here: the six who hold a screen but no queue ══════════════════
+-- Home gives the executive viewer, the content editor, the volunteer coordinator, the store pickup volunteer, the kitchen lead and the Pathshala committee a
+-- "Start here" card that names their screen. The card is derived from what a person holds and the screens the navigation opens, never from a role key
+-- (src/lib/home/start-here.ts), so each of the six is asked for the permission their screen is named for, as themselves. What waits on each screen (drafts,
+-- sign-ups, shifts with free places, orders, committee actions) is asked in B.
+select pg_temp.as_role('executive_viewer');
+select pg_temp.assert(app.has_permission(:'fc', 'reports.view'), 'C3 · the executive viewer holds reports.view: Start here sends them to Reports');
+select pg_temp.as_role('content_editor');
+select pg_temp.assert(app.has_permission(:'fc', 'content.draft'), 'C3 · the content editor holds content.draft: Start here sends them to Content > Library');
+select pg_temp.as_role('volunteer_coordinator');
+select pg_temp.assert(app.has_permission(:'fc', 'volunteers.manage') and app.has_permission(:'fc', 'events.view'),
+  'C3 · the volunteer coordinator holds volunteers.manage and events.view: Start here sends them to Events > Volunteers');
+select pg_temp.as_role('store_pickup');
+select pg_temp.assert(app.has_permission(:'fc', 'store.pickup'), 'C3 · the store pickup volunteer holds store.pickup: Start here sends them to My Store > Orders by pickup');
+select pg_temp.as_role('kitchen_lead');
+select pg_temp.assert(app.has_permission(:'fc', 'kitchen.view'), 'C3 · the kitchen lead holds kitchen.view: Start here sends them to My Store > Orders by pickup');
+select pg_temp.as_role('pathshala_committee');
+select pg_temp.assert(app.has_permission(:'fc', 'governance.vote') and app.has_permission(:'fc', 'events.view'),
+  'C3 · the Pathshala committee holds governance.vote and events.view: Start here sends them to Pathshala > Committee');
 select pg_temp.as_none();
 
 -- ══ D. What a child never sees ══════════════════════════════════════════════

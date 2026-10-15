@@ -11,6 +11,10 @@ Two tests keep it honest: `tests/demo-role-work.test.ts` (what the portal shows 
 security on). The people and their pledges, gifts, events and orders are the pack of `supabase/scripts/build-demo-packs.mjs`; this change is its
 version 3 (migration 0797), and 0796 fixes how three of the people are signed in.
 
+**Who the public list offers (0815).** All 26 people exist and can start a demo, but the list a visitor chooses from (the `/demo` page and the member
+app's "Try the demo") offers six: the administrator, treasurer, membership coordinator, event lead and teacher (non-profit operational roles) and the
+family's main adult (community roles). The list is `app.demo_featured_roles()`; see [DEMO_SIGNIN.md](DEMO_SIGNIN.md).
+
 ## What the portal shows, in one paragraph
 
 Home "My tasks" is a list of queues, each shown only to someone who holds one of the permissions that act on it (`visibleTaskSources`). The
@@ -30,23 +34,23 @@ from Home in the navigation. A queue row's wording is the portal's own.
 | --- | --- | --- | --- | --- | --- |
 | Center admin (owner) | Asha Varma | One row: the 6 volunteers of the Tapasvi event with no signed waiver | 13 rows: the waiver row (now 8 volunteers), the treasurer's write-off and bank lines, 2 membership applications, a message to approve, 5 member questions, 2 WhatsApp requests, a text to approve, items under their reorder level, a boli closing, a waitlisted learner, 2 data requests | everything below; she is the owner so every queue is hers | Home |
 | Executive committee | Rohit Varma | Nothing waiting | 2 membership applications, one of them a **life membership waiting for the executive committee** | `membership_applications` (Lalit's life application, Tarun's yearly one) | Home; People › Membership applications |
-| Executive viewer | Kavita Rathore | Home "At a glance": next event RSVPs | Same, read only (by design this role changes nothing): the Tapasvi RSVPs, the open bolis, Reports › Center health | events, RSVPs, bolis | Home "At a glance"; Reports; Events; Bolis |
+| Executive viewer | Kavita Rathore | Home "At a glance": next event RSVPs | Same, read only (by design this role changes nothing): the Tapasvi RSVPs, the open bolis, Reports › Center health | events, RSVPs, bolis | Home › **Start here** (Reports › Center health); Home "At a glance"; Reports; Events; Bolis |
 | Treasurer | Meera Doshiwal | Nothing waiting | A **write-off** a colleague asked for, to confirm as the second approver; **4 bank lines** to match (one is a check deposit); the current month still to close (its checklist has the statements check for her to mark, then the lock; in the New look her month-end routine says to match every bank line first) | pledge `w1` with `written_off_by`; `bank_accounts` + 4 `bank_transactions` | Home; Giving › Payments & deposits › Bank; Accounting › Month-end close |
 | Finance volunteer | Kiran Doshiwal | Nothing waiting | The 4 bank lines to match; open pledges to record gifts against (Giving › Payments) | the same bank lines; pledges `a7`, `b1`, `b2`, `g2`, `g3` ... | Home; Giving |
 | Membership coordinator | Hemant Parmar | Nothing waiting | 2 applications to decide (Tarun Patni's yearly one, Lalit Rathore's life one); a **family change request** (add a family member to the Wadhwa household) | 3 `membership_applications`, 1 `household_change_requests` | Home; People › Membership applications / Family change requests |
 | Religious coordinator | Bharat Kataria | Nothing waiting | A religious text to approve ("Porisi pachchakhan"); a digital boli (the first lamp at Diwali) that closes in 4 days, with 3 entries | `content_items` (in review), `bolis` + `boli_entries` | Home; Content › Approval queue; Bolis |
 | Communications officer | Pooja Salecha | Nothing waiting (a draft is in Newsletters) | A message to approve ("Diwali greetings"); **5 member questions** nobody has taken; 2 WhatsApp join requests; the Pathshala draft to finish and send | `comms_campaigns`, `inboxes` + `threads` + `thread_messages`, `whatsapp_groups` + `whatsapp_join_requests` | Home; Communications |
-| Content editor | Nikhil Salecha | Home: "Nothing here for your role"; no drafts | 2 drafts to write and send for approval (an audio lesson to record, a pachchakhan to write) | `content_items` (draft) | Content › Library |
+| Content editor | Nikhil Salecha | Home: "Nothing here for your role"; no drafts | 2 drafts to write and send for approval (an audio lesson to record, a pachchakhan to write) | `content_items` (draft) | Home › **Start here** (Content › Library, with the drafts to finish); Content › Library |
 | Privacy officer | Falguni Singhvi | Nothing waiting | 2 data requests (an export, a deletion in progress) | `data_requests` | Home; Settings › Privacy |
-| Volunteer coordinator | Dipak Singhvi | Home: "Nothing here"; interests to answer and free shifts existed | 3 people who asked to volunteer, a **background check** that was asked for and has not come back, and 3 shifts with free places | `volunteer_interests`, `background_checks`, `volunteer_shifts` | Events › Volunteers (also from any event's Volunteers tab) |
+| Volunteer coordinator | Dipak Singhvi | Home: "Nothing here"; interests to answer and free shifts existed | 3 people who asked to volunteer, a **background check** that was asked for and has not come back, and 3 shifts with free places | `volunteer_interests`, `background_checks`, `volunteer_shifts` | Home › **Start here** (Events › Volunteers, with the sign-ups and the shifts with free places); Events › Volunteers (also from any event's Volunteers tab) |
 | Event lead | Sanjay Lunawat | Nothing in the portal; the Tapasvi event 9 days away | The Tapasvi event is **5 days away** with 24 people to check in (12 confirmed, 12 who have RSVPd), a checklist of 5 actions (one overdue, one due tomorrow and his own, one in 3 days, one nobody owns) and live numbers | `events`, RSVPs + attendees, `actions` | Home › **My assignments** (the event, its date and live numbers; links to the event page, the check-in screen and the kitchen display); in the New look, Today lists "Check RSVPs against capacity" while the event is within 7 days |
 | Check-in volunteer | Riya Lunawat | Nothing in the portal | The same 24 people to check in; her own confirmed shift at the door | RSVPs + attendees, `volunteer_assignments` | Home › **My assignments** (the event, its numbers and the check-in screen); the event-day app and the member app's volunteer mode |
-| Kitchen lead | Vijay Bhandari | Nothing in the portal | The prep list (3 lines of 2 store orders waiting) and the Tapasvi headcount (12 confirmed people) | store orders, attendees | My Store › Orders by pickup (`kitchen.view` opens it); the kitchen display of the event-day app |
+| Kitchen lead | Vijay Bhandari | Nothing in the portal | The prep list (3 lines of 2 store orders waiting) and the Tapasvi headcount (12 confirmed people) | store orders, attendees | Home › **Start here** (My Store › Orders by pickup, with the orders waiting); My Store › Orders by pickup (`kitchen.view` opens it); the kitchen display of the event-day app |
 | Store lead | Sunil Nahar | Nothing in the portal (the grant was scoped to 'store', which the portal ignores: see below) | **2 items at or under their reorder level** (Farsi puri, Chakri) and 2 orders to prepare and hand out | `store_items` with stock and a reorder level; orders `o3`, `o4` | Home; My Store |
-| Store pickup | Rekha Nahar | The same 2 orders (it was already there) | The 2 orders (one ready, one placed) for the pickup window in 2 days | orders `o3`, `o4` | My Store › Orders by pickup |
+| Store pickup | Rekha Nahar | The same 2 orders (it was already there) | The 2 orders (one ready, one placed) for the pickup window in 2 days | orders `o3`, `o4` | Home › **Start here** (My Store › Orders by pickup, with the orders waiting); My Store › Orders by pickup |
 | Boli recorder | Sarla Kataria | Nothing: there was no boli | An **in-person boli** for the Tapasvi event to record when it is called | `bolis` (in person) | Home › **My assignments** (the event, with no link: the boli is recorded in the event-day app or the member app's volunteer mode) |
 | Pathshala principal | Deepa Chopda | Nothing in the portal (the grant was scoped to 'pathshala') | A late **registration waiting to be placed** (Zara asks for a level with no class), a learner on the **waitlist** (Aarav) | `pathshala_enrollments` | Home; Pathshala › Enrollments |
-| Pathshala committee | Manish Chopda | Nothing in the portal (scoped to 'pathshala') | The committee's "next two weeks": an overdue action, one due tomorrow, one in 3 days, two nobody owns | `actions` on the Tapasvi and Diwali events | Pathshala › Committee |
+| Pathshala committee | Manish Chopda | Nothing in the portal (scoped to 'pathshala') | The committee's "next two weeks": an overdue action, one due tomorrow, one in 3 days, two nobody owns | `actions` on the Tapasvi and Diwali events | Home › **Start here** (Pathshala › Committee, with the actions at risk); Pathshala › Committee |
 | Teacher | Anita Bhandari | Her class and its roster | Her class 2 (3 students) with **attendance not taken** for the latest Sunday | `pathshala_classes`, enrollments | Pathshala › My classes (her landing) |
 | Zone lead | Lalit Rathore | Nothing in the portal; no inbox | **2 questions in the north zone's inbox**, and the 7 families of the zone | `inboxes` (zone), `threads` | Home › **My assignments** (the zone, the open questions in its inbox, a link to `/comms/inbox`); the member app |
 | Community member | Priya Wadhwa | Nothing | Her **membership application waiting for her reference to answer**; an open pledge; a parking shift to confirm; 2 events to RSVP to; a notice; her two questions to the office | `membership_applications`, pledge `g3`, `volunteer_assignments`, `threads` | Home › **Your work is in the member app** (a link to it and what waits there); the member app |
@@ -54,6 +58,9 @@ from Home in the navigation. A queue row's wording is the portal's own.
 | Primary adult | Tarun Patni | An open pledge, an RSVP | The family's membership application (waiting for the team); the open pledge; the Diwali RSVP; the open boli | `membership_applications`, pledge `g2`, `bolis` | Home › **Your work is in the member app** (a link to it and what waits there); the member app |
 | Adult member | Nisha Patni | An open family pledge | The open family pledge; a **parking shift to confirm** | pledge `g2`, `volunteer_assignments` | Home › **Your work is in the member app** (a link to it and what waits there); the member app |
 | Child | Zara Singhvi | Events | Events to see; her **Pathshala registration** (waiting for a class for her level); the notices. Never a pledge, gift or boli | `pathshala_enrollments`, events, alerts | Home › **Your work is in the member app** (events and notices only, never money); the member app |
+
+The Treasurer also finds an offer of a **guided tour** of the bank-line work (Home card, "Take the tour" in the demo banner, the Tour menu): the
+sample of Spotlight, [SPOTLIGHT.md](SPOTLIGHT.md). No other role has a tour yet.
 
 ## The roles that have no portal screen: Home gives them a card
 
@@ -103,19 +110,33 @@ community**, not only the demo: a real community's event lead for one event, or 
    a card. The subtitle under the greeting then says "What is waiting for you". A person with a staff queue sees My tasks exactly as before, with
    My assignments above it if they also hold a scoped role.
 
+5. **"Start here"** (Home and Today; owner's decision, 2026-10-14). For a person who holds a screen but no staff queue and neither of the cards above. It
+   is derived from what the person holds and the screens the navigation opens (`src/lib/home/start-here.ts`), **never from a role key**, so a role the
+   community renamed, cloned or built itself gets the same card. The first of these fits: Reports (`reports.view`), Content › Library
+   (`content.draft` or `content.manage`), Events › Volunteers (any volunteers or safety permission), My Store › Orders by pickup (`store.pickup` or
+   `kitchen.view`), Pathshala › Committee (`governance.vote` or `governance.manage`); a person who fits none but has a screen gets the first module of their
+   navigation. The screen's name is the navigation's own (a church's store is its Bookshop). The card is one plain sentence naming the screen and a button
+   to it, and where a count is cheap and the person's own access reads it: drafts to finish; people who asked to volunteer and shifts with free places
+   (only for those who may read the sign-ups); orders waiting for pickup; the committee's actions overdue, due within 3 days or with no owner (the
+   committee dashboard's own rule). A count that fails is a red line with the reason and "Try again", never a zero; a count that comes back at zero says
+   "Nothing is waiting right now." It never shows to someone who has a queue, My assignments or the member-app card, and it replaces "Nothing here for
+   your role" for these six: the executive viewer, content editor, volunteer coordinator, store pickup volunteer, kitchen lead and Pathshala committee.
+
 What is not counted on the member-app card, on purpose: a **volunteer shift to confirm** (the member app has no screen that reads or confirms
 shifts, so a count would point at work they cannot do there), a child's **Pathshala registration**, the family's **questions to the office**, and the
 open **boli**. They can be added when the member app grows a screen for them.
 
-## Which roles still show only a card, and which still say "Nothing here"
+## Which roles show which card
 
 - **Only a card** (no portal screen at all, Home plus the card): the nine above. The event lead, check-in volunteer, boli recorder and zone lead get
   two cards (their assignments, and the member app); the five family roles get the member-app card.
-- **A screen, no queue and no card** (Home still says "Nothing here for your role" above their navigation, as it did before): the executive viewer,
-  content editor, volunteer coordinator, store pickup volunteer, **kitchen lead** and Pathshala committee. Their work is on the screen one click away.
-  The teacher has a card (the class), so she is not told that.
-- **Decisions for the owner**: (a) whether Home should point these six at their screen instead of saying "Nothing here"; (b) the member app's address
-  is one for the whole deployment: a link straight into "your community" needs the per-community member addresses, which are switched off.
+- **Start here** (a screen, no queue, no other card): the executive viewer (Reports), content editor (Content › Library), volunteer coordinator
+  (Events › Volunteers), store pickup volunteer and kitchen lead (My Store › Orders by pickup) and Pathshala committee (Pathshala › Committee).
+  `tests/demo-role-work.test.ts` pins exactly these six and that nobody else gets the card.
+- **A queue**: every other role. The teacher has a card of her own (the class under My assignments).
+- No role of the 26 is told "Nothing here for your role" any more. The message stays only as a last resort, for a person to whom no card applies.
+- **Open for the owner**: the member app's address is one for the whole deployment, so a link straight into "your community" needs the
+  per-community member addresses, which are switched off.
 
 ## The club demo (Lakeside Neighbors Club, 21 roles) has the same
 

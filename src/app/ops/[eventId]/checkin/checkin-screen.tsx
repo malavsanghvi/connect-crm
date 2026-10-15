@@ -411,8 +411,8 @@ export function CheckInScreen({
           <strong className="font-display text-2xl">{checkedIn}</strong> checked in · of {expected} confirmed
         </p>
         <p className="text-sm">
-          {online ? <span className="text-[#9FE0BC]">● Online</span> : <span className="text-[#F7B4AE]">● Offline</span>}
-          {queued > 0 && <span className="ml-2 rounded-full bg-[#D7A15F] px-2 py-0.5 font-semibold text-navy">{queued} waiting to sync</span>}
+          {online ? <span className="text-success-200">● Online</span> : <span className="text-danger-200">● Offline</span>}
+          {queued > 0 && <span className="ml-2 rounded-full bg-gold px-2 py-0.5 font-semibold text-navy">{queued} waiting to sync</span>}
         </p>
       </div>
       {eventStatus !== "live" && (
@@ -433,7 +433,7 @@ export function CheckInScreen({
               setMode("scan");
               setNotice(null);
             }}
-            className={`min-h-12 rounded-lg text-base font-semibold ${station === s.key ? "bg-[#D7A15F] text-[#1E1508]" : "text-[#F4EFE6]"}`}
+            className={`min-h-12 rounded-lg text-base font-semibold ${station === s.key ? "bg-gold text-navy" : "text-navy-100"}`}
           >
             {s.label}
           </button>
@@ -447,7 +447,7 @@ export function CheckInScreen({
             notice.tone === "success"
               ? "border-success/30 bg-success-50 text-success"
               : notice.tone === "warning"
-                ? "border-saffron/40 bg-saffron-50 text-brown"
+                ? "border-warning-200 bg-warning-50 text-warning-ink"
                 : notice.tone === "danger"
                   ? "border-danger/30 bg-danger-50 text-danger"
                   : "border-navy/20 bg-navy-50 text-navy"
@@ -556,7 +556,7 @@ export function CheckInScreen({
                     type="button"
                     aria-pressed={on}
                     onClick={() => setSelected((cur) => (cur.includes(p.id) ? cur.filter((x) => x !== p.id) : [...cur, p.id]))}
-                    className={`flex min-h-14 w-full items-center gap-3 rounded-xl border-2 px-3 py-2 text-left ${on ? "border-[#B8C2DD] bg-navy-50" : "border-line bg-white"}`}
+                    className={`flex min-h-14 w-full items-center gap-3 rounded-xl border-2 px-3 py-2 text-left ${on ? "border-navy-300 bg-navy-50" : "border-line bg-white"}`}
                   >
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 text-lg font-bold ${on ? "border-navy bg-navy text-white" : "border-line bg-white"}`}>
                       {on ? "✓" : ""}

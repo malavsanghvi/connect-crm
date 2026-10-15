@@ -5,6 +5,7 @@ import { useActionState, useEffect, useId, useRef, useState } from "react";
 
 import { signOutAction } from "@/app/auth-actions";
 import { LookSwitch } from "@/components/shell/look-switch";
+import { TourMenuItem } from "@/components/spotlight/tour-menu";
 
 /** The open panel of the account menu (separate so it can be rendered on its own). */
 export function AccountPanel({
@@ -40,6 +41,8 @@ export function AccountPanel({
           Account and security
         </Link>
         <LookSwitch look="v2" block item />
+        {/* Replay or turn off the guided tours; renders nothing for a person who has no tour. */}
+        <TourMenuItem variant="menu" onStarted={onNavigate} />
         <form action={action}>
           <button type="submit" disabled={pending} className="v2-menu-item">
             {pending ? "Signing out…" : "Sign out"}
@@ -47,7 +50,7 @@ export function AccountPanel({
         </form>
       </div>
       {error ? (
-        <p role="alert" className="mx-1 mb-1 mt-1 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <p role="alert" className="mx-1 mb-1 mt-1 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {error}
         </p>
       ) : null}

@@ -243,14 +243,18 @@ select pg_temp.assert(not exists (select 1 from app.role_grants g where g.user_i
 select pg_temp.as_anon();
 select app.demo_choices()::text as ch \gset
 select pg_temp.as_none();
+-- Since 0815 the list offers only the featured roles (app.demo_featured_roles; the whole of it is tested in 815_demo_featured_roles_test.sql).
 select pg_temp.assert((:'ch'::jsonb ->> 'enabled')::boolean and jsonb_array_length(:'ch'::jsonb -> 'communities') = 2
-                      and (select sum(jsonb_array_length(c -> 'people')) = :n_people - 1 from jsonb_array_elements(:'ch'::jsonb -> 'communities') c),
-  'E · anyone can see the two demo communities and the demo people to choose from');
+                      and (select sum(jsonb_array_length(c -> 'people')) = (select count(*) from app.demo_personas d
+                                                                              join app.demo_auth_users a on a.email = d.email
+                                                                              join app.demo_featured_roles() f on f.role_key = d.role_key)
+                             from jsonb_array_elements(:'ch'::jsonb -> 'communities') c),
+  'E · anyone can see the two demo communities and the featured demo people (with a sign-in) to choose from');
 select pg_temp.assert(position('weaverams.org' in :'ch') = 0 and position(:'e_clean' in :'ch') = 0,
   'E · and the list never shows an address');
 select pg_temp.assert(not exists (select 1 from jsonb_array_elements(:'ch'::jsonb -> 'communities') c, jsonb_array_elements(c -> 'people') p
-                                    where (select array_agg(k order by k) from jsonb_object_keys(p) k) is distinct from array['id', 'name', 'role', 'story']),
-  'E · only an id, the role, the name and the story of each person');
+                                    where (select array_agg(k order by k) from jsonb_object_keys(p) k) is distinct from array['area', 'id', 'name', 'role', 'story']),
+  'E · only an id, the role, the name, the story and the area of each person');
 select pg_temp.assert(position(:'p_taken' in :'ch') = 0, 'E · a demo person without a sign-in is not offered');
 select pg_temp.claims(:admin, true);
 select app.demo_signin_status()::text as stat \gset

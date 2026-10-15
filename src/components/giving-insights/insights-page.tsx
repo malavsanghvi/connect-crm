@@ -183,7 +183,7 @@ export function InsightsBody({ view }: { view: InsightsView }) {
 
 function Count({ label, value, hint }: { label: string; value: number; hint: string }) {
   return (
-    <div className="rounded-[12px] border border-line bg-white px-3 py-2">
+    <div className="rounded-field border border-line bg-white px-3 py-2">
       <dt className="text-[12px] font-bold text-muted">{label}</dt>
       <dd className="m-0 font-display text-[24px] font-semibold text-ink">{value.toLocaleString("en-US")}</dd>
       <dd className="m-0 text-[11.5px] text-muted">{hint}</dd>

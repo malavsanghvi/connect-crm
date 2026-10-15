@@ -139,7 +139,7 @@ export function AppShell({ session, tasks, look = "classic", children }: { sessi
 
             <main className="min-w-0 flex-1 px-4 pb-10 pt-[22px] sm:px-7">
               {noStaffRoles ? (
-                <div className="mb-4 rounded-[10px] border border-saffron/40 bg-saffron-50 px-4 py-3 text-[13px] text-brown-900">
+                <div className="mb-4 rounded-field border border-warning-200 bg-warning-50 px-4 py-3 text-[13px] text-warning-ink">
                   You are signed in but hold no staff role at {center.name}, so most areas are hidden. Ask your center
                   admin to grant you a role (for example treasurer or membership coordinator).
                 </div>

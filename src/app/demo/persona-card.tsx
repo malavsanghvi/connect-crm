@@ -22,7 +22,7 @@ export function PersonaCard({ person }: { person: DemoPerson }) {
           {pending ? "Starting…" : "Start"}
         </button>
         {state && !state.ok ? (
-          <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+          <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             {state.error}
           </p>
         ) : null}

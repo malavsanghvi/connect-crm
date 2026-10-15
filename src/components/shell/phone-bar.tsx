@@ -9,13 +9,11 @@ import { WorkspaceIcon } from "@/components/shell/workspace-icon";
 import { type RailWorkspace } from "@/components/shell/workspace-rail";
 import { activeWorkspace, phoneBar } from "@/lib/workspaces";
 
-const MORE_ICON = "M5 12h.01 M12 12h.01 M19 12h.01";
-
 function BarLink({ w, active, badge, badgeLabel }: { w: RailWorkspace; active: boolean; badge?: string | null; badgeLabel?: string }) {
   return (
-    <Link href={w.href} aria-current={active ? "page" : undefined} className="v2-bar-item">
+    <Link href={w.href} aria-current={active ? "page" : undefined} className="v2-bar-item" data-spotlight={`nav-${w.key}`}>
       <span className="relative">
-        <WorkspaceIcon path={w.icon} />
+        <WorkspaceIcon name={w.icon} />
         {badge ? (
           <span className="v2-nav-badge" aria-hidden="true">
             {badge}
@@ -113,7 +111,7 @@ export function PhoneBar({
                 data-active={moreActive ? "true" : undefined}
                 onClick={() => setOpenAt(open ? null : pathname)}
               >
-                <WorkspaceIcon path={MORE_ICON} />
+                <WorkspaceIcon name="more" />
                 <span className="v2-nav-label">More</span>
               </button>
             </li>
@@ -138,7 +136,7 @@ export function PhoneBar({
                 {more.map((w) => (
                   <li key={w.key}>
                     <Link href={w.href} aria-current={w.key === activeKey ? "page" : undefined} className="v2-sheet-item" onClick={() => setOpenAt(null)}>
-                      <WorkspaceIcon path={w.icon} />
+                      <WorkspaceIcon name={w.icon} />
                       <span className="v2-nav-label">{w.label}</span>
                     </Link>
                   </li>

@@ -10,6 +10,15 @@ import { isDemoClaims, type DemoEndReason } from "./rules";
 /** The cookie of the organization chosen with the switcher (src/lib/center-resolve.ts CENTER_COOKIE; a test keeps them equal). The proxy cannot import that server-only file. */
 export const CENTER_COOKIE_NAME = "cc_center";
 
+/**
+ * The member app's demo endpoints (src/app/api/demo: GET /choices, POST /session). They are called from another address with no cookie,
+ * answer their own CORS, and set no cookie, so the proxy leaves them completely alone: no session refresh, no sign-in redirect, and no
+ * demo check of a cookie that may be lying around in the same browser.
+ */
+export function isDemoApiPath(pathname: string): boolean {
+  return pathname === "/api/demo" || pathname.startsWith("/api/demo/");
+}
+
 export type GuardOutcome = { kind: "not_demo" } | { kind: "ok" } | { kind: "ended"; reason: DemoEndReason };
 
 /** `check` asks app.demo_session_state() as the signed-in person and returns its answer (it may throw). */

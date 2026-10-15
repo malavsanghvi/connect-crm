@@ -13793,6 +13793,12 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: Json;
       };
+      demo_closed_to_guests: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       demo_confirm_word: {
         Args: {
           p_center: string;
@@ -13829,6 +13835,12 @@ export type Database = {
           p_pack: string;
         };
         Returns: Json;
+      };
+      demo_public_open: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
       };
       demo_session_state: {
         Args: Record<PropertyKey, never>;

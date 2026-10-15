@@ -123,7 +123,7 @@ export default async function TodayPage() {
             </ActionForm>
           </Card>
 
-          <Card title="Member Home preview · today" span={5} className="!bg-[#FBF7F0]">
+          <Card title="Member Home preview · today" span={5} className="!bg-ground">
             {days.error || tithi.error ? <QueryError what="today's timings" error={days.error ?? tithi.error} retryHref="/content/today" /> : null}
             <p className="text-[13px] font-semibold text-ink-2">
               {weekdayLine(today)}
@@ -152,7 +152,7 @@ export default async function TodayPage() {
             </div>
           ) : (streams.data ?? []).length === 0 ? (
             <EmptyState title={pack ? "No darshan streams yet" : "No live streams yet"}>
-              {pack ? `Add the ${kindTerm(session.kind, "place", "derasar")} camera or the pravachan hall so members can watch from the Library.` : "Add the link to your live stream so members can watch from the Library."}
+              {pack ? `Add the ${kindTerm(session.kind, "place", "place of worship")} camera or the pravachan hall so members can watch from the Library.` : "Add the link to your live stream so members can watch from the Library."}
             </EmptyState>
           ) : (
             <TableWrap>

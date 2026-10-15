@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@/lib/database.types";
-import { CENTER_COOKIE_NAME, authCookieNames, endedRedirect, guardDemoSession } from "@/lib/demo-signin/guard";
+import { CENTER_COOKIE_NAME, authCookieNames, endedRedirect, guardDemoSession, isDemoApiPath } from "@/lib/demo-signin/guard";
 import type { PublicEnv } from "@/lib/env";
 import { requestIsHttps } from "@/lib/https";
 import { PATHNAME_HEADER, clientScreen, newRequestId, traceHeaders } from "@/lib/supabase/trace";
@@ -17,6 +17,8 @@ export const PUBLIC_PATHS = [
   "/request-access", "/start",
   // "Try the demo" (B88): choose a demo person and start. It starts a session itself, so it needs no sign-in first.
   "/demo",
+  // The member app's "Try the demo" (GET /api/demo/choices, POST /api/demo/session): called without a session; they answer their own CORS.
+  "/api/demo",
   // o-messaging: Supabase Auth hooks, provider webhooks and email unsubscribe links (each checks its own signature).
   "/api/auth-hooks", "/api/webhooks", "/api/messaging/unsubscribe",
   // o-payments: checkout intents and the provider return page (each checks its own session or signature).
@@ -36,6 +38,8 @@ export function isPublicPath(pathname: string): boolean {
  */
 export async function updateSession(request: NextRequest, env: PublicEnv): Promise<NextResponse> {
   const { pathname, search } = request.nextUrl;
+  // The member app's demo endpoints use no cookie: never read, refresh, redirect or clear one for them (see isDemoApiPath).
+  if (isDemoApiPath(pathname)) return NextResponse.next();
   // Pass the pathname to server components and actions (x-client-screen on
   // their Supabase requests). Always overwritten here, never trusted from the client.
   const passThrough = () => {

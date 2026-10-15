@@ -349,7 +349,7 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
                           <AudioStatus status={audioStatus} />
                         </td>
                         <td>{quizzes ? `${quizzes} question${quizzes === 1 ? "" : "s"}` : "—"}</td>
-                        <td>{l.requires_teacher_signoff ? <span className="font-bold text-purple">Teacher</span> : "—"}</td>
+                        <td>{l.requires_teacher_signoff ? <span className="font-bold text-navy">Teacher</span> : "—"}</td>
                         <td>
                           <HomeworkCell
                             level={{ id: l.id, name: l.name }}

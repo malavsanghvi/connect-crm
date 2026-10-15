@@ -30,7 +30,7 @@ const SOURCES: { value: Source; label: string }[] = [
 
 function ErrorLine({ children, onRetry, retryLabel = "Try again" }: { children: string; onRetry?: () => void; retryLabel?: string }) {
   return (
-    <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       <span className="min-w-0 flex-1">{children}</span>
       {onRetry ? (
         <button type="button" className={buttonClass("ghost", "xs")} onClick={onRetry}>
@@ -224,10 +224,10 @@ export function FlyerBackgroundPicker({
                   setLastPattern(p);
                   onChange({ source: "pattern", pattern: p });
                 }}
-                className={`flex flex-col items-center gap-1 rounded-[10px] border p-1.5 text-[12px] font-bold ${on ? "border-navy ring-2 ring-navy/30" : "border-line"}`}
+                className={`flex flex-col items-center gap-1 rounded-field border p-1.5 text-[12px] font-bold ${on ? "border-navy ring-2 ring-navy/30" : "border-line"}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={thumbs[p]} alt="" width={120} height={150} className="h-auto w-full rounded-[6px]" />
+                <img src={thumbs[p]} alt="" width={120} height={150} className="h-auto w-full rounded-chip" />
                 {FLYER_PATTERN_LABEL[p]}
               </button>
             );
@@ -238,7 +238,7 @@ export function FlyerBackgroundPicker({
       {tab === "photo" ? (
         <div className="mt-3">
           {isGuestVisible ? (
-            <p className="mb-2 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[13px] text-brown-900">
+            <p className="mb-2 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-ink">
               Anyone who sees this flyer will see this photo, including guests.
             </p>
           ) : null}
@@ -283,7 +283,7 @@ export function FlyerBackgroundPicker({
                           setLastPhoto(p.id);
                           onChange({ source: "photo", photo_id: p.id });
                         }}
-                        className={`aspect-square overflow-hidden rounded-[8px] border bg-ground ${on ? "border-navy ring-2 ring-navy/40" : "border-line"}`}
+                        className={`aspect-square overflow-hidden rounded-tag border bg-ground ${on ? "border-navy ring-2 ring-navy/40" : "border-line"}`}
                       >
                         {p.thumbUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -328,7 +328,7 @@ export function FlyerBackgroundPicker({
               {artPriceSentence(artReadiness.model)}
             </p>
           ) : (
-            <p className="mt-1 rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">{artReadiness.message} Choose a pattern, a photo or a plain colour instead.</p>
+            <p className="mt-1 rounded-field border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">{artReadiness.message} Choose a pattern, a photo or a plain colour instead.</p>
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <button type="button" className={buttonClass("primary", "sm")} onClick={() => void generate()} disabled={disabled || artBusy || artReadiness.state !== "ready"}>
@@ -343,7 +343,7 @@ export function FlyerBackgroundPicker({
           {lastArt?.url ? (
             <div className="mt-2 flex items-start gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={lastArt.url} alt="The AI background art" className="h-[120px] w-[80px] rounded-[8px] border border-line object-cover" />
+              <img src={lastArt.url} alt="The AI background art" className="h-[120px] w-[80px] rounded-tag border border-line object-cover" />
               <p className="crm-hint">
                 {value.source === "ai" && value.path === lastArt.path ? "This art is the flyer's background. Look at the preview: AI art can still include shapes you don't want." : "Art from earlier."}
               </p>

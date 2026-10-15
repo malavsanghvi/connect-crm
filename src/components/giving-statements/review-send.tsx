@@ -56,7 +56,7 @@ export function ReviewAndSend({
         >
           <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0" data-testid="statements-review-counts">
             {tiles.map((t) => (
-              <li key={t.label} className="rounded-[12px] border border-line px-3 py-2">
+              <li key={t.label} className="rounded-field border border-line px-3 py-2">
                 <span className="block text-[22px] font-bold tabular-nums text-ink">{t.n.toLocaleString("en-US")}</span>
                 <span className="text-[13px] text-muted">{t.label}</span>
               </li>
@@ -68,7 +68,7 @@ export function ReviewAndSend({
               state: refunds cancel their gifts.
             </p>
           ) : null}
-          <p role="status" className="m-0 rounded-[12px] border border-line bg-canvas px-3 py-2 text-[13px] text-ink-2" data-testid="statements-send-coming-next">
+          <p role="status" className="m-0 rounded-field border border-line bg-canvas px-3 py-2 text-[13px] text-ink-2" data-testid="statements-send-coming-next">
             {SEND_COMING_NEXT} The button stays off until it is. Nothing has been sent, and nothing reaches a family from this screen.
           </p>
         </GivingSheet>

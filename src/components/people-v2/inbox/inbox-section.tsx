@@ -14,7 +14,7 @@ const CARD = "rounded-[18px] border border-line bg-white";
 function Group({ title, count, children }: { title: string; count: number | null; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2.5">
-      <h3 className="m-0 text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">
+      <h3 className="m-0 text-[13px] font-bold uppercase tracking-[0.04em] text-muted">
         {title}
         {count !== null ? ` · ${count}` : ""}
       </h3>
@@ -106,7 +106,7 @@ export function InboxError({ message }: { message: string }) {
   return (
     <section aria-label="Inbox" className={`${CARD} flex flex-col gap-2 p-4`}>
       <h2 className="m-0 font-display text-[20px] font-semibold text-ink">Inbox</h2>
-      <p role="alert" className="m-0 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+      <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
         Could not load what is waiting for a decision. {message}
       </p>
       <Link href="/people" className="self-start text-[13.5px] font-bold text-navy hover:underline">

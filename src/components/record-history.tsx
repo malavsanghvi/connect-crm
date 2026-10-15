@@ -124,7 +124,7 @@ export function RecordHistory({ table, recordId }: { table: string; recordId: st
         const onlyBefore = r.after == null;
         const where = clientLabel(r.client_app, r.client_screen);
         return (
-          <li key={r.id} className="rounded-[10px] border border-line bg-white px-3 py-2.5">
+          <li key={r.id} className="rounded-field border border-line bg-white px-3 py-2.5">
             <p className="text-[13px]">
               <strong>{historyVerb(r.action)}</strong> · {formatDateTime(r.occurred_at, result.timeZone)}
             </p>

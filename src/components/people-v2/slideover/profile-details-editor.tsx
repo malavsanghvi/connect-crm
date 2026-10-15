@@ -287,7 +287,7 @@ function Conflict({ edit, group, options }: { edit: InlineEdit; group: ProfileGr
   const theirs = describeGroup(group, { ...edit.state.committed, ...c.theirs }, options);
   const mine = edit.state.pending ? describeGroup(group, { ...edit.state.committed, ...edit.state.pending.fields }, options) : "";
   return (
-    <div role="alert" data-testid="conflict" className="rounded-[10px] border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] px-3 py-2.5 text-[13.5px] text-[var(--v2-sun-ink)]">
+    <div role="alert" data-testid="conflict" className="rounded-field border border-warning-200 bg-warning-50 px-3 py-2.5 text-[13.5px] text-warning-ink">
       <p className="m-0" dir="auto">
         {profileConflictLine({ who: c.who, at: c.at, theirs }, new Date())}
       </p>

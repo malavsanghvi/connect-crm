@@ -241,7 +241,7 @@ export function RecordPledgeSheet({
       onClose={onClose}
     >
       {result && family ? (
-        <div role="status" className="flex flex-col gap-2 rounded-[12px] border border-success/30 bg-success-50 px-3 py-2.5 text-[14px] text-success-900">
+        <div role="status" className="flex flex-col gap-2 rounded-field border border-success/30 bg-success-50 px-3 py-2.5 text-[14px] text-success-900">
           <p className="m-0 font-bold">
             {recordedPledgeLabel(result)}: {money(result.amountCents)} for {family.name}
             {family.number ? ` ${family.number}` : ""}.
@@ -280,7 +280,7 @@ export function RecordPledgeSheet({
         <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
           <legend className="mb-1 text-[14px] font-bold text-ink">Which family? Check the household card.</legend>
           {candidates.map((f) => (
-            <label key={f.id} className="flex min-h-[44px] cursor-pointer items-start gap-2.5 rounded-[12px] border border-line px-3 py-2 text-[14px] hover:border-navy-300">
+            <label key={f.id} className="flex min-h-[44px] cursor-pointer items-start gap-2.5 rounded-field border border-line px-3 py-2 text-[14px] hover:border-navy-300">
               <input type="radio" name="pledge-family" className="mt-1 h-[18px] w-[18px] flex-none" onChange={() => choose(f)} />
               <span className="min-w-0 flex-1">
                 <span className="block font-bold text-ink">{f.name}</span>

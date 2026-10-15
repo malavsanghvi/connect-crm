@@ -82,10 +82,10 @@ export function LayoutChooser({
             aria-checked={on}
             disabled={disabled}
             onClick={() => choose(o.key)}
-            className={`flex items-start gap-3 rounded-[12px] border bg-white p-2 text-left disabled:opacity-60 ${on ? "border-navy ring-2 ring-navy/30" : "border-line"}`}
+            className={`flex items-start gap-3 rounded-field border bg-white p-2 text-left disabled:opacity-60 ${on ? "border-navy ring-2 ring-navy/30" : "border-line"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={svgDataUri(o.svg)} alt="" width={64} height={80} className="h-20 w-16 shrink-0 rounded-[6px] border border-line-soft" />
+            <img src={svgDataUri(o.svg)} alt="" width={64} height={80} className="h-20 w-16 shrink-0 rounded-chip border border-line-soft" />
             <span className="min-w-0">
               <span className="block text-[13px] font-bold">{o.label}</span>
               <span className="block text-[12px] leading-[1.4] text-muted">{o.blurb}</span>
@@ -270,7 +270,7 @@ export function LayoutBlockEditors({
         {groups.length ? (
           <ol className="flex flex-col gap-3">
             {groups.map((g, i) => (
-              <li key={i} className="rounded-[10px] border border-line-soft bg-ground p-2">
+              <li key={i} className="rounded-field border border-line-soft bg-ground p-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[12px] font-bold">Card {i + 1}</p>
                   <button type="button" className={`${buttonClass("ghost", "xs")} min-h-9`} aria-label={`Remove card ${i + 1}`} disabled={disabled} onClick={() => setGroups(groups.filter((_, at) => at !== i))}>
@@ -314,7 +314,7 @@ export function LayoutBlockEditors({
             <TextField id="layout-contacts-label" label="Label above the contacts" value={layout.contacts_label} max={LAYOUT_LIMITS.contacts_label} onChange={(v) => patch({ contacts_label: v })} disabled={disabled} placeholder="Please contact" />
             <ol className="flex flex-col gap-3">
               {rows.map((row, i) => (
-                <li key={i} className="rounded-[10px] border border-line-soft bg-ground p-2">
+                <li key={i} className="rounded-field border border-line-soft bg-ground p-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[12px] font-bold">Contact {i + 1}</p>
                     <button type="button" className={`${buttonClass("ghost", "xs")} min-h-9`} aria-label={`Remove contact ${i + 1}`} disabled={disabled} onClick={() => setRows(rows.filter((_, at) => at !== i))}>

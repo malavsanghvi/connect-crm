@@ -60,7 +60,7 @@ export function SaveViewControl({
           if (e.key === "Escape") setOpen(false);
         }}
       >
-        <label htmlFor={id} className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">
+        <label htmlFor={id} className="text-[12px] font-bold uppercase tracking-[0.04em] text-muted">
           Name this view
         </label>
         <input id={id} autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={120} dir="auto" className="crm-input w-full" aria-describedby={`${id}-hint${error ? ` ${id}-err` : ""}`} />
@@ -71,7 +71,7 @@ export function SaveViewControl({
           <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center rounded-[22px] bg-navy px-5 text-[14px] font-bold text-white hover:bg-navy-hover disabled:opacity-60">
             {busy ? "Saving…" : "Save view"}
           </button>
-          <button type="button" onClick={() => setOpen(false)} disabled={busy} className="inline-flex min-h-11 items-center rounded-[22px] border border-line-input bg-white px-4 text-[14px] font-bold text-ink">
+          <button type="button" onClick={() => setOpen(false)} disabled={busy} className="inline-flex min-h-11 items-center rounded-[22px] border border-line-control bg-white px-4 text-[14px] font-bold text-ink">
             Cancel
           </button>
         </div>
@@ -96,7 +96,7 @@ export function SaveViewControl({
           setDone(null);
           setOpen(true);
         }}
-        className="inline-flex min-h-11 items-center rounded-[22px] border border-line-input bg-white px-[18px] text-[14px] font-bold text-ink hover:border-navy disabled:cursor-not-allowed disabled:text-faint disabled:hover:border-line-input"
+        className="inline-flex min-h-11 items-center rounded-[22px] border border-line-control bg-white px-[18px] text-[14px] font-bold text-ink hover:border-navy disabled:cursor-not-allowed disabled:text-faint disabled:hover:border-line-control"
       >
         Save this view
       </button>

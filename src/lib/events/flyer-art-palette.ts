@@ -94,7 +94,7 @@ export type ArtPalette = {
 export type BrandColours = { primary: string; accent: string; background: string };
 
 /** The Weaver defaults, the same as FLYER_BRAND_DEFAULTS in flyer-brand.ts (a test keeps them equal). */
-export const ART_PALETTE_DEFAULTS: Readonly<BrandColours> = Object.freeze({ primary: "#1B2C5C", accent: "#C9731C", background: "#FBF7F0" });
+export const ART_PALETTE_DEFAULTS: Readonly<BrandColours> = Object.freeze({ primary: "#2B2A8A", accent: "#FFB82A", background: "#FFFAF5" });
 
 // ── Colour arithmetic (WCAG 2.1) ─────────────────────────────────────────────
 

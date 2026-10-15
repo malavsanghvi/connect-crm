@@ -137,7 +137,7 @@ export function AddFieldSheet({ mode, entity: first, payload, onClose }: { mode:
           : `It appears on every ${ENTITY_WORDS[form.entity].one} card straight away, ordered after the others. Nothing is ever deleted: a field you no longer need is archived and keeps its values.`}
       </p>
       {asking ? (
-        <p role="note" className="m-0 mt-3 rounded-xl border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] px-3 py-2.5 text-[13.5px] leading-snug text-[var(--v2-sun-ink)]">
+        <p role="note" className="m-0 mt-3 rounded-xl border border-warning-200 bg-warning-50 px-3 py-2.5 text-[13.5px] leading-snug text-warning-ink">
           <strong>Ask an admin to add a field.</strong> {ASK_ADMIN_EXPLANATION}
         </p>
       ) : null}
@@ -272,7 +272,7 @@ export function AddFieldSheet({ mode, entity: first, payload, onClose }: { mode:
         </label>
 
         {failed ? (
-          <p role="alert" className="m-0 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+          <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
             {failed}
           </p>
         ) : null}

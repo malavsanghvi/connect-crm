@@ -23,7 +23,7 @@ export function ActionMessage({ state, showSuccess = true }: { state: ActionResu
   if (!state) return null;
   if (!state.ok) {
     return (
-      <p role="alert" className="mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+      <p role="alert" className="mt-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
         {state.error}
         {state.stale ? (
           <button type="button" onClick={() => window.location.reload()} className={`${buttonClass("secondary", "xs")} ml-2 align-middle`}>
@@ -35,7 +35,7 @@ export function ActionMessage({ state, showSuccess = true }: { state: ActionResu
   }
   if (!state.message || !showSuccess) return null;
   return (
-    <p role="status" className="mt-2 rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
+    <p role="status" className="mt-2 rounded-field border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900">
       {state.message}
     </p>
   );

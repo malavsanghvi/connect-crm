@@ -177,7 +177,7 @@ describe("a bulk upload's emails: sent, no email address, failed", () => {
     S("pending", "PL-4"),
     S("no_email", "PL-5", "Not sent: The primary member (Ravi Shah) has no email address on file."),
     S("failed", "PL-6", "Resend could not send the email (HTTP 422: the recipient was rejected)"),
-    S("history", "PL-7", "This pledge is dated more than 30 days ago, so it counts as history and is not emailed."),
+    S("history", "PL-7", "Imported pledges, and pledges that have their own messages (fees, recurring gifts, store orders), are not emailed."),
     S("not_approved", "PL-8", "Not sent: The treasurer has not approved the receipt templates yet."),
   ];
 
@@ -204,7 +204,11 @@ describe("a bulk upload's emails: sent, no email address, failed", () => {
     expect(lines[1]?.text).toBe(
       "PL-6 (Rao household 0127): could not be sent, resend could not send the email (HTTP 422: the recipient was rejected). Use ⋯ › Email… on the pledge to try again.",
     );
-    expect(lines[2]?.text).toBe("PL-7 (Rao household 0127): not emailed, this pledge is dated more than 30 days ago, so it counts as history and is not emailed.");
+    expect(lines[2]?.text).toBe(
+      "PL-7 (Rao household 0127): not emailed, imported pledges, and pledges that have their own messages (fees, recurring gifts, store orders), are not emailed.",
+    );
+    // A pledge's date never makes it history: with no reason given the line says what history means here.
+    expect(emailProblemLines([S("history", "PL-9")], (e) => String(e.number))[0]?.text).toBe("PL-9: not emailed: it was brought in from another system, or has its own messages.");
     expect(lines[3]?.text).toBe("PL-8 (Rao household 0127): not emailed, the treasurer has not approved the receipt templates yet.");
     expect(emailProblemLines([S("no_email", "PL-9")], (e) => String(e.number))[0]?.text).toContain("no email address on file. Add");
   });

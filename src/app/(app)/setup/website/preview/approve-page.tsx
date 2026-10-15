@@ -56,8 +56,8 @@ export function ApprovePage({ pageId, title, initial, standIns }: { pageId: stri
           role={note.tone === "bad" ? "alert" : "status"}
           className={
             note.tone === "bad"
-              ? "rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger"
-              : "rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900"
+              ? "rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger"
+              : "rounded-field border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900"
           }
         >
           {note.text}

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-import { Icon } from "@/components/site/icons";
+import { Icon } from "@/components/brand/icons";
 
 /**
  * One drop-down of the website's main menu (desktop). Opens on hover, click, or the keyboard; closes on Escape, on a click
@@ -76,7 +76,7 @@ export function NavDropdown({ label, width = 560, children }: { label: string; w
             onClick={(e) => {
               if ((e.target as HTMLElement).closest("a")) setOpen(false);
             }}
-            className="rounded-[28px] border border-line bg-white p-3 shadow-[0_30px_60px_-18px_rgba(27,44,92,0.35)]"
+            className="rounded-[28px] border border-line bg-white p-3 shadow-menu"
           >
             {children}
           </div>

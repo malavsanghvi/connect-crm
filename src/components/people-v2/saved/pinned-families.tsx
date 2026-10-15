@@ -50,7 +50,7 @@ export function PinnedFamilies({ pins, hidden, loadError }: { pins: PinnedFamily
     );
   }
   if (items.length === 0 && hidden === 0) {
-    return <p className="m-0 rounded-[14px] border border-dashed border-line-input px-4 py-5 text-[13px] text-muted">Pin a family with the star at the top of its page, and it stays here, one click away. Only you see your pins.</p>;
+    return <p className="m-0 rounded-[14px] border border-dashed border-line-control px-4 py-5 text-[13px] text-muted">Pin a family with the star at the top of its page, and it stays here, one click away. Only you see your pins.</p>;
   }
   return (
     <div className="flex flex-col gap-2">

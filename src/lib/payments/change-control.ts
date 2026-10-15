@@ -210,7 +210,7 @@ export function readinessSummary(r: PaymentReadiness): string {
 
 /** Apple Pay or Google Pay whose readiness is waiting only for the statement that it is turned on in Stripe. */
 export function walletConfirmable(entry: PluginReadiness): boolean {
-  return !entry.ready && !entry.detail.startsWith("Card is not ready") && !entry.detail.startsWith("Community Connect has paused");
+  return !entry.ready && !entry.detail.startsWith("Card is not ready") && !entry.detail.startsWith("Community Connect has paused") && !entry.detail.startsWith("Weaver has paused");
 }
 
 export function zelleApprovalView(a: ZelleApproval): { label: string; tone: PluginTone } {
@@ -309,12 +309,12 @@ export function parsePauses(json: unknown): Parsed<PausesView> {
 
 /**
  * Apple Pay, Google Pay and Bank debit ride on a Card checkout and are chosen on Stripe's own payment page, which a pause
- * cannot change. Pausing one of them hides it from members in Community Connect; it does not stop Stripe from showing it.
+ * cannot change. Pausing one of them hides it from members in Weaver; it does not stop Stripe from showing it.
  */
 export const RIDER_PLUGIN_KEYS: readonly string[] = ["apple_pay", "google_pay", "bank_debit"];
 export function riderPauseNote(key: string, label: string): string | null {
   return RIDER_PLUGIN_KEYS.includes(key)
-    ? `${label} is chosen on Stripe's own payment page, which a pause cannot change. Pausing it hides it from members in Community Connect, but a card payment may still offer it. To stop payments through Stripe, pause Card.`
+    ? `${label} is chosen on Stripe's own payment page, which a pause cannot change. Pausing it hides it from members in Weaver, but a card payment may still offer it. To stop payments through Stripe, pause Card.`
     : null;
 }
 

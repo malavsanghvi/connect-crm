@@ -153,13 +153,13 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             label="Event visits"
             value={visitsOk ? n(visitsOk.checkIns) : "—"}
             hint={!seesEvents ? "needs events.view" : visitsOk ? (pctText(visitsOk.checkIns, prevVisitsOk?.checkIns ?? 0) ?? `check-ins in ${w.label}`) : "could not load"}
-            tone="maroon"
+            tone="navy"
           />
           <Stat
             label="Renewals due"
             value={seesMembership && peopleOk ? n(peopleOk.renewalsDue) : "—"}
             hint={seesMembership ? "next 60 days" : "needs people.view"}
-            tone="purple"
+            tone="navy"
           />
         </KpiGrid>
       </div>

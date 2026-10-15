@@ -71,7 +71,7 @@ export function usePrintPledge(labels: CardLabels = NO_LABELS, env: () => PrintE
   return { print: (attempt: Attempt) => void run(attempt), busy, dialog };
 }
 
-const MENU_ITEM = "flex min-h-[44px] w-full items-center rounded-[10px] px-3 py-2 text-left text-[14px] font-semibold text-ink hover:bg-canvas";
+const MENU_ITEM = "flex min-h-[44px] w-full items-center rounded-field px-3 py-2 text-left text-[14px] font-semibold text-ink hover:bg-canvas";
 
 /** The Print… item of a pledge's row menu, or a small button where a row has no menu (a family's Pledges tab). */
 export function PrintPledgeButton({

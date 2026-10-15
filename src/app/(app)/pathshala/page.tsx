@@ -116,7 +116,7 @@ export default async function PathshalaClassesPage({ searchParams }: { searchPar
 
       <Card className="mb-4">
         <KpiGrid cols={4}>
-          <Stat label="Students" value={stats.students.toLocaleString()} hint={`${stats.waitlisted.toLocaleString()} on waitlists`} tone="purple" />
+          <Stat label="Students" value={stats.students.toLocaleString()} hint={`${stats.waitlisted.toLocaleString()} on waitlists`} tone="navy" />
           <Stat
             label="Teachers"
             value={stats.teachers.toLocaleString()}

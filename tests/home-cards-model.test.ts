@@ -542,9 +542,9 @@ describe("which events are counted", () => {
 // Which cards Home shows
 // ---------------------------------------------------------------------------
 describe("which cards Home shows", () => {
-  const none: HomeCards = { memberWork: null, assignments: null };
-  const member: HomeCards = { memberWork: buildMemberWork(data(), opts), assignments: null };
-  const assigned: HomeCards = { memberWork: null, assignments: { lines: [], more: 0 } };
+  const none: HomeCards = { memberWork: null, assignments: null, startHere: null };
+  const member: HomeCards = { memberWork: buildMemberWork(data(), opts), assignments: null, startHere: null };
+  const assigned: HomeCards = { memberWork: null, assignments: { lines: [], more: 0 }, startHere: null };
 
   it("My tasks is shown to anyone with a staff queue, whatever else they have", () => {
     expect(showsTasksCard(true, none)).toBe(true);

@@ -36,7 +36,7 @@ export default async function EventFlyerPanelPreview({ searchParams }: { searchP
       <KindProvider kind={f.kind ?? (f.tradition ? LEGACY_KIND : NEUTRAL_KIND)}>
         <div data-v2-tokens className="min-h-screen bg-canvas text-ink">
           <div className="flex justify-center bg-white pb-1 pt-[5px]">
-            <span className="rounded-[10px] bg-[#b3261e] px-2.5 py-0.5 text-[10px] font-extrabold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</span>
+            <span className="rounded-field bg-danger px-2.5 py-0.5 text-[10px] font-bold tracking-[0.08em] text-white">DEV PREVIEW · SAMPLE DATA</span>
           </div>
           <main className="mx-auto max-w-[1180px] px-4 py-5">
             <nav aria-label="Sample events" className="mb-4 flex flex-wrap items-center gap-2 text-[13px]">
@@ -54,7 +54,7 @@ export default async function EventFlyerPanelPreview({ searchParams }: { searchP
             </nav>
             <h1 className="m-0 mb-4 font-display text-[24px] font-semibold">New event</h1>
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_440px]">
-              <div className="hidden rounded-[16px] border border-dashed border-line-input bg-white p-5 text-[14px] text-muted lg:block" aria-hidden="true">
+              <div className="hidden rounded-tile border border-dashed border-line-control bg-white p-5 text-[14px] text-muted lg:block" aria-hidden="true">
                 The creator&apos;s question cards go here (built separately). This preview shows the panel beside them.
               </div>
               <PreviewFlyerPanel initial={setup} kind={kind} />

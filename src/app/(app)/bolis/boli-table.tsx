@@ -55,7 +55,7 @@ export function BoliTable({
                 <td className="whitespace-nowrap font-mono text-xs text-muted">{boliRef(b.id)}</td>
                 <td className="font-bold">
                   {b.name}
-                  {b.hall_display && b.status === "open" ? <span className="ml-1.5 text-[11px] font-bold text-saffron">ON TV</span> : null}
+                  {b.hall_display && b.status === "open" ? <span className="ml-1.5 text-[11px] font-bold text-brown">ON TV</span> : null}
                 </td>
                 <td>{b.event_id ? (eventName.get(b.event_id) ?? "Event") : "—"}</td>
                 <td className="num">{formatCents(b.floor_cents, currency)}</td>

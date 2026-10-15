@@ -69,7 +69,7 @@ export function ProfileDetailsCard({
   return (
     <Card title={title} description={description} className={className}>
       <DefinitionList items={items} />
-      <div className="mt-4 rounded-[10px] border border-line bg-[#FBF7F0] px-4 py-3" data-section="emergency-contact">
+      <div className="mt-4 rounded-field border border-line bg-ground px-4 py-3" data-section="emergency-contact">
         <p className="text-[11px] font-bold uppercase tracking-[0.04em] text-danger">Emergency contact{minor ? ` for ${firstName}` : ""}</p>
         {v.emergency ? (
           <p className="mt-1 text-sm text-ink">

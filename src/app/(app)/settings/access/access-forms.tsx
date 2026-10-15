@@ -233,7 +233,7 @@ export function LevelsCard({
         }
       >
         <input type="hidden" name="levels" value={JSON.stringify(rows.map(plain))} />
-        <ol className="divide-y divide-line-soft rounded-[10px] border border-line" aria-label="Access levels, from the lowest to the highest">
+        <ol className="divide-y divide-line-soft rounded-field border border-line" aria-label="Access levels, from the lowest to the highest">
           <li className="flex flex-wrap items-start gap-x-4 gap-y-2 px-3 py-3">
             <span className="w-6 pt-2 text-center font-mono text-[13px] font-bold text-navy">1</span>
             <div className="min-w-[14rem] flex-1">

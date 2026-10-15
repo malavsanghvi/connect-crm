@@ -59,7 +59,7 @@ function visibilityNote(v: { active: boolean; visibleFrom: string | null; visibl
 
 function Problem({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" className="m-0 rounded-[12px] border border-[#f0b9b4] bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-[#7a1a14]">
+    <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-danger">
       {children}
     </p>
   );
@@ -97,7 +97,7 @@ function CampaignRow({ c, model, now }: { c: CampaignItem; model: CampaignsModel
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[16px] font-bold text-ink">{c.name}</span>
         <StatusChip status={c.status} />
-        {note ? <span className="text-[12px] font-bold text-saffron">{note}</span> : null}
+        {note ? <span className="text-[12px] font-bold text-brown">{note}</span> : null}
       </div>
       {c.fund || dates ? (
         <p className="m-0 text-[13px] text-muted">
@@ -223,7 +223,7 @@ function OpportunityList({ model }: { model: CampaignsModel }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[16px] font-bold text-ink">{o.name}</span>
                   <StatusChip status={o.status} />
-                  {note ? <span className="text-[12px] font-bold text-saffron">{note}</span> : null}
+                  {note ? <span className="text-[12px] font-bold text-brown">{note}</span> : null}
                 </div>
                 {o.subtitle ? <p className="m-0 text-[13px] text-ink-2">{o.subtitle}</p> : null}
                 <p className="m-0 text-[13px] text-muted">{meta.join(" · ")}</p>

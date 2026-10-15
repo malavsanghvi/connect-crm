@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { customConflictLine, customDisplay, customUnit, inputShape, type CustomRowModel } from "@/lib/people-v2/custom-fields";
 import type { CheckContext } from "@/lib/people-v2/inline-edit";
 
@@ -22,18 +23,13 @@ const BTN =
 
 function Eye() {
   return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
+    <Icon name="eye" size={13} />
   );
 }
 
 function List() {
   return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-    </svg>
+    <Icon name="list" size={13} />
   );
 }
 
@@ -58,7 +54,7 @@ function Conflict({ edit, row, currency }: { edit: InlineEdit; row: CustomRowMod
   const theirs = customDisplay(row, c.theirs[row.fieldKey] ?? "", currency);
   const mine = edit.state.pending ? customDisplay(row, edit.state.pending.fields[row.fieldKey] ?? "", currency) : "";
   return (
-    <div role="alert" data-testid="conflict" className="rounded-[10px] border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] px-3 py-2.5 text-[13.5px] text-[var(--v2-sun-ink)]">
+    <div role="alert" data-testid="conflict" className="rounded-field border border-warning-200 bg-warning-50 px-3 py-2.5 text-[13.5px] text-warning-ink">
       <p className="m-0">{customConflictLine({ who: c.who, at: c.at, theirs }, new Date())}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         <button type="button" onClick={edit.useTheirs} className={`${BTN} border-[var(--v2-line-input)] bg-white text-ink hover:border-[var(--v2-blue)]`}>

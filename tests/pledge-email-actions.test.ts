@@ -91,9 +91,15 @@ describe("Send: emailing a pledge to the address in the box", () => {
     expect(r).toEqual({ ok: false, error: "Could not email the pledge. Nothing was sent — This pledge was deleted (cancelled), so there is nothing to send." });
   });
 
-  it("explains the hourly limit and a refused permission in the person's words", async () => {
-    rpc.mockResolvedValue({ data: null, error: { code: "22023", message: "You have emailed 40 pledges in the last hour. Wait a while before sending more." } });
-    expect(await emailPledgeAction({ pledgeId: PLEDGE, to: "a@b.co", key: KEY })).toMatchObject({ ok: false, error: expect.stringContaining("emailed 40 pledges in the last hour") });
+  it("has no limit of its own on how many emails a person sends, and explains a refused permission in the person's words", async () => {
+    // Many in a row: each is its own request to the database (0794: no hourly cap; the server action adds none either).
+    rpc.mockImplementation(async (_fn: string, args: { p_key: string; p_to: string }) => ({ data: { request_id: REQ, replayed: false, to: args.p_to, status: "requested" }, error: null }));
+    for (let i = 0; i < 60; i++) {
+      const r = await emailPledgeAction({ pledgeId: PLEDGE, to: "a" + i + "@b.co", key: KEY + "-" + i });
+      expect(r.ok).toBe(true);
+    }
+    expect(rpc).toHaveBeenCalledTimes(60);
+    rpc.mockReset();
     rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "permission denied" } });
     expect(await emailPledgeAction({ pledgeId: PLEDGE, to: "a@b.co", key: KEY })).toMatchObject({ ok: false, error: expect.stringContaining("you don't have permission") });
   });

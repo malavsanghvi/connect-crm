@@ -495,7 +495,7 @@ export function ImportWizard({
           </div>
           <div className="space-y-3 px-[18px] pb-4 pt-3">
             {enumIssues.map((p) => (
-              <div key={p.field} className="rounded-[10px] border border-line p-3">
+              <div key={p.field} className="rounded-field border border-line p-3">
                 <p className="text-[13px] font-bold">Translate your words for {p.label}</p>
                 <div className="mt-2 grid gap-2 md:grid-cols-2">
                   {p.values.map((v) => (
@@ -672,7 +672,7 @@ function AiNotice({ ai, entity, onUse }: { ai: AiState | null; entity: EntityDef
   const useful = ai.suggestions.filter((s) => s.field && entity.fields.some((f) => f.key === s.field));
   if (useful.length === 0) return <Alert tone="info">The AI found no further matches. Unmatched columns stay custom fields.</Alert>;
   return (
-    <div className="rounded-[10px] border border-line p-3">
+    <div className="rounded-field border border-line p-3">
       <p className="text-[13px] font-bold">Suggested matches — confirm each one</p>
       <ul className="mt-2 space-y-1.5 text-[13px]">
         {useful.map((s) => (

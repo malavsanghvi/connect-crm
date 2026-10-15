@@ -147,7 +147,7 @@ function ViewChip({ view, onRenamed, onDeleted }: { view: SavedViewItem; onRenam
             if (e.key === "Escape") close();
           }}
         >
-          <label htmlFor={inputId} className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">
+          <label htmlFor={inputId} className="text-[12px] font-bold uppercase tracking-[0.04em] text-muted">
             New name for this view
           </label>
           <input id={inputId} ref={input} autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={120} dir="auto" className="crm-input w-full" aria-describedby={error ? `${inputId}-err` : undefined} />
@@ -155,7 +155,7 @@ function ViewChip({ view, onRenamed, onDeleted }: { view: SavedViewItem; onRenam
             <button type="submit" disabled={busy} className={`${SMALL_BTN} bg-navy text-white hover:bg-navy-hover disabled:opacity-60`}>
               {busy ? "Saving…" : "Save name"}
             </button>
-            <button type="button" onClick={close} disabled={busy} className={`${SMALL_BTN} border border-line-input bg-white text-ink`}>
+            <button type="button" onClick={close} disabled={busy} className={`${SMALL_BTN} border border-line-control bg-white text-ink`}>
               Cancel
             </button>
           </div>
@@ -180,7 +180,7 @@ function ViewChip({ view, onRenamed, onDeleted }: { view: SavedViewItem; onRenam
             <button type="button" onClick={() => void remove()} disabled={busy} className={`${SMALL_BTN} bg-danger text-white disabled:opacity-60`}>
               {busy ? "Deleting…" : "Delete view"}
             </button>
-            <button type="button" onClick={close} disabled={busy} className={`${SMALL_BTN} border border-line-input bg-white text-ink`}>
+            <button type="button" onClick={close} disabled={busy} className={`${SMALL_BTN} border border-line-control bg-white text-ink`}>
               Keep it
             </button>
           </div>
@@ -212,10 +212,10 @@ function ViewChip({ view, onRenamed, onDeleted }: { view: SavedViewItem; onRenam
       </span>
       {mode === "options" ? (
         <>
-          <button type="button" onClick={() => setMode("rename")} className={`${SMALL_BTN} border border-line-input bg-white text-ink hover:border-navy`}>
+          <button type="button" onClick={() => setMode("rename")} className={`${SMALL_BTN} border border-line-control bg-white text-ink hover:border-navy`}>
             Rename
           </button>
-          <button type="button" onClick={() => setMode("delete")} className={`${SMALL_BTN} border border-line-input bg-white text-danger hover:border-danger`}>
+          <button type="button" onClick={() => setMode("delete")} className={`${SMALL_BTN} border border-line-control bg-white text-danger hover:border-danger`}>
             Delete
           </button>
         </>

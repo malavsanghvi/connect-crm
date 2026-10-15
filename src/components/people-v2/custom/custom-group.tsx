@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon } from "@/components/brand/icons";
 import { useState, type ReactNode } from "react";
 
 import {
@@ -51,9 +52,7 @@ function AddLink({ mode, onClick }: { mode: "add" | "ask"; onClick: () => void }
   return (
     <button type="button" onClick={onClick} data-testid="add-field-link" className={LINK}>
       {mode === "add" ? (
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
+        <Icon name="plus" size={14} />
       ) : null}
       {ADD_FIELD_TEXT[mode]}
     </button>
@@ -115,7 +114,7 @@ function PersonGroupBody({ payload, personId, firstName, path }: { payload: OkPa
   return (
     <div className="mt-3 border-t border-line pt-3" data-testid="custom-group" role="group" aria-label={`Custom fields of ${firstName}`}>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <h4 className="m-0 text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-muted">Custom</h4>
+        <h4 className="m-0 text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted">Custom</h4>
         {s.canManage ? <ManageLink onClick={s.openManage} /> : null}
       </div>
       <Rows payload={payload} entity="people" recordId={personId} owner={firstName} path={path} />

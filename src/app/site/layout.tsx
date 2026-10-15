@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Hanken_Grotesk } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { SiteFooter } from "@/components/site/footer";
@@ -7,10 +6,6 @@ import { SiteHeader } from "@/components/site/header";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, siteOrigin } from "@/lib/site";
 
 import "./site.css";
-
-// The website's own faces (the warm look chosen 2026-10-13); site.css points --font-display and --font-sans at them.
-const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"], axes: ["opsz"], display: "swap" });
-const hanken = Hanken_Grotesk({ variable: "--font-hanken", subsets: ["latin"], display: "swap" });
 
 // The public website (www.weaverams.org). The portal's root layout says "do not index"; this one overrides it.
 export const metadata: Metadata = {
@@ -35,7 +30,7 @@ const STRUCTURED_DATA = {
 
 export default function SiteLayout({ children }: { children: ReactNode }) {
   return (
-    <div className={`${bricolage.variable} ${hanken.variable} site-root flex min-h-screen flex-col bg-canvas text-ink`}>
+    <div className="site-root flex min-h-screen flex-col bg-canvas text-ink">
       <a
         href="#main"
         className="sr-only z-50 rounded-full bg-navy px-5 py-3 font-bold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4"

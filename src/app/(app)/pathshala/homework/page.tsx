@@ -242,7 +242,7 @@ function QueueRow({
   const briefHouseholdId = household?.kind === "brief" ? (household.household_id ?? l.household_id) : null;
   const briefHref = briefHouseholdId ? householdHref(briefHouseholdId) : undefined;
   return (
-    <article className="rounded-[12px] border border-line bg-white p-4">
+    <article className="rounded-field border border-line bg-white p-4">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="min-w-0">
           <p className="cc-section">Learner</p>
@@ -250,7 +250,7 @@ function QueueRow({
             {l.name}
             {l.is_child ? (
               <span className="ml-2">
-                <Badge tone="purple">Child</Badge>
+                <Badge tone="navy">Child</Badge>
               </span>
             ) : null}
           </p>
@@ -273,7 +273,7 @@ function QueueRow({
               <span className="block text-xs text-muted">Household details need people.view.</span>
             </p>
           ) : (
-            <p className="rounded-lg border border-saffron/60 bg-saffron-50 px-3 py-2 text-xs text-brown-900">
+            <p className="rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-ink">
               The household card could not be shown for this learner, so the name above is all there is. Check the household in People before relying on it.
             </p>
           )}
@@ -296,7 +296,7 @@ function QueueRow({
           </div>
           {s.parent_note ? (
             <p className="mt-3 text-[13px]">
-              <span className="font-bold text-purple">Parent&apos;s note:</span> {s.parent_note}
+              <span className="font-bold text-navy">Parent&apos;s note:</span> {s.parent_note}
             </p>
           ) : null}
           {view === "waiting" && s.status === "submitted" ? (

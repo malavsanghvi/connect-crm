@@ -17,6 +17,8 @@ import type { ActionResult } from "@/lib/errors";
 import { familyLine, familyRef } from "@/lib/giving-today/queue";
 import {
   NO_CHOICES,
+  emailPlan,
+  emailPlanSentence,
   PLEDGE_UPLOAD_NO_UNDO,
   UPLOAD_REASONS,
   recordButtonLabel,
@@ -59,9 +61,9 @@ type Loaded = { fileName: string; sha256: string | null; prepared: PreparedPledg
 
 const STATUS_WORD: Record<RowStatus, { label: string; tone: string }> = {
   ready: { label: "Ready", tone: "bg-success-50 text-success-900" },
-  pick: { label: "Pick the household", tone: "bg-saffron-50 text-brown-900" },
-  check: { label: "Check it", tone: "bg-saffron-50 text-brown-900" },
-  repeat: { label: "Possible repeat", tone: "bg-saffron-50 text-brown-900" },
+  pick: { label: "Pick the household", tone: "bg-warning-50 text-warning-ink" },
+  check: { label: "Check it", tone: "bg-warning-50 text-warning-ink" },
+  repeat: { label: "Possible repeat", tone: "bg-warning-50 text-warning-ink" },
   problem: { label: "Problem", tone: "bg-danger-50 text-danger" },
 };
 
@@ -95,6 +97,8 @@ export function PledgeUpload({
 
   const review = useMemo(() => (loaded ? reviewPledges(loaded.prepared.read, loaded.prepared.lookups, choices) : null), [loaded, choices]);
   const money = (c: number) => formatCents(c, setting.currency, setting.locale);
+  // What the tick will do, said before the button is pressed: how many families get an email, and how many of them are old pledge cards.
+  const emailSentence = review && loaded ? emailPlanSentence(emailPlan(review, loaded.prepared.lookups.today)) : "";
 
   async function choose(file: File) {
     setFileError(null);
@@ -267,7 +271,7 @@ export function PledgeUpload({
                 onPick={(id) => setChoices((c) => ({ picks: { ...c.picks, [r.line]: id }, ticks: { ...c.ticks, [r.line]: true } }))}
               />
             ))}
-            {visible.length === 0 ? <li className="rounded-[12px] bg-ground px-3 py-3 text-center text-[14px] text-muted">Nothing here.</li> : null}
+            {visible.length === 0 ? <li className="rounded-field bg-ground px-3 py-3 text-center text-[14px] text-muted">Nothing here.</li> : null}
           </ul>
           <ReasonInput
             value={reason}
@@ -276,7 +280,7 @@ export function PledgeUpload({
             hint={`Each ${setting.household}'s History shows it, with the row's note.`}
             quick={UPLOAD_REASONS}
           />
-          <label className="flex cursor-pointer items-start gap-3 rounded-[12px] border border-line bg-white px-3 py-2.5" htmlFor="pledge-upload-email">
+          <label className="flex cursor-pointer items-start gap-3 rounded-field border border-line bg-white px-3 py-2.5" htmlFor="pledge-upload-email">
             <input
               id="pledge-upload-email"
               type="checkbox"
@@ -287,9 +291,14 @@ export function PledgeUpload({
             <span className="text-[14px] text-ink">
               <strong>Email each family their pledge</strong>
               <span className="block text-[13px] text-muted">
-                Each family&apos;s primary member gets the pledge email with the pledge as a PDF attached, once. Rows dated more than 30 days ago count as history and are not
-                emailed. A family with no email address on file is listed after recording. Untick to record the pledges without emailing anyone.
+                Each family&apos;s primary member gets the pledge email with the pledge as a PDF attached, once, whatever the pledge&apos;s date: an old pledge card is
+                emailed like any other. A family with no email address on file is listed after recording. Untick to record the pledges without emailing anyone.
               </span>
+              {sendEmails && emailSentence ? (
+                <span className="mt-1 block text-[13px] font-semibold text-ink" data-testid="email-plan">
+                  {emailSentence}
+                </span>
+              ) : null}
             </span>
           </label>
           <p className="m-0 text-[13px] text-muted">{PLEDGE_UPLOAD_NO_UNDO}</p>
@@ -329,7 +338,7 @@ function PledgeRowCard({
   const word = STATUS_WORD[row.status];
   const tickId = `pledge-row-${row.line}`;
   return (
-    <li className={`rounded-[12px] border px-3 py-2.5 ${row.ticked ? "border-navy-300 bg-white" : "border-line bg-ground"}`}>
+    <li className={`rounded-field border px-3 py-2.5 ${row.ticked ? "border-navy-300 bg-white" : "border-line bg-ground"}`}>
       <div className="flex items-start gap-3">
         {tickable ? (
           <input

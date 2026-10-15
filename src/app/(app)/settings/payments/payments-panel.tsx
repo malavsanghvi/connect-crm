@@ -183,7 +183,7 @@ export function ProcessorPanel({ p, s, tz, run, busy, askReason }: { p: Processo
     });
 
   return (
-    <section className="flex flex-col gap-3 rounded-[10px] border border-line p-3 text-[13px]" aria-label={`${label} account`}>
+    <section className="flex flex-col gap-3 rounded-field border border-line p-3 text-[13px]" aria-label={`${label} account`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[14px] font-bold">{label}</h3>
         <StatusText tone={st.tone}>{st.label}</StatusText>
@@ -270,7 +270,7 @@ export function ProcessorPanel({ p, s, tz, run, busy, askReason }: { p: Processo
       ) : null}
 
       {p.processor === "paypal" && s.can_connect && !connected ? (
-        <div className="rounded-[10px] border border-line p-3">
+        <div className="rounded-field border border-line p-3">
           <p className="font-semibold">Or use the PayPal Business email</p>
           <p className="text-muted">If Connect with PayPal isn&apos;t available, enter the account&apos;s email. We send it a 6-digit code to prove it is yours.</p>
           {!s.messaging_available ? (

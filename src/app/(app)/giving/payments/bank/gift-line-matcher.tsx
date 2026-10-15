@@ -37,6 +37,7 @@ export function GiftLineMatcher({
   timeZone,
   currency,
   canConfirm,
+  tour = false,
 }: {
   txnId: string;
   amountCents: number;
@@ -48,6 +49,8 @@ export function GiftLineMatcher({
   timeZone: string;
   currency: string;
   canConfirm: boolean;
+  /** The guided tour (src/lib/spotlight/tours) is lighting this line: its first clear suggestion and its Confirm match button carry a data-spotlight key. */
+  tour?: boolean;
 }) {
   const report = useReportOutcome();
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -63,6 +66,7 @@ export function GiftLineMatcher({
   const [separateReason, setSeparateReason] = useState("");
   const [pending, startTransition] = useTransition();
   const isPlatformGift = originatorKind === "daf" || originatorKind === "matching_gift" || originatorKind === "payroll_giving";
+  const tourHousehold = tour ? suggestions.find((s) => !s.ambiguous)?.household_id : undefined;
 
   function open(card: HouseholdCardData, ambiguous: boolean, fromSuggestion: boolean, reportId: string | null = null) {
     setChoice({ card, ambiguous, fromSuggestion, reportId });
@@ -157,7 +161,7 @@ export function GiftLineMatcher({
   if (duplicate && canConfirm) {
     const sepId = `sep-${txnId.slice(0, 8)}`;
     return (
-      <div className="space-y-3 rounded-lg border border-saffron/60 bg-saffron-50 p-3" role="region" aria-label="Possible double count">
+      <div className="space-y-3 rounded-lg border border-warning-200 bg-warning-50 p-3" role="region" aria-label="Possible double count">
         <p className="text-sm font-semibold text-brown" role="alert">
           {error ?? "This family already has this Zelle recorded by hand."}
         </p>
@@ -228,6 +232,7 @@ export function GiftLineMatcher({
         currency={currency}
         renderActions={() => null}
         suggestionError={suggestionError}
+        tourHousehold={tourHousehold}
       />
     );
   }
@@ -238,13 +243,13 @@ export function GiftLineMatcher({
     return (
       <div className="space-y-3 rounded-lg border border-navy/30 bg-navy-50/40 p-3">
         {choice.ambiguous ? (
-          <p className="rounded-md border border-saffron/50 bg-saffron-50 px-3 py-2 text-sm font-semibold text-brown" role="alert">
+          <p className="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-sm font-semibold text-warning-ink" role="alert">
             Several households match this name — check the details before confirming.
           </p>
         ) : null}
         <HouseholdCard card={choice.card} labels={labels} timeZone={timeZone} currency={currency} tone="selected" href={`/households/${choice.card.household_id}`} />
         {isPlatformGift ? (
-          <div className="rounded-[10px] bg-subtle px-3 py-2 text-[13px]">
+          <div className="rounded-field bg-subtle px-3 py-2 text-[13px]">
             <p className="cc-section">RECEIPT</p>
             <p>
               <span className="text-muted">Tax receipt:</span>{" "}
@@ -350,6 +355,7 @@ export function GiftLineMatcher({
         timeZone={timeZone}
         currency={currency}
         suggestionError={suggestionError}
+        tourHousehold={tourHousehold}
         renderActions={(s) =>
           s.ambiguous ? (
             <button type="button" onClick={() => open(s, true, true, s.reportId ?? null)} className={buttonClass("secondary", "sm")}>
@@ -362,6 +368,7 @@ export function GiftLineMatcher({
                 disabled={pending}
                 onClick={() => confirm(s, null, s.reportId ?? null)}
                 className={buttonClass("primary", "sm")}
+                data-spotlight={s.household_id === tourHousehold ? "bank-confirm" : undefined}
                 title={
                   s.reportId
                     ? "Records the payment, applies it to the pledges the member named (else the earliest open pledge), matches the member's report and learns the payer name"
@@ -407,6 +414,7 @@ function SuggestionList({
   currency,
   renderActions,
   suggestionError,
+  tourHousehold,
 }: {
   suggestions: Suggestion[];
   labels: CardLabels;
@@ -414,6 +422,8 @@ function SuggestionList({
   currency: string;
   renderActions: (s: Suggestion) => React.ReactNode;
   suggestionError: string | null;
+  /** The household whose card the guided tour lights (see GiftLineMatcher's `tour`). */
+  tourHousehold?: string;
 }) {
   if (suggestionError) {
     return (
@@ -427,7 +437,7 @@ function SuggestionList({
   return (
     <div className="space-y-2">
       {anyAmbiguous ? (
-        <p className="rounded-md border border-saffron/50 bg-saffron-50 px-3 py-2 text-sm font-semibold text-brown">
+        <p className="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-sm font-semibold text-warning-ink">
           Several households match this name — check the details and choose explicitly.
         </p>
       ) : null}
@@ -440,6 +450,7 @@ function SuggestionList({
           currency={currency}
           tone={s.ambiguous ? "warning" : "plain"}
           href={`/households/${s.household_id}`}
+          spotlight={s.household_id === tourHousehold ? "bank-household" : undefined}
         >
           <p className="mb-2 text-sm">
             <Badge tone={s.ambiguous ? "warning" : s.score >= 0.9 ? "success" : "navy"}>
@@ -448,7 +459,7 @@ function SuggestionList({
             </Badge>{" "}
             {s.reportId ? (
               <>
-                <Badge tone="purple" title="A member of this household reported sending this Zelle; confirming matches the report">
+                <Badge tone="navy" title="A member of this household reported sending this Zelle; confirming matches the report">
                   Member reported
                 </Badge>{" "}
               </>

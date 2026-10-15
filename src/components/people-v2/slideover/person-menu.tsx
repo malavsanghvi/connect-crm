@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { personMenu, type MenuHrefs, type MenuItem, type MenuKey } from "@/lib/people-v2/slideover";
 
 import { DeceasedSheet, type DeceasedTarget } from "./deceased-sheet";
@@ -79,11 +80,7 @@ export function PersonMenu({
   }
 
   const dots = (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-      <circle cx="5" cy="12" r="1.8" />
-      <circle cx="12" cy="12" r="1.8" />
-      <circle cx="19" cy="12" r="1.8" />
-    </svg>
+    <Icon name="more" size={20} />
   );
 
   return (
@@ -120,7 +117,7 @@ export function PersonMenu({
           id={menuId}
           role="menu"
           aria-label={`More about ${person.name}`}
-          className={`absolute z-[46] m-0 min-w-[17rem] list-none rounded-2xl border border-line bg-white p-1.5 shadow-[0_12px_32px_rgba(18,32,58,0.18)] ${surface === "card" ? "right-0" : "left-0"} ${direction === "up" ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.25rem)]"}`}
+          className={`absolute z-[46] m-0 min-w-[17rem] list-none rounded-2xl border border-line bg-white p-1.5 shadow-menu ${surface === "card" ? "right-0" : "left-0"} ${direction === "up" ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.25rem)]"}`}
         >
           {items.map((i, n) => (
             <li key={i.key} role="none" className={i.danger && n > 0 ? "mt-1 border-t border-line pt-1" : undefined}>

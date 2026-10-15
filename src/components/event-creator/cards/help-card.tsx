@@ -95,7 +95,7 @@ export function MealFields({ draft, set, ctx, slots }: { draft: EventDraft; set:
             <span className="crm-label">Priority (from Settings › Rules)</span>
             <Note>{lunchPriorityText(rules)}</Note>
           </div>
-          <div className="rounded-[12px] bg-success-50 px-3.5 py-3">
+          <div className="rounded-field bg-success-50 px-3.5 py-3">
             <p className="m-0 mb-1.5 text-[12px] font-bold uppercase tracking-[0.06em] text-success-900">Preview with these settings</p>
             <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[13px]">
               {preview.map((l) => (
@@ -177,7 +177,7 @@ function Shifts({ draft, ctx, api, existing, refresh, eventId }: { draft: EventD
       {existing.shifts.length ? (
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
           {existing.shifts.map((s) => (
-            <li key={s.id} className="flex flex-wrap justify-between gap-2 rounded-[10px] border border-line bg-white px-3 py-2 text-[14px]">
+            <li key={s.id} className="flex flex-wrap justify-between gap-2 rounded-field border border-line bg-white px-3 py-2 text-[14px]">
               <span className="font-semibold text-ink">{s.notes?.trim() || STATION_LABEL[s.station] || s.station}</span>
               <span className="text-ink-2">
                 {s.capacity ?? 1} {s.capacity === 1 ? "person" : "people"} · {timeRange(s.starts_at, s.ends_at, ctx)}
@@ -219,7 +219,7 @@ function Shifts({ draft, ctx, api, existing, refresh, eventId }: { draft: EventD
           {key === "manual" ? "The shift you typed" : key}: {error}
         </ErrorNote>
       ))}
-      <details className="rounded-[12px] border border-line bg-ground px-3.5 py-2.5">
+      <details className="rounded-field border border-line bg-ground px-3.5 py-2.5">
         <summary className="cursor-pointer text-[14px] font-semibold text-ink">Add a shift yourself</summary>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Role" hint="Your own name for it, such as Greeters.">

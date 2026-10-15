@@ -64,13 +64,13 @@ export default async function StartPage() {
       }
       aside={
         <>
-          No code yet? <Link href="/request-access" className="font-semibold text-white underline">Request access</Link>. The code arrives by email after Community
-          Connect approves your request.
+          No code yet? <Link href="/request-access" className="font-semibold text-white underline">Request access</Link>. The code arrives by email after the Weaver team
+          approves your request.
         </>
       }
     >
       {problem ? (
-        <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {problem}
         </p>
       ) : null}

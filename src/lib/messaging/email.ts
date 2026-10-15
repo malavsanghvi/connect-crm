@@ -26,6 +26,30 @@ export type RenderedEmail = { subject: string; html: string; text: string };
 
 export const SANDBOX_BANNER = "Sandbox · test data";
 
+/**
+ * The colours of the email's own chrome. An email cannot read a CSS variable, so these are the Weaver brand kit's values written out
+ * (brand/tokens.json; this file is shared with the background service, so it cannot import the kit). tests/brand-conformance.test.ts
+ * checks each one against the kit by name. A community's own colour (centers.branding.primary_color) still wins for its header
+ * rule and name; Weaver's indigo is only the fallback.
+ */
+export const EMAIL_PALETTE = {
+  /** canvas */ page: "#fffaf5",
+  /** ink */ ink: "#1e1d5c",
+  /** muted */ muted: "#555a79",
+  /** line */ line: "#eee3d9",
+  /** navy */ fallbackPrimary: "#2b2a8a",
+  /** saffron-50 */ noticeBg: "#fff1e6",
+  /** saffron-200 */ noticeBorder: "#ffd6b8",
+  /** brown-900 */ noticeInk: "#7a2e09",
+} as const;
+/**
+ * Weaver's own mark, served with the website's brand downloads (public/brand/weaver-mark-256.png), shown in an email that carries no
+ * community's brand (a sign-in code, a request outcome). A community's own logo or name always wins over it (brand/components/Logo).
+ */
+export const WEAVER_MARK_URL = "https://www.weaverams.org/brand/weaver-mark-256.png";
+/** The kit's text face first; email clients that do not have it use the system sans-serif. */
+export const EMAIL_FONT = "'Hanken Grotesk',system-ui,sans-serif";
+
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
@@ -46,25 +70,27 @@ export function textToHtml(text: string): string {
 
 export function renderEmail(input: EmailInput): RenderedEmail {
   const name = input.brand?.name ?? "Weaver";
-  const color = input.brand?.primary_color && SAFE_COLOR.test(input.brand.primary_color) ? input.brand.primary_color : "#7a3e12";
+  const color = input.brand?.primary_color && SAFE_COLOR.test(input.brand.primary_color) ? input.brand.primary_color : EMAIL_PALETTE.fallbackPrimary;
   const subject = input.sandbox && !input.subject.startsWith(`[${SANDBOX_BANNER}]`) ? `[${SANDBOX_BANNER}] ${input.subject}` : input.subject;
   const footerLines = [input.footer?.postal_address, input.footer?.note].filter((l): l is string => !!l && l.trim() !== "");
   const banner = input.sandbox
-    ? `<div style="background:#fff4d6;border:1px solid #e5c26a;color:#6b4e00;padding:8px 12px;font:600 13px system-ui,sans-serif;text-align:center">${SANDBOX_BANNER} · sent from a Weaver sandbox, not a live community</div>`
+    ? `<div style="background:${EMAIL_PALETTE.noticeBg};border:1px solid ${EMAIL_PALETTE.noticeBorder};color:${EMAIL_PALETTE.noticeInk};padding:8px 12px;font:600 13px ${EMAIL_FONT};text-align:center">${SANDBOX_BANNER} · sent from a Weaver sandbox, not a live community</div>`
     : "";
   const logo = input.brand?.logo_url
     ? `<img src="${escapeHtml(input.brand.logo_url)}" alt="${escapeHtml(name)}" style="max-height:48px;max-width:220px;display:block">`
-    : `<div style="font:700 18px system-ui,sans-serif;color:${color}">${escapeHtml(name)}</div>`;
+    : input.brand
+      ? `<div style="font:700 18px ${EMAIL_FONT};color:${color}">${escapeHtml(name)}</div>`
+      : `<table role="presentation" cellpadding="0" cellspacing="0" style="border:0"><tr><td style="padding-right:8px"><img src="${WEAVER_MARK_URL}" width="40" height="40" alt="" style="display:block;border:0"></td><td style="font:700 18px ${EMAIL_FONT};color:${color}">${escapeHtml(name)}</td></tr></table>`;
   const html = [
-    `<!doctype html><html><body style="margin:0;background:#f6f3ee">`,
+    `<!doctype html><html><body style="margin:0;background:${EMAIL_PALETTE.page}">`,
     banner,
     `<div style="max-width:600px;margin:0 auto;padding:24px 16px">`,
     `<div style="border-bottom:3px solid ${color};padding-bottom:12px;margin-bottom:20px">${logo}</div>`,
-    `<div style="font:15px/1.55 system-ui,sans-serif;color:#1f1a14">${textToHtml(input.body)}</div>`,
-    `<div style="margin-top:28px;padding-top:12px;border-top:1px solid #e2dccf;font:12px/1.5 system-ui,sans-serif;color:#6f6556">`,
+    `<div style="font:15px/1.55 ${EMAIL_FONT};color:${EMAIL_PALETTE.ink}">${textToHtml(input.body)}</div>`,
+    `<div style="margin-top:28px;padding-top:12px;border-top:1px solid ${EMAIL_PALETTE.line};font:12px/1.5 ${EMAIL_FONT};color:${EMAIL_PALETTE.muted}">`,
     escapeHtml(name),
     ...footerLines.map((l) => `<br>${escapeHtml(l)}`),
-    input.unsubscribeUrl ? `<br><a href="${escapeHtml(input.unsubscribeUrl)}" style="color:#6f6556">Unsubscribe from these emails</a>` : "",
+    input.unsubscribeUrl ? `<br><a href="${escapeHtml(input.unsubscribeUrl)}" style="color:${EMAIL_PALETTE.muted}">Unsubscribe from these emails</a>` : "",
     `</div></div></body></html>`,
   ].join("");
   const text = [

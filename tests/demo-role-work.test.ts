@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { scopedAssignments } from "@/lib/home/assignments";
 import { holdsNoStaffWork } from "@/lib/home/member-work";
+import { startScreenFor, wantsStartHere } from "@/lib/home/start-here";
 import { sessionPermissions, visibleNav, type RoleLike } from "@/lib/permissions";
 import { visibleTaskSources } from "@/lib/tasks";
 
@@ -56,14 +57,18 @@ function portalOf(role: SeedRole, roles: SeedRole[]) {
     grants: grants.map((g) => ({ role_key: g.role_key, scope_kind: g.scope_kind, scope_id: g.scope_id })),
   };
   const nav = visibleNav(ctx);
+  const memberAppCard = holdsNoStaffWork(ctx);
+  const assignments = scopedAssignments(ctx.grants, ctx).map((a) => `${a.kind}`);
   return {
     permissions,
     tasks: visibleTaskSources(ctx).map((s) => s.key as string),
     nav: nav.map((m) => m.key),
     tabs: (key: string) => nav.find((m) => m.key === key)?.tabs.map((t) => t.href) ?? [],
     // The cards on Home (docs/DEMO_ROLE_WORK.md): "Your work is in the member app" and "My assignments".
-    memberAppCard: holdsNoStaffWork(ctx),
-    assignments: scopedAssignments(ctx.grants, ctx).map((a) => `${a.kind}`),
+    memberAppCard,
+    assignments,
+    // "Start here": a person who holds a screen but no queue and neither of the cards above; the screen follows from what they hold.
+    startHere: wantsStartHere(ctx, { memberWork: memberAppCard, assignments: assignments.length > 0 }) ? (startScreenFor(ctx)?.key ?? null) : null,
   };
 }
 
@@ -89,6 +94,16 @@ const HOME_TASKS: Record<string, string[]> = {
   pathshala_principal: ["pathshala"],
   // The owner holds every permission, so every queue is hers.
   center_admin: ["writeoff", "deposits", "membership", "newsletter", "inbox", "whatsapp", "content", "inventory", "waivers", "bolis", "pathshala", "privacy"],
+};
+
+/** The six roles with a screen but no queue and no other card: Home's "Start here" names the screen their permissions point to. */
+const START_HERE: Record<string, string> = {
+  executive_viewer: "reports",
+  content_editor: "content",
+  volunteer_coordinator: "volunteers",
+  store_pickup: "store",
+  kitchen_lead: "store",
+  pathshala_committee: "committee",
 };
 
 /** Roles with no queue on Home but a portal screen that holds their work, and the module that screen belongs to. */
@@ -120,7 +135,7 @@ describe("the faith demo's people in the portal", () => {
     expect(personas).toHaveLength(26);
   });
 
-  it("sorts all 26 roles: a queue on Home, a screen with their work, or a Home card", () => {
+  it("sorts all 26 roles: a queue on Home, a screen with their work (and a Start here card), or a Home card", () => {
     const sorted = [...HOME_CARD_ONLY, ...Object.keys(HOME_TASKS), ...Object.keys(SCREEN_ONLY)].sort();
     expect(sorted).toEqual(personas.map((p) => p.role).sort());
   });
@@ -146,6 +161,22 @@ describe("the faith demo's people in the portal", () => {
       expect(matrix[p.role].assignments.length > 0, `${p.role} assignments`).toBe(p.role in ASSIGNED_TO);
       if (!HOME_CARD_ONLY.includes(p.role)) expect(matrix[p.role].memberAppCard, `${p.role} member-app card`).toBe(false);
     }
+  });
+
+  it.each(Object.entries(START_HERE))("%s: a screen, no queue and no other card, so Home says 'Start here' (%s)", (role, key) => {
+    expect(matrix[role].tasks).toEqual([]);
+    expect(matrix[role].memberAppCard).toBe(false);
+    expect(matrix[role].assignments).toEqual([]);
+    expect(matrix[role].startHere).toBe(key);
+  });
+
+  it("nobody else gets Start here: a queue, My assignments or the member-app card comes first", () => {
+    for (const p of personas) if (!(p.role in START_HERE)) expect(matrix[p.role].startHere, p.role).toBeNull();
+  });
+
+  it("Start here is exactly the screen-only roles that hold no assignment", () => {
+    // The teacher is also screen-only, but her class is a card of its own.
+    expect(Object.keys(START_HERE).sort()).toEqual(Object.keys(SCREEN_ONLY).filter((r) => !(r in ASSIGNED_TO)).sort());
   });
 
   it.each(Object.entries(HOME_TASKS))("%s: Home 'My tasks' can list %j", (role, sources) => {

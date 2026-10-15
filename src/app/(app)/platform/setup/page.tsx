@@ -97,13 +97,13 @@ export default async function PlatformSetupPage({ searchParams }: { searchParams
                 <Link
                   href={`/platform/setup?step=${s.key}`}
                   aria-current={s.key === current.key ? "step" : undefined}
-                  className={`flex items-center gap-3 rounded-[10px] px-3 py-2 text-[14px] ${s.key === current.key ? "bg-subtle font-bold" : "hover:bg-subtle"}`}
+                  className={`flex items-center gap-3 rounded-field px-3 py-2 text-[14px] ${s.key === current.key ? "bg-subtle font-bold" : "hover:bg-subtle"}`}
                   data-step={s.key}
                 >
                   <span className="w-5 text-right text-[12px] text-muted">{i + 1}</span>
                   <span className="min-w-0 flex-1">
                     {s.title}
-                    {s.required ? <span className="ml-1 text-saffron" title="Required">★</span> : null}
+                    {s.required ? <span className="ml-1 text-brown" title="Required">★</span> : null}
                   </span>
                   <StepStatus step={s} />
                 </Link>
@@ -140,7 +140,7 @@ function StepDetail({ step, view, portalUrl, host, tz }: { step: StepView; view:
       <Card
         title={
           <>
-            {step.title} {step.required ? <Tag color="maroon">Required</Tag> : <Tag color="muted">Optional</Tag>}
+            {step.title} {step.required ? <Tag color="navy">Required</Tag> : <Tag color="muted">Optional</Tag>}
           </>
         }
         description={step.what}

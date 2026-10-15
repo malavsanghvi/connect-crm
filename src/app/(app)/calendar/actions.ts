@@ -131,7 +131,7 @@ export async function createLayerAction(_prev: ActionResult | null, fd: FormData
   if (!name) return { ok: false, error: "Could not add the layer — give it a name." };
   if (name.length > 80) return { ok: false, error: "Could not add the layer — keep the name under 80 characters." };
   if (!LAYER_KINDS.some((k) => k.kind === kind)) return { ok: false, error: "Could not add the layer — choose what kind of dates it holds." };
-  if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) return { ok: false, error: "Could not add the layer — the colour must look like #1B5E9C." };
+  if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) return { ok: false, error: "Could not add the layer — the colour must look like #2B2A8A." };
   const parsed = link ? parseFeedUrl(link) : null;
   if (parsed && !parsed.ok) return { ok: false, error: `Could not add the layer — ${parsed.error}` };
   const existing = await db.from("calendar_layers").select("key").eq("center_id", center.id);

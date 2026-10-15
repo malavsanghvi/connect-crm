@@ -124,7 +124,7 @@ export function ExplainPayoutButton({ row, labels }: { row: PayoutRowView; label
                   rows={2}
                   maxLength={500}
                   placeholder="The bank took a fee for the incoming transfer."
-                  className="rounded-[12px] border border-line px-3 py-2 text-[14px] font-normal text-ink"
+                  className="rounded-field border border-line px-3 py-2 text-[14px] font-normal text-ink"
                 />
                 <span className="text-[12px] font-normal text-muted">Kept in the audit log, and read at the month-end close.</span>
               </label>
@@ -196,7 +196,7 @@ export function UnpairPayoutButton({ row, labels }: { row: PayoutRowView; labels
               rows={2}
               maxLength={500}
               placeholder="Paired with the wrong bank line."
-              className="rounded-[12px] border border-line px-3 py-2 text-[14px] font-normal text-ink"
+              className="rounded-field border border-line px-3 py-2 text-[14px] font-normal text-ink"
             />
           </label>
         </GivingSheet>

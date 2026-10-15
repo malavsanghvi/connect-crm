@@ -40,7 +40,7 @@ export function TemplateRowActions({ id, name }: { id: string; name: string }) {
         />
       </div>
       {draft.error ? (
-        <p role="alert" className="m-0 max-w-[26rem] rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-left text-[13px] text-danger">
+        <p role="alert" className="m-0 max-w-[26rem] rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-left text-[13px] text-danger">
           {draft.error}{" "}
           <button type="button" onClick={startDraft} disabled={draft.pending} className={`${buttonClass("bad", "xs")} align-middle`}>
             Try again

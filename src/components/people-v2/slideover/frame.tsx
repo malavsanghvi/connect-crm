@@ -47,7 +47,7 @@ export function SlideOverFrame({ label, onClose, children }: { label: string; on
 
   return createPortal(
     <>
-      <div aria-hidden="true" onClick={onClose} className="fixed inset-0 z-[39] bg-[rgba(18,32,58,0.38)]" data-testid="slideover-scrim" />
+      <div aria-hidden="true" onClick={onClose} className="fixed inset-0 z-[39] bg-ink/40" data-testid="slideover-scrim" />
       <aside
         ref={panel}
         role="dialog"
@@ -55,7 +55,7 @@ export function SlideOverFrame({ label, onClose, children }: { label: string; on
         aria-label={label}
         tabIndex={-1}
         data-testid="person-slideover"
-        className="fixed inset-y-0 right-0 z-40 flex w-full flex-col bg-white shadow-[-12px_0_40px_rgba(18,32,58,0.22)] outline-none md:w-[520px] md:max-w-[92vw]"
+        className="fixed inset-y-0 right-0 z-40 flex w-full flex-col bg-white shadow-sheet outline-none md:w-[520px] md:max-w-[92vw]"
       >
         {children}
       </aside>

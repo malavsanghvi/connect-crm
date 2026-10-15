@@ -94,7 +94,7 @@ export function DraftPanel({ initial, canBuild, waitingReason, loadError }: { in
             ) : null}
           </div>
           {asking ? (
-            <div className="rounded-[10px] border border-line bg-ground px-3 py-3 text-[13px]" role="group" aria-label="Start the draft again">
+            <div className="rounded-field border border-line bg-ground px-3 py-3 text-[13px]" role="group" aria-label="Start the draft again">
               <p className="text-ink">Starting again replaces the whole draft and clears the approval on every page. Your websites are not changed.</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button type="button" className={buttonClass("warn")} disabled={busy} onClick={() => void build(true)}>
@@ -123,8 +123,8 @@ export function DraftPanel({ initial, canBuild, waitingReason, loadError }: { in
           role={note.tone === "bad" ? "alert" : "status"}
           className={
             note.tone === "bad"
-              ? "mt-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger"
-              : "mt-2 rounded-[10px] border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900"
+              ? "mt-2 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger"
+              : "mt-2 rounded-field border border-success/30 bg-success-50 px-3 py-2 text-[13px] text-success-900"
           }
         >
           {note.text}

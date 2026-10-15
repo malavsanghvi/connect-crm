@@ -218,7 +218,7 @@ export function FindBox({
           ? "Find a family, a receipt or pledge number or an amount, or say what you received, like 200 check patel"
           : "Find a family or a person: a name, phone number, email, member number or any ID"}
       </label>
-      <div className={`flex items-center gap-3 border border-line-input bg-white focus-within:border-navy focus-within:ring-2 focus-within:ring-navy/30 ${page ? "min-h-[60px] rounded-[30px] pl-5 pr-4 shadow-sm" : "min-h-[40px] rounded-[20px] bg-canvas pl-3.5 pr-3"}`}>
+      <div className={`flex items-center gap-3 border border-line-control bg-white focus-within:border-navy focus-within:ring-2 focus-within:ring-navy/30 ${page ? "min-h-[60px] rounded-[30px] pl-5 pr-4 shadow-sm" : "min-h-[40px] rounded-window bg-canvas pl-3.5 pr-3"}`}>
         <span className="text-muted">
           <SearchIcon size={page ? 22 : 18} />
         </span>
@@ -258,7 +258,7 @@ export function FindBox({
         {announce}
       </div>
       {showList ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 rounded-[20px] border border-line bg-white shadow-[var(--shadow-menu)]">
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 rounded-window border border-line bg-white shadow-[var(--shadow-menu)]">
           {failed ? (
             <div className="flex flex-wrap items-center gap-3 p-4" role="alert">
               <p className="m-0 flex-1 text-[13px] text-danger">{failed}</p>

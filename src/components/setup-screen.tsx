@@ -14,7 +14,7 @@ export function SetupScreen({ problems }: { problems: EnvProblem[] }) {
       </p>
       <ul className="mt-4 space-y-2">
         {problems.map((p) => (
-          <li key={p.name} className="rounded-[10px] border border-danger/25 bg-danger-50 px-3 py-2 text-danger">
+          <li key={p.name} className="rounded-field border border-danger/25 bg-danger-50 px-3 py-2 text-danger">
             <code className="font-semibold">{p.name}</code> {p.problem}
           </li>
         ))}

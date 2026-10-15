@@ -117,7 +117,7 @@ export default async function PlatformAgreementsPage() {
                   </p>
                 ) : null}
                 {draft ? (
-                  <div className="rounded-[10px] border border-line p-3">
+                  <div className="rounded-field border border-line p-3">
                     <p className="text-[13px] font-bold">
                       Draft · {draft.title} · version {draft.version}
                     </p>
@@ -175,7 +175,7 @@ export default async function PlatformAgreementsPage() {
                 {current ? (
                   <details>
                     <summary className="cursor-pointer text-[13px] font-semibold text-navy">Read the current version ({current.version})</summary>
-                    <div className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-[10px] bg-canvas p-3 text-[13px] text-ink-2">{current.body_md}</div>
+                    <div className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-field bg-canvas p-3 text-[13px] text-ink-2">{current.body_md}</div>
                   </details>
                 ) : null}
                 {history.length ? (

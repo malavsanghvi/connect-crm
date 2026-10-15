@@ -59,9 +59,9 @@ type Loaded = { fileName: string; sha256: string | null; prepared: PreparedDonat
 
 const STATUS_WORD: Record<DonationStatus, { label: string; tone: string }> = {
   ready: { label: "Ready", tone: "bg-success-50 text-success-900" },
-  pick: { label: "Pick the household", tone: "bg-saffron-50 text-brown-900" },
-  check: { label: "Check it", tone: "bg-saffron-50 text-brown-900" },
-  repeat: { label: "Possible repeat", tone: "bg-saffron-50 text-brown-900" },
+  pick: { label: "Pick the household", tone: "bg-warning-50 text-warning-ink" },
+  check: { label: "Check it", tone: "bg-warning-50 text-warning-ink" },
+  repeat: { label: "Possible repeat", tone: "bg-warning-50 text-warning-ink" },
   problem: { label: "Problem", tone: "bg-danger-50 text-danger" },
 };
 
@@ -268,7 +268,7 @@ export function DonationUpload({
                 onPick={(id) => setChoices((c) => ({ picks: { ...c.picks, [r.line]: id }, ticks: { ...c.ticks, [r.line]: true } }))}
               />
             ))}
-            {visible.length === 0 ? <li className="rounded-[12px] bg-ground px-3 py-3 text-center text-[14px] text-muted">Nothing here.</li> : null}
+            {visible.length === 0 ? <li className="rounded-field bg-ground px-3 py-3 text-center text-[14px] text-muted">Nothing here.</li> : null}
           </ul>
           {review.tickedCount > 0 ? (
             <p className="m-0 text-[14px] text-ink">
@@ -322,7 +322,7 @@ function DonationRowCard({
   const tickId = `donation-row-${row.line}`;
   const method = row.method ? (PAYMENT_METHOD_LABEL[row.method] ?? row.method) : null;
   return (
-    <li className={`rounded-[12px] border px-3 py-2.5 ${row.ticked ? "border-navy-300 bg-white" : "border-line bg-ground"}`}>
+    <li className={`rounded-field border px-3 py-2.5 ${row.ticked ? "border-navy-300 bg-white" : "border-line bg-ground"}`}>
       <div className="flex items-start gap-3">
         {tickable ? (
           <input

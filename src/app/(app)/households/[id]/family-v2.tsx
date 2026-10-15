@@ -68,7 +68,7 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
   return (
     <>
       {model.mergedIntoId ? (
-        <p className="mb-4 rounded-xl border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] px-4 py-2.5 text-[14px] text-[var(--v2-sun-ink)]">
+        <p className="mb-4 rounded-xl border border-warning-200 bg-warning-50 px-4 py-2.5 text-[14px] text-warning-ink">
           This household was merged into{" "}
           <Link href={`/households/${model.mergedIntoId}`} className="font-bold underline">
             another household

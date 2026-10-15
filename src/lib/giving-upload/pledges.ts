@@ -427,6 +427,36 @@ export function reviewSummary(r: PledgeReview): string {
   return parts.join(" · ");
 }
 
+/** How far back a pledge date is "old" for the warning under the email tick. It is only a warning: the date never keeps an email back (0794). */
+export const OLD_PLEDGE_DAYS = 30;
+
+/** What the tick "Email each family their pledge" will do for the ticked rows: how many families, and how many rows are dated long ago. */
+export type EmailPlan = { rows: number; families: number; old: number };
+
+export function emailPlan(r: PledgeReview, today: string): EmailPlan {
+  const ticked = r.rows.filter((row) => row.ticked);
+  const cutoff = addDays(today, -OLD_PLEDGE_DAYS);
+  const families = new Set(ticked.map((row) => row.family?.id).filter((id): id is string => !!id));
+  return { rows: ticked.length, families: families.size, old: ticked.filter((row) => row.pledgedOn < cutoff).length };
+}
+
+/** The sentence under the tick: who will be emailed, and a plain warning when old pledge cards are among them. Empty while nothing is ticked. */
+export function emailPlanSentence(plan: EmailPlan): string {
+  if (plan.rows === 0) return "";
+  const families = plan.families === 1 ? "1 family" : plan.families.toLocaleString("en-US") + " families";
+  const old =
+    plan.old === 0
+      ? ""
+      : ", " +
+        (plan.old === 1 ? "1 of them is" : plan.old.toLocaleString("en-US") + " of them are") +
+        " dated more than " +
+        OLD_PLEDGE_DAYS +
+        " days ago and " +
+        (plan.old === 1 ? "gets" : "get") +
+        " the email too";
+  return "The ticked rows email " + families + old + ".";
+}
+
 /** The button: it names how many and how much ("Record 18 pledges, $24,500.00"). */
 export function recordButtonLabel(r: PledgeReview, currency: string, locale: string): string {
   if (r.tickedCount === 0) return "Tick the rows to record";

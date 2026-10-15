@@ -1,6 +1,6 @@
 -- 0790-0793: print and email a pledge (owner request 2026-10-14).
 --   A. The pledge confirmation is ON by default: every community has its row (made with the community, and by the backfill, which keeps
---      an email a person switched off), a recorded pledge queues one compose job, and not for history (over 30 days, imported, a fee,
+--      an email a person switched off), a recorded pledge queues one compose job whatever its date (0794: no 30-day rule), and not for history (imported, a fee,
 --      the import tool), a demo community, or an upload that chose not to email; the standard wording says the PDF is attached.
 --   B. Who gets it: the household's PRIMARY member, never the spouse; when there is nobody (no address, a child as primary member, no
 --      primary member) nothing is sent and the reason is in the log and in the pledge's History; the treasurer's approval still gates
@@ -12,7 +12,7 @@
 --      the typed address is the only recipient and a household adult at that address is greeted by name, not held back by the
 --      automatic email's approval, at most 40 an hour, what happened is readable (waiting, sent, failed, not sent).
 --   F. A sandbox reaches only verified test recipients, by hand and automatically.
---   G. A bulk upload: emails by default (once per pledge), "do not email" records why on each pledge, history rows are not emailed, a
+--   G. A bulk upload: emails by default (once per pledge, an old pledge card too), "do not email" records why on each pledge, a
 --      replay queues nothing, and the status of each pledge is readable (pending, no email, declined, history, waiting, sent, failed).
 --   H. Grants, the table's privacy and the activity catalog.
 -- Everything runs in one transaction that is rolled back.
@@ -43,7 +43,7 @@ $$;
 create or replace function pg_temp.audits(p_pledge uuid, p_action text) returns bigint language sql as $$
   select count(*) from app.audit_log where record_table = 'pledges' and record_id = p_pledge::text and action = p_action
 $$;
--- Emails by hand, many at a time, to reach the hourly limit.
+-- Emails by hand, many at a time (0794: there is no hourly limit).
 create or replace function pg_temp.fill(p_user uuid, p_center uuid, p_pledge uuid, p_n integer) returns void language plpgsql as $$
 begin
   perform pg_temp.claims(p_user);
@@ -184,10 +184,14 @@ select set_config('app.pledge_email', '', true);
 select set_config('app.client_app', 'import', true);
 insert into app.pledges (id, center_id, household_id, amount_cents, source) values (:p10, :jc, :h1, 4200, 'general');
 select set_config('app.client_app', '', true);
-select pg_temp.assert(pg_temp.jobs(:p1) = 1 and pg_temp.jobs(:p6) = 1 and pg_temp.jobs(:p8) = 1,
-  'A · a pledge recorded now, one dated five days ago, and one in a sandbox each queue exactly one compose job');
-select pg_temp.assert(pg_temp.jobs(:p2) + pg_temp.jobs(:p3) + pg_temp.jobs(:p4) + pg_temp.jobs(:p5) + pg_temp.jobs(:p7) + pg_temp.jobs(:p9) + pg_temp.jobs(:p10) = 0,
-  'A · none for a pledge already paid, a fee, an imported pledge, one dated 40 days ago (history), a demo community (it has no row), an upload that chose not to email, or the import tool');
+select pg_temp.assert(pg_temp.jobs(:p1) = 1 and pg_temp.jobs(:p5) = 1 and pg_temp.jobs(:p6) = 1 and pg_temp.jobs(:p8) = 1,
+  'A · a pledge recorded now, one dated five days ago, one dated 40 days ago (no 30-day rule, 0794) and one in a sandbox each queue exactly one compose job');
+select pg_temp.assert(pg_temp.jobs(:p2) + pg_temp.jobs(:p3) + pg_temp.jobs(:p4) + pg_temp.jobs(:p7) + pg_temp.jobs(:p9) + pg_temp.jobs(:p10) = 0,
+  'A · none for a pledge already paid, a fee, an imported pledge (a CRM id), a demo community (it has no row), an upload that chose not to email, or the import tool');
+insert into app.pledges (id, center_id, household_id, amount_cents, source, pledged_at) values
+  ('18400000-0000-4000-8000-000000000218', :jc, :h1, 6200, 'general', now() - interval '2 years');
+select pg_temp.assert(pg_temp.jobs('18400000-0000-4000-8000-000000000218') = 1,
+  'A · and a pledge dated two years ago is emailed too: the date alone never makes a pledge history');
 select pg_temp.assert((select body from app.message_templates where center_id is null and key = 'pledge_recorded' and channel = 'email' and language = 'en'
                         order by version desc limit 1) like '%attached as a PDF%'
                       and (select count(*) from app.message_templates where center_id is null and key = 'pledge_recorded' and channel = 'email' and language = 'en') = 2,
@@ -434,14 +438,16 @@ select pg_temp.assert(not (app.check_statement_templates_approved(:jc)->>'ok')::
 select pg_temp.assert(:'r3'::jsonb->>'skip' is null and :'r3'::jsonb #>> '{recipients,0,address}' = 'late@example.org',
   'E · and an email sent by hand goes anyway');
 
--- The hourly limit: 40 for one person.
+-- No hourly limit (0794): one person sends 45 in a row, and a 46th still goes. A double click is still one email (above).
 select count(*) as n_sent from app.pledge_emails where requested_by = :treas \gset
-select pg_temp.fill(:treas, :jc, :p6, 40 - :n_sent);
+select pg_temp.fill(:treas, :jc, :p6, 45 - :n_sent);
 set role authenticated;
 select pg_temp.claims(:treas);
-select pg_temp.assert_raises(format($$select app.send_pledge_email(%L, %L, 'onemore@example.org', 'key-184-limit')$$, :jc, :p6), 'emailed 40 pledges in the last hour',
-  'E · the 41st email in an hour is refused, with a plain sentence');
+select (app.send_pledge_email(:jc, :p6, 'onemore@example.org', 'key-184-limit'))->>'request_id' as req_more \gset
 reset role;
+select pg_temp.assert((select count(*) = 46 from app.pledge_emails where requested_by = :treas)
+                      and (select to_address = 'onemore@example.org' and status = 'requested' from app.pledge_emails where id = :'req_more'::uuid),
+  'E · there is no hourly limit: a person sends 46 emails in a row and each is recorded and queued (a double click is still one email, tested above)');
 
 -- ══ F. A sandbox ═════════════════════════════════════════════════════════════
 set role authenticated;
@@ -489,33 +495,47 @@ end $$;
 select pg_temp.upload(:treas, :jc, 'upl-184-0001', jsonb_build_array(
          jsonb_build_object('row', 1, 'household_id', :h1, 'amount_cents', 5001),
          jsonb_build_object('row', 2, 'household_id', :h2, 'amount_cents', 5002),
-         jsonb_build_object('row', 3, 'household_id', :h1, 'amount_cents', 5003, 'pledged_on', (current_date - 45)::text))) as up1 \gset
-select pg_temp.assert((:'up1'::jsonb->>'emails')::boolean and :'up1'::jsonb->>'count' = '3',
+         jsonb_build_object('row', 3, 'household_id', :h1, 'amount_cents', 5003, 'pledged_on', (current_date - 45)::text),
+         jsonb_build_object('row', 4, 'household_id', :h1, 'amount_cents', 5004, 'pledged_on', (current_date - 800)::text))) as up1 \gset
+select pg_temp.assert((:'up1'::jsonb->>'emails')::boolean and :'up1'::jsonb->>'count' = '4',
   'G · an upload without the choice emails by default, and says so in its result');
 select pg_temp.assert((select count(*) = 1 from app.jobs where kind = 'messaging.compose' and payload->>'ref_id' = (:'up1'::jsonb #>> '{pledges,0,pledge_id}'))
                       and (select count(*) = 1 from app.jobs where kind = 'messaging.compose' and payload->>'ref_id' = (:'up1'::jsonb #>> '{pledges,1,pledge_id}'))
-                      and (select count(*) = 0 from app.jobs where kind = 'messaging.compose' and payload->>'ref_id' = (:'up1'::jsonb #>> '{pledges,2,pledge_id}')),
-  'G · each pledge of the upload queues one email job; the row dated 45 days ago is history and queues none');
+                      and (select count(*) = 1 from app.jobs where kind = 'messaging.compose' and payload->>'ref_id' = (:'up1'::jsonb #>> '{pledges,2,pledge_id}'))
+                      and (select count(*) = 1 from app.jobs where kind = 'messaging.compose' and payload->>'ref_id' = (:'up1'::jsonb #>> '{pledges,3,pledge_id}')),
+  'G · each pledge of the upload queues one email job, an old pledge card too: the rows dated 45 and 800 days ago are emailed like the others (no 30-day rule)');
 select pg_temp.upload(:treas, :jc, 'upl-184-0001', jsonb_build_array(
          jsonb_build_object('row', 1, 'household_id', :h1, 'amount_cents', 5001),
          jsonb_build_object('row', 2, 'household_id', :h2, 'amount_cents', 5002),
-         jsonb_build_object('row', 3, 'household_id', :h1, 'amount_cents', 5003, 'pledged_on', (current_date - 45)::text))) as up1b \gset
+         jsonb_build_object('row', 3, 'household_id', :h1, 'amount_cents', 5003, 'pledged_on', (current_date - 45)::text),
+         jsonb_build_object('row', 4, 'household_id', :h1, 'amount_cents', 5004, 'pledged_on', (current_date - 800)::text))) as up1b \gset
 select pg_temp.assert((:'up1b'::jsonb->>'replayed')::boolean
                       and (select count(*) from app.jobs where kind = 'messaging.compose' and payload->>'ref_id' in
-                             (select e->>'pledge_id' from jsonb_array_elements(:'up1'::jsonb->'pledges') e)) = 2,
+                             (select e->>'pledge_id' from jsonb_array_elements(:'up1'::jsonb->'pledges') e)) = 4,
   'G · recording the same upload again (the same key) queues nothing more');
 select (:'up1'::jsonb #>> '{pledges,0,pledge_id}') as u1 \gset
 select (:'up1'::jsonb #>> '{pledges,1,pledge_id}') as u2 \gset
 select (:'up1'::jsonb #>> '{pledges,2,pledge_id}') as u3 \gset
+select (:'up1'::jsonb #>> '{pledges,3,pledge_id}') as u4 \gset
 set role authenticated;
 select pg_temp.claims(:treas);
-select app.pledge_email_status(:jc, array[:'u1', :'u2', :'u3']::uuid[], 18) as stat1 \gset
+select app.pledge_email_status(:jc, array[:'u1', :'u2', :'u3', :'u4']::uuid[], 18) as stat1 \gset
 reset role;
-select pg_temp.assert((select count(*) = 3 and bool_or(e->>'pledge_id' = :'u1' and e->>'state' = 'pending')
+select pg_temp.assert((select count(*) = 4 and bool_or(e->>'pledge_id' = :'u1' and e->>'state' = 'pending')
                           and bool_or(e->>'pledge_id' = :'u2' and e->>'state' = 'no_email' and e->>'reason' like 'Not sent: The primary member (Ravi Second184) has no email%')
-                          and bool_or(e->>'pledge_id' = :'u3' and e->>'state' = 'history' and e->>'reason' like '%more than 30 days%')
+                          and bool_or(e->>'pledge_id' = :'u3' and e->>'state' = 'pending')
+                          and bool_or(e->>'pledge_id' = :'u4' and e->>'state' = 'pending')
                          from jsonb_array_elements(:'stat1'::jsonb) e),
-  'G · the result says which pledges are waiting, which family has no email address (and why), and which are history');
+  'G · the result says which pledges are waiting (the old pledge cards too, never "history" by date) and which family has no email address (and why)');
+-- What the data model marks as history is still left out, and the status says so.
+insert into app.pledges (id, center_id, household_id, amount_cents, source, crm_external_id) values
+  ('18400000-0000-4000-8000-000000000219', :jc, :h1, 6300, 'general', 'CRM-184-9');
+set role authenticated;
+select pg_temp.claims(:treas);
+select app.pledge_email_status(:jc, array['18400000-0000-4000-8000-000000000219']::uuid[], 18) as stat_hist \gset
+reset role;
+select pg_temp.assert(:'stat_hist'::jsonb #>> '{0,state}' = 'history' and :'stat_hist'::jsonb #>> '{0,reason}' like 'Imported pledges%',
+  'G · a pledge brought in with a CRM or QuickBooks id is still history, and the status says so');
 -- The service gets to them.
 set role connect_worker;
 select app.worker_email_facts(:'auto', :'u2', 18) as fu2 \gset

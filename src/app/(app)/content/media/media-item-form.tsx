@@ -254,7 +254,7 @@ function MediaItemForm({ kind, item, permissions, onSaved }: { kind: MediaKind; 
   };
 
   const filePanel = (
-    <div className="flex flex-col gap-2 rounded-[10px] border border-line-soft bg-ground p-3">
+    <div className="flex flex-col gap-2 rounded-field border border-line-soft bg-ground p-3">
       {upload?.phase === "uploading" ? (
         <div role="status" aria-live="polite">
           <p className="text-[13px] font-semibold">
@@ -267,7 +267,7 @@ function MediaItemForm({ kind, item, permissions, onSaved }: { kind: MediaKind; 
         </div>
       ) : null}
       {upload?.phase === "failed" ? (
-        <div role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+        <div role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           <p>{upload.error}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {upload.file ? (

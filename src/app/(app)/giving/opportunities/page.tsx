@@ -22,7 +22,7 @@ import { OpportunityBuilder, type BuilderInitial } from "./builder";
 
 export const metadata: Metadata = { title: "Opportunities" };
 
-const COLORS: BarColor[] = ["saffron", "navy", "purple", "green", "stone"];
+const COLORS: BarColor[] = ["saffron", "navy", "green", "stone", "brown"];
 const TYPE_LABEL: Record<string, string> = { ...Object.fromEntries(OPPORTUNITY_TYPES.map((t) => [t.kind, t.label])), fixed: "Fixed amount" };
 
 export default async function OpportunitiesPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {

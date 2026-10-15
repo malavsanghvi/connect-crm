@@ -40,9 +40,11 @@ so in a small note. Embedding a Unicode font is a follow-up (needs `@pdf-lib/fon
 - **Once per pledge**, whatever the address. The **Email…** menu item is the only way to send again.
 - **Every path**: a member's own pledge (the app's insert), staff one at a time (`record_manual_pledge`), a bulk upload
   (`record_pledge_upload`), `close_boli` and the rest: they all go through the same trigger on `app.pledges`.
-- **Not sent** for imported history (the import tool, a CRM or QuickBooks id), fees, recurring cycles, store orders and RSVP commitments,
-  a pledge already paid, a pledge dated **more than 30 days** before it was recorded (an upload of old pledge cards), a demo community
-  (nothing is queued at all), or an upload whose box was unticked (each pledge records "declined").
+- **A pledge's date never keeps its email back** (0794, owner decision 2026-10-14: "No need for limits"). A pledge card dated two years ago
+  in a bulk upload is emailed like any other; the tick on the upload screen is the control.
+- **Not sent** for what the data model itself marks as history (written by the import tool, or brought in with a CRM or QuickBooks id),
+  fees, recurring cycles, store orders and RSVP commitments, a pledge that is not open when recorded, a demo community (nothing is
+  queued at all), or an upload whose box was unticked (each pledge records "declined").
 - **The treasurer's approval still gates it** (0770): until the treasurer's approval of the receipt templates is current, the automatic
   email waits and says so (History, upload result, Settings). The Email… menu item is not held back by it (a person is writing on purpose).
 - **Sandboxes** reach only verified test recipients and **demo communities** are never sent anything (the sender refuses them): both
@@ -60,7 +62,7 @@ answers only for a pledge the message names, in the message's community) and han
 reason (it is never sent without its PDF). The demo-community refusal happens before any PDF is drawn.
 
 **By hand** (`app.send_pledge_email`): giving.manage, one address checked (shape, one @, no commas), once per confirmation key (a double
-click is one email), at most 40 an hour per person. The request row (`app.pledge_emails`) holds who, which pledge, which address and
+click is one email); there is no limit on how many a person sends (0794). The request row (`app.pledge_emails`) holds who, which pledge, which address and
 when; the job carries only the request id, never the address. A household adult at the typed address is greeted by name; any other
 address gets "Dear friend".
 
@@ -68,7 +70,9 @@ address gets "Dear friend".
 
 - One email: `app.pledge_email_request_status` (waiting, sent, failed, not_sent, with the reason).
 - Many: `app.pledge_email_status(center, pledges)` states: `sent`, `waiting`, `pending` (not written yet), `no_email`, `declined`,
-  `history`, `not_approved`, `switched_off`, `failed`, `not_sent`. The upload's panel turns them into the three numbers.
+  `history` (what the data model marks as history, never a date), `not_approved`, `switched_off`, `failed`, `not_sent`. The upload's panel turns them
+  into the three numbers. Under the tick, the review says before recording how many families the ticked rows will email and how many
+  of those rows are dated more than 30 days ago (a warning only), so a file of old pledge cards cannot email everyone by surprise.
 - Why an email was not sent is a word (`email_automation_sends.reason_code`) and a sentence (`reason`).
 
 ## Tests
@@ -82,9 +86,15 @@ address gets "Dear friend".
 
 1. The automatic email still waits for the treasurer's current approval of the receipt templates (0770's rule). A community that never
    approved them sends nothing automatically, and says why. Drop the gate for the pledge email if the owner prefers.
-2. The Email… menu item is not held back by that approval (a person is writing to a family on purpose), only by giving.manage, the
-   address check and the 40-an-hour limit.
-3. Pledges dated more than 30 days before they are recorded count as history and are not emailed (the owner's "historical pledges must
-   not trigger emails" needs a line somewhere; 30 days lets last week's pledge cards still go).
-4. The automatic email goes to the primary member only, even when someone else of the household made the pledge.
-5. Fonts: Helvetica only (see above).
+2. The Email… menu item is not held back by that approval (a person is writing to a family on purpose), only by giving.manage and the
+   address check.
+3. The automatic email goes to the primary member only, even when someone else of the household made the pledge.
+4. Fonts: Helvetica only (see above).
+
+## Settled by the owner (2026-10-14, "Pledge Email - No need for limits.")
+
+- **No 30-day rule.** Every pledge recorded by a member, by staff or in a bulk upload gets its email whatever its date. Only what the data
+  model marks as history stays out (import tool, CRM or QuickBooks id, fees, recurring cycles, store orders, RSVP commitments).
+- **No hourly cap** on the Email… menu item. The once-per-pledge rule of the automatic email and the double-click protection stay.
+- Both were removed in migration 0794 (the three functions redefined from their latest bodies); the treasurer's approval gate is unchanged
+  and still the owner's separate decision.

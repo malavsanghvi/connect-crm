@@ -38,7 +38,7 @@ export type CountActContext = {
   trigger?: "button" | "menu";
 };
 
-const MENU_ITEM = "flex min-h-[44px] w-full items-center rounded-[10px] px-3 py-2 text-left text-[14px] font-semibold hover:bg-canvas";
+const MENU_ITEM = "flex min-h-[44px] w-full items-center rounded-field px-3 py-2 text-left text-[14px] font-semibold hover:bg-canvas";
 const SMALL = "min-h-[40px] max-w-full whitespace-normal py-1.5 text-center";
 
 function triggerClass(ctx: CountActContext, primary: boolean, tone?: "danger"): string {
@@ -156,11 +156,11 @@ export function MatchCountAct({ act, row, ctx }: { act: Extract<Act, { kind: "co
               Looking for the deposit of exactly {formatCents(act.totalCents, ctx.currency, ctx.locale)}…
             </p>
           ) : loadError ? (
-            <p role="alert" className="m-0 rounded-[12px] border border-[#f0b9b4] bg-danger-50 px-3 py-2 text-[13px] text-[#7a1a14]">
+            <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {loadError}
             </p>
           ) : data && data.choices.length === 0 ? (
-            <p className="m-0 rounded-[12px] bg-saffron-50 px-3 py-2 text-[14px] leading-[1.5] text-ink-2">{data.none}</p>
+            <p className="m-0 rounded-field bg-saffron-50 px-3 py-2 text-[14px] leading-[1.5] text-ink-2">{data.none}</p>
           ) : data ? (
             <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
               <legend className="mb-1 text-[13px] font-bold text-ink">
@@ -169,7 +169,7 @@ export function MatchCountAct({ act, row, ctx }: { act: Extract<Act, { kind: "co
               {data.choices.map((c) => (
                 <label
                   key={c.id}
-                  className={`flex min-h-[52px] cursor-pointer items-start gap-3 rounded-[12px] border-[1.5px] px-3 py-2.5 ${picked === c.id ? "border-navy bg-navy-50" : "border-line bg-white"}`}
+                  className={`flex min-h-[52px] cursor-pointer items-start gap-3 rounded-field border-[1.5px] px-3 py-2.5 ${picked === c.id ? "border-navy bg-navy-50" : "border-line bg-white"}`}
                 >
                   <input type="radio" name={`deposit-${act.id}`} value={c.id} checked={picked === c.id} onChange={() => setPicked(c.id)} className="mt-1 h-5 w-5" />
                   <span className="min-w-0">
@@ -258,12 +258,12 @@ function CounterCards({ picked, labels }: { picked: CounterChoice[]; labels: Car
   return (
     <div className="flex flex-col gap-1.5">
       {picked.map((p) => (
-        <div key={p.userId} className="rounded-[12px] border border-line bg-white px-3 py-2">
+        <div key={p.userId} className="rounded-field border border-line bg-white px-3 py-2">
           <p className="m-0 text-[14px] font-bold text-ink">{p.name}</p>
           <p className="m-0 text-[12.5px] leading-[1.4] text-muted">{p.family ? `${p.family.name} · ${familyLine(p.family, labels)}` : "No household on file (counts as their own)"}</p>
         </div>
       ))}
-      <p role="status" className={`m-0 text-[13px] font-bold ${check.differentHouseholds ? "text-success" : "text-[#7a1a14]"}`}>
+      <p role="status" className={`m-0 text-[13px] font-bold ${check.differentHouseholds ? "text-success" : "text-danger"}`}>
         {check.differentHouseholds ? "Different households: yes" : check.differentHouseholds === false ? `Different households: no. ${check.problem}` : check.problem}
       </p>
     </div>
@@ -386,7 +386,7 @@ function StartCountSheet({ data, labels, onClose, onSaved }: { data: CountSheetD
           className={BIG}
         />
         {problem ? (
-          <p role="alert" className="m-0 mt-1 text-[13px] font-semibold text-[#7a1a14]">
+          <p role="alert" className="m-0 mt-1 text-[13px] font-semibold text-danger">
             {problem}
           </p>
         ) : null}
@@ -399,7 +399,7 @@ function StartCountSheet({ data, labels, onClose, onSaved }: { data: CountSheetD
           {byPieces ? (
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {data.denominations.map((v) => (
-                <label key={v} className="flex items-center gap-2 rounded-[10px] border border-line px-2.5 py-1.5">
+                <label key={v} className="flex items-center gap-2 rounded-field border border-line px-2.5 py-1.5">
                   <span className="w-16 shrink-0 text-[14px] font-bold text-ink">{denominationLabel(v, data.currency, data.locale)}</span>
                   <span className="sr-only">how many</span>
                   <input
@@ -488,7 +488,7 @@ export function StartCountButton({
         {loading ? "Opening…" : children}
       </button>
       {problem ? (
-        <span role="alert" className="max-w-xs text-[13px] font-semibold text-[#7a1a14]">
+        <span role="alert" className="max-w-xs text-[13px] font-semibold text-danger">
           {problem}
         </span>
       ) : null}

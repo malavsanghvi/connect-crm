@@ -103,7 +103,7 @@ function Banner({ tone, children }: { tone: "sun" | "grey"; children: ReactNode 
   return (
     <p
       role="status"
-      className={`m-0 mt-2 rounded-xl px-3 py-2 text-[13px] ${tone === "sun" ? "border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] text-[var(--v2-sun-ink)]" : "bg-[var(--v2-ground)] text-ink-2"}`}
+      className={`m-0 mt-2 rounded-xl px-3 py-2 text-[13px] ${tone === "sun" ? "border border-warning-200 bg-warning-50 text-warning-ink" : "bg-[var(--v2-ground)] text-ink-2"}`}
     >
       {children}
     </p>

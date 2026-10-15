@@ -288,7 +288,7 @@ export function FlyerPanel({
                 <div className="mt-1 flex flex-wrap items-start gap-3">
                   {previewUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={previewUrl} alt="Current event flyer" className="w-[140px] rounded-[10px] border border-line" />
+                    <img src={previewUrl} alt="Current event flyer" className="w-[140px] rounded-field border border-line" />
                   ) : previewError ? (
                     <Alert tone="danger">{previewError}</Alert>
                   ) : (
@@ -456,7 +456,7 @@ export function FlyerPanel({
               </Link>
             </p>
 
-            <div className="rounded-[10px] border border-line-soft bg-ground p-3">
+            <div className="rounded-field border border-line-soft bg-ground p-3">
               <p className="text-[13px] font-bold">Upload your own</p>
               <ActionForm
                 action={uploadEventFlyerAction}
@@ -482,13 +482,13 @@ export function FlyerPanel({
                   {preview.loading ? "Updating…" : "Refresh preview"}
                 </button>
               </div>
-              <div className="mt-2 flex min-h-[240px] items-center justify-center rounded-[12px] border border-line bg-ground p-2">
+              <div className="mt-2 flex min-h-[240px] items-center justify-center rounded-field border border-line bg-ground p-2">
                 {preview.url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={preview.url}
                     alt="Flyer preview"
-                    className={`max-h-[560px] w-auto max-w-full rounded-[6px] shadow-sm ${preview.loading || designError ? "opacity-60" : ""}`}
+                    className={`max-h-[560px] w-auto max-w-full rounded-chip shadow-sm ${preview.loading || designError ? "opacity-60" : ""}`}
                   />
                 ) : (
                   <p className="crm-hint">{designError ? "Fix the problem below to see the preview." : preview.loading ? "Making the preview…" : "The preview appears here in a moment."}</p>
@@ -500,7 +500,7 @@ export function FlyerPanel({
                 <InlineError onRetry={() => setTick((t) => t + 1)}>{preview.error}</InlineError>
               ) : null}
               {preview.notes.length ? (
-                <ul className="mt-2 flex flex-col gap-1 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[12px] text-brown-900" role="status">
+                <ul className="mt-2 flex flex-col gap-1 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[12px] text-warning-ink" role="status">
                   {preview.notes.map((n) => (
                     <li key={n}>{n}</li>
                   ))}

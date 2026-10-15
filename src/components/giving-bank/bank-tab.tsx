@@ -33,7 +33,11 @@ const INTRO: Record<BankModel["view"], string> = {
 /** `exportSlot`: the view's Export button (slice 9), passed in by the page so this file stays free of the step-up pieces. */
 export function BankTab({ model, importer, noAccount, exportSlot }: { model: BankModel; importer?: ReactNode; noAccount?: ReactNode; exportSlot?: ReactNode }) {
   const [done, setDone] = useState<Record<string, string>>({});
+  // The guided tour (src/lib/spotlight/tours) lights the first gift line that has a clear suggestion, else the first gift line.
+  const giftRows = model.view === "match" ? model.rows.filter(({ row }) => row.id.startsWith("bank:gift:")) : [];
+  const tourRowId = (giftRows.find(({ row }) => row.family) ?? giftRows[0])?.row.id;
   const ctxFor = (id: string): ActContext => ({
+    spotlight: id === tourRowId,
     currency: model.currency,
     locale: model.locale,
     timeZone: model.timeZone,
@@ -76,7 +80,7 @@ export function BankTab({ model, importer, noAccount, exportSlot }: { model: Ban
             </div>
           ) : null}
           <div className="mb-3 flex items-start gap-2">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1" data-spotlight="bank-views">
               <ChipRow chips={model.views} label="Bank views" />
             </div>
             <MoreMenu model={model} />
@@ -106,7 +110,7 @@ export function BankTab({ model, importer, noAccount, exportSlot }: { model: Ban
               ? model.historyRows.map((h) => <HistoryRow key={h.id} row={h} ctx={ctxFor(h.id)} done={done[h.id]} labels={model.labels} />)
               : null}
 
-            {isEmpty(model) ? <p className="m-0 rounded-[12px] bg-ground px-3 py-4 text-center text-[14px] text-muted">{model.empty}</p> : null}
+            {isEmpty(model) ? <p className="m-0 rounded-field bg-ground px-3 py-4 text-center text-[14px] text-muted">{model.empty}</p> : null}
 
             {model.view === "zelle" && model.zelle ? (
               <div className="mt-4 border-t border-line pt-4">

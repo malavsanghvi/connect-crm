@@ -149,9 +149,9 @@ export function LoginForm({
   }
 
   const inputClass =
-    "min-h-[50px] w-full rounded-xl border border-line-input bg-white px-3.5 text-base text-ink placeholder:text-faint focus:border-navy focus:outline-2 focus:outline-offset-1 focus:outline-navy";
+    "min-h-[50px] w-full rounded-xl border border-line-control bg-white px-3.5 text-base text-ink placeholder:text-faint focus:border-navy focus:outline-2 focus:outline-offset-1 focus:outline-navy";
   const errorBox = error ? (
-    <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+    <p role="alert" className="rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
       {error}
     </p>
   ) : null;
@@ -229,7 +229,7 @@ export function LoginForm({
       <h2 className="font-display text-[28px] font-semibold text-ink">Sign in</h2>
       <div className="flex flex-col gap-1.5 text-[13px] text-muted">
         <span>Work email</span>
-        <p className="flex min-h-[50px] items-center rounded-xl bg-canvas px-3.5 text-base text-ink ring-1 ring-line-input">{email}</p>
+        <p className="flex min-h-[50px] items-center rounded-xl bg-canvas px-3.5 text-base text-ink ring-1 ring-line-control">{email}</p>
       </div>
       {notice ? (
         <p role="status" className="text-[13px] text-muted">

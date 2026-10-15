@@ -17,11 +17,13 @@ vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 
 import { AssignmentsCard } from "@/components/home/assignments-card";
 import { MemberAppCard } from "@/components/home/member-app-card";
+import { StartHereCard } from "@/components/home/start-here-card";
 import { TodayView } from "@/components/today/today-view";
 import { buildAssignments, scopedAssignments, type AssignmentFacts } from "@/lib/home/assignments";
 import type { HomeCards } from "@/lib/home/cards";
 import { NO_MEMBER_APP_LINK, buildMemberWork, type MemberWorkData } from "@/lib/home/member-work";
 import { readFailed, readOk } from "@/lib/home/read";
+import { buildStartHere, type StartScreen } from "@/lib/home/start-here";
 import { buildBriefing } from "@/lib/routines/briefing";
 import { resolveRoutine } from "@/lib/routines/resolve";
 
@@ -168,6 +170,67 @@ describe("My assignments", () => {
   });
 });
 
+describe("Start here", () => {
+  const library: StartScreen = { key: "content", screen: "Content › Library", href: "/content/library", sentence: "Your work is in Content › Library: the drafts you write and send for approval." };
+  const reports: StartScreen = { key: "reports", screen: "Reports › Center health", href: "/reports", sentence: "Reports › Center health shows how your community is doing." };
+
+  it("one sentence naming the screen, a button to it, and what waits there", () => {
+    const out = html(h(StartHereCard, { start: buildStartHere(library, { drafts: readOk(2) }) }));
+    expect(out).toContain("Start here");
+    expect(out).toContain("Your work is in Content › Library: the drafts you write and send for approval.");
+    expect(out).toContain('href="/content/library"');
+    expect(out).toContain("Open Content › Library");
+    expect(out).toContain("2 drafts to finish.");
+    expect(out).not.toContain("Nothing here for your role");
+  });
+
+  it("a screen with nothing to count is just the sentence and the button", () => {
+    const out = html(h(StartHereCard, { start: buildStartHere(reports, {}) }));
+    expect(out).toContain("Reports › Center health shows how your community is doing.");
+    expect(out).toContain('href="/reports"');
+    expect(out).not.toContain("<ul");
+    expect(out).not.toContain("Nothing is waiting right now.");
+  });
+
+  it("nothing waiting is said so", () => {
+    const out = html(h(StartHereCard, { start: buildStartHere(library, { drafts: readOk(0) }) }));
+    expect(out).toContain("Nothing is waiting right now.");
+  });
+
+  it("a count that failed is a red line with the reason and a retry, never a zero", () => {
+    const out = html(h(StartHereCard, { start: buildStartHere(library, { drafts: readFailed("the database could not be reached — check the connection and try again") }) }));
+    expect(out).toContain('role="alert"');
+    expect(out).toContain("Could not count the drafts — the database could not be reached — check the connection and try again.");
+    expect(out).toContain("Try again");
+    expect(out).toContain('href="/"');
+    expect(out).not.toContain("Nothing is waiting right now.");
+    expect(out).not.toMatch(/\b0 drafts\b/);
+    // The button to the screen is still there.
+    expect(out).toContain('href="/content/library"');
+  });
+
+  it("in Today it replaces 'Nothing here for your role'", () => {
+    const treasurer = viewer(["treasurer"]);
+    const out = html(
+      h(TodayView, {
+        greeting: "Good morning",
+        firstName: "Nikhil",
+        dateLabel: "Friday, October 16",
+        routine: resolveRoutine(treasurer, routineFacts()),
+        briefing: buildBriefing(treasurer, routineFacts()),
+        tasks: [],
+        failures: [],
+        hasSources: false,
+        cards: { memberWork: null, assignments: null, startHere: buildStartHere(library, { drafts: readOk(2) }) },
+      }),
+    );
+    expect(out).toContain("Start here");
+    expect(out).toContain("2 drafts to finish.");
+    expect(out).not.toContain("Nothing here for your role");
+    expect(out).not.toContain("My tasks");
+  });
+});
+
 describe("Today, with the cards", () => {
   const treasurer = viewer(["treasurer"]);
   const tasks = [
@@ -187,7 +250,7 @@ describe("Today, with the cards", () => {
       cards: over.cards,
     });
   }
-  const memberCards: HomeCards = { memberWork: work(data()), assignments: null };
+  const memberCards: HomeCards = { memberWork: work(data()), assignments: null, startHere: null };
 
   it("a person with no staff queue and a card sees the card, and is not told there is nothing for their role", () => {
     const out = html(today({ hasSources: false, cards: memberCards }));
@@ -205,7 +268,7 @@ describe("Today, with the cards", () => {
       { events: readOk(new Map([[EV, { name: "Tapasvi Dinner", status: "published", starts_at: null, ends_at: null, venue: null }]])), classes: null, zones: null, numbers: new Map(), zoneOpen: null },
       { timeZone: "America/Chicago", roleNames: new Map([["event_lead", "Event lead"]]) },
     );
-    const out = html(today({ hasSources: true, tasks: true, cards: { memberWork: null, assignments } }));
+    const out = html(today({ hasSources: true, tasks: true, cards: { memberWork: null, assignments, startHere: null } }));
     expect(out).toContain("My tasks");
     expect(out).toContain("12 bank lines to match");
     expect(out).toContain("My assignments");
@@ -214,14 +277,14 @@ describe("Today, with the cards", () => {
   });
 
   it("a person with a queue and no assignments sees neither card", () => {
-    const out = html(today({ hasSources: true, tasks: true, cards: { memberWork: null, assignments: null } }));
+    const out = html(today({ hasSources: true, tasks: true, cards: { memberWork: null, assignments: null, startHere: null } }));
     expect(out).toContain("My tasks");
     expect(out).not.toContain("My assignments");
     expect(out).not.toContain("Your work is in the member app");
   });
 
   it("a person with neither keeps the old empty message", () => {
-    const out = html(today({ hasSources: false, cards: { memberWork: null, assignments: null } }));
+    const out = html(today({ hasSources: false, cards: { memberWork: null, assignments: null, startHere: null } }));
     expect(out).toContain("Nothing here for your role.");
   });
 

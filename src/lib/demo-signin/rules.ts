@@ -63,13 +63,33 @@ export const KIND_BLURB: Record<DemoKind, string> = {
   neutral: "A neighbourhood club with events, giving, a directory and notices.",
 };
 
-export type DemoPerson = { id: string; role: string; name: string; story: string };
-export type DemoCommunity = { kind: DemoKind; name: string; people: DemoPerson[] };
+/**
+ * The two areas the featured demo people are arranged in (owner decision 2026-10-14; app.demo_featured_roles, migration 0815):
+ * the non-profit's operational roles, and the community's own.
+ */
+export type DemoArea = "operations" | "community";
+export const DEMO_AREAS: readonly DemoArea[] = ["operations", "community"];
+export const AREA_LABEL: Record<DemoArea, string> = { operations: "Non-profit operational roles", community: "Community roles" };
+export const AREA_BLURB: Record<DemoArea, string> = {
+  operations: "The people who run the organization. Each one sees only what their role allows.",
+  community: "A member of the community, as a family member would use it.",
+};
+
+export type DemoPerson = { id: string; role: string; name: string; story: string; area: DemoArea };
+/** `id` and `slug` are the demo community's own, public ones: the member app opens it with them, as a guest, before anyone is chosen. */
+export type DemoCommunity = { kind: DemoKind; name: string; id: string; slug: string; people: DemoPerson[] };
 export type DemoChoices = { enabled: boolean; communities: DemoCommunity[] };
+
+/** A community's people in their two areas, operations first, the database's order kept inside each; an area nobody is in is left out. */
+export function peopleByArea(community: Pick<DemoCommunity, "people">): { area: DemoArea; label: string; blurb: string; people: DemoPerson[] }[] {
+  return DEMO_AREAS.map((area) => ({ area, label: AREA_LABEL[area], blurb: AREA_BLURB[area], people: community.people.filter((p) => p.area === area) })).filter(
+    (g) => g.people.length > 0,
+  );
+}
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
-/** Reads app.demo_choices(). Anything unexpected is left out rather than guessed at. */
+/** Reads app.demo_choices(). Anything unexpected is left out rather than guessed at (a person without a known area, a community without its id and slug). */
 export function parseChoices(raw: unknown): DemoChoices {
   const o = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const communities: DemoCommunity[] = [];
@@ -81,10 +101,13 @@ export function parseChoices(raw: unknown): DemoChoices {
     for (const p of Array.isArray((c as Record<string, unknown>).people) ? ((c as Record<string, unknown>).people as unknown[]) : []) {
       if (!p || typeof p !== "object") continue;
       const r = p as Record<string, unknown>;
-      if (!isUuid(r.id) || !str(r.role) || !str(r.name)) continue;
-      people.push({ id: r.id, role: str(r.role), name: str(r.name), story: str(r.story) });
+      if (!isUuid(r.id) || !str(r.role) || !str(r.name) || (r.area !== "operations" && r.area !== "community")) continue;
+      people.push({ id: r.id, role: str(r.role), name: str(r.name), story: str(r.story), area: r.area });
     }
-    if (people.length > 0) communities.push({ kind, name: str((c as Record<string, unknown>).name), people });
+    const community = c as Record<string, unknown>;
+    if (people.length > 0 && isUuid(community.id) && str(community.slug)) {
+      communities.push({ kind, name: str(community.name), id: community.id, slug: str(community.slug), people });
+    }
   }
   communities.sort((a, b) => DEMO_KINDS.indexOf(a.kind) - DEMO_KINDS.indexOf(b.kind));
   return { enabled: o.enabled === true, communities };
@@ -115,6 +138,27 @@ export function parseBegin(raw: unknown): BeginAnswer | null {
     name: str(o.name),
     expiresAt: str(o.expires_at),
   };
+}
+
+/**
+ * Why a start failed, in the four words a caller outside the portal (the member app, POST /api/demo/session) can tell apart:
+ * "off" the demo is not available right now (switched off, or its sign-ins are not set up), "limit" too many starts (this visitor's
+ * hour, or the whole platform's), "unknown_person" the chosen person is not a demo person, "failed" anything else (the request, the
+ * database or the sign-in).
+ */
+export type StartFailCode = "off" | "limit" | "unknown_person" | "failed";
+
+export function failCodeFor(code: BeginCode): StartFailCode {
+  switch (code) {
+    case "off":
+    case "not_ready":
+      return "off";
+    case "ip_limit":
+    case "busy":
+      return "limit";
+    case "unknown_persona":
+      return "unknown_person";
+  }
 }
 
 /** Why a start was refused, in words for the visitor (follows "Could not start the demo — "). */
