@@ -11,7 +11,7 @@
 --      production (the owner is emailed in plain words), a sandbox with use keeps iWeaver; an in-place go-live the same way;
 --      the product history names a promotion's copies.
 --   D. The gates: Niva is off wherever iWeaver is; the website draft functions need WeaverSite; the WhatsApp Business
---      functions and the send-time check need CommunityConnect; the tables belong to their product; WhatsApp group links stay
+--      functions and the send-time check need Weaver Connect; the tables belong to their product; WhatsApp group links stay
 --      in Communications.
 -- Nothing here relies on the seed community's own grant. Everything runs in one transaction that is rolled back.
 \set ON_ERROR_STOP 1
@@ -70,7 +70,7 @@ grant connect_worker to postgres;
 -- ══ A. The catalog ═══════════════════════════════════════════════════════════
 select pg_temp.assert((select array_agg(key || '=' || label || ':' || array_to_string(depends_on, ',') order by sort)
                          from app.modules where key = any (:FIVE))
-                        = array['ai=iWeaver:', 'website=WeaverSite:people', 'channels=CommunityConnect:comms', 'care=WeCare:people',
+                        = array['ai=iWeaver:', 'website=WeaverSite:people', 'channels=Weaver Connect:comms', 'care=WeCare:people',
                                 'matching=CatchTheMatch:giving']
                       and not exists (select 1 from app.modules where key = any (:FIVE) and core),
   'A · five products join the catalog with neutral keys and brand labels, none core, each needing what the plan says');
@@ -165,7 +165,7 @@ select pg_temp.assert((select array_agg(c.slug::text || ':' || g.module_key || c
                         where c.slug = any (:FIX) and g.module_key = any (:FIVE) and g.granted)
                         = array['ga160:ai', 'gb160-sandbox:ai', 'gc160:ai', 'gd160:ai', 'gj160:ai', 'gp160:ai', 'gq160:ai', 'gs160:website', 'gw160:channels']
                       and :'added'::int >= 9,
-  'B · iWeaver only where AI was used (a question, Niva for admins, Niva switched on or paused, flyer art), a sandbox with use included (permanent, not a trial), never by the kind''s default or old use; CommunityConnect and WeaverSite where used');
+  'B · iWeaver only where AI was used (a question, Niva for admins, Niva switched on or paused, flyer art), a sandbox with use included (permanent, not a trial), never by the kind''s default or old use; Weaver Connect and WeaverSite where used');
 select pg_temp.assert((select reason like 'Grandfathered (0750): Niva answered questions%' and granted_by is null and not is_trial
                          from app.center_module_grants where center_id = :g_q and module_key = 'ai')
                       and (select reason like 'Grandfathered (0750): Niva for admins%' from app.center_module_grants where center_id = :g_admin and module_key = 'ai')
@@ -341,11 +341,11 @@ select pg_temp.assert_raises(format($$select app.site_draft_save(%L, '{}'::jsonb
 select pg_temp.assert((app.site_draft_get(:g_site, false)->'site'->>'name') = 'Site 160',
   'D · where WeaverSite is on (grandfathered), the draft reads as before');
 select pg_temp.assert_raises(format($$select app.save_whatsapp_account(%L, null, null, 'None 160', '+1 713 555 0160', 'Test')$$, :g_none),
-  'Weaver has not enabled CommunityConnect for this community.', 'D · a WhatsApp Business account needs CommunityConnect');
+  'Weaver has not enabled Weaver Connect for this community.', 'D · a WhatsApp Business account needs Weaver Connect');
 select pg_temp.assert_raises(format($$select app.submit_whatsapp_template(%L, 'hello', 'en', 'utility', 'Hi', 'Test')$$, :g_none),
-  'Weaver has not enabled CommunityConnect', 'D · so does a WhatsApp template');
+  'Weaver has not enabled Weaver Connect', 'D · so does a WhatsApp template');
 select pg_temp.assert_raises(format($$select app.send_test_message(%L, 'whatsapp', '+17135550160')$$, :g_none),
-  'Weaver has not enabled CommunityConnect', 'D · and a WhatsApp test message');
+  'Weaver has not enabled Weaver Connect', 'D · and a WhatsApp test message');
 select pg_temp.no_claims();
 -- Send time: a WhatsApp message queued before the product went off is not sent, and says why.
 insert into app.messages (id, center_id, to_address, channel, body, purpose, status) values
@@ -353,9 +353,9 @@ insert into app.messages (id, center_id, to_address, channel, body, purpose, sta
   ('16000000-0000-4000-8000-0000000000a2', :g_wa, '+17135550161', 'whatsapp', 'Hello', 'receipt', 'queued');
 set local role connect_worker;
 select pg_temp.assert((app.worker_message_to_send('16000000-0000-4000-8000-0000000000a1')->>'skip')
-                        = 'Not sent: WhatsApp messages are part of CommunityConnect, which is not on for this community.'
+                        = 'Not sent: WhatsApp messages are part of Weaver Connect, which is not on for this community.'
                       and (app.worker_message_to_send('16000000-0000-4000-8000-0000000000a2')->>'skip') is null,
-  'D · at send time a WhatsApp message needs CommunityConnect: not sent, with the reason, where it is off; sent where it is on');
+  'D · at send time a WhatsApp message needs Weaver Connect: not sent, with the reason, where it is off; sent where it is on');
 reset role;
 
 select pg_temp.assert((select array_agg(table_name || '=' || module_key order by table_name) from app.module_tables
@@ -363,7 +363,7 @@ select pg_temp.assert((select array_agg(table_name || '=' || module_key order by
                                              'whatsapp_groups', 'whatsapp_join_requests'))
                         = array['site_blocks=website', 'site_pages=website', 'sites=website', 'whatsapp_accounts=channels',
                                 'whatsapp_groups=comms', 'whatsapp_join_requests=comms', 'whatsapp_template_submissions=channels'],
-  'D · the website draft tables are WeaverSite''s, the WhatsApp Business tables CommunityConnect''s, and WhatsApp group links stay in Communications');
+  'D · the website draft tables are WeaverSite''s, the WhatsApp Business tables Weaver Connect''s, and WhatsApp group links stay in Communications');
 select pg_temp.assert(not exists (
     select 1 from app.module_tables mt
       join pg_class c on c.relname = mt.table_name join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'app'
@@ -374,9 +374,9 @@ select pg_temp.assert(not exists (
             or position('''comms''' in pg_get_expr(p.polqual, p.polrelid)) > 0)),
   'D · each of those tables has a restrictive module_switch policy that names its own product');
 select pg_temp.assert((select module_key from app.setup_steps where key = 'svc.whatsapp') = 'channels',
-  'D · the WhatsApp Business Setup step follows CommunityConnect, so it is skipped where the product is off');
--- WhatsApp group links stay in Communications: a community with Communications on and no CommunityConnect still reads them.
+  'D · the WhatsApp Business Setup step follows Weaver Connect, so it is skipped where the product is off');
+-- WhatsApp group links stay in Communications: a community with Communications on and no Weaver Connect still reads them.
 select pg_temp.assert(app.module_enabled(:g_none, 'comms') and not (:g_none::uuid = any (app.module_off_centers('comms'))),
-  'D · Communications (and so WhatsApp group links) is untouched where CommunityConnect is off');
+  'D · Communications (and so WhatsApp group links) is untouched where Weaver Connect is off');
 
 rollback;

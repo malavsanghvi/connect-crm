@@ -350,7 +350,6 @@ const OLD_NAME_ALLOWLIST: { file: string; why: string }[] = [
   { file: "src/app/(app)/accounting/qbo/setup/page.tsx", why: "The same QuickBooks marker, in the confirmation the treasurer ticks." },
   { file: "src/lib/security.ts", why: "CC_FIRST_ADMIN_REASON is the audit reason written by migration 0400 and asserted by supabase/tests/32." },
   { file: "src/lib/payments/change-control.ts", why: 'Reads the database\'s own message "Community Connect has paused ..." (migrations 0580, 0597), which is already applied.' },
-  { file: "src/lib/modules.ts", why: '"CommunityConnect" is the name the owner gave the Facebook, Instagram and WhatsApp marketplace pack (docs/BACKLOG.md B104, docs/MARKETPLACE_PACKS.md), a pack brand like iWeaver and WeCare, not the old product name (decision D6 in docs/BRAND_CONFORMANCE.md).' },
 ];
 
 describe("(b) the product is called Weaver", () => {
