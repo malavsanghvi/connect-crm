@@ -2,8 +2,9 @@
 
 **Status: approved by the owner 2026-10-15 ("go with the recommendations"), slices 1-3 built** (migrations 0822 and 0823 in the first pull request (#285):
 the masks, the switches, the locked tables, lookup / save / undo / view / cancel in mode `open`, the confirmation email and the `%MEMBER_APP_URL%` link; the
-code mode (design B) in the second pull request), slice 4 (the portal screens, section 9). Not yet built: the member app screens (5), the manage page in the app (6),
-hardening (7). Owner request, 2026-10-15, verbatim:
+code mode (design B) in the second pull request), slice 4 (the portal screens, section 9), slice 5 (the member app, section 10, connect-mobile #113, 1.23.0) and slice 6
+(the page behind the emailed link and See my tickets, section 11, connect-mobile #114, 1.24.0). Slice 7 (hardening and docs) is this section 12 and the abuse tests of 0822 to 0824;
+what is still open is listed at its end. Owner request, 2026-10-15, verbatim:
 
 > "Mobile app - RSVP - Allow RSVP using just phone number or email - without logging in. If user has not logged in, show all
 > family members with names not fully visible... show Malav as M**AV, minimum of 50% of characters should be *. Show the phone
@@ -494,3 +495,45 @@ No migration and no change to who can do what: the portal only calls what 0822 t
 | Family page › Events | Lines made this way read "Without signing in", with an **Unverified** badge until the family opens the link in the confirmation email, types a code, or staff mark it verified. |
 
 Errors are shown next to what the person did ("Could not change RSVP without signing in — ..."), with the technical detail logged on the server. Where the database turns an event's switch back off (the event stopped qualifying), the card says why instead of "Saved".
+
+## 10. As built: the member app (slice 5, connect-mobile #113, 1.23.0)
+
+No database change; it calls the functions of section 7.1 and 8.1 as the anon client (`src/lib/api/rsvp-contact.ts`, `src/features/rsvp-contact/`).
+
+- **When the button shows.** A visitor who is not signed in (`!member`), on an event whose own `contact_rsvp` is `code` or `open`, while the RSVP window is open, on a free event open to the public or to members and guests. The event row is
+  all a guest can read; **the community's switch is not readable by a guest**, so with the community switch off (or lowered) and an event still at `code` / `open` the button shows and the database answers `unavailable`
+  ("RSVP without signing in is not available for this event. Please sign in to RSVP.") with a Sign in button. A trigger that lowers events when the community switch is lowered, or a guest-readable flag, would hide it earlier; either is a migration.
+- **The steps** are those of section 2: find (Mobile number | Email; the phone is sent as `+1...`, the email lower-case), the 6-digit code for a `code` event (resend after 60 seconds, 3 at most), who is coming (everyone ticked, partly hidden names and contacts,
+  "Needs help getting around" where the event's `attendee_flags` has `assistance`, the lunch note where the event has lunch, no donation or guest), saving, done (where the confirmation went, Undo for the database's 15 minutes), and a refusal for every code with its own
+  sentence in the dictionary (`guestRsvp.err.*`); a code the app does not know says the database's own sentence.
+- **What the app keeps:** the handle and the `slot` numbers, the partly hidden labels it was shown, the choices. The phone or email typed lives in screen state only. Logged: the refusal code, never a contact or a handle.
+- **Signed-in members** see the same RSVP form as before (a test renders the real event screen as a guest and as a member). Gujarati and Hindi show the English strings until reviewed translations are added.
+
+## 11. As built: the page behind the emailed link and See my tickets (slice 6, connect-mobile #114, 1.24.0)
+
+- **`/rsvp/<token>`** (`src/app/rsvp/[token].tsx`, `src/features/rsvp-contact/manage.tsx`, `src/lib/api/rsvp-manage.ts`) calls `rsvp_contact_view` and `rsvp_contact_cancel`: the event, the status, the people with partly hidden names, a QR per person (the `ticket` code), "We can't make it"
+  (asks "Cancel this RSVP for 3 people?"), and a sentence for `expired`, `rate_limited`, `closed` and `too_late`. A token that is not 32 letters, digits, - or _ is not sent. Opening the page with the emailed token marks the RSVP verified (the database does that).
+- **It needs no community and no sign-in.** The root layout decides this path before the community choice, the sign-in guards and the app lock (`isRsvpLinkPath`), so a family opening the email on a phone where the app was never set up sees its tickets and not "Find your community".
+  "Open the app" leaves it for the normal start.
+- **See my tickets** on the "You are registered" card opens `/rsvp/<handle>?visit=1` for 29 minutes after saving (the handle works for 30): `rsvp_contact_view` accepts the visit's handle (section 7.2) but cancel needs the emailed token, so `visit=1` hides the
+  cancel button and says where cancelling is.
+- **Time zone.** `rsvp_contact_view` has no time zone, so the date and time are in the community's zone when one is open in the app, otherwise the device's. Adding `time_zone` to the function's `event` object would make it exact (a migration).
+
+## 12. Hardening: the screen name in the audit trail, and what is still open (slice 7)
+
+**The finding.** The member app sends the current route in `x-client-screen` with every request, and the database copies it into `audit_log.client_screen` on every audited write (`app.audit_row()`, migrations 0100 and 0102). Viewing the emailed
+link verifies the RSVP, which is an audited write, so a page address of `/rsvp/<token>` would have put the secret token (it cancels the RSVP) into the audit log. Fixed in connect-mobile #114: the app sends `/rsvp/[token]` (`auditScreenName`, tested; seen at
+runtime as `/rsvp/%5Btoken%5D`). The activity recorder of both apps already sends route patterns, never ids.
+
+**Where else a secret is in an address (checked 2026-10-16; reported, nothing else changed):**
+
+| Where | Route | Recorded? | Notes |
+|---|---|---|---|
+| Portal | `/invite/<token>` (staff invitation) | **Yes, once per accepted invitation.** The proxy and the server client send the pathname as `x-client-screen` (`src/lib/supabase/proxy.ts`, `server.ts`, `trace.ts` `clientScreen`); `app.accept_invitation` updates `staff_invitations` (trigger `audit_staff_invitations`), so `audit_log.client_screen` holds `/invite/<token>`. | The database stores only the token's SHA-256 hash, and an accepted invitation cannot be used again, so what the log holds is a used token. Still unneeded: `clientScreen()` could return `/invite/[token]` for that path (one line, with a test). The browser client on that page also stamps the same header on its requests; those are not audited writes. |
+| Member app | `/join/<code>` (community join code) | No. `community_by_join_code` is a read-only `stable` function (no audit row) and choosing a community is local. | A join code is shared on purpose (flyers, posters); it only finds a community. |
+| Member app | `/e/<event id>`, `/event/<id>`, `/person/<id>`, record ids in general | Yes, on audited writes made from those screens. | A record id is not a secret (it is readable only through RLS) and the screen it came from is what the column is for. |
+| Portal | `/ops/<event id>`, `/c/<slug>`, record ids | Same as above. | Not secrets. |
+| Both | Provider return, OAuth callback, unsubscribe | No. | Their secrets are in the query string, which `pathname` leaves out (and the unsubscribe link is signed). |
+
+**Still open (not built, with the reason):** bulk-cancel of unverified RSVPs in the portal (staff can cancel each; the unverified share of the places already caps the exposure); the community switch not being readable by guests (section 10); `time_zone` in the view (section 11);
+the unreviewed Gujarati and Hindi strings; the shared-NAT caveat of the per-address limits (7.2) and the check that `cf-connecting-ip` reaches the database on the hosted project (7.2), which is a production check, not code.
