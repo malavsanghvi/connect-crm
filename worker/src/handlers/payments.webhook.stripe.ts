@@ -1,7 +1,11 @@
 // payments.webhook.stripe: one verified Stripe event (the portal route checked
 // its signature and stored it through app.ingest_webhook). Payments are
 // recorded through app.worker_record_online_payment (existing allocation and
-// posting rules); refunds made outside Weaver (the Stripe dashboard)
+// posting rules). A payment with a covered card fee or a Chip In is recorded with
+// Stripe's processing fee and Weaver's application fee kept apart (recordStripeSession,
+// docs/PAYMENT_ADDONS.md §8); a charge that is not the checkout's is not recorded and
+// fails with a plain reason. An expired, failed or declined checkout is closed, which also
+// releases its Chip In reservation. Refunds made outside Weaver (the Stripe dashboard)
 // are recorded as FLAGGED refunds that change nothing until two people approve
 // them (app.worker_flag_provider_refund, owner decision 2026-09-25 #6).
 

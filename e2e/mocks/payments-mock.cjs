@@ -9,13 +9,23 @@
 //
 // Point the portal and the worker at it with STRIPE_API_BASE, STRIPE_CONNECT_BASE,
 // PAYPAL_API_BASE and PAYPAL_SANDBOX_API_BASE = http://localhost:<port>.
+//
+// Stripe Checkout as the optional Chip In and the covered card fee use it (docs/PAYMENT_ADDONS.md §8):
+//   * the session's total is the sum of its line items; payment_intent_data[application_fee_amount] is refused the way Stripe
+//     refuses it (not a direct charge, not positive, not below the charge); expires_at must be 30 minutes to 24 hours away;
+//   * the paid PaymentIntent carries application_fee_amount, and its balance transaction carries `fee` AND `fee_details`
+//     (a stripe_fee entry and, with an application fee, an application_fee entry), as Stripe documents for a direct charge;
+//     a session limited to ["us_bank_account"] is charged the bank-debit rate (0.8%, at most $5.00) and paid as a bank debit;
+//   * state.forms holds what each session was created with; state.behavior bends the NEXT payments (tests reset it with {}):
+//       { amountReceived, applicationFee, omitFeeDetails, feeExcludesApplication, method: 'card'|'ach' };
+//   * POST /__mock/expire/<session id> expires an unpaid session and sends checkout.session.expired.
 const http = require('http');
 const crypto = require('crypto');
 
 function createPaymentsMock(opts = {}) {
   const state = {
     requests: [], sessions: new Map(), intents: new Map(), refunds: new Map(), payouts: [], orders: new Map(),
-    captures: new Map(), webhooksSent: [], n: 0, idem: new Map(), accounts: new Map(),
+    captures: new Map(), webhooksSent: [], n: 0, idem: new Map(), accounts: new Map(), forms: new Map(), behavior: {},
   };
   // Unique across mock restarts (the database keeps provider references from earlier runs).
   const tag = crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -40,6 +50,16 @@ function createPaymentsMock(opts = {}) {
     res.end(typeof body === 'string' ? body : JSON.stringify(body));
   };
   const fee = (cents) => Math.round(cents * 0.029) + 30;
+  const achFee = (cents) => Math.min(Math.round(cents * 0.008), 500);
+  /** The line items of a Checkout Session form, in order: [{ name, description, cents }]. */
+  function lineItemsOf(f) {
+    return Object.keys(f.line_items || {}).sort((a, b) => Number(a) - Number(b)).map((k) => {
+      const li = f.line_items[k];
+      const pd = (li && li.price_data) || {};
+      const prod = pd.product_data || {};
+      return { name: prod.name, description: prod.description, cents: Number(pd.unit_amount) * Number(li.quantity || 1) };
+    });
+  }
 
   async function postWebhook(path, payload, headers) {
     const target = portal();
@@ -72,10 +92,25 @@ function createPaymentsMock(opts = {}) {
   }
 
   function intentFor(session) {
+    const b = state.behavior || {};
+    const form = state.forms.get(session.id) || {};
+    const types = session.payment_method_types || ['card'];
+    const ach = b.method ? b.method === 'ach' : types.length === 1 && types[0] === 'us_bank_account';
+    const received = b.amountReceived !== undefined ? b.amountReceived : session.amount_total;
+    const appFee = b.applicationFee !== undefined ? b.applicationFee : form.appFee || 0;
+    // Stripe's own fee is worked out on what was charged, and is taken from the connected account like the application fee.
+    const stripeFee = ach ? achFee(received) : fee(received);
+    const details = [{ amount: stripeFee, application: null, currency: 'usd', description: ach ? 'Stripe ACH Direct Debit fee' : 'Stripe processing fees', type: 'stripe_fee' }];
+    if (appFee > 0) details.push({ amount: appFee, application: 'ca_mock_platform', currency: 'usd', description: 'Application fee', type: 'application_fee' });
+    const totalFee = b.feeExcludesApplication ? stripeFee : stripeFee + appFee;
     const piId = id('pi_');
-    const ch = { id: id('ch_'), payment_intent: piId, balance_transaction: { id: id('txn_'), fee: fee(session.amount_total), amount: session.amount_total },
-                 payment_method_details: { type: 'card', card: { brand: 'visa', last4: '4242', wallet: null } } };
-    const pi = { id: piId, object: 'payment_intent', amount: session.amount_total, amount_received: session.amount_total, status: 'succeeded',
+    const ch = { id: id('ch_'), payment_intent: piId,
+                 balance_transaction: { id: id('txn_'), object: 'balance_transaction', type: 'charge', amount: received, fee: totalFee, net: received - totalFee,
+                                        fee_details: b.omitFeeDetails ? undefined : details },
+                 payment_method_details: ach ? { type: 'us_bank_account', us_bank_account: { last4: '6789', bank_name: 'STRIPE TEST BANK' } }
+                                             : { type: 'card', card: { brand: 'visa', last4: '4242', wallet: null } } };
+    const pi = { id: piId, object: 'payment_intent', amount: session.amount_total, amount_received: received, status: 'succeeded',
+                 application_fee_amount: appFee > 0 ? appFee : null,
                  metadata: session.metadata, latest_charge: ch, account: session.account };
     state.intents.set(piId, pi);
     return pi;
@@ -115,23 +150,50 @@ function createPaymentsMock(opts = {}) {
           const f = parseForm(body);
           const key = req.headers['idempotency-key'];
           if (key && state.idem.has(key)) return send(res, 200, state.idem.get(key));
-          const li = f.line_items && f.line_items['0'];
-          const amount = Number(li && li.price_data && li.price_data.unit_amount);
+          const items = lineItemsOf(f);
+          const amount = items.reduce((a, i) => a + i.cents, 0);
+          const acct = req.headers['stripe-account'] || null;
+          const pid = f.payment_intent_data || {};
+          const appFee = pid.application_fee_amount === undefined ? null : Number(pid.application_fee_amount);
+          if (appFee !== null) {
+            // Stripe: an application fee belongs to a charge made on a connected account, is a positive integer and is less than the charge.
+            if (!acct) return send(res, 400, { error: { message: 'You can only set application_fee_amount on a request that is made on behalf of a connected account.' } });
+            if (!Number.isInteger(appFee) || appFee <= 0) return send(res, 400, { error: { message: 'Invalid positive integer: application_fee_amount' } });
+            if (appFee >= amount) return send(res, 400, { error: { message: 'The application fee amount must be less than the amount charged.' } });
+          }
+          const now = Math.floor(Date.now() / 1000);
+          const exp = f.expires_at === undefined ? null : Number(f.expires_at);
+          if (exp !== null && (!Number.isInteger(exp) || exp < now + 30 * 60 - 5 || exp > now + 24 * 3600 + 5)) {
+            return send(res, 400, { error: { message: 'The `expires_at` timestamp must be at least 30 minutes and at most 24 hours from now.' } });
+          }
           const s = { id: id('cs_test_'), object: 'checkout.session', amount_total: amount, currency: 'usd', metadata: f.metadata || {},
                       client_reference_id: f.client_reference_id || null, success_url: f.success_url, cancel_url: f.cancel_url,
-                      payment_status: 'unpaid', status: 'open', payment_intent: null, account: req.headers['stripe-account'] || null,
-                      name: li && li.price_data && li.price_data.product_data && li.price_data.product_data.name };
+                      payment_status: 'unpaid', status: 'open', payment_intent: null, account: acct,
+                      expires_at: exp !== null ? exp : now + 24 * 3600, payment_method_types: Object.values(f.payment_method_types || {}),
+                      name: items[0] && items[0].name };
           s.url = `${base}/pay/stripe/${s.id}`;
           state.sessions.set(s.id, s);
+          state.forms.set(s.id, { items, appFee, form: f });
           if (key) state.idem.set(key, s);
           return send(res, 200, s);
+        }
+        if ((m = p.match(/^\/__mock\/expire\/([^/]+)$/)) && req.method === 'POST') {
+          // Test hook: the payer never paid and the session ran out. Stripe sends checkout.session.expired.
+          const s = state.sessions.get(m[1]);
+          if (!s) return send(res, 404, { error: { message: `No such checkout.session: '${m[1]}'` } });
+          if (s.payment_status === 'paid') return send(res, 400, { error: { message: 'A paid session cannot expire.' } });
+          s.status = 'expired';
+          const hook = await stripeWebhook('checkout.session.expired', { ...s, url: undefined }, s.account);
+          return send(res, 200, { status: hook.status, event: hook.event });
         }
         if ((m = p.match(/^\/pay\/stripe\/([^/]+)$/))) {
           const s = state.sessions.get(m[1]);
           if (!s) return send(res, 404, '<h1>No such checkout</h1>');
+          if (s.status === 'expired') return send(res, 410, '<!doctype html><title>Mock Stripe Checkout</title><h1>This checkout session has expired.</h1>');
           if (req.method === 'GET') {
+            const lines = ((state.forms.get(s.id) || {}).items || []).map((i) => `<li class="line"><span class="name">${i.name || ''}</span> <span class="cents">$${(i.cents / 100).toFixed(2)}</span></li>`).join('');
             return send(res, 200, `<!doctype html><title>Mock Stripe Checkout</title><h1>Mock Stripe Checkout (test mode)</h1>
-              <p>${s.name || ''}</p><p id="amount">$${(s.amount_total / 100).toFixed(2)}</p><p>Card 4242 4242 4242 4242</p>
+              <p>${s.name || ''}</p><ul id="lines">${lines}</ul><p id="amount">$${(s.amount_total / 100).toFixed(2)}</p><p>Card 4242 4242 4242 4242</p>
               <form method="post"><button type="submit" id="pay">Pay $${(s.amount_total / 100).toFixed(2)}</button></form>`);
           }
           if (s.payment_status !== 'paid') {

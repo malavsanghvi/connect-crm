@@ -27,6 +27,10 @@
 //      both Card and PayPal (the default processor does not hide the other); a member PayPal checkout through
 //      the route is captured by the worker from the approval webhook.
 //   9. A payout webhook → app.payouts and the payments carry it; Setup steps; readiness 6; Giving switch.
+//  10. The covered card fee and the optional Chip In (docs/PAYMENT_ADDONS.md, the Stripe slice), through the route, the mock Stripe,
+//      the signed webhook and the worker: inert until switched on; then a gift only (unchanged), a covered fee, a Chip In, both,
+//      a bank debit, the total that changed, a replayed webhook, the yearly limit with an expired session giving the allowance
+//      back, and a charge that is not the checkout's total (not recorded, a plain reason on the event); the daily release job runs.
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
 const { acceptLegalStep } = require('../legal-step.cjs');
 const { execSync, spawn } = require('child_process');
@@ -115,6 +119,9 @@ async function giveReason(p, reason, confirm) {
 const audit = (mark, action) => sql(`select coalesce(module,'') || '|' || coalesce(client_app,'') || '|' || coalesce(client_screen,'') || '|' || coalesce(reason,'')
                                       from app.audit_log where id > ${mark} and action = '${action}' order by id desc limit 1`);
 const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRole('heading', { name: title, exact: true }) });
+/** The platform team's Chip In setting for a community, written the way migration 0863 writes it: $50.00 a year, suggestions $2, $5 and $10. */
+const chipInAsking = (center, asking, note) => sql(`begin; select app.set_audit_context('${note}');
+  select app._chip_in_write('${center}', 5000, array[200, 500, 1000]::bigint[], ${asking}, '${note}'); commit;`);
 
 (async () => {
   const run = crypto.randomBytes(3).toString('hex');
@@ -422,6 +429,151 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     const off = await rpc(adminAal2, 'payment_settings', { p_center: jsh });
     ok(off.status >= 400, `9 with Giving off the payment settings are refused (${off.status})`);
     sql(`update app.center_modules set enabled = true where center_id = '${jsh}' and module_key = 'giving'`);
+
+    // ── 10. The covered card fee and the Chip In ──────────────────────────
+    // $100.00 gifts at JSH's seeded rates (card 2.9% + 30 cents; bank debit 0.8%, at most $5.00). The numbers are the spec's (§5.2):
+    // fee $3.30 → $103.30; Chip In $5.00 alone → $105.00 with Weaver's application fee $4.85; both → $3.45 and $108.45; bank $0.81.
+    sql(`delete from app.chip_in_ledger where center_id = '${jsh}' and household_id = '${priyaHH}'`);   // a re-run on the same stack starts at zero
+    chipInAsking(jsh, false, `e2e o-payments Chip In off ${run}`);
+    sql(`update app.center_payment_processors set donor_covers_fee_allowed = false where center_id = '${jsh}' and processor = 'stripe'`);
+    const intentWith = async (over) => {
+      const r = await fetch(BASE + '/api/payments/intent', {
+        method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${priya}` },
+        body: JSON.stringify({ center_id: jsh, household_id: priyaHH, processor: 'stripe', context: 'pledges', for_label: 'Gift', ...over }),
+      });
+      return { status: r.status, body: await r.json().catch(() => ({})) };
+    };
+    const newPledge = (cents) => sql(`with i as (insert into app.pledges (center_id, household_id, source, amount_cents) values ('${jsh}', '${priyaHH}', 'general', ${cents}) returning id) select id from i`);
+    const checkoutCount = () => Number(sql(`select count(*) from app.payment_checkouts where household_id = '${priyaHH}'`));
+    const sessionId = (i) => String(i.url).split('/').pop();
+    const payIt = async (i) => {
+      await fetch(i.url, { method: 'POST', redirect: 'manual' });   // the payer pays on the provider's page; the signed webhook follows
+      return until(() => sql(`select status from app.payment_checkouts where id = '${i.checkout_id}'`) === 'paid', 45000);
+    };
+    // amount | covered fee | Stripe's fee | Chip In | application fee | charged | method | gift | payment id
+    const paymentOf = (i) => sql(`select p.amount_cents || '|' || p.donor_covered_fee_cents || '|' || p.fee_cents || '|' || p.chip_in_cents || '|' || p.application_fee_cents
+      || '|' || coalesce(p.charged_cents, 0) || '|' || p.method || '|' || p.gift_cents || '|' || p.id from app.payments p join app.payment_checkouts k on k.payment_id = p.id where k.id = '${i.checkout_id}'`);
+    const ledgerOf = (i) => sql(`select status || '|' || chip_in_cents || '|' || application_fee_cents || '|' || mode || '|' || (payment_id is not null)::text from app.chip_in_ledger where checkout_id = '${i.checkout_id}'`);
+    const allocatedTo = (paymentId) => sql(`select coalesce(sum(amount_cents), 0) from app.payment_allocations where payment_id = '${paymentId}'`);
+    const lines = (i) => (mock.state.forms.get(sessionId(i)) || { items: [] }).items.map((x) => x.cents).join(',');
+    const appFeeOf = (i) => (mock.state.forms.get(sessionId(i)) || {}).appFee;
+    const typesOf = (i) => String((mock.state.sessions.get(sessionId(i)) || {}).payment_method_types);
+
+    // Inert: nothing is offered until the organization allows the card fee and a platform admin asks for Chip Ins.
+    const p0 = newPledge(10000);
+    const n0 = checkoutCount();
+    const askedFee = await intentWith({ amount_cents: 10000, pledge_ids: [p0], cover_fee: true });
+    const askedChip = await intentWith({ amount_cents: 10000, pledge_ids: [p0], chip_in_cents: 500 });
+    ok(askedFee.status === 409 && askedFee.body.code === 'CCFEE' && /Nothing was charged/.test(askedFee.body.error || ''), `10 inert: a covered card fee is refused while the organization has not allowed it (${askedFee.status} ${askedFee.body.code})`);
+    ok(askedChip.status === 409 && askedChip.body.code === 'CCCHP' && /Could not add a Chip In/.test(askedChip.body.error || ''), `10 inert: a Chip In is refused while no platform admin asks for one (${askedChip.status} ${askedChip.body.code})`);
+    ok(checkoutCount() === n0, '10 inert: neither created a checkout, so nothing was reserved or charged');
+
+    // A gift only, with both switches off: exactly as before.
+    const gift = await intentWith({ amount_cents: 10000, pledge_ids: [p0] });
+    ok(gift.status === 200 && gift.body.total_cents === 10000 && gift.body.covered_fee_cents === 0 && gift.body.chip_in_cents === 0, `10 a gift only: the route answers a $100.00 total (${JSON.stringify(gift.body).slice(0, 140)})`);
+    const giftPaid = await payIt(gift);
+    ok(lines(gift) === '10000' && appFeeOf(gift) === null && Boolean(giftPaid), '10 a gift only: one line, no application fee, paid');
+    const pg = paymentOf(gift).split('|');
+    ok(pg.slice(0, 8).join('|') === '10000|0|320|0|0|10000|card|10000' && ledgerOf(gift) === '', `10 a gift only is recorded as always: ${pg.slice(0, 8).join(' | ')}; no Chip In row`);
+
+    // The switches go on: the organization allows the card fee; a platform admin asks for Chip Ins (JSH: $50.00 a year).
+    sql(`update app.center_payment_processors set donor_covers_fee_allowed = true where center_id = '${jsh}' and processor = 'stripe'`);
+    chipInAsking(jsh, true, `e2e o-payments Chip In on ${run}`);
+
+    // A covered card fee: the organization nets exactly the gift.
+    const pB = newPledge(10000);
+    const covered = await intentWith({ amount_cents: 10000, pledge_ids: [pB], cover_fee: true, pay_method: 'card', expected_total_cents: 10330 });
+    ok(covered.status === 200 && covered.body.covered_fee_cents === 330 && covered.body.total_cents === 10330 && covered.body.chip_in_cents === 0, `10 covered fee: the database worked out $3.30, total $103.30 (${covered.status} ${JSON.stringify(covered.body).slice(0, 140)})`);
+    ok(lines(covered) === '10000,330' && appFeeOf(covered) === null && typesOf(covered) === 'card', `10 covered fee: Stripe's page has the gift then the fee, no application fee, card only (${lines(covered)} ${typesOf(covered)})`);
+    ok(Boolean(await payIt(covered)), '10 covered fee: paid');
+    const pb = paymentOf(covered).split('|');
+    ok(pb.slice(0, 8).join('|') === '10330|330|330|0|0|10330|card|10000', `10 covered fee: recorded ${pb.slice(0, 8).join(' | ')} (amount, covered, Stripe fee, Chip In, application fee, charged, method, gift)`);
+    ok(allocatedTo(pb[8]) === '10000' && sql(`select status from app.pledges where id = '${pB}'`) === 'paid' && Number(pb[0]) - Number(pb[2]) === 10000,
+      '10 covered fee: only the $100.00 gift is applied to the pledge, which is paid; the organization nets exactly $100.00');
+
+    // A Chip In without a covered fee: Weaver absorbs the extra card fee.
+    const pC = newPledge(10000);
+    const chip = await intentWith({ amount_cents: 10000, pledge_ids: [pC], chip_in_cents: 500, pay_method: 'card', expected_total_cents: 10500 });
+    ok(chip.status === 200 && chip.body.chip_in_cents === 500 && chip.body.total_cents === 10500 && chip.body.covered_fee_cents === 0, `10 Chip In: total $105.00 (${chip.status} ${JSON.stringify(chip.body).slice(0, 140)})`);
+    ok(lines(chip) === '10000,500' && appFeeOf(chip) === 485, `10 Chip In: Stripe's page has the gift then the Chip In, application fee $4.85 (${lines(chip)} ${appFeeOf(chip)})`);
+    const chipExpires = Number((mock.state.sessions.get(sessionId(chip)) || {}).expires_at) - Math.floor(Date.now() / 1000);
+    ok(chipExpires > 3500 && chipExpires <= 3600, `10 Chip In: the session expires in an hour (${chipExpires} seconds)`);
+    ok(ledgerOf(chip) === 'reserved|500|485|test|false', `10 Chip In: reserved against the limit while the payer is on Stripe's page (${ledgerOf(chip)})`);
+    ok(Boolean(await payIt(chip)), '10 Chip In: paid');
+    const pc = paymentOf(chip).split('|');
+    ok(pc.slice(0, 8).join('|') === '10000|0|335|500|485|10500|card|10000', `10 Chip In: recorded ${pc.slice(0, 8).join(' | ')}; the fee is Stripe's $3.35 only, the Chip In is beside the payment`);
+    ok(ledgerOf(chip) === 'collected|500|485|test|true' && allocatedTo(pc[8]) === '10000' && 10500 - Number(pc[2]) - Number(pc[4]) === 10000 - 320,
+      '10 Chip In: collected; $100.00 applied to the pledge; the organization nets $96.80, as with no Chip In');
+
+    // Both: $100.00 + $3.45 + $5.00 = $108.45.
+    const pD = newPledge(10000);
+    const both = await intentWith({ amount_cents: 10000, pledge_ids: [pD], cover_fee: true, chip_in_cents: 500, pay_method: 'card', expected_total_cents: 10845 });
+    ok(both.status === 200 && both.body.covered_fee_cents === 345 && both.body.chip_in_cents === 500 && both.body.total_cents === 10845, `10 both: fee $3.45, Chip In $5.00, total $108.45 (${both.status} ${JSON.stringify(both.body).slice(0, 140)})`);
+    ok(lines(both) === '10000,345,500' && appFeeOf(both) === 500, `10 both: three lines in order and application fee $5.00 (${lines(both)} ${appFeeOf(both)})`);
+    ok(Boolean(await payIt(both)), '10 both: paid');
+    const pd = paymentOf(both).split('|');
+    ok(pd.slice(0, 8).join('|') === '10345|345|345|500|500|10845|card|10000', `10 both: recorded ${pd.slice(0, 8).join(' | ')}; Stripe's fee $3.45 only, not $8.45`);
+    ok(ledgerOf(both) === 'collected|500|500|test|true' && allocatedTo(pd[8]) === '10000' && Number(pd[0]) - Number(pd[2]) === 10000, '10 both: collected; the organization nets exactly $100.00');
+
+    // A bank debit: the session offers the bank account only; the fee is the bank-debit fee.
+    const pE = newPledge(10000);
+    const ach = await intentWith({ amount_cents: 10000, pledge_ids: [pE], cover_fee: true, pay_method: 'ach', expected_total_cents: 10081 });
+    ok(ach.status === 200 && ach.body.covered_fee_cents === 81 && ach.body.total_cents === 10081 && typesOf(ach) === 'us_bank_account', `10 bank debit: fee $0.81, total $100.81, bank account only (${ach.status} ${typesOf(ach)})`);
+    ok(Boolean(await payIt(ach)), '10 bank debit: paid');
+    const pe = paymentOf(ach).split('|');
+    ok(pe.slice(0, 8).join('|') === '10081|81|81|0|0|10081|ach|10000', `10 bank debit: recorded ${pe.slice(0, 8).join(' | ')}`);
+
+    // The total the payer saw is not the total now: refused, plain words, nothing created.
+    const pG = newPledge(10000);
+    const n1 = checkoutCount();
+    const stale = await intentWith({ amount_cents: 10000, pledge_ids: [pG], cover_fee: true, pay_method: 'card', expected_total_cents: 10000 });
+    ok(stale.status === 409 && stale.body.code === 'CCTOT' && /The total changed from \$100\.00 to \$103\.30\. Review it and try again\. Nothing was charged\./.test(stale.body.error || '') && checkoutCount() === n1,
+      `10 total changed: refused with CCTOT in plain words, no checkout (${stale.status} ${stale.body.error})`);
+
+    // The very same Stripe event again (Stripe retries): one job, one payment.
+    const bothEvt = sql(`select event_id from app.webhook_events where provider = 'stripe' and event_type = 'checkout.session.completed' and payload->'data'->'object'->'metadata'->>'checkout_id' = '${both.checkout_id}'`);
+    const bothPayload = sql(`select payload::text from app.webhook_events where event_id = '${bothEvt}'`);
+    const ts10 = Math.floor(Date.now() / 1000);
+    const sig10 = crypto.createHmac('sha256', 'whsec_e2e_fake').update(`${ts10}.${bothPayload}`).digest('hex');
+    const again = await fetch(BASE + '/api/webhooks/stripe', { method: 'POST', headers: { 'content-type': 'application/json', 'stripe-signature': `t=${ts10},v1=${sig10}` }, body: bothPayload });
+    ok(again.status === 200 && sql(`select count(*) from app.jobs where kind = 'payments.webhook.stripe' and payload->>'event_id' = '${bothEvt}'`) === '1'
+       && sql(`select count(*) from app.payments where provider_ref = (select provider_payment_ref from app.payment_checkouts where id = '${both.checkout_id}')`) === '1' && ledgerOf(both) === 'collected|500|500|test|true',
+      '10 duplicate webhook: accepted, one job, one payment, the Chip In collected once');
+
+    // The yearly limit ($50.00; $10.00 is used) and an expired session giving the allowance back.
+    const pF = newPledge(10000);
+    const over = await intentWith({ amount_cents: 10000, pledge_ids: [pF], chip_in_cents: 4001 });
+    ok(over.status === 409 && over.body.code === 'CCLIM' && /Could not add a Chip In\. A Chip In can be at most \$40\.00 more this year\. Nothing was charged\./.test(over.body.error || ''), `10 limit: $40.01 is over what is left (${over.status} ${over.body.error})`);
+    const allLeft = await intentWith({ amount_cents: 10000, pledge_ids: [pF], chip_in_cents: 4000, pay_method: 'card' });
+    ok(allLeft.status === 200 && ledgerOf(allLeft) === 'reserved|4000|' + sql(`select application_fee_cents from app.payment_checkouts where id = '${allLeft.checkout_id}'`) + '|test|false', '10 limit: the last $40.00 is allowed and reserved');
+    const none = await intentWith({ amount_cents: 10000, pledge_ids: [pF], chip_in_cents: 100 });
+    ok(none.status === 409 && none.body.code === 'CCLIM' && /You have reached this year's Chip In limit/.test(none.body.error || ''), `10 limit: with the reservation counted, nothing is left (${none.status} ${none.body.error})`);
+    const expiredHook = await fetch(`${mockBase}/__mock/expire/${sessionId(allLeft)}`, { method: 'POST' }).then((r) => r.json());
+    ok(expiredHook.status === 200, `10 expired session: Stripe's checkout.session.expired reached the portal (${expiredHook.status})`);
+    ok(Boolean(await until(() => sql(`select status from app.payment_checkouts where id = '${allLeft.checkout_id}'`) === 'expired' && ledgerOf(allLeft).startsWith('released|4000|'), 45000)),
+      '10 expired session: the worker closed the checkout and released the Chip In reservation');
+    const back = await intentWith({ amount_cents: 10000, pledge_ids: [pF], chip_in_cents: 4000, pay_method: 'card' });
+    ok(back.status === 200, `10 expired session: the allowance is back, a Chip In of $40.00 is allowed again (${back.status})`);
+    await fetch(`${mockBase}/__mock/expire/${sessionId(back)}`, { method: 'POST' });
+    ok(Boolean(await until(() => ledgerOf(back).startsWith('released|4000|'), 45000)), '10 expired session: and released again');
+
+    // Stripe charges something other than the checkout's total: nothing is recorded, a plain reason is kept, the job does not retry.
+    const pH = newPledge(10000);
+    const bad = await intentWith({ amount_cents: 10000, pledge_ids: [pH], chip_in_cents: 200, pay_method: 'card', expected_total_cents: 10200 });
+    ok(bad.status === 200, `10 mismatch: a $102.00 checkout with a Chip In is made (${bad.status})`);
+    mock.state.behavior = { amountReceived: 10000 };   // Stripe takes $100.00 where the checkout asked for $102.00
+    await fetch(bad.url, { method: 'POST', redirect: 'manual' });
+    mock.state.behavior = {};
+    const badError = await until(() => sql(`select coalesce(error, '') from app.webhook_events where provider = 'stripe' and event_type = 'checkout.session.completed' and payload->'data'->'object'->'metadata'->>'checkout_id' = '${bad.checkout_id}'`).match(/NOT recorded/), 45000);
+    ok(Boolean(badError) && /Stripe charged \$100\.00/.test(String(badError.input)) && /asked for \$102\.00/.test(String(badError.input)), `10 mismatch: the event keeps a plain reason: ${badError ? String(badError.input).slice(0, 150) : 'none'}`);
+    ok(sql(`select count(*) from app.payments p join app.payment_checkouts k on k.payment_id = p.id where k.id = '${bad.checkout_id}'`) === '0'
+       && sql(`select status from app.payment_checkouts where id = '${bad.checkout_id}'`) !== 'paid' && ledgerOf(bad).startsWith('reserved|200|'),
+      '10 mismatch: no payment was recorded, the checkout is not paid, the Chip In was not collected');
+    const badJob = sql(`select status || '|' || attempts || '|' || coalesce(last_error, '') from app.jobs where kind = 'payments.webhook.stripe' and payload->>'event_id' = (select event_id from app.webhook_events where provider = 'stripe' and event_type = 'checkout.session.completed' and payload->'data'->'object'->'metadata'->>'checkout_id' = '${bad.checkout_id}')`);
+    ok(/^failed\|1\|.*NOT recorded/.test(badJob), `10 mismatch: the job failed at once, without retrying (${badJob.slice(0, 120)})`);
+
+    // The daily release of Chip In reservations runs in the worker.
+    ok(Boolean(await until(() => sql("select status from app.jobs where kind = 'payments.release_chip_ins' order by id desc limit 1") === 'done', 30000)), '10 the daily payments.release_chip_ins job is scheduled and runs');
     ok(!logs.join('\n').includes('sk_test_e2e_platform_fake') && !logs.join('\n').includes('sb_e2e_secret'), 'no platform key appears in the worker log');
   } catch (err) {
     failures++; process.exitCode = 1;
@@ -429,6 +581,11 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     console.log('   worker log tail:', logs.slice(-8).join('\n   '));
   } finally {
     await b.close();
+    // Section 10 switched the card-fee choice and the Chip In on for JSH; both go back off (they are off by default and in production).
+    try {
+      sql(`update app.center_payment_processors set donor_covers_fee_allowed = false where center_id = '${jsh}' and processor = 'stripe'`);
+      chipInAsking(jsh, false, `e2e o-payments Chip In off ${run}`);
+    } catch (e) { console.log('   could not switch the add-ons back off:', String(e).slice(0, 160)); }
     sql(`update app.centers set environment = '${envBefore}' where id = '${jsh}';
          update app.role_grants set ends_at = now() where user_id = '${kiranUid}' and role_key = 'treasurer' and reason = 'e2e o-payments second approver' and ends_at is null;`);
     await stop();

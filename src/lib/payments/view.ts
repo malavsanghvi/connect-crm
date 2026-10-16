@@ -123,18 +123,49 @@ function defaultForLabel(context: string): string {
   return context === "pathshala" ? "Pathshala fee" : "Gift";
 }
 
+/** How the payer pays, as app.payment_addons_quote and app.create_checkout name it. Apple Pay and Google Pay are cards. */
+export type PayMethod = "card" | "ach";
+
 export type IntentRequest = {
   center_id: string;
   household_id: string;
+  /** The GIFT. The covered card fee and the Chip In are added by the database on top of it. */
   amount_cents: number;
   pledge_ids: string[];
   processor: Processor | null;
   context: string;
   for_label: string;
   return_url: string | null;
+  /** The payer ticked "add the card fee" (default false: an older app sends nothing and is charged exactly as before). */
+  cover_fee: boolean;
+  /** The Chip In the payer chose, in cents (default 0: none). */
+  chip_in_cents: number;
+  /** The method the payer chose first; the database defaults it. */
+  pay_method: PayMethod | null;
+  /** The total the payer saw (from payment_addons_quote); a different total is refused with SQLSTATE CCTOT. Null: not checked. */
+  expected_total_cents: number | null;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The four refusals app.create_checkout raises for the add-ons (0862). Their messages are plain English already. */
+export const CHECKOUT_REFUSAL_CODES = ["CCFEE", "CCCHP", "CCLIM", "CCTOT"] as const;
+export type CheckoutRefusalCode = (typeof CHECKOUT_REFUSAL_CODES)[number];
+
+export function isCheckoutRefusalCode(v: unknown): v is CheckoutRefusalCode {
+  return typeof v === "string" && (CHECKOUT_REFUSAL_CODES as readonly string[]).includes(v);
+}
+
+/**
+ * The sentence the payer sees when the database refuses the card fee, the Chip In or the total (docs/PAYMENT_ADDONS.md §4.4):
+ * what could not be done, why (the database's own words), and that nothing was charged. Nothing has been sent to Stripe.
+ */
+export function checkoutRefusalMessage(code: CheckoutRefusalCode, reason: string): string {
+  const why = reason.trim() || "It is not available for this payment.";
+  const sentence = /[.!?]$/.test(why) ? why : `${why}.`;
+  const what = code === "CCLIM" || code === "CCCHP" ? "Could not add a Chip In." : "Could not start the payment.";
+  return `${what} ${sentence} Nothing was charged.`;
+}
 
 /** Checks the member app's JSON before anything is asked of the database or the provider. */
 export function parseIntentRequest(body: unknown): { ok: true; value: IntentRequest } | { ok: false; error: string } {
@@ -150,7 +181,31 @@ export function parseIntentRequest(body: unknown): { ok: true; value: IntentRequ
   const context = isCheckoutContext(b.context) ? b.context : "other";
   const forLabel = typeof b.for_label === "string" && b.for_label.trim() ? b.for_label.trim().slice(0, 200) : defaultForLabel(context);
   const ret = typeof b.return_url === "string" && /^https?:\/\//.test(b.return_url) ? b.return_url : null;
-  return { ok: true, value: { center_id: b.center_id, household_id: b.household_id, amount_cents: amount, pledge_ids: pledges as string[], processor, context, for_label: forLabel, return_url: ret } };
+  // The add-ons (0862). Absent means "none", so an app that sends none of them is charged exactly as before; a value of the wrong
+  // kind is refused rather than dropped, because dropping a payer's choice would charge them something they did not choose.
+  if (b.cover_fee !== undefined && b.cover_fee !== null && typeof b.cover_fee !== "boolean") return { ok: false, error: "cover_fee must be true or false." };
+  const chip = b.chip_in_cents ?? 0;
+  if (typeof chip !== "number" || !Number.isSafeInteger(chip) || chip < 0) return { ok: false, error: "The Chip In must be a whole number of cents, zero or more." };
+  if (b.pay_method !== undefined && b.pay_method !== null && b.pay_method !== "card" && b.pay_method !== "ach") return { ok: false, error: "pay_method must be card or ach." };
+  const expected = b.expected_total_cents ?? null;
+  if (expected !== null && (typeof expected !== "number" || !Number.isSafeInteger(expected) || expected < 0)) return { ok: false, error: "expected_total_cents must be a whole number of cents." };
+  return {
+    ok: true,
+    value: {
+      center_id: b.center_id,
+      household_id: b.household_id,
+      amount_cents: amount,
+      pledge_ids: pledges as string[],
+      processor,
+      context,
+      for_label: forLabel,
+      return_url: ret,
+      cover_fee: b.cover_fee === true,
+      chip_in_cents: chip,
+      pay_method: b.pay_method === "card" || b.pay_method === "ach" ? b.pay_method : null,
+      expected_total_cents: expected,
+    },
+  };
 }
 
 // ── app.payment_settings(center) ────────────────────────────────────────────

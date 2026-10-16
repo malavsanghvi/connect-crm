@@ -188,6 +188,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "payments.test_charge": "$1 test refund",
   "payments.sync_payouts": "Payout sync",
   "payments.reports_sweep": "Zelle reports not seen at the bank",
+  "payments.release_chip_ins": "Give back the Chip In allowance of payments that can no longer be completed",
   "pathshala.holds_sweep": "Pathshala seats held for payment: reminders and releases",
   "activity.mine": "Find repeated work to automate and remove old activity records",
   "niva.answer": "Niva answer",
