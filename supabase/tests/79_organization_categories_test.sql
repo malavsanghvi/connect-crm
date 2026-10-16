@@ -656,7 +656,7 @@ select pg_temp.assert(app.assert_module_enabled(:'chm', 'bolis') and (select cou
   'C · a platform admin still passes the guards and reads a module the chamber does not have');
 select pg_temp.assert((select count(*) from app.module_states(:jsh)) = 32
                       and not exists (select 1 from app.module_states(:jsh) where availability <> 'default_on' and key <> all (array['ai', 'website', 'channels', 'care', 'matching', 'market', 'giving_proofs']))
-                      and (select count(*) from app.module_states(:jsh) where switchable) = 30
+                      and (select count(*) from app.module_states(:jsh) where switchable) = 31
                       and not exists (select 1 from app.module_states(:jsh) m join app.modules b on b.key = m.key
                                        where m.label <> b.label and m.key not in ('giving_counts', 'labh', 'care'))
                       and (select label from app.module_states(:jsh) where key = 'giving_counts') = 'Bhandar counts'

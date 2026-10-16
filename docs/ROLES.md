@@ -48,7 +48,7 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | Center | `center_admin` | Center | Configuration, roles, integrations |
 | Center | `executive_viewer` | Center | Dashboards and reports, read-only |
 | Center | `treasurer` | Center | Giving, payments, refunds, statements, reconciliation, QuickBooks, month close |
-| Center | `finance_volunteer` | Center | Record offline payments and reconcile bank lines; no refunds |
+| Center | `finance_volunteer` | Center | Record offline payments, verify members' payment proofs (never their own household) and reconcile bank lines; no refunds |
 | Center | `membership_coordinator` | Center | Households, memberships, identifiers, verification, eligibility |
 | Center | `religious_coordinator` | Center | Bolis, pujans, practice catalog, calendar, religious content approval |
 | Center | `communications_officer` | Center | Announcements, newsletters, templates, WhatsApp queue, inboxes |
