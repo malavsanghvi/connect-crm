@@ -78,9 +78,22 @@ describe("task sources", () => {
     expect(canSeeTask(ctx(["events.manage", "volunteers.view"]), "waivers")).toBe(true);
   });
 
-  it("gives platform admins every source and people with no role none", () => {
-    expect(visibleTaskSources(ctx([], true))).toHaveLength(TASK_SOURCES.length);
+  it("gives platform admins every source but the organization's own, and people with no role none", () => {
+    // The thank-yous are DonorDelight's: a platform admin sees them only through a role the organization granted (0757).
+    const visible = visibleTaskSources(ctx([], true)).map((x) => x.key);
+    expect(visible).toHaveLength(TASK_SOURCES.length - 1);
+    expect(visible).not.toContain("care_thanks");
     expect(visibleTaskSources(ctx([]))).toHaveLength(0);
+  });
+
+  it("shows the gifts to thank to a care role, in every level, and not to a role that only sees people", () => {
+    for (const key of ["care.own", "care.view", "care.manage"]) expect(canSeeTask(ctx([key]), "care_thanks")).toBe(true);
+    expect(canSeeTask(ctx(["people.view", "giving.view"]), "care_thanks")).toBe(false);
+  });
+
+  it("hides the gifts to thank while DonorDelight is off for the community", () => {
+    expect(visibleTaskSources({ ...ctx(["care.view"]), modulesOff: ["care"] }).map((x) => x.key)).not.toContain("care_thanks");
+    expect(visibleTaskSources(ctx(["care.view"])).map((x) => x.key)).toContain("care_thanks");
   });
 });
 

@@ -651,7 +651,11 @@ export const NAV: NavModule[] = [
     key: "care",
     module: "care",
     label: "DonorDelight",
-    tabs: [{ href: "/care", label: "Households", access: "care" }],
+    tabs: [
+      { href: "/care", label: "Households", access: "care" },
+      { href: "/care/thanks", label: "Thank-yous", access: "care" },
+      { href: "/care/settings", label: "Thank-you rules", access: "careManage" },
+    ],
     paths: ["/care"],
   },
   {

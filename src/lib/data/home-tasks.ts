@@ -9,6 +9,7 @@ import { explainError, type DbErrorLike } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
 import { parsePayeeQueue, waitingRequests } from "@/lib/payments/change-control";
 import { EXPIRING_WINDOW_DAYS, expiringTaskCopy, parseExpiringCounts, parseProofCounts, parseUnbankedCounts, proofsTaskCopy, unbankedTaskCopy } from "@/lib/payment-proofs/counts";
+import { parseThanksCounts, thanksTaskCopy } from "@/lib/care/thanks";
 import { untypedRpc } from "@/lib/payments/rpc";
 import { zelleWindowDays } from "@/lib/payments/zelle";
 import { can } from "@/lib/permissions";
@@ -109,6 +110,19 @@ const loaders: Record<TaskSourceKey, Loader> = {
     const copy = unbankedTaskCopy(parseUnbankedCounts(await countsRpc(session, "unbanked_counts")));
     if (!copy) return [];
     return [makeTask("unbanked", "all", copy.title, copy.meta, [{ label: "Open", href: "/giving/payments/bank?view=unbanked" }], undefined, countDetail("unbanked", copy.count))];
+  },
+
+  // Gifts waiting for a thank-you (DonorDelight 0883): a count for the households this person may see, no names.
+  async care_thanks(session) {
+    const res = await session.db.rpc("care_thanks_counts", { p_center: session.center.id });
+    if (res.error) {
+      // Only a database without the function yet is skipped silently; anything else is this source's failure.
+      if (res.error.code === "PGRST202" || res.error.code === "42883") return [];
+      throw new SourceError(res.error);
+    }
+    const copy = thanksTaskCopy(parseThanksCounts(res.data));
+    if (!copy) return [];
+    return [makeTask("care_thanks", "all", copy.title, copy.meta, [{ label: "Open", href: "/care/thanks", primary: true }])];
   },
 
   // Requests to change where gifts go that someone else asked for and this person (giving.approve) may confirm or turn down.

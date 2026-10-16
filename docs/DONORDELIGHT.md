@@ -248,6 +248,22 @@ year before, not the last 12 months), Cooling (fewer gifts, or nothing for 6 mon
 part, 3 or more no-ask touches per ask), Steady (the rest); "Not enough history yet" under about 12 months; wording
 templates, no amounts, no AI.
 
+**Built (slice 3, 2026-10-16, migrations 0881-0883, test 881; the numbers 0800-0802 above were taken by other work):** `app.care_settings` and
+`app.care_settings_get` / `app.save_care_settings` (a manager, or support with the care.settings area: W8); `app.care_thanks` (one step per gift: the
+payment, its day, the due day, personal or not, set aside with a reason; no amount and no household, both read from the payment so a merge carries it);
+`app._care_gifts` (0749's rule: payments that went through, less refunds, never opening balances or history imports, never a payer under 18, fees only when
+the rules say so); `app._care_thanks_sync` (idempotent, run by the reads, no trigger on payments); `app._care_thanked` (closing is READ from the receipt sent and
+the thank-you touches, never stored: voiding the touch opens the step again); `app.set_aside_care_thank` / `app.reopen_care_thank`; reads
+`app.care_thanks_queue`, `care_thanks_summary`, `care_household_thanks` (each logged) and `care_thanks_counts` (three numbers for Home, no names, not
+logged). Portal: Thank-yous (`/care/thanks`) with the counts, the on-time share and the median time, the one-tap ways to thank, "No thanks needed"; Thank-you
+rules (`/care/settings`); "Thank-yous waiting" on the Care card; a Home task row "N gifts to thank".
+
+How the recommendations above were taken, until the owner says otherwise: a recurring gift is thanked once (recorded payments carry no link to the recurring
+gift that made them, so a repeat is recognised as the same amount from a household with a recurring gift within 45 days of the one before); a receipt closes
+an ordinary step; thank-yous start from the first save, with the option to include the last 30 days; a first gift is judged against every earlier gift, also
+one from before the rules began; relationship owners see gift dates and counts, never amounts. **Not in slice 3:** the Giving Today group (the Home row is
+there; Today's own group is a later change).
+
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt
 closes an ordinary step; start from the first save with "include the last 30 days"; relationship owners see gift dates
