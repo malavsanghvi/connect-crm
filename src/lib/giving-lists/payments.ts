@@ -274,6 +274,7 @@ export function paymentRow(p: PaymentIn, family: Family | null, ctx: ListContext
     primary,
     menu,
     history: { table: "payments", title: `Payment ${p.receipt ?? ""}`.trim() },
+    ...(ctx.evidence ? { evidence: { paymentId: p.id, reference: ref, canAttach: ctx.evidence.canAttach, canRemove: ctx.evidence.canRemove } } : {}),
   };
 }
 

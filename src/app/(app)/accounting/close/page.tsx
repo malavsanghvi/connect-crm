@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 
 import { ActionForm } from "@/components/action-form";
 import { BooksView, loadBooksExtras } from "@/components/books/books-page";
+import { CloseWarningLines } from "@/components/books/close-warnings";
 import type { CardLabels } from "@/components/household-card";
 import { Card, ChipLinks, NoAccess, PageHeader, QueryError } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
@@ -99,6 +100,7 @@ export default async function ClosePage({ searchParams }: { searchParams: Promis
               </div>
             ))}
           </div>
+          <CloseWarningLines warnings={state.warnings} />
           {locked ? (
             <p className="mt-3 text-[13px] text-success">
               Locked {formatDateTime(state.period?.closed_at, tz)}

@@ -13647,6 +13647,16 @@ export type Database = {
         };
         Returns: string;
       };
+      attach_payment_evidence: {
+        Args: {
+          p_payment: string;
+          p_path: string;
+          p_content_type: string;
+          p_bytes: number;
+          p_sha256?: string;
+        };
+        Returns: Json;
+      };
       attest_center: {
         Args: {
           p_center: string;
@@ -16613,6 +16623,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      pledge_timeline: {
+        Args: {
+          p_pledge: string;
+        };
+        Returns: Json;
+      };
       pledge_writeoff_postings: {
         Args: {
           p_pledges: string[];
@@ -17147,6 +17163,13 @@ export type Database = {
           p_center: string;
         };
         Returns: boolean;
+      };
+      remove_payment_evidence_file: {
+        Args: {
+          p_file: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       rename_comms_template: {
         Args: {

@@ -28,6 +28,8 @@ export type ListContext = {
   labels: CardLabels;
   /** PayPal is connected by its Business email only: its refunds are made in PayPal and recorded here by hand. */
   paypalEmailOnly: boolean;
+  /** Payment proofs is on: a payment row carries its Evidence section (0874). canAttach: giving.record_offline or giving.manage; canRemove: giving.manage. */
+  evidence?: { canAttach: boolean; canRemove: boolean } | null;
 };
 
 /**
@@ -54,6 +56,8 @@ export type ListRow = {
   /** The row menu (⋯). */
   menu: Act[];
   history: { table: "pledges" | "payments" | "recurring_gifts"; title: string } | null;
+  /** A payment row, with Payment proofs on: the files kept with the payment, and attaching one (0874). */
+  evidence?: { paymentId: string; reference: string; canAttach: boolean; canRemove: boolean };
 };
 
 export type Chip = { key: string; label: string; href: string; count: number | null; on: boolean };

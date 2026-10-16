@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
 import { ActionForm } from "@/components/action-form";
+import { PaymentEvidence } from "@/components/payment-evidence/payment-evidence";
 import { HistoryButton } from "@/components/record-history";
 import { FlaggedRefundControls, RefundControls } from "@/components/two-person-controls";
 import {
@@ -138,6 +139,9 @@ async function PaymentsPage({ searchParams }: { searchParams: Promise<RawSearchP
   const seesCounting = isModuleEnabled(session, "giving_counts") && canAccess(session, "counting");
   const canCount = seesCounting && canAccess(session, "countingRecord");
   const seesAll = canAccess(session, "paymentsAll");
+  // Payment proofs (0865) is an add-on of Giving: the Evidence section of a payment goes when it is off.
+  const proofsOn = isModuleEnabled(session, "giving_proofs");
+  const canAttachEvidence = canAccess(session, "recordPayment");
 
   // DAF grants and matching gifts (bank lines flagged by known_originators), newest first.
   const daf = seesBank
@@ -655,6 +659,11 @@ async function PaymentsPage({ searchParams }: { searchParams: Promise<RawSearchP
                           <div className="font-sans">
                             <HistoryButton table="payments" recordId={p.id} title={`Payment ${p.receipt_number ?? ""}`.trim()} size="xs" />
                           </div>
+                          {proofsOn ? (
+                            <div className="font-sans">
+                              <PaymentEvidence paymentId={p.id} reference={p.receipt_number ?? "the payment"} timeZone={tz} canAttach={canAttachEvidence} canRemove={canManage} />
+                            </div>
+                          ) : null}
                         </td>
                         <td className="whitespace-nowrap">{formatDate(p.received_on, tz)}</td>
                         <td>

@@ -14,6 +14,8 @@ export type CloseBlockersData = {
   done: string[];
   /** The checks the data proved (ticked by the system, with what was checked). */
   proven?: { item: string; why: string }[];
+  /** Reminders that never block the lock (payment proofs waiting, paid pledges not yet bank reconciled). */
+  warnings?: string[];
 };
 
 const input = object({
@@ -28,6 +30,7 @@ export const monthCloseBlockers = defineCommand<Infer<typeof input>, CloseBlocke
     "For one month (this month unless a date is given), list what must still be done before the month can be locked: " +
     "QuickBooks exceptions to clear, payouts to match to bank deposits, refunds to review (including refunds made outside Weaver that still need two approvals) and statements to generate. " +
     "Checks the data can prove tick themselves (no refund waiting, no card payout to match) and are listed with what was checked. " +
+    "Also lists warnings that never block the lock (payment proofs still waiting to be verified, paid pledges not yet bank reconciled). " +
     "Says whether the month is already locked. Read only: it cannot mark an item done or lock a month.",
   level: "read",
   permission: "close",
@@ -43,7 +46,15 @@ export const monthCloseBlockers = defineCommand<Infer<typeof input>, CloseBlocke
     const { locked, label } = state;
     return {
       ok: true,
-      data: { month: label, locked, ready_to_lock: !locked && blockers.length === 0, blockers, done: state.items.filter((i) => i.done).map((i) => i.label), proven },
+      data: {
+        month: label,
+        locked,
+        ready_to_lock: !locked && blockers.length === 0,
+        blockers,
+        done: state.items.filter((i) => i.done).map((i) => i.label),
+        proven,
+        warnings: state.warnings.map((w) => w.label),
+      },
       message: locked ? `${label} is already locked.` : blockers.length === 0 ? `Nothing is blocking the lock for ${label}.` : undefined,
     };
   },

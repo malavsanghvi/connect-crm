@@ -1,5 +1,6 @@
 import { CustomDetailsCell } from "@/components/custom-details-cell";
 import { PeriodNote } from "@/components/giving-glance/period-note";
+import { PaymentEvidence } from "@/components/payment-evidence/payment-evidence";
 import { Alert, Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
 import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 import { chunk } from "@/lib/data/fetch-all";
@@ -33,6 +34,8 @@ export async function PaymentsTab({ session, householdId, period }: { session: C
   if (withCustom.error) return <QueryError what="the payments' custom details" error={withCustom.error} retryHref={retry} />;
   const payments = withCustom.rows;
   const editCustom = canAccess(session, "givingManage");
+  const proofsOn = isModuleEnabled(session, "giving_proofs");
+  const canAttachEvidence = canAccess(session, "recordPayment");
 
   const allocations: { payment_id: string; pledge_id: string; amount_cents: number }[] = [];
   let allocError: unknown = null;
@@ -159,6 +162,11 @@ export async function PaymentsTab({ session, householdId, period }: { session: C
                   <tr key={p.id}>
                     <td className="font-mono text-[0.8125rem]">
                       {p.receipt_number ?? "—"}
+                      {proofsOn ? (
+                        <div className="font-sans">
+                          <PaymentEvidence paymentId={p.id} reference={p.receipt_number ?? "the payment"} timeZone={tz} canAttach={canAttachEvidence} canRemove={editCustom} />
+                        </div>
+                      ) : null}
                       {p.is_opening_balance ? (
                         <div className="font-sans">
                           <Badge tone="navy">{OPENING_BALANCE_LABEL}</Badge>

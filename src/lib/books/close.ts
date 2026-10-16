@@ -11,6 +11,8 @@
 //                         bank card-payout line of the month paired with a payout. With Bank reconciliation off the state says null:
 //                         then only a month with no card payouts is proven and the rest stays a person's check, showing both sides.
 //   statements_generated  always a person's check: nothing records a pledge statement run.
+// Beside the checks, up to two WARNING lines (closeWarnings): payment proofs still waiting to be verified and paid pledges not yet bank
+// reconciled. A warning never blocks the lock and is not one of the four checks; it is hidden when its module is off or nothing waits.
 // A check ticks itself only when the reader can see what it rests on (RLS hides the rest): "could not check" is never "nothing".
 // A proven check has no Undo; a check a person marked behaves as before. Locking needs every check done, proven or marked.
 
@@ -36,7 +38,22 @@ export type CloseProofs = {
    * (an older reader, a fixture): the payouts check falls back to the payouts marked matched.
    */
   pairing?: { proven: boolean | null; unpaired: number; bankUnpaired: number | null; explained: number } | null;
+  /** The counts behind the warning lines. Absent (an older reader, a fixture): no warnings. */
+  warnings?: CloseWarningCounts;
 };
+
+/**
+ * What the warning lines count. null: the module is off or the reader cannot see it, so the line is not drawn; { ok: false }: the count
+ * could not be read, which is said in words and never drawn as "nothing".
+ */
+export type CloseWarningCounts = {
+  /** Payment proofs waiting for the treasury team or for a family's answer (payment_proof_counts: waiting + needs_info). */
+  proofsWaiting: Seen<number> | null;
+  /** Payments counted as paid that no bank line has banked (unbanked_counts total). */
+  unbanked: Seen<number> | null;
+};
+
+export type CloseWarning = { key: "proofs_waiting" | "unbanked"; label: string; href: string };
 
 export type CloseItem = {
   key: CloseItemKey;
@@ -134,6 +151,22 @@ export function closeItems(checklist: unknown, proofs: CloseProofs, f: CloseForm
     }
     return { key: b.key, label: b.label, done: b.done, proven: false, manual: !automatic, sub: b.sub };
   });
+}
+
+/** The warning lines for the close, in the order they are drawn. They never count toward readyToLock. */
+export function closeWarnings(counts: CloseWarningCounts | undefined): CloseWarning[] {
+  const out: CloseWarning[] = [];
+  const line = (key: CloseWarning["key"], seen: Seen<number> | null | undefined, label: string, failed: string, href: string) => {
+    if (!seen) return;
+    if (!seen.ok) {
+      if (seen.why === "error") out.push({ key, label: failed, href });
+      return;
+    }
+    if (seen.value > 0) out.push({ key, label: `${label}: ${seen.value.toLocaleString("en-US")}`, href });
+  };
+  line("proofs_waiting", counts?.proofsWaiting, "Payment proofs still waiting to be verified", "Could not count the payment proofs still waiting to be verified", "/giving/proofs");
+  line("unbanked", counts?.unbanked, "Paid pledges not yet bank reconciled", "Could not count the paid pledges not yet bank reconciled", "/giving/payments/bank?view=unbanked");
+  return out;
 }
 
 /** Every check done, proven or marked: the month can be locked. */

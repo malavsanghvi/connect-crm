@@ -1,7 +1,7 @@
 // Invented data for the Books dev preview and tests: a neutral community club, no real names, no children. Pure.
 
 import type { BooksViewProps, QuickBooksGlance } from "@/components/books/books-page";
-import { closeItems, type CloseProofs } from "@/lib/books/close";
+import { closeItems, closeWarnings, type CloseProofs } from "@/lib/books/close";
 import type { DonorMatchesIn } from "@/lib/data/books-donors";
 import { TODAY_FAMILIES } from "@/lib/giving-today/fixtures";
 
@@ -19,6 +19,7 @@ export const BOOKS_PROOFS: Record<BooksSample, CloseProofs> = {
     flaggedRefunds: 1,
     payouts: { ok: true, value: { arrived: 3, matched: 0, netCents: 412_550 } },
     bankPayouts: { ok: true, value: { lines: 3, cents: 412_550 } },
+    warnings: { proofsWaiting: { ok: true, value: 2 }, unbanked: { ok: true, value: 5 } },
   },
   // A cash-and-check month: nothing waits, no card payout arrived.
   clear: {
@@ -57,7 +58,7 @@ const QBO: QuickBooksGlance = {
 export function sampleBooks(sample: BooksSample, checklist: Record<string, boolean> = {}): BooksViewProps {
   const items = closeItems(checklist, BOOKS_PROOFS[sample], FORMAT);
   return {
-    state: { month: MONTH, label: LABEL, periodError: null, period: { status: "closing", checklist, closed_by: null, closed_at: null }, locked: false, items },
+    state: { month: MONTH, label: LABEL, periodError: null, period: { status: "closing", checklist, closed_by: null, closed_at: null }, locked: false, items, warnings: closeWarnings(BOOKS_PROOFS[sample].warnings) },
     months: ["2026-10-01", "2026-09-01", "2026-08-01"].map((m, i) => ({ key: m, label: ["October 2026", "September 2026", "August 2026"][i], href: `?month=${m.slice(0, 7)}` })),
     closerName: null,
     labels: { orgMemberLabel: "member", orgHouseholdLabel: "Club household ID" },

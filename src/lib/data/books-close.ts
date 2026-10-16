@@ -2,11 +2,12 @@
 // accounting.month_close_blockers command (Niva and Giving › Today). The counts behind each check are read with the person's
 // own database access; a count the person cannot see is "could not check", never zero (src/lib/books/close.ts).
 
-import { closeItems, type CloseItem, type CloseProofs, type Seen } from "@/lib/books/close";
+import { closeItems, closeWarnings, type CloseItem, type CloseProofs, type CloseWarning, type CloseWarningCounts, type Seen } from "@/lib/books/close";
 import { communityFormat } from "@/lib/community-format";
 import { longMonth } from "@/lib/giving";
 import { isModuleEnabled } from "@/lib/modules";
 import { can, canAccess } from "@/lib/permissions";
+import { parseProofCounts, parseUnbankedCounts } from "@/lib/payment-proofs/counts";
 import type { CrmSession } from "@/lib/session";
 
 type DbError = { code?: string; message: string } | null;
@@ -21,6 +22,8 @@ export type CloseState = {
   period: ClosePeriod;
   locked: boolean;
   items: CloseItem[];
+  /** Reminders beside the checklist (payment proofs waiting, paid pledges not on the bank). They never block the lock. */
+  warnings: CloseWarning[];
 };
 
 function seen<T>(res: { error: DbError }, value: () => T, what: string): Seen<T> {
@@ -43,7 +46,7 @@ export async function loadCloseProofs(session: CrmSession, month: string): Promi
   // month is proven (null when Bank reconciliation is off). Giving staff and whoever closes the month may read it.
   const seesPayouts = can(session, ["giving.view", "giving.manage", "accounting.close", "accounting.manage"]) && isModuleEnabled(session, "accounting");
 
-  const [exceptions, flagged, requests, payoutState] = await Promise.all([
+  const [exceptions, flagged, requests, payoutState, warnings] = await Promise.all([
     seesLedger
       ? db.from("ledger_postings").select("id", { count: "exact", head: true }).eq("center_id", center.id).eq("status", "failed").lte("period_month", month)
       : null,
@@ -57,6 +60,7 @@ export async function loadCloseProofs(session: CrmSession, month: string): Promi
           .eq("refunded_cents", 0)
       : null,
     seesPayouts ? db.rpc("payouts_close_state", { p_center: center.id, p_month: month }) : null,
+    loadWarningCounts(session),
   ]);
   if (flagged.error) console.error("[books-close] flagged refund count failed; the refunds check is not ticked:", flagged.error);
   const flaggedCount = !flagged.error && typeof flagged.data === "number" ? flagged.data : null;
@@ -65,6 +69,27 @@ export async function loadCloseProofs(session: CrmSession, month: string): Promi
     refundRequests: requests ? seen(requests, () => requests.count ?? 0, "the open refund requests") : NO_ACCESS,
     flaggedRefunds: flaggedCount,
     ...payoutProofs(payoutState),
+    warnings,
+  };
+}
+
+/**
+ * The counts behind the two warning lines: proofs waiting (Payment proofs on) and paid pledges not yet on the bank (Bank reconciliation
+ * on), each read with the person's own access. A module that is off, or a count the person is not allowed to see, gives null (no
+ * line); a count that failed gives { ok: false } (said in words).
+ */
+export async function loadWarningCounts(session: CrmSession): Promise<CloseWarningCounts> {
+  const { db, center } = session;
+  const seesPayments = canAccess(session, "payments");
+  const proofsOn = seesPayments && isModuleEnabled(session, "giving_proofs");
+  const bankOn = canAccess(session, "bank") && isModuleEnabled(session, "giving_bank");
+  const [proofs, unbanked] = await Promise.all([
+    proofsOn ? db.rpc("payment_proof_counts", { p_center: center.id }) : null,
+    bankOn ? db.rpc("unbanked_counts", { p_center: center.id }) : null,
+  ]);
+  return {
+    proofsWaiting: proofs ? seen(proofs, () => parseProofCounts(proofs.data).waiting + parseProofCounts(proofs.data).needsInfo, "the payment proofs waiting") : null,
+    unbanked: unbanked ? seen(unbanked, () => parseUnbankedCounts(unbanked.data).total, "the paid pledges not yet bank reconciled") : null,
   };
 }
 
@@ -120,5 +145,6 @@ export async function loadCloseState(session: CrmSession, month: string): Promis
     period: row,
     locked: row?.status === "closed",
     items: closeItems(row?.checklist ?? {}, proofs, { monthLabel: label, currency: fmt.currency, locale: fmt.locale }),
+    warnings: closeWarnings(proofs.warnings),
   };
 }
