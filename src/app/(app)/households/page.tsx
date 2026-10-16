@@ -7,7 +7,6 @@ import {
   Alert,
   Badge,
   Card,
-  ChipLinks,
   EmptyState,
   NoAccess,
   PageHeader,
@@ -17,6 +16,7 @@ import {
   buttonClass,
 } from "@/components/ui";
 import { CustomColumnPicker } from "@/components/custom-column-picker";
+import { SwitchLinks } from "@/components/list-toolbar/list-toolbar";
 import { identifierRules } from "@/lib/center-rules";
 import { formatCustomValue } from "@/lib/custom-fields";
 import { loadCustomColumn, loadCustomFieldDefs } from "@/lib/data/custom-fields";
@@ -241,18 +241,19 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
       ) : (
         <Card title="Households" description="Children’s details visible to your role" padded={false}>
           <div className="px-2.5">
-            <ChipLinks
+            {/* One line (docs/CRM_NAV_REDESIGN_PLAN.md, slice 2): the membership switch, the search, the zone and the buttons. */}
+            <div className="mb-3 flex flex-wrap items-center gap-2.5">
+            <SwitchLinks
               label="Membership"
-              active={tier ?? "all"}
-              items={[
-                { key: "all", label: "All", href: chipHref(undefined) },
-                ...TIERS.map((t) => ({ key: t, label: tierLabel(t), href: chipHref(t) })),
+              chips={[
+                { key: "all", label: "All", href: chipHref(undefined), count: null, on: !tier },
+                ...TIERS.map((t) => ({ key: t, label: tierLabel(t), href: chipHref(t), count: null, on: tier === t })),
               ]}
             />
-            <form method="get" action={base} className="mb-3 flex flex-wrap items-end gap-2.5">
+            <form method="get" action={base} className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
               {tier ? <input type="hidden" name="tier" value={tier} /> : null}
               <div className="min-w-[16rem] flex-1">
-                <label htmlFor="q" className="crm-label">
+                <label htmlFor="q" className="sr-only">
                   Search
                 </label>
                 <input
@@ -265,7 +266,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
                 />
               </div>
               <div>
-                <label htmlFor="zone" className="crm-label">
+                <label htmlFor="zone" className="sr-only">
                   Zone
                 </label>
                 <select id="zone" name="zone" defaultValue={zone ?? ""} className="crm-input min-w-40">
@@ -277,15 +278,16 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
                   ))}
                 </select>
               </div>
-              <button type="submit" className={buttonClass("primary")}>
+              <button type="submit" className={buttonClass("primary", "sm")}>
                 Search
               </button>
               {q || zone ? (
-                <Link href={hrefWith(base, sp, { q: undefined, zone: undefined, page: undefined })} className={buttonClass("ghost")}>
+                <Link href={hrefWith(base, sp, { q: undefined, zone: undefined, page: undefined })} className={buttonClass("ghost", "sm")}>
                   Clear
                 </Link>
               ) : null}
             </form>
+            </div>
           </div>
           <div className="px-2.5 pb-2">
             <CustomColumnPicker action={base} sp={sp} defs={defs.defs} current={cfDef?.key ?? null} />

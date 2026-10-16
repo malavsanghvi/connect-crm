@@ -1,15 +1,20 @@
-// Giving › Pledges in the New look (docs/GIVING_REDESIGN.md section 4, slice 3): search by family, pledge number or amount; chips
-// Open, Behind, Waiting for approval, Closed, All; the aging buckets of giving.pledges_behind; rows that act in place.
+// Giving › Pledges in the New look (docs/GIVING_REDESIGN.md section 4, slice 3): search by family, pledge number or amount; one line
+// of controls (docs/CRM_NAV_REDESIGN_PLAN.md, slice 2): the switch Open, Behind, Waiting for approval, Soft credit, Closed, All and
+// the Behind-by buckets of giving.pledges_behind as a dropdown; rows that act in place.
 
+import { ListToolbar } from "@/components/list-toolbar/list-toolbar";
 import type { PledgesModel } from "@/lib/giving-lists/model";
+import { menuView } from "@/lib/list-toolbar";
 
 import { ExportButton } from "./export-button";
-import { BodyState, ChipRow, ListCard, ListHeader, PagerNav, Problems } from "./list-chrome";
+import { BodyState, ListCard, ListHeader, PagerNav, Problems } from "./list-chrome";
 import { ListRows } from "./list-rows";
 import { ListSearch } from "./list-search";
 
 export function PledgesView({ model }: { model: PledgesModel }) {
   const body = model.body;
+  // No bucket and no status is "all": choosing a bucket again from the dropdown's first option goes back there.
+  const all = model.chips.find((c) => c.key === "all");
   return (
     <div className="flex flex-col gap-1" data-testid="giving-pledges">
       <ListHeader
@@ -23,17 +28,13 @@ export function PledgesView({ model }: { model: PledgesModel }) {
         <BodyState body={body} />
       ) : (
         <ListCard>
-          <div className="mb-3 flex flex-col gap-2.5">
-            <ListSearch label={model.searchLabel} initial={model.q} base={model.searchBase} />
-            <ChipRow chips={model.chips} label="Pledges to show" />
-            {model.buckets.length > 0 ? (
-              <div className="flex flex-col gap-1">
-                <p className="m-0 text-[12.5px] font-bold text-muted">Behind by</p>
-                <ChipRow chips={model.buckets} label="Behind by" />
-              </div>
-            ) : null}
-            {model.summary ? <p className="m-0 text-[13px] text-muted">{model.summary}</p> : null}
-          </div>
+          <ListToolbar
+            search={<ListSearch label={model.searchLabel} initial={model.q} base={model.searchBase} compact />}
+            switchLabel="Pledges to show"
+            switchChips={model.chips}
+            menus={model.buckets.length > 0 ? [{ label: "Behind by", view: menuView(model.buckets, all ? { label: "Any", href: all.href } : undefined) }] : []}
+            summary={model.summary}
+          />
           {body.rows.length === 0 ? (
             <p className="m-0 rounded-field bg-ground px-3 py-4 text-center text-[14px] text-muted">{body.empty}</p>
           ) : (
