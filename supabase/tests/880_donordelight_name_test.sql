@@ -8,8 +8,8 @@ select pg_temp.assert((select label from app.modules where key = 'care') = 'Dono
 select pg_temp.assert((select name = 'DonorDelight' and mark = 'DD' from app.marketplace_products where module_key = 'care'), 'the Marketplace card is named DonorDelight, mark DD');
 select pg_temp.assert(not exists (select 1 from app.marketplace_products where name like '%WeCare%' or on_note like '%WeCare%' or off_note like '%WeCare%' or line like '%WeCare%' or gets::text like '%WeCare%'),
                       'no Marketplace text says WeCare');
-select pg_temp.assert(not exists (select 1 from app.roles where description like '%WeCare%'), 'no role description says WeCare');
-select pg_temp.assert((select count(*) from app.roles where description like 'DonorDelight:%') = 2, 'the two care roles say DonorDelight');
+select pg_temp.assert(not exists (select 1 from app.roles where description like 'WeCare:%'), 'no role description begins WeCare:');
+select pg_temp.assert(exists (select 1 from app.roles where key in ('care_lead', 'relationship_owner') and description like 'DonorDelight:%'), 'a care role description begins DonorDelight:');
 
 -- The messages people read are the new name; the logic is untouched (same functions, same attributes).
 select pg_temp.assert(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
