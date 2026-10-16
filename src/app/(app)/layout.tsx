@@ -11,6 +11,7 @@ import { PRODUCT_NAME } from "@/lib/brand";
 import { countHomeTasks } from "@/lib/data/home-tasks";
 import { loadDemoBanner } from "@/lib/demo-signin/server";
 import { LOOK_COOKIE, parseLook } from "@/lib/look";
+import { PANEL_COOKIE, parsePanelPref } from "@/lib/panel-pref";
 import { centerMissingHint, enforceStaff2fa, loadSession } from "@/lib/session";
 import { toursFor } from "@/lib/spotlight/registry";
 
@@ -60,7 +61,10 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       await enforceStaff2fa(state.session);
       const tasks = await countHomeTasks(state.session);
       // The person's own choice of look ("New look" in the user menu); anyone who never chose gets the classic portal.
-      const look = parseLook((await cookies()).get(LOOK_COOKIE)?.value);
+      const jar = await cookies();
+      const look = parseLook(jar.get(LOOK_COOKIE)?.value);
+      // The New look's left panel: open, collapsed, or not chosen yet (open from 1280px wide).
+      const panel = parsePanelPref(jar.get(PANEL_COOKIE)?.value);
       // "Try the demo": while someone is in a demo session, every page says so and offers Switch role and Leave the demo.
       const inDemo = state.session.demo === true;
       const demo = inDemo ? await loadDemoBanner(state.session.db) : null;
@@ -70,7 +74,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       return (
         <SpotlightProvider userId={state.session.userId} tours={tours}>
           {inDemo ? <DemoBanner info={demo} /> : null}
-          <AppShell session={state.session} tasks={tasks} look={look}>
+          <AppShell session={state.session} tasks={tasks} look={look} panel={panel}>
             {children}
           </AppShell>
         </SpotlightProvider>

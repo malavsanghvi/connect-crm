@@ -152,7 +152,7 @@ describe("the dev preview route", () => {
   it("draws the page inside the new shell with sample data, without a database", async () => {
     const html = renderToStaticMarkup(await call());
     expect(html).toContain('data-look="v2"');
-    expect(html).toContain("v2-rail");
+    expect(html).toContain("v2-top-menu");
     expect(html).toContain("Riverside Neighbours Association");
     expect(html).toContain("Household card");
     expect(renderToStaticMarkup(await call({ niva: "off" }))).not.toContain("Niva read this as");

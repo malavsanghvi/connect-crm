@@ -332,11 +332,12 @@ describe("the whole portal in both looks", () => {
     expect(shell(session(), "classic")).toBe(shell(session()));
   });
 
-  it("renders the new shell without throwing: top bar, rail, page, bottom bar", () => {
+  it("renders the new shell without throwing: top bar, page, bottom bar", () => {
     const html = shell(session(), "v2");
     expect(html).toContain('data-look="v2"');
-    expect(html).toContain("v2-topbar");
-    expect(html).toContain("v2-rail");
+    expect(html).toContain('class="v2-top sticky');
+    expect(html).toContain("v2-top-menu");
+    expect(html).not.toContain("v2-rail");
     expect(html).toContain("v2-bar");
     expect(html).not.toContain("cc-sidebar");
     expect(html).not.toContain("cc-topbar");
@@ -376,8 +377,13 @@ describe("the whole portal in both looks", () => {
 
   it("shows a platform admin the Platform workspace and the sandbox watermark in the new look", () => {
     const v2 = shell(session({ isPlatformAdmin: true, center: { ...session().center, environment: "sandbox" } }), "v2");
-    expect(v2).toContain(">Platform<");
+    // Settings has a gear in the bar; Platform is in the account menu (see AccountPanel below). Neither is in the row of workspaces.
+    expect(v2).toContain('aria-label="Settings"');
     expect(v2).toContain("Sandbox");
+    const start = v2.indexOf('<ul class="v2-top-list">');
+    const row = v2.slice(start, v2.indexOf("</ul>", start));
+    expect(row).not.toContain(">Platform<");
+    expect(row).not.toContain(">Settings<");
   });
 
   it("keeps the staff-role notice for someone with no staff role", () => {

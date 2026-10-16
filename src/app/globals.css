@@ -794,6 +794,9 @@ html:has([data-look="v2"]),
 html:has([data-look="v2"]) {
   scroll-padding-top: 72px;
 }
+html:has([data-shell-frame="top"]) {
+  scroll-padding-top: 56px;
+}
 
 /* Niva's panel hangs under the 64px bar here (its own classes say 60px). */
 @media (min-width: 768px) {
@@ -804,6 +807,17 @@ html:has([data-look="v2"]) {
 @media (min-width: 1280px) {
   [data-look="v2"] #niva-panel {
     height: calc(100vh - 64px);
+  }
+}
+/* The top-bar frame is 48px. */
+@media (min-width: 768px) {
+  [data-shell-frame="top"] #niva-panel {
+    top: 48px;
+  }
+}
+@media (min-width: 1280px) {
+  [data-shell-frame="top"] #niva-panel {
+    height: calc(100vh - 48px);
   }
 }
 
@@ -1219,6 +1233,366 @@ html:has([data-look="v2"]) {
     background: var(--v2-blue-tint);
     color: var(--v2-blue);
     font-weight: 700;
+  }
+
+  /* ---- The top-bar frame (docs/CRM_NAV_REDESIGN_PLAN.md, Option A): a 48px bar with the workspaces as text, and the open workspace's
+     sections in a collapsible panel on the left. ShellV2 marks its root data-shell-frame="top". ---- */
+  .v2-top {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px;
+    background: var(--color-white);
+    border-bottom: 1px solid var(--v2-line);
+  }
+  .v2-top-home {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--radius-field);
+  }
+  .v2-top-menu {
+    position: relative;
+    flex: 1 1 auto;
+    align-self: stretch;
+    display: flex;
+    min-width: 0;
+  }
+  .v2-top-list {
+    display: flex;
+    gap: 2px; /* the same number as GAP in workspace-menu.tsx */
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow: hidden;
+  }
+  .v2-top-list > li {
+    display: flex;
+  }
+  .v2-top-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    min-height: 48px;
+    padding: 3px 12px 0;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: none;
+    color: var(--v2-ink-2);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .v2-top-item:hover {
+    background: var(--v2-page);
+    color: var(--v2-ink);
+  }
+  .v2-top-item[aria-current="page"] {
+    border-bottom-color: var(--v2-blue);
+    color: var(--v2-blue);
+    font-weight: 700;
+  }
+  .v2-top-item:focus-visible,
+  .v2-panel-item:focus-visible {
+    outline-offset: -2px;
+  }
+  .v2-top-badge {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--radius-pill);
+    background: var(--v2-sun-ink);
+    color: var(--color-white);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .v2-top-more {
+    position: relative;
+    flex: none;
+    display: flex;
+  }
+  .v2-top-more-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 40;
+    min-width: 200px;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: var(--color-white);
+    border: 1px solid var(--v2-line);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--color-ink) 18%, transparent);
+  }
+  .v2-top-more-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 12px;
+    border-radius: 8px;
+    color: var(--v2-ink-2);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .v2-top-more-item:hover {
+    background: var(--v2-page);
+    color: var(--v2-ink);
+  }
+  /* Only a hidden copy of the links, read for their widths: it takes no room and is not seen or reached. */
+  .v2-top-measure {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    gap: 2px;
+    width: max-content;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .v2-top-measure > * {
+    flex: none;
+  }
+  .v2-top-icon {
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: var(--radius-field);
+    color: var(--v2-ink-2);
+  }
+  .v2-top-icon:hover {
+    background: var(--v2-page);
+    color: var(--v2-ink);
+  }
+  .v2-top-icon[aria-current="page"] {
+    background: var(--v2-blue-tint);
+    color: var(--v2-blue);
+  }
+
+  .v2-panel {
+    position: sticky;
+    top: 48px;
+    align-self: flex-start;
+    display: none;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: 232px;
+    height: calc(100vh - 48px);
+    background: var(--color-white);
+    border-right: 1px solid var(--v2-line);
+  }
+  @media (min-width: 1024px) {
+    .v2-panel {
+      display: flex;
+    }
+    /* The panel lists what the page's own tab row listed: from here the row is not drawn (Giving's Today keeps its row, which has the counts). */
+    [data-shell-frame="top"] [data-section-tabs] {
+      display: none;
+    }
+  }
+  .v2-panel-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 10px 4px 18px;
+  }
+  .v2-panel-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--v2-ink);
+  }
+  .v2-panel-toggle {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: var(--radius-field);
+    background: none;
+    color: var(--v2-muted);
+    cursor: pointer;
+  }
+  .v2-panel-toggle:hover {
+    background: var(--v2-page);
+    color: var(--v2-ink);
+  }
+  .v2-panel-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 8px 16px;
+  }
+  .v2-panel-group-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 12px 10px 4px;
+    border: 0;
+    background: none;
+    color: var(--v2-muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .v2-panel-list,
+  .v2-panel-sub {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .v2-panel-list.is-folded {
+    display: none;
+  }
+  .v2-panel-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+    color: var(--v2-ink-2);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .v2-panel-item:hover {
+    background: var(--v2-page);
+    color: var(--v2-ink);
+  }
+  .v2-panel-item[aria-current="page"] {
+    background: var(--v2-blue-tint);
+    color: var(--v2-blue);
+    font-weight: 700;
+  }
+  .v2-panel-mono {
+    display: none;
+  }
+  .v2-panel-sub {
+    margin: 2px 0 6px 18px;
+    padding-left: 8px;
+    border-left: 2px solid var(--color-navy-200);
+  }
+  .v2-panel-subitem {
+    display: block;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: var(--v2-ink-2);
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .v2-panel-subitem:hover {
+    background: var(--v2-page);
+  }
+  .v2-panel-subitem[aria-current="page"] {
+    background: var(--v2-blue-tint);
+    color: var(--v2-blue);
+    font-weight: 700;
+  }
+  /* Collapsed: a 56px strip of two-letter marks. */
+  .v2-panel[data-state="closed"] {
+    width: 56px;
+  }
+  .v2-panel[data-state="closed"] .v2-panel-title,
+  .v2-panel[data-state="closed"] .v2-panel-label,
+  .v2-panel[data-state="closed"] .v2-panel-group-title,
+  .v2-panel[data-state="closed"] .v2-panel-sub {
+    display: none;
+  }
+  .v2-panel[data-state="closed"] .v2-panel-head {
+    justify-content: center;
+    padding: 12px 0 4px;
+  }
+  .v2-panel[data-state="closed"] .v2-panel-nav {
+    padding: 4px 0 16px;
+  }
+  .v2-panel[data-state="closed"] .v2-panel-group + .v2-panel-group {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--v2-line);
+  }
+  .v2-panel[data-state="closed"] .v2-panel-list.is-folded {
+    display: block;
+  }
+  .v2-panel[data-state="closed"] .v2-panel-item {
+    justify-content: center;
+    padding: 0;
+  }
+  .v2-panel[data-state="closed"] .v2-panel-mono {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  /* No choice made: collapsed until 1280px wide. */
+  @media (max-width: 1279px) {
+    .v2-panel[data-state="auto"] {
+      width: 56px;
+    }
+    .v2-panel[data-state="auto"] .v2-panel-title,
+    .v2-panel[data-state="auto"] .v2-panel-label,
+    .v2-panel[data-state="auto"] .v2-panel-group-title,
+    .v2-panel[data-state="auto"] .v2-panel-sub {
+      display: none;
+    }
+    .v2-panel[data-state="auto"] .v2-panel-head {
+      justify-content: center;
+      padding: 12px 0 4px;
+    }
+    .v2-panel[data-state="auto"] .v2-panel-nav {
+      padding: 4px 0 16px;
+    }
+    .v2-panel[data-state="auto"] .v2-panel-group + .v2-panel-group {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--v2-line);
+    }
+    .v2-panel[data-state="auto"] .v2-panel-list.is-folded {
+      display: block;
+    }
+    .v2-panel[data-state="auto"] .v2-panel-item {
+      justify-content: center;
+      padding: 0;
+    }
+    .v2-panel[data-state="auto"] .v2-panel-mono {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 30px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
   }
 }
 
