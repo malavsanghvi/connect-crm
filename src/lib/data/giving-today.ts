@@ -504,7 +504,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
     locale: fmt.locale,
     labels,
     tabs: givingTabs(session),
-    tabCounts: { bank: tile("bank"), pledges: tile("pledges"), counts: tile("counts"), books: tile("books") },
+    tabCounts: { bank: tile("bank"), proofs: queue.rows.find((r) => r.id === "proofs:all")?.count, pledges: tile("pledges"), counts: tile("counts"), books: tile("books") },
     queue,
     can: { ...can, record: canAccess(session, "recordPayment"), find: canAccess(session, "households") || canFindGiving(session), countStart: seesCounts && can.countRecord },
     countsWord,

@@ -981,6 +981,27 @@ function bookTaskRows(tasks: HomeTask[]): QueueRow[] {
     }));
 }
 
+/**
+ * Payment proofs to verify (Approvals) and payments paid but not on the bank (Bank): one row each, a count that opens its own
+ * screen. Home reads the same tasks, so the two cannot disagree about the number.
+ */
+function proofTaskRows(tasks: HomeTask[], source: "proofs" | "unbanked"): QueueRow[] {
+  return tasks
+    .filter((t) => t.source === source)
+    .map((t) => ({
+      id: t.id,
+      group: source === "proofs" ? ("approvals" as const) : ("bank" as const),
+      tone: source === "proofs" ? ("sun" as const) : ("blue" as const),
+      icon: source === "proofs" ? ("approve" as const) : ("deposit" as const),
+      title: t.title,
+      lines: [t.meta],
+      family: null,
+      since: null,
+      acts: t.links.map((l) => ({ kind: "link" as const, href: l.href, label: source === "proofs" ? "Open proofs" : "Open the list", primary: true })),
+      count: t.giving?.count ?? 1,
+    }));
+}
+
 /** "Year-end statements for 2026": Review and send opens the review sheet (section 2: three clicks; the send stays off). */
 function statementRows(s: StatementsDueIn): QueueRow[] {
   if (s.households === 0) return [];
@@ -1065,6 +1086,8 @@ const SOURCE_GROUP: Record<string, GroupKey> = {
   writeoff: "approvals",
   credit: "approvals",
   deposits: "bank",
+  proofs: "approvals",
+  unbanked: "bank",
   quickbooks: "books",
   mapping: "books",
 };
@@ -1089,10 +1112,12 @@ export function buildQueue(input: TodayInput, ctx: TodayContext): TodayQueue {
     .map((f) => ({ group: SOURCE_GROUP[f.source], message: `Could not load the ${f.tag.toLowerCase()} tasks: ${f.message.replace(/\.$/, "")}.` }));
   const rows: QueueRow[] = [
     ...approvalRows(input, ctx),
+    ...proofTaskRows(input.tasks, "proofs"),
     ...partRows(input.bank, "bank", problems, (b) => {
       for (const m of b.problems) problems.push({ group: "bank", message: m });
       return bankRows(b, ctx);
     }),
+    ...proofTaskRows(input.tasks, "unbanked"),
     ...partRows(input.behind, "pledges", problems, (b) => behindRows(b, ctx)),
     ...partRows(input.apply, "pledges", problems, (a) => applyRows(a, ctx)),
     ...partRows(input.counts, "counts", problems, (c) => countRows(c, ctx)),

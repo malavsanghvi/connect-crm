@@ -140,6 +140,8 @@ const EXTRA_PATHS: readonly [string, ModuleKey][] = [
   // Giving's add-ons (0741) that are not NAV tabs of their own; the Campaigns list under Opportunities stays core.
   ["/giving/payments/bank", "giving_bank"],
   ["/giving/bank", "giving_bank"],
+  // Payment proofs (0865): members send a photo when they paid another way; the treasury team verifies it here.
+  ["/giving/proofs", "giving_proofs"],
   ["/giving/opportunities", "giving_opportunities"],
   ["/giving/opportunities/campaigns", "giving"],
   ["/giving/campaigns", "giving"],
