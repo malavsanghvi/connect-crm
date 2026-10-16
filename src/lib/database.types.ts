@@ -2294,6 +2294,99 @@ export type Database = {
         };
         Relationships: [];
       };
+      chip_in_ledger: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string | null;
+          account_person_id: string;
+          calendar_year: number;
+          checkout_id: string;
+          payment_id: string | null;
+          mode: string;
+          chip_in_cents: number;
+          application_fee_cents: number;
+          refunded_cents: number;
+          status: string;
+          expires_at: string;
+          created_at: string;
+          collected_at: string | null;
+          released_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id?: string | null;
+          account_person_id: string;
+          calendar_year: number;
+          checkout_id: string;
+          payment_id?: string | null;
+          mode: string;
+          chip_in_cents: number;
+          application_fee_cents?: number;
+          refunded_cents?: number;
+          status?: string;
+          expires_at: string;
+          created_at?: string;
+          collected_at?: string | null;
+          released_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string | null;
+          account_person_id?: string;
+          calendar_year?: number;
+          checkout_id?: string;
+          payment_id?: string | null;
+          mode?: string;
+          chip_in_cents?: number;
+          application_fee_cents?: number;
+          refunded_cents?: number;
+          status?: string;
+          expires_at?: string;
+          created_at?: string;
+          collected_at?: string | null;
+          released_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      chip_in_settings: {
+        Row: {
+          center_id: string;
+          asking: boolean;
+          yearly_limit_cents: number | null;
+          suggested_cents: number[];
+          reason: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          asking?: boolean;
+          yearly_limit_cents?: number | null;
+          suggested_cents?: number[];
+          reason?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          asking?: boolean;
+          yearly_limit_cents?: number | null;
+          suggested_cents?: number[];
+          reason?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       class_announcements: {
         Row: {
           id: string;
@@ -13563,6 +13656,26 @@ export type Database = {
         };
         Returns: Json;
       };
+      chip_in_overview: {
+        Args: {
+          p_center: string;
+          p_year?: number;
+        };
+        Returns: Json;
+      };
+      chip_in_suggestions_ok: {
+        Args: {
+          p_limit: number;
+          p_suggested: number[];
+        };
+        Returns: boolean;
+      };
+      chip_in_summary: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       choose_pathshala_office_payment: {
         Args: {
           p_registration: string;
@@ -15329,6 +15442,12 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { id: string; slug: string; name: string; short_name: string; environment: string; status: string; portal_domain: string; has_role: boolean }[];
       };
+      my_chip_in_offer: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       my_gyan_homework: {
         Args: {
           p_center: string;
@@ -16022,6 +16141,16 @@ export type Database = {
       platform_secret_names: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      platform_set_chip_in: {
+        Args: {
+          p_center: string;
+          p_limit_cents: number;
+          p_suggested_cents: number[];
+          p_asking: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       platform_setting_keys: {
         Args: Record<PropertyKey, never>;
