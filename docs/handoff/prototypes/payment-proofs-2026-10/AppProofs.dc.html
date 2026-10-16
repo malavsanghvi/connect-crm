@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My payment proofs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1710px; height: 844px; box-sizing: border-box; display: flex; gap: 50px; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #fffaf5; overflow: hidden;">
+<div style="background: #ff7640; padding: 14px 18px; display: flex; align-items: center; gap: 10px;">
+<span aria-hidden="true" style="font-size: 22px; font-weight: 700; color: #1e1d5c;">‹</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 22px; font-weight: 600; color: #1e1d5c;">My payment proofs</span>
+</div>
+<div style="flex: 1; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+<sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+<div style="background: #ffffff; border: 1px solid {{c.edge}}; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;">
+<div style="display: flex; justify-content: space-between; gap: 8px; align-items: flex-start;">
+<div style="display: flex; flex-direction: column;">
+<strong style="font-size: 16px;">{{c.title}}</strong>
+<span style="font-size: 13px; color: #555a79;">{{c.when}}</span>
+</div>
+<span style="flex: none; background: {{c.bg}}; color: {{c.fg}}; border-radius: 8px; padding: 1px 8px; font-size: 12.5px; font-weight: 700;">{{c.pill}}</span>
+</div>
+<span style="font-size: 14px; color: #33325f;">{{c.text}}</span>
+<span style="font-size: 14px; font-weight: 700; color: #2b2a8a;">{{c.action}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #fffaf5; overflow: hidden;">
+<div style="background: #ff7640; padding: 14px 18px; display: flex; align-items: center; gap: 10px;">
+<span aria-hidden="true" style="font-size: 22px; font-weight: 700; color: #1e1d5c;">‹</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 22px; font-weight: 600; color: #1e1d5c;">Proof, $250.00</span>
+</div>
+<div style="flex: 1; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+<div style="background: #e6e2fa; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;">
+<strong style="color: #2b2a8a;">Waiting for the treasury team</strong>
+<span style="font-size: 14px; color: #1e1d5c;">Your pledges show Soft credit. Nothing is paid until it is checked.</span>
+</div>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 15px;"><strong>Check 1048</strong> · paid Oct 12, 2026</span>
+<span style="font-size: 13.5px; color: #555a79;">Sent by Adaeze on Oct 12 at 9:14 am</span>
+<div style="display: flex; gap: 8px; margin-top: 6px;">
+<div aria-hidden="true" style="width: 74px; height: 52px; border-radius: 8px; background: #ffffff; border: 1px solid #b9b5ec; position: relative;">
+<div style="position: absolute; left: 6px; top: 8px; width: 34px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; left: 6px; top: 18px; width: 50px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; right: 6px; bottom: 6px; width: 18px; height: 8px; background: #ffb82a;"></div>
+</div>
+<div aria-hidden="true" style="width: 74px; height: 52px; border-radius: 8px; background: #ffffff; border: 1px solid #b9b5ec; position: relative;">
+<div style="position: absolute; left: 6px; top: 8px; width: 40px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; left: 6px; top: 18px; width: 28px; height: 3px; background: #d4d2f5;"></div>
+</div>
+</div>
+</div>
+<span style="font-size: 14px; font-weight: 700;">Pledges it covers, oldest first</span>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px;">
+<div style="display: flex; justify-content: space-between; gap: 8px;"><span style="font-size: 14.5px;">Harvest supper · P-0587</span><span style="font-size: 14.5px;"><strong>$160</strong> <span style="background: #e6e2fa; color: #2b2a8a; border-radius: 8px; padding: 1px 8px; font-size: 12px; font-weight: 700;">Soft credit</span></span></div>
+<div style="display: flex; justify-content: space-between; gap: 8px;"><span style="font-size: 14.5px;">Building fund · P-0601</span><span style="font-size: 14.5px;"><strong>$90</strong> of $300</span></div>
+</div>
+<span style="font-size: 14px; font-weight: 700;">What has happened</span>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{timeline}}" as="t" hint-placeholder-count="3">
+<li style="display: flex; gap: 10px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; margin-top: 6px; width: 10px; height: 10px; border-radius: 9999px; background: {{t.dot}};"></span>
+<span style="font-size: 14px; color: #33325f;"><strong>{{t.when}}</strong> {{t.what}}</span>
+</li>
+</sc-for>
+</ol>
+<button style="min-height: 46px; border-radius: 9999px; border: 2px solid #b3261e; background: #ffffff; color: #b3261e; font-size: 15px; font-weight: 700;">Take this proof back</button>
+<span style="font-size: 13px; color: #555a79;">Taking it back returns the pledges to Open.</span>
+</div>
+</div>
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #fffaf5; overflow: hidden;">
+<div style="background: #ff7640; padding: 14px 18px; display: flex; align-items: center; gap: 10px;">
+<span aria-hidden="true" style="font-size: 22px; font-weight: 700; color: #1e1d5c;">‹</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 22px; font-weight: 600; color: #1e1d5c;">Proof, $120.00</span>
+</div>
+<div style="flex: 1; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+<div style="background: #fff4d6; border: 1px solid #ffb82a; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;">
+<strong style="color: #7a3a0a;">The treasury team needs a little more</strong>
+<span style="font-size: 14.5px; color: #1e1d5c;">“Could you send a clearer photo of the front of the check? The amount is cut off.”</span>
+<span style="font-size: 13px; color: #555a79;">Priya, treasury team · Oct 13</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<label for="reply" style="font-size: 14px; font-weight: 700;">Your reply (optional)</label>
+<input id="reply" type="text" value="Here is a new photo, taken in daylight." style="min-height: 46px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 15px; color: #1e1d5c; background: #ffffff;">
+</div>
+<div style="display: flex; gap: 8px;">
+<button style="flex: 1; min-height: 56px; border-radius: 14px; border: 1px dashed #2b2a8a; background: #f1eefc; color: #2b2a8a; font-size: 14px; font-weight: 700;">Take a photo</button>
+<button style="flex: 1; min-height: 56px; border-radius: 14px; border: 1px dashed #2b2a8a; background: #f1eefc; color: #2b2a8a; font-size: 14px; font-weight: 700;">Choose a photo</button>
+<button style="flex: 1; min-height: 56px; border-radius: 14px; border: 1px dashed #2b2a8a; background: #f1eefc; color: #2b2a8a; font-size: 14px; font-weight: 700;">Attach a file</button>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 12px; padding: 6px 8px;">
+<div aria-hidden="true" style="flex: none; width: 54px; height: 40px; border-radius: 6px; background: #ffffff; border: 1px solid #b9b5ec; position: relative;">
+<div style="position: absolute; left: 5px; top: 6px; width: 30px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; right: 5px; bottom: 4px; width: 14px; height: 6px; background: #ffb82a;"></div>
+</div>
+<span style="flex: 1; font-size: 14.5px; font-weight: 700;">Check, front (new) · 1.6 MB</span>
+</div>
+<button style="min-height: 48px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Send to the treasury team</button>
+<span style="font-size: 13px; color: #555a79;">Your pledges stay Soft credit while you answer. If we do not hear back in 14 days, the proof goes back to the treasury team to decide. We never reject it without telling you why.</span>
+</div>
+</div>
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #fffaf5; overflow: hidden;">
+<div style="background: #ff7640; padding: 14px 18px; display: flex; align-items: center; gap: 10px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 22px; font-weight: 600; color: #1e1d5c;">Notices</span>
+</div>
+<div style="flex: 1; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 12.5px; font-weight: 700; color: #14502f;">YOUR PAYMENT WAS CHECKED · Oct 14</span>
+<span style="font-size: 14.5px; color: #33325f;">Your $250.00 check is recorded. Harvest supper is Paid, and $90 went to the Building fund ($210 left). Receipt R-2026-0412 is in your giving history.</span>
+</div>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 12.5px; font-weight: 700; color: #b3261e;">YOUR PROOF WAS NOT ACCEPTED · Aug 5</span>
+<span style="font-size: 14.5px; color: #33325f;">The photo does not show an amount, so we could not match it to your $40.00. Your pledge is Open again. You can send a new proof.</span>
+<span style="font-size: 14px; font-weight: 700; color: #2b2a8a;">Send a new proof</span>
+</div>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 12.5px; font-weight: 700; color: #7a3a0a;">A QUESTION FROM THE TREASURY TEAM · Oct 13</span>
+<span style="font-size: 14.5px; color: #33325f;">Could you send a clearer photo of the front of the check?</span>
+</div>
+<span style="font-size: 14px; font-weight: 700; margin-top: 6px;">After the bank statement shows it</span>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start;">
+<div style="flex: 1; display: flex; flex-direction: column;">
+<span style="font-weight: 700; font-size: 15.5px;">Harvest supper · 4 seats</span>
+<span style="font-size: 13px; color: #555a79;">Sep 2, 2026 · P-0587</span>
+<span style="font-size: 13px; font-weight: 700; color: #14502f;">✓ Confirmed by the bank</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+<span style="font-weight: 700; font-size: 16px;">$160</span>
+<span style="background: #e3f4ea; color: #14502f; border-radius: 8px; padding: 1px 8px; font-size: 12.5px; font-weight: 700;">Paid Oct 14</span>
+</div>
+</div>
+<span style="font-size: 13px; color: #555a79;">Members see Open, Soft credit and Paid. “Bank reconciled” is the treasury team's word; the app shows a quiet tick.</span>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1710,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      cards: [
+        { title: '$250.00 · Check 1048', when: 'Sent Oct 12', pill: 'Waiting', bg: '#e6e2fa', fg: '#2b2a8a', edge: '#b9b5ec', text: 'Covers Harvest supper and part of the Building fund. They show Soft credit.', action: 'See details' },
+        { title: '$120.00 · Bank transfer', when: 'Sent Oct 9', pill: 'Needs more', bg: '#fff4d6', fg: '#7a3a0a', edge: '#ffb82a', text: 'The treasury team asked a question about the photo.', action: 'Answer' },
+        { title: '$60.00 · Cash', when: 'Sent Sep 3 · approved Sep 5', pill: 'Paid', bg: '#e3f4ea', fg: '#14502f', edge: '#eee3d9', text: 'Summer picnic is Paid. Receipt R-2026-0381.', action: 'See receipt' },
+        { title: '$40.00 · Check 1032', when: 'Sent Aug 2 · decided Aug 5', pill: 'Not accepted', bg: '#fbe4e1', fg: '#8c1c13', edge: '#eee3d9', text: 'The photo does not show an amount. The pledge is Open again.', action: 'Send a new proof' }
+      ],
+      timeline: [
+        { dot: '#2b2a8a', when: 'Oct 12, 9:14 am', what: 'Sent by Adaeze.' },
+        { dot: '#2b2a8a', when: 'Oct 12, 9:14 am', what: 'Soft credit applied to Harvest supper and part of the Building fund. Reminders paused.' },
+        { dot: '#ffb82a', when: 'Now', what: 'Waiting for the treasury team.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
