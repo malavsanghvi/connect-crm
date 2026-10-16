@@ -15423,6 +15423,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      log_proof_view: {
+        Args: {
+          p_file: string;
+        };
+        Returns: undefined;
+      };
       make_primary_of_own_household: {
         Args: {
           p_person: string;
