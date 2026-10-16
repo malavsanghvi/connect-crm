@@ -90,7 +90,7 @@ export async function PledgesTab({ session, householdId, period, recordPledge = 
             <Stat
               label="Soft credit, waiting"
               value={money(totals.softCreditCents)}
-              hint={totals.softCreditCount > 0 ? `On ${totals.softCreditCount} ${totals.softCreditCount === 1 ? "pledge" : "pledges"}, not yet verified` : "No proof is waiting to be verified"}
+              hint={totals.softCreditCount > 0 ? `On ${totals.softCreditCount} ${totals.softCreditCount === 1 ? "pledge" : "pledges"}, not yet reviewed` : "No payment confirmation is waiting to be reviewed"}
             />
           ) : null}
           {showBank ? (

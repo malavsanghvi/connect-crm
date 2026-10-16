@@ -75,7 +75,7 @@ export function PledgeEvidence({ pledgeId, reference, currency, locale, timeZone
           </div>
         ) : null}
         {loaded.state === "ok" && loaded.items.length === 0 ? (
-          <p className="text-muted">No proof or file is connected to this pledge. Evidence appears here when a family sends a proof, or when staff attach a photo of a check or receipt to a payment.</p>
+          <p className="text-muted">No confirmation or file is connected to this pledge. Evidence appears here when a family sends a payment confirmation, or when staff attach a photo of a check or receipt to a payment.</p>
         ) : null}
         {loaded.state === "ok"
           ? loaded.items.map((item, i) => {

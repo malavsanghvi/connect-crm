@@ -134,6 +134,6 @@ export function sampleProofCards(): ProofCard[] {
   ]);
   if (!cards) throw new Error("sample proofs did not parse");
   // The page makes short-lived links; the preview draws a stand-in picture instead.
-  for (const c of cards) for (const f of c.files) f.url = f.kind === "pdf" ? null : svg(`Proof file ${f.id.slice(-2)}`);
+  for (const c of cards) for (const f of c.files) f.url = f.kind === "pdf" ? null : svg(`Confirmation file ${f.id.slice(-2)}`);
   return cards;
 }

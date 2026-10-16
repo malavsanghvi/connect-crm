@@ -55,7 +55,7 @@ export function parseUnbanked(data: unknown): UnbankedRow[] | null {
 }
 
 export function sourceWord(source: string): string {
-  return source === "proof" ? "Member proof" : "Recorded by hand";
+  return source === "proof" ? "Member confirmation" : "Recorded by hand";
 }
 
 /** "35 / 30 · past", "7 / 7 · due today", "3 / 14". */

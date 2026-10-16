@@ -13,8 +13,8 @@ import { authorizeAction } from "@/lib/session";
  * reason and a fresh 2FA code (the database raises SQLSTATE CCSTP; the screen asks for the code and sends this again).
  */
 export async function saveProofRetentionAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult & { stepUp?: boolean }> {
-  const doing = "Could not save how long payment proofs are kept";
-  const auth = await authorizeAction("centerSettings", "save how long payment proofs are kept");
+  const doing = "Could not save how long payment confirmations are kept";
+  const auth = await authorizeAction("centerSettings", "save how long payment confirmations are kept");
   if (!auth.ok) return auth;
   const parsed = retentionPatchFromForm(fd);
   if (!parsed.ok) return { ok: false, error: `${doing} — ${parsed.error}` };
@@ -24,12 +24,12 @@ export async function saveProofRetentionAction(_prev: ActionResult | null, fd: F
   if (isShortening(current.policy, parsed.patch) && reason.length < 5) {
     return { ok: false, error: `${doing} — say why you are shortening the years, in a few words. The reason is kept in the audit log.` };
   }
-  const res = await writeProofPolicy(auth.session, parsed.patch, reason || "Payment proof retention changed", doing);
+  const res = await writeProofPolicy(auth.session, parsed.patch, reason || "Payment confirmation retention changed", doing);
   if (!res.ok) return res;
   revalidatePath("/settings/storage");
   return {
     ok: true,
-    message: `Payment proofs are kept ${res.policy.retentionYears} years${res.policy.legalHold ? ", and the legal hold is on" : ""} · audit logged`,
+    message: `Payment confirmations are kept ${res.policy.retentionYears} years${res.policy.legalHold ? ", and the legal hold is on" : ""} · audit logged`,
   };
 }
 
@@ -41,7 +41,7 @@ export type PreviewResult = { ok: true; preview: RetentionPreview | null } | { o
  */
 export async function previewProofRetentionAction(years: number): Promise<PreviewResult> {
   const doing = "Could not work out what shortening would remove";
-  const auth = await authorizeAction("centerSettings", "preview shortening how long payment proofs are kept");
+  const auth = await authorizeAction("centerSettings", "preview shortening how long payment confirmations are kept");
   if (!auth.ok) return auth;
   const bad = retentionYearsProblem(String(years));
   if (bad) return { ok: false, error: `${doing} — ${bad}` };

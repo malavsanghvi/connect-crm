@@ -55,7 +55,7 @@ const cleanText = (v: unknown, max: number): string | null => {
 
 /** Checks an approval and builds the database call. Arguments the person did not set are left out, so the database keeps the claim. */
 export function approveArgs(input: ApproveInput): { ok: true; args: ApproveArgs } | { ok: false; error: string } {
-  if (!isUuid(input.proofId)) return { ok: false, error: "That proof was not recognised. Reload the page and try again." };
+  if (!isUuid(input.proofId)) return { ok: false, error: "That payment confirmation was not recognised. Reload the page and try again." };
   const args: ApproveArgs = { p_proof: input.proofId };
   if (input.amountCents !== null && input.amountCents !== undefined) {
     if (!Number.isSafeInteger(input.amountCents) || input.amountCents < 1 || input.amountCents > MAX_PROOF_CENTS) {
@@ -107,8 +107,8 @@ export function changesFromForm(form: ChangesForm, claim: { amountCents: number;
   | { ok: true; amountCents: number | null; paidOn: string | null; method: string | null }
   | { ok: false; error: string } {
   const cents = parseAmountToCents(form.amount);
-  if (cents === null || cents < 1 || cents > MAX_PROOF_CENTS) return { ok: false, error: "Enter the amount you see on the proof, from 0.01 to 1,000,000." };
-  if (!isDateOnly(form.paidOn)) return { ok: false, error: "Enter the date you see on the proof." };
+  if (cents === null || cents < 1 || cents > MAX_PROOF_CENTS) return { ok: false, error: "Enter the amount you see on the confirmation, from 0.01 to 1,000,000." };
+  if (!isDateOnly(form.paidOn)) return { ok: false, error: "Enter the date you see on the confirmation." };
   if (!isOfflineMethod(form.method)) return { ok: false, error: "Choose how it was paid." };
   return {
     ok: true,
@@ -146,7 +146,7 @@ export function parseDecision(data: unknown): Decision | null {
 export function noticeSentence(n: Notice | null): string {
   if (!n) return "";
   if (n.failed > 0) return " The family could not be notified on every channel, so let them know yourself.";
-  if (n.queued === 0) return " No notice was sent because this proof has no account to notify, so let the family know yourself.";
+  if (n.queued === 0) return " No notice was sent because this confirmation has no account to notify, so let the family know yourself.";
   return " The family was told.";
 }
 

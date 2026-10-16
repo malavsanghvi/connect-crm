@@ -164,7 +164,7 @@ export function closeWarnings(counts: CloseWarningCounts | undefined): CloseWarn
     }
     if (seen.value > 0) out.push({ key, label: `${label}: ${seen.value.toLocaleString("en-US")}`, href });
   };
-  line("proofs_waiting", counts?.proofsWaiting, "Payment proofs still waiting to be verified", "Could not count the payment proofs still waiting to be verified", "/giving/proofs");
+  line("proofs_waiting", counts?.proofsWaiting, "Payment confirmations still waiting to be reviewed", "Could not count the payment confirmations still waiting to be reviewed", "/giving/proofs");
   line("unbanked", counts?.unbanked, "Paid pledges not yet bank reconciled", "Could not count the paid pledges not yet bank reconciled", "/giving/payments/bank?view=unbanked");
   return out;
 }

@@ -85,11 +85,11 @@ export function ProofRetention({
     setError(null);
     const bad = retentionYearsProblem(String(years));
     if (bad) {
-      setError(`Could not save how long payment proofs are kept — ${bad}`);
+      setError(`Could not save how long payment confirmations are kept — ${bad}`);
       return;
     }
     if (shortening && reason.trim().length < 5) {
-      setError("Could not save how long payment proofs are kept — say why you are shortening the years, in a few words. The reason is kept in the audit log.");
+      setError("Could not save how long payment confirmations are kept — say why you are shortening the years, in a few words. The reason is kept in the audit log.");
       return;
     }
     const fd = new FormData();
@@ -100,7 +100,7 @@ export function ProofRetention({
       try {
         const call = () => saveProofRetentionAction(null, fd);
         // Shortening needs a fresh 2FA check (CCSTP): the step-up modal, then one retry.
-        const res = stepUp ? await stepUp.run(call, "Changing how long payment proofs are kept") : await call();
+        const res = stepUp ? await stepUp.run(call, "Changing how long payment confirmations are kept") : await call();
         if (!res.ok) {
           setError(res.error);
           toast?.show(res.error, "bad");
@@ -111,7 +111,7 @@ export function ProofRetention({
         router.refresh();
       } catch (err) {
         console.error("[settings/storage] saving the proof retention failed:", err);
-        const msg = "Could not save how long payment proofs are kept — the server could not be reached. Nothing was changed; try again.";
+        const msg = "Could not save how long payment confirmations are kept — the server could not be reached. Nothing was changed; try again.";
         setError(msg);
         toast?.show(msg, "bad");
       }
@@ -120,11 +120,11 @@ export function ProofRetention({
 
   return (
     <Card
-      title="Payment proofs"
+      title="Payment confirmations"
       description="Photos and files families send when they paid another way. One setting for every payment method."
     >
       {!moduleOn ? (
-        <p className="m-0 text-[13px] text-muted">Payment proofs are switched off for this community. Switch them on in Settings › Modules to set how long they are kept.</p>
+        <p className="m-0 text-[13px] text-muted">Payment confirmations are switched off for this community. Switch them on in Settings › Modules to set how long they are kept.</p>
       ) : (
         <div className="flex flex-col gap-4" data-proof-retention>
           <dl className="m-0 grid gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-3">
@@ -197,12 +197,12 @@ export function ProofRetention({
             <input type="checkbox" checked={hold} disabled={!canEdit || working} onChange={(e) => setHold(e.target.checked)} className="mt-1 h-4 w-4" />
             <span>
               <strong>Legal hold</strong>
-              <span className="block text-ink-2">While on, no proof is removed and families keep access, whatever the years say. Use it during an audit or a dispute.</span>
+              <span className="block text-ink-2">While on, no confirmation is removed and families keep access, whatever the years say. Use it during an audit or a dispute.</span>
             </span>
           </label>
 
           <p className="m-0 text-[12.5px] text-muted">
-            What is removed, and what stays: when a file&apos;s time is up, the photo or file is deleted and a small record stays (its fingerprint, size, type, who sent it, and when and why it was removed), so the audit trail still shows it existed. Rejected or withdrawn proofs follow a shorter clock of 13 months.
+            What is removed, and what stays: when a file&apos;s time is up, the photo or file is deleted and a small record stays (its fingerprint, size, type, who sent it, and when and why it was removed), so the audit trail still shows it existed. Rejected or withdrawn confirmations follow a shorter clock of 13 months.
           </p>
 
           {shortening ? (

@@ -142,7 +142,7 @@ select pg_temp.as_user(:mina);
 select pg_temp.assert((app.submit_payment_proof(:c, :h1, 'check', 25000, pg_temp.today() - 1, '1048', null, null, 'open_pledges', null,
         pg_temp.files(:c, :h1, :pq1, 2), 'key-864-0001') ->> 'replayed')::boolean, 'A · the same confirmation key is a replay, not a second proof');
 select pg_temp.assert_raises($$select app.submit_payment_proof(pg_temp.u('c'), pg_temp.u('h1'), 'check', 25100, pg_temp.today() - 1, '1', null, null, 'open_pledges', null,
-        pg_temp.files(pg_temp.u('c'), pg_temp.u('h1'), pg_temp.u('pq2'), 1), 'key-864-0001')$$, 'already used for a different proof', 'A · a reused key with other details is refused');
+        pg_temp.files(pg_temp.u('c'), pg_temp.u('h1'), pg_temp.u('pq2'), 1), 'key-864-0001')$$, 'already used for a different payment confirmation', 'A · a reused key with other details is refused');
 select pg_temp.assert_raises($$select app.submit_payment_proof(pg_temp.u('c'), pg_temp.u('h1'), 'check', 5000, pg_temp.today(), '2', null, null, 'open_pledges', null, '[]'::jsonb, 'key-864-0002')$$,
         'Add a photo or file', 'A · a check needs a proof');
 select pg_temp.assert_raises($$select app.submit_payment_proof(pg_temp.u('c'), pg_temp.u('h1'), 'cash', 5000, pg_temp.today() + 1, null, null, null, 'open_pledges', null, '[]'::jsonb, 'key-864-0003')$$,
@@ -161,7 +161,7 @@ select pg_temp.assert_state($$select app.submit_payment_proof(pg_temp.u('c'), pg
         '42501', 'A · another family''s adult cannot send a proof for this family');
 select pg_temp.as_user(:dee);
 select pg_temp.assert_raises($$select app.submit_payment_proof(pg_temp.u('d'), pg_temp.u('hd'), 'check', 5000, pg_temp.today(), null, null, null, 'open_pledges', null, pg_temp.files(pg_temp.u('d'), pg_temp.u('hd'), pg_temp.u('pqd'), 1), 'key-864-0009')$$,
-        'Payment proofs', 'A · with Payment proofs off, nothing can be sent');
+        'Payment confirmations', 'A · with Payment confirmations off, nothing can be sent');
 
 -- B. More than the open balance: the extra is not credited; withdrawing gives everything back
 select pg_temp.as_user(:mina);

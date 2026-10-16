@@ -62,7 +62,7 @@ export function FileViewer({
   if (typeof document === "undefined") return null;
   const expired = file !== null && broken === file.id;
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label="Proof file" className="fixed inset-0 z-[60] flex flex-col bg-ink/90 text-white">
+    <div role="dialog" aria-modal="true" aria-label="Confirmation file" className="fixed inset-0 z-[60] flex flex-col bg-ink/90 text-white">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
         <p className="m-0 text-[14px] font-bold">{file ? `File ${index + 1} of ${open.length}` : "No file to show"}</p>
         <div className="flex flex-wrap items-center gap-2">
@@ -83,11 +83,11 @@ export function FileViewer({
           </button>
         ) : null}
         {!file ? (
-          <p className="text-[14px]">All the files of this proof were removed.</p>
+          <p className="text-[14px]">All the files of this confirmation were removed.</p>
         ) : !file.url || expired ? (
           <div className="max-w-md rounded-card bg-white p-5 text-center text-ink">
             <p className="m-0 font-bold">{expired ? "This link has expired" : "This file is not ready to open"}</p>
-            <p className="m-0 mt-1 text-[13px] text-muted">Links to a proof file last 10 minutes. Make a new one to keep looking.</p>
+            <p className="m-0 mt-1 text-[13px] text-muted">Links to a confirmation file last 10 minutes. Make a new one to keep looking.</p>
             {relinkError ? (
               <p role="alert" className="m-0 mt-2 text-[13px] text-danger">
                 {relinkError}
@@ -98,10 +98,10 @@ export function FileViewer({
             </button>
           </div>
         ) : file.kind === "pdf" ? (
-          <iframe title={`Proof file ${index + 1}`} src={file.url} className="h-full w-full max-w-4xl rounded-card bg-white" />
+          <iframe title={`Confirmation file ${index + 1}`} src={file.url} className="h-full w-full max-w-4xl rounded-card bg-white" />
         ) : canShowInline(file.contentType) ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={file.url} alt={`Proof file ${index + 1} of ${open.length}`} onError={() => setBroken(file.id)} className="max-h-full max-w-full object-contain" />
+          <img src={file.url} alt={`Confirmation file ${index + 1} of ${open.length}`} onError={() => setBroken(file.id)} className="max-h-full max-w-full object-contain" />
         ) : (
           <div className="max-w-md rounded-card bg-white p-5 text-center text-ink">
             <p className="m-0 font-bold">This kind of photo cannot be shown here</p>

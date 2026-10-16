@@ -39,11 +39,11 @@ export async function approveProofWithBankLineAction(input: {
   separateReason?: string | null;
 }): Promise<ApproveWithLineResult> {
   // The database function writes the audit row (actor, role, before and after: invariant I9); the activity stream's catalog has no key for it yet.
-  const doing = "approve the proof with the bank line";
+  const doing = "approve the payment confirmation with the bank line";
   const auth = await authorizeAction("bankConfirm", doing);
   if (!auth.ok) return auth;
   const { db } = auth.session;
-  if (!isUuid(input.proofId) || !isUuid(input.txnId)) return { ok: false, error: `Could not ${doing} — the proof or the bank line was not found.` };
+  if (!isUuid(input.proofId) || !isUuid(input.txnId)) return { ok: false, error: `Could not ${doing} — the payment confirmation or the bank line was not found.` };
   const note = (input.note ?? "").trim();
   const reason = (input.separateReason ?? "").trim();
   if (typeof input.separateReason === "string" && !reason) {
@@ -86,7 +86,7 @@ export async function approveProofWithBankLineAction(input: {
   }
   return {
     ok: true,
-    message: `Approved and reconciled${receipt ? `, receipt ${receipt}` : ""}. The proof's pledges are Paid and matched to the bank line; nothing was created twice.`,
+    message: `Approved and reconciled${receipt ? `, receipt ${receipt}` : ""}. The confirmation's pledges are Paid and matched to the bank line; nothing was created twice.`,
     data: { state, receipt },
   };
 }

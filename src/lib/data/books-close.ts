@@ -88,7 +88,7 @@ export async function loadWarningCounts(session: CrmSession): Promise<CloseWarni
     bankOn ? db.rpc("unbanked_counts", { p_center: center.id }) : null,
   ]);
   return {
-    proofsWaiting: proofs ? seen(proofs, () => parseProofCounts(proofs.data).waiting + parseProofCounts(proofs.data).needsInfo, "the payment proofs waiting") : null,
+    proofsWaiting: proofs ? seen(proofs, () => parseProofCounts(proofs.data).waiting + parseProofCounts(proofs.data).needsInfo, "the payment confirmations waiting") : null,
     unbanked: unbanked ? seen(unbanked, () => parseUnbankedCounts(unbanked.data).total, "the paid pledges not yet bank reconciled") : null,
   };
 }

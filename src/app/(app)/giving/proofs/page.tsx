@@ -4,7 +4,7 @@ import { ProofsScreen } from "@/components/giving-proofs/proofs-screen";
 import { loadProofsPage } from "@/lib/data/payment-proofs";
 import { getSession } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Payment proofs" };
+export const metadata: Metadata = { title: "Payment confirmations" };
 
 /**
  * Giving › Payment proofs: the proofs members sent for payments made another way, waiting for the treasury team

@@ -19,7 +19,7 @@ export const kind = "payments.proof_orphans";
 export const every = 24 * 3600;
 export const BUCKET = "payment-evidence";
 
-export const configured = (env: Env) => requireEnv(env, ["SUPABASE_URL", "SUPABASE_SECRET_KEY"], "Payment proof orphan clean-up");
+export const configured = (env: Env) => requireEnv(env, ["SUPABASE_URL", "SUPABASE_SECRET_KEY"], "Payment confirmation orphan clean-up");
 
 type Failure = { name: string; reason: string };
 export type OrphanResult = { removed: number; already_gone: number; failed: number; failures: Failure[] };
@@ -86,7 +86,7 @@ export async function run(job: Job, ctx: JobContext): Promise<OrphanResult> {
 
   ctx.log.info("payment proof orphan pass finished", { removed, already_gone: alreadyGone, failed: failures.length });
   if (failures.length > 0 && removed === 0 && alreadyGone === 0) {
-    throw new Error(`Could not remove ${failures.length} unused payment proof upload(s): ${failures[0]!.reason}. They will be tried again.`);
+    throw new Error(`Could not remove ${failures.length} unused payment confirmation upload(s): ${failures[0]!.reason}. They will be tried again.`);
   }
   return { removed, already_gone: alreadyGone, failed: failures.length, failures: failures.slice(0, 20) };
 }

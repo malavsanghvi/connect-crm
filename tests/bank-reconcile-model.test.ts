@@ -129,7 +129,7 @@ describe("what each candidate does", () => {
   });
   it("names each kind in words", () => {
     expect(kindWord("payment")).toBe("Banks a payment already recorded");
-    expect(kindWord("proof")).toBe("Settles a waiting proof");
+    expect(kindWord("proof")).toBe("Settles a waiting confirmation");
     expect(kindWord("lookalike")).toBe("Lookalike: blocked");
   });
 });

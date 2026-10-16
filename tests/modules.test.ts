@@ -223,7 +223,7 @@ describe("Settings › Modules rows", () => {
     expect(switchBlocker("people", false, rows)).toBe("Members & families is a core module and is always on.");
     expect(switchBlocker("giving", false, rows)).toBeNull();
     expect(switchWarning("giving", false, rows)).toBe(
-      "Bank reconciliation, Payment proofs, Offering counts, Insights, Opportunities, Recurring gifts, Statements, Special-day offerings, Bolis, Accounting & QuickBooks and CatchTheMatch go off with it and come back when Pledges & donations is switched on again.",
+      "Bank reconciliation, Payment confirmations, Offering counts, Insights, Opportunities, Recurring gifts, Statements, Special-day offerings, Bolis, Accounting & QuickBooks and CatchTheMatch go off with it and come back when Pledges & donations is switched on again.",
     );
     expect(switchBlocker("bolis", false, rows)).toBeNull();
     expect(switchWarning("bolis", false, rows)).toBeNull();

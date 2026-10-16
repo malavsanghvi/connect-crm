@@ -34,8 +34,8 @@ function proofFailure(doing: string, error: DbErrorLike): ProofResult {
 const NOT_SENT = "Nothing was changed.";
 
 export async function approveProofAction(input: ApproveInput): Promise<ProofResult> {
-  const doing = "Could not approve the proof";
-  const auth = await authorizeAction("recordPayment", "approve the payment proof");
+  const doing = "Could not approve the payment confirmation";
+  const auth = await authorizeAction("recordPayment", "approve the payment confirmation");
   if (!auth.ok) return auth;
   const built = approveArgs(input);
   if (!built.ok) return { ok: false, error: `${doing} — ${built.error} ${NOT_SENT}` };
@@ -47,7 +47,7 @@ export async function approveProofAction(input: ApproveInput): Promise<ProofResu
       console.error("[giving/proofs] approve stopped by a lookalike payment:", res.error.details);
       return {
         ok: false,
-        error: "Could not approve the proof — this family already has a lookalike of this payment. Keep the photos with it, or say why this is a different gift.",
+        error: "Could not approve the payment confirmation — this family already has a lookalike of this payment. Keep the photos with it, or say why this is a different gift.",
         lookalikes: dup,
       };
     }
@@ -68,10 +68,10 @@ export async function approveProofAction(input: ApproveInput): Promise<ProofResu
 }
 
 export async function rejectProofAction(proofId: string, reason: string): Promise<ProofResult> {
-  const doing = "Could not reject the proof";
-  const auth = await authorizeAction("recordPayment", "reject the payment proof");
+  const doing = "Could not reject the payment confirmation";
+  const auth = await authorizeAction("recordPayment", "reject the payment confirmation");
   if (!auth.ok) return auth;
-  if (!isUuid(proofId)) return { ok: false, error: `${doing} — that proof was not recognised. Reload the page and try again.` };
+  if (!isUuid(proofId)) return { ok: false, error: `${doing} — that payment confirmation was not recognised. Reload the page and try again.` };
   const bad = reasonProblem(reason, "reject");
   if (bad) return { ok: false, error: `${doing} — ${bad} ${NOT_SENT}` };
   const res = await auth.session.db.rpc("reject_payment_proof", { p_proof: proofId, p_reason: reason.trim() });
@@ -87,9 +87,9 @@ export async function rejectProofAction(proofId: string, reason: string): Promis
 
 export async function askProofAction(proofId: string, question: string): Promise<ProofResult> {
   const doing = "Could not send the question";
-  const auth = await authorizeAction("recordPayment", "ask about the payment proof");
+  const auth = await authorizeAction("recordPayment", "ask about the payment confirmation");
   if (!auth.ok) return auth;
-  if (!isUuid(proofId)) return { ok: false, error: `${doing} — that proof was not recognised. Reload the page and try again.` };
+  if (!isUuid(proofId)) return { ok: false, error: `${doing} — that payment confirmation was not recognised. Reload the page and try again.` };
   const bad = reasonProblem(question, "ask");
   if (bad) return { ok: false, error: `${doing} — ${bad} ${NOT_SENT}` };
   const res = await auth.session.db.rpc("ask_proof_question", { p_proof: proofId, p_question: question.trim() });
@@ -110,15 +110,15 @@ export type SignedFiles = { ok: true; urls: Record<string, string>; seconds: num
  * caller's own session, so the database decides whether this person may see them: a proof the person cannot read returns nothing.
  */
 export async function signProofFilesAction(proofId: string): Promise<SignedFiles> {
-  const doing = "Could not open the proof files";
-  const auth = await authorizeAction("payments", "open the payment proof files");
+  const doing = "Could not open the confirmation files";
+  const auth = await authorizeAction("payments", "open the payment confirmation files");
   if (!auth.ok) return auth;
-  if (!isUuid(proofId)) return { ok: false, error: `${doing} — that proof was not recognised. Reload the page and try again.` };
+  if (!isUuid(proofId)) return { ok: false, error: `${doing} — that payment confirmation was not recognised. Reload the page and try again.` };
   const { db } = auth.session;
   const rows = await db.from("payment_proof_files").select("id, storage_path, deleted_at").eq("proof_id", proofId);
   if (rows.error) return { ok: false, error: failure(doing, rows.error).error };
   const paths = (rows.data ?? []).filter((r) => !r.deleted_at && r.storage_path).map((r) => r.storage_path as string);
-  if (paths.length === 0) return { ok: false, error: `${doing} — you don't have access to this proof's files, or they were removed.` };
+  if (paths.length === 0) return { ok: false, error: `${doing} — you don't have access to this confirmation's files, or they were removed.` };
   const signed = await signEvidencePaths(db, paths);
   if (signed.urls.size === 0) return { ok: false, error: signed.error ?? `${doing} — no link could be made. Try again.` };
   const urls: Record<string, string> = {};

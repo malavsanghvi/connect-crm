@@ -57,7 +57,7 @@ describe("parseEvidence", () => {
 describe("the words", () => {
   const items = parseEvidence(wire)!;
   it("titles a proof and a payment", () => {
-    expect(evidenceTitle(items[0], "USD")).toBe("Proof for $250.00, check 1048");
+    expect(evidenceTitle(items[0], "USD")).toBe("Payment confirmation for $250.00, check 1048");
     expect(evidenceTitle(items[1], "USD")).toBe("Receipt R-2026-0211, cash · $60.00 on this pledge");
   });
   it("says the state of each piece of evidence", () => {

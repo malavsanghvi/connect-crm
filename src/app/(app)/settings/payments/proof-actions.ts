@@ -13,14 +13,14 @@ import { authorizeAction } from "@/lib/session";
  * app.set_proof_policy (settings.manage), which checks every value and audits the change.
  */
 export async function saveProofRulesAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  const doing = "Could not save the payment proof rules";
-  const auth = await authorizeAction("centerSettings", "save the payment proof rules");
+  const doing = "Could not save the payment confirmation rules";
+  const auth = await authorizeAction("centerSettings", "save the payment confirmation rules");
   if (!auth.ok) return auth;
   const parsed = rulesPatchFromForm(fd);
   if (!parsed.ok) return { ok: false, error: `${doing} — ${parsed.error}` };
-  const res = await writeProofPolicy(auth.session, parsed.patch, "Payment proof rules changed", doing);
+  const res = await writeProofPolicy(auth.session, parsed.patch, "Payment confirmation rules changed", doing);
   if (!res.ok) return res;
   revalidatePath("/settings/payments");
   revalidatePath("/giving/proofs");
-  return { ok: true, message: "Payment proof rules saved · audit logged" };
+  return { ok: true, message: "Payment confirmation rules saved · audit logged" };
 }

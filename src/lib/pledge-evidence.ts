@@ -114,7 +114,7 @@ export function evidenceState(item: Pick<EvidenceItem, "kind" | "state">): { lab
     case "paid":
       return { label: "Evidence on a payment", tone: "ok" };
     default:
-      return { label: item.kind === "proof" ? "Proof" : "Payment", tone: "muted" };
+      return { label: item.kind === "proof" ? "Confirmation" : "Payment", tone: "muted" };
   }
 }
 
@@ -130,7 +130,7 @@ export function evidenceTitle(item: EvidenceItem, currency: string, locale?: str
   if (item.kind === "payment") {
     return `${item.receiptNumber ? `Receipt ${item.receiptNumber}` : "Payment"}${how ? `, ${how}` : ""} · ${money} on this pledge`;
   }
-  return `Proof for ${money}${how ? `, ${how}` : ""}${item.reference ? ` ${item.reference}` : ""}`;
+  return `Payment confirmation for ${money}${how ? `, ${how}` : ""}${item.reference ? ` ${item.reference}` : ""}`;
 }
 
 /** "Sent Oct 12 · paid Oct 10" (or the payment date). */

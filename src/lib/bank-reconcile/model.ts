@@ -113,7 +113,7 @@ export const GROUPS: readonly { key: GroupKey; title: string; desc: string }[] =
   {
     key: "already",
     title: "Already accounted for",
-    desc: "This money looks like a payment or proof already counted. Creating a second payment is blocked unless you say why it is a different gift.",
+    desc: "This money looks like a payment or confirmation already counted. Creating a second payment is blocked unless you say why it is a different gift.",
   },
   {
     key: "money",
@@ -162,7 +162,7 @@ export function isBatchEligible(line: StatementLine): boolean {
 
 const KIND_WORD: Record<CandidateKind, string> = {
   payment: "Banks a payment already recorded",
-  proof: "Settles a waiting proof",
+  proof: "Settles a waiting confirmation",
   zelle_report: "Matches a member's Zelle report",
   conflict: "The amount differs",
   lookalike: "Lookalike: blocked",
@@ -190,7 +190,7 @@ export function rowAction(c: Candidate, resolved: "proof" | "payment" | null, li
     case "payment":
       return c.refId ? { type: "attach", paymentId: c.refId, label: "Attach to this payment" } : { type: "none", why: "The payment was not named." };
     case "proof":
-      return c.refId ? { type: "approve", proofId: c.refId, label: "Approve and reconcile" } : { type: "none", why: "The proof was not named." };
+      return c.refId ? { type: "approve", proofId: c.refId, label: "Approve and reconcile" } : { type: "none", why: "The payment confirmation was not named." };
     case "zelle_report":
       return { type: "confirm", householdId: c.householdId, reportId: c.refId, label: "Confirm" };
     case "new_money":
@@ -200,7 +200,7 @@ export function rowAction(c: Candidate, resolved: "proof" | "payment" | null, li
     case "conflict":
       if (resolved === "proof" && c.refId) return { type: "conflict_proof", proofId: c.refId, label: `Approve at ${formatCents(line.amountCents, currency, locale)} and reconcile` };
       if (resolved === "payment") return { type: "conflict_payment" };
-      return { type: "none", why: "Could not tell whether this is a payment or a proof. Open the family to look." };
+      return { type: "none", why: "Could not tell whether this is a payment or a confirmation. Open the family to look." };
   }
 }
 

@@ -47,7 +47,7 @@ export function proofsTaskCopy(c: ProofCounts): CountsTaskCopy | null {
   if (c.waiting > 0 && c.oldestDays > 0) parts.push(`oldest waiting ${plural(c.oldestDays, "day")}`);
   if (c.stale > 0) parts.push(`${plural(c.stale, "reply", "replies")} overdue from members`);
   const meta = parts.length ? `Sent by members as soft credit · ${parts.join(" · ")}` : "Sent by members as soft credit";
-  return { count, title: `${plural(count, "payment proof")} to verify`, meta };
+  return { count, title: `${plural(count, "payment confirmation")} to review`, meta };
 }
 
 /** "Paid, not on the bank": payments recorded as received that no bank line has been matched to. */
@@ -72,7 +72,7 @@ export function expiringTaskCopy(c: ExpiringCounts, date: (value: string) => str
   const first = c.soonestOn ? `The first is due ${date(c.soonestOn)} · ` : "";
   return {
     count: c.count,
-    title: `${plural(c.count, "proof file")} about to be removed`,
+    title: `${plural(c.count, "confirmation file")} about to be removed`,
     meta: `${first}keep a copy of anything you still need · Settings › Storage`,
   };
 }

@@ -164,8 +164,8 @@ describe("payment proofs and payments not on the bank (B115)", () => {
       ...base,
       tasks: [
         ...base.tasks,
-        makeTask("proofs", "all", "4 payment proofs to verify", "Sent by members as soft credit", [{ label: "Open", href: "/giving/proofs" }], undefined, detail("proofs", 4)),
-        makeTask("proofs_expiring", "all", "2 proof files about to be removed", "The first is due Jan 1, 2027", [{ label: "Open", href: "/settings/storage" }], undefined, detail("proofs_expiring", 2)),
+        makeTask("proofs", "all", "4 payment confirmations to review", "Sent by members as soft credit", [{ label: "Open", href: "/giving/proofs" }], undefined, detail("proofs", 4)),
+        makeTask("proofs_expiring", "all", "2 confirmation files about to be removed", "The first is due Jan 1, 2027", [{ label: "Open", href: "/settings/storage" }], undefined, detail("proofs_expiring", 2)),
         makeTask("unbanked", "all", "3 payments paid, not on the bank", "oldest 35 days", [{ label: "Open", href: "/giving/payments/bank?view=unbanked" }], undefined, detail("unbanked", 3)),
       ],
     };
@@ -176,9 +176,9 @@ describe("payment proofs and payments not on the bank (B115)", () => {
     const proofs = q.rows.find((r) => r.id === "proofs:all");
     const unbanked = q.rows.find((r) => r.id === "unbanked:all");
     const expiring = q.rows.find((r) => r.id === "proofs_expiring:all");
-    expect(proofs).toMatchObject({ group: "approvals", title: "4 payment proofs to verify", count: 4 });
-    expect(proofs?.acts).toEqual([{ kind: "link", href: "/giving/proofs", label: "Open proofs", primary: true }]);
-    expect(expiring).toMatchObject({ group: "approvals", title: "2 proof files about to be removed", count: 2 });
+    expect(proofs).toMatchObject({ group: "approvals", title: "4 payment confirmations to review", count: 4 });
+    expect(proofs?.acts).toEqual([{ kind: "link", href: "/giving/proofs", label: "Open confirmations", primary: true }]);
+    expect(expiring).toMatchObject({ group: "approvals", title: "2 confirmation files about to be removed", count: 2 });
     expect(expiring?.acts).toEqual([{ kind: "link", href: "/settings/storage", label: "Open storage settings", primary: true }]);
     expect(unbanked).toMatchObject({ group: "bank", title: "3 payments paid, not on the bank", count: 3 });
     expect(unbanked?.acts).toEqual([{ kind: "link", href: "/giving/payments/bank?view=unbanked", label: "Open the list", primary: true }]);
@@ -193,11 +193,11 @@ describe("payment proofs and payments not on the bank (B115)", () => {
   });
 
   it("a source that could not be read is said next to its group", () => {
-    const input: TodayInput = { ...sampleTodayInput(role("treasurer")), taskFailures: [{ source: "proofs", tag: "Proofs", message: "timeout" }, { source: "proofs_expiring", tag: "Proofs ending", message: "timeout" }, { source: "unbanked", tag: "Not banked", message: "timeout" }] };
+    const input: TodayInput = { ...sampleTodayInput(role("treasurer")), taskFailures: [{ source: "proofs", tag: "Confirmations", message: "timeout" }, { source: "proofs_expiring", tag: "Confirmations ending", message: "timeout" }, { source: "unbanked", tag: "Not banked", message: "timeout" }] };
     const q = buildQueue(input, ctx({ manage: true, bankConfirm: true }));
     expect(q.problems.map((p) => p.group)).toEqual(["approvals", "approvals", "bank"]);
-    expect(q.problems[0].message).toBe("Could not load the proofs tasks: timeout.");
-    expect(q.problems[1].message).toBe("Could not load the proofs ending tasks: timeout.");
+    expect(q.problems[0].message).toBe("Could not load the confirmations tasks: timeout.");
+    expect(q.problems[1].message).toBe("Could not load the confirmations ending tasks: timeout.");
   });
 });
 

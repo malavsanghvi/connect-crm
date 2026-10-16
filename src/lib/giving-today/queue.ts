@@ -997,7 +997,7 @@ function proofTaskRows(tasks: HomeTask[], source: "proofs" | "proofs_expiring" |
       lines: [t.meta],
       family: null,
       since: null,
-      acts: t.links.map((l) => ({ kind: "link" as const, href: l.href, label: source === "proofs" ? "Open proofs" : source === "proofs_expiring" ? "Open storage settings" : "Open the list", primary: true })),
+      acts: t.links.map((l) => ({ kind: "link" as const, href: l.href, label: source === "proofs" ? "Open confirmations" : source === "proofs_expiring" ? "Open storage settings" : "Open the list", primary: true })),
       count: t.giving?.count ?? 1,
     }));
 }

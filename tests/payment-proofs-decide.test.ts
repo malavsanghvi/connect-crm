@@ -109,8 +109,8 @@ describe("reading the answer", () => {
 
 describe("what the database refused", () => {
   it("uses the database's own sentence when it wrote one", () => {
-    expect(plainDbSentence({ code: "42501", message: "You cannot verify a proof from your own household. Another member of the treasury team must." })).toContain("own household");
-    expect(plainDbSentence({ code: "22023", message: "This proof was already approved by someone else." })).toContain("already approved");
+    expect(plainDbSentence({ code: "42501", message: "You cannot review a payment confirmation from your own household. Another member of the treasury team must." })).toContain("own household");
+    expect(plainDbSentence({ code: "22023", message: "This payment confirmation was already approved by someone else." })).toContain("already approved");
   });
 
   it("leaves Postgres' own messages to the generic explanation", () => {
