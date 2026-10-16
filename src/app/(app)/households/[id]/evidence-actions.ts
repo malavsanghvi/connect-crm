@@ -1,6 +1,7 @@
 "use server";
 
 import { failure, type ActionResult } from "@/lib/errors";
+import { logProofViews } from "@/lib/data/payment-proofs";
 import { EVIDENCE_BUCKET, EVIDENCE_LINK_SECONDS, parseEvidence, type EvidenceFile, type EvidenceItem } from "@/lib/pledge-evidence";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, type CrmSession } from "@/lib/session";
@@ -47,8 +48,7 @@ export async function loadPledgeEvidenceAction(pledgeId: string): Promise<Action
 /**
  * A link to open one file for 10 minutes. The file must be in this pledge's own evidence (the database is asked again, so a
  * pledge id and a file id from different places never open anything), and a removed file has only its tombstone.
- * NOT YET LOGGED: the plan says every staff view is logged, but the database has no function to record a view (0866 has none, and the
- * activity catalog has no key for it), so the link is made and the view is only in the storage service's own log. A migration is needed.
+ * A staff view is written to the audit log (log_proof_view, 0872); a failure to log is reported on the server and never hides the file.
  */
 export async function openEvidenceFileAction(pledgeId: string, fileId: string): Promise<ActionResult<{ url: string; expiresInSeconds: number }>> {
   const doing = "open the file";
@@ -63,5 +63,6 @@ export async function openEvidenceFileAction(pledgeId: string, fileId: string): 
   if (file.removed || !file.storagePath) return { ok: false, error: `Could not ${doing} — the file was removed${file.removedReason ? ` (${file.removedReason})` : ""}. Only the record that it existed is kept.` };
   const signed = await db.storage.from(EVIDENCE_BUCKET).createSignedUrl(file.storagePath, EVIDENCE_LINK_SECONDS);
   if (signed.error || !signed.data?.signedUrl) return failure(`Could not ${doing}`, signed.error ?? "the storage service gave no link");
+  await logProofViews(db, [file.id]);
   return { ok: true, data: { url: signed.data.signedUrl, expiresInSeconds: EVIDENCE_LINK_SECONDS } };
 }

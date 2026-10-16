@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { communityFormat } from "@/lib/community-format";
-import { SIGNED_URL_SECONDS, signEvidencePaths } from "@/lib/data/payment-proofs";
+import { SIGNED_URL_SECONDS, logProofViews, signEvidencePaths } from "@/lib/data/payment-proofs";
 import { failure, isStepUpError, type DbErrorLike } from "@/lib/errors";
 import { approveArgs, decisionMessage, duplicateFromError, isUuid, parseDecision, plainDbSentence, reasonProblem, type ApproveInput, type DecisionState } from "@/lib/payment-proofs/decide";
 import type { Lookalike } from "@/lib/payment-proofs/queue";
@@ -123,5 +123,6 @@ export async function signProofFilesAction(proofId: string): Promise<SignedFiles
   if (signed.urls.size === 0) return { ok: false, error: signed.error ?? `${doing} — no link could be made. Try again.` };
   const urls: Record<string, string> = {};
   for (const [path, url] of signed.urls) urls[path] = url;
+  await logProofViews(db, (rows.data ?? []).filter((r) => r.storage_path && signed.urls.has(r.storage_path as string)).map((r) => r.id as string));
   return { ok: true, urls, seconds: SIGNED_URL_SECONDS, partial: signed.error };
 }
