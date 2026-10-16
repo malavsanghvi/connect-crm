@@ -51,6 +51,16 @@ export async function signEvidencePaths(db: AppSupabase, paths: readonly string[
   return { urls, error: missing > 0 ? `Could not make a link for ${missing} ${missing === 1 ? "file" : "files"}. Reload the page to try again.` : null };
 }
 
+/** The staff view log (0872): one audit entry per file a staff member is shown. A failure is logged on the server and never hides the file. */
+export async function logProofViews(db: AppSupabase, fileIds: readonly string[]): Promise<void> {
+  await Promise.all(
+    [...new Set(fileIds)].map(async (id) => {
+      const res = await db.rpc("log_proof_view", { p_file: id });
+      if (res.error) failure("Could not write the proof view to the audit log", res.error);
+    }),
+  );
+}
+
 export async function loadProofsPage(session: CrmSession): Promise<ProofsPage> {
   if (!isModuleEnabled(session, "giving_proofs")) return { state: "off" };
   if (!canAccess(session, "payments")) return { state: "no_access" };
@@ -72,6 +82,7 @@ export async function loadProofsPage(session: CrmSession): Promise<ProofsPage> {
   const signed = await signEvidencePaths(db, first.flatMap((c) => c.files.filter((f) => !f.removed).map((f) => f.path)));
   if (signed.error) notices.push(signed.error);
   for (const c of first) for (const f of c.files) f.url = signed.urls.get(f.path) ?? null;
+  await logProofViews(db, first.flatMap((c) => c.files.filter((f) => f.url).map((f) => f.id)));
 
   const rules = identifierRules(center.rules);
   return {
