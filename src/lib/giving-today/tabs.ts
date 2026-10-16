@@ -15,6 +15,7 @@ import { countsWord } from "@/lib/wording";
 /** Giving's add-on modules (section 11.1), by what they hold. */
 export const GIVING_ADDONS = {
   bank: "giving_bank",
+  proofs: "giving_proofs",
   counts: "giving_counts",
   opportunities: "giving_opportunities",
   recurring: "giving_recurring",
@@ -29,6 +30,7 @@ export type GivingTabKey =
   | "payments"
   | "recurring"
   | "bank"
+  | "proofs"
   | "campaigns"
   | "labh"
   | "bolis"
@@ -66,6 +68,11 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
   if (tab("/giving/payments")) out.push({ key: "payments", label: "Payments", href: "/giving/payments", paths: ["/giving/payments", "/giving/recurring"] });
   if (giving && canAccess(ctx, "bank") && on(GIVING_ADDONS.bank)) {
     out.push({ key: "bank", label: "Bank", href: "/giving/payments/bank", paths: ["/giving/payments/bank", "/giving/bank"] });
+  }
+  // Payment proofs (0866): the treasury team verifies what members sent when they paid another way. Whoever may record an offline
+  // payment (giving.record_offline or giving.manage) can decide; the screen itself is read by anyone who sees Payments.
+  if (giving && canAccess(ctx, "payments") && on(GIVING_ADDONS.proofs)) {
+    out.push({ key: "proofs", label: "Payment proofs", href: "/giving/proofs", paths: ["/giving/proofs"] });
   }
   // Campaigns & opportunities holds the Campaigns list, Opportunities, Bolis and Labh as views (slice 6): shown when any of
   // them is open to the person, opening on the first; Bolis and Labh keep their screens, which light this tab.

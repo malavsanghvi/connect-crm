@@ -20,6 +20,8 @@ export type TaskSourceKey =
   | "credit"
   | "override"
   | "deposits"
+  | "proofs"
+  | "unbanked"
   | "membership"
   | "newsletter"
   | "inbox"
@@ -59,6 +61,10 @@ export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "writeoff", tag: "Write-off", color: "brown", anyOf: ["giving.approve", "giving.manage"], href: "/giving/pledges" },
   { key: "credit", tag: "Credit", color: "brown", anyOf: ["giving.manage"], href: "/giving/payments" },
   { key: "deposits", tag: "Deposits", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/bank", module: "giving_bank" },
+  // Payment proofs members sent (0866): the treasury team verifies them under Giving > Payment proofs.
+  { key: "proofs", tag: "Proofs", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/proofs", module: "giving_proofs" },
+  // Payments recorded as paid but not yet on a bank statement (0868): Bank > Paid, not on the bank.
+  { key: "unbanked", tag: "Not banked", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/payments/bank?view=unbanked", module: "giving_bank" },
   { key: "membership", tag: "Membership", color: "navy", anyOf: ["people.approve"], href: "/memberships/applications" },
   { key: "override", tag: "Voting", color: "navy", anyOf: ["people.approve"], href: "/people/voting" },
   { key: "newsletter", tag: "Newsletter", color: "navy", anyOf: ["comms.approve"], alsoNeeds: ["comms.view", "comms.send"], href: "/comms" },
@@ -114,7 +120,7 @@ export type TaskApproval = {
  * and meta line, Today builds its row from this.
  */
 export type GivingTaskDetail = {
-  kind: "refund" | "flagged_refund" | "write_off" | "credit" | "payee" | "bank_lines" | "zelle_unseen";
+  kind: "refund" | "flagged_refund" | "write_off" | "credit" | "payee" | "bank_lines" | "zelle_unseen" | "proofs" | "unbanked";
   /**
    * first: a first approval is needed (a treasurer, giving.manage); second: a DIFFERENT person with giving.approve;
    * complete: both approvals are in and a treasurer finishes it; handle: a treasurer acts, then marks it handled;
@@ -174,7 +180,7 @@ export function makeTask(
 }
 
 /** The Home task sources that belong to Giving (Today's Approvals and Bank rows, and QuickBooks and the account mapping under Books). */
-export const GIVING_TASK_SOURCES: readonly TaskSourceKey[] = ["refund", "payee", "mapping", "writeoff", "credit", "deposits", "quickbooks"];
+export const GIVING_TASK_SOURCES: readonly TaskSourceKey[] = ["refund", "payee", "mapping", "writeoff", "credit", "deposits", "proofs", "unbanked", "quickbooks"];
 
 /** "{n} thing" / "{n} things". */
 export function plural(n: number, one: string, many = `${one}s`): string {

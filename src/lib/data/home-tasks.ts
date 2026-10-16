@@ -8,6 +8,7 @@ import { addDays, daysBetween, dateInTz, formatDate, todayInTz } from "@/lib/dat
 import { explainError, type DbErrorLike } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
 import { parsePayeeQueue, waitingRequests } from "@/lib/payments/change-control";
+import { parseProofCounts, parseUnbankedCounts, proofsTaskCopy, unbankedTaskCopy } from "@/lib/payment-proofs/counts";
 import { untypedRpc } from "@/lib/payments/rpc";
 import { zelleWindowDays } from "@/lib/payments/zelle";
 import { can } from "@/lib/permissions";
@@ -52,6 +53,11 @@ function bankDetail(kind: "bank_lines" | "zelle_unseen", n: number, deposits: nu
   return { kind, stage: "open", id: "all", householdId: null, amountCents: null, reference: null, reason: null, askedBy: null, mine: false, since: null, provider: null, count: n, deposits };
 }
 
+/** The count Giving's Today shows for a task that is only a number (payment proofs, payments not on the bank). */
+function countDetail(kind: "proofs" | "unbanked", n: number): GivingTaskDetail {
+  return { kind, stage: "open", id: "all", householdId: null, amountCents: null, reference: null, reason: null, askedBy: null, mine: false, since: null, provider: null, count: n };
+}
+
 /** Zelle reports past their window with no bank line (0 before migration 0582 is applied). */
 async function zelleUnmatchedCount(session: CrmSession): Promise<number> {
   const res = await session.db.rpc("payment_report_counts", { p_center: session.center.id });
@@ -64,9 +70,34 @@ async function zelleUnmatchedCount(session: CrmSession): Promise<number> {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+/** A counts function of the proofs and bank engines (0866, 0868); null before its migration is applied. */
+async function countsRpc(session: CrmSession, fn: "payment_proof_counts" | "unbanked_counts"): Promise<unknown> {
+  const res = await session.db.rpc(fn, { p_center: session.center.id });
+  if (res.error) {
+    // Only a database without the function yet is skipped silently; anything else is this source's failure.
+    if (res.error.code === "PGRST202" || res.error.code === "42883") return null;
+    throw new SourceError(res.error);
+  }
+  return res.data;
+}
+
 const TIER_LABEL: Record<string, string> = { life: "Life", yearly: "Yearly", community: "Community" };
 
 const loaders: Record<TaskSourceKey, Loader> = {
+  // Payment proofs members sent, waiting for the treasury team to verify (0866).
+  async proofs(session) {
+    const copy = proofsTaskCopy(parseProofCounts(await countsRpc(session, "payment_proof_counts")));
+    if (!copy) return [];
+    return [makeTask("proofs", "all", copy.title, copy.meta, [{ label: "Open", href: "/giving/proofs" }], undefined, countDetail("proofs", copy.count))];
+  },
+
+  // Payments recorded as paid that no bank line has been matched to (0868).
+  async unbanked(session) {
+    const copy = unbankedTaskCopy(parseUnbankedCounts(await countsRpc(session, "unbanked_counts")));
+    if (!copy) return [];
+    return [makeTask("unbanked", "all", copy.title, copy.meta, [{ label: "Open", href: "/giving/payments/bank?view=unbanked" }], undefined, countDetail("unbanked", copy.count))];
+  },
+
   // Requests to change where gifts go that someone else asked for and this person (giving.approve) may confirm or turn down.
   async payee(session) {
     const res = await untypedRpc(session.db)("payee_change_queue", { p_center: session.center.id });

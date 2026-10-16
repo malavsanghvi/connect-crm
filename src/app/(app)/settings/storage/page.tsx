@@ -3,13 +3,17 @@ import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
 import { Alert, Card, KpiGrid, NoAccess, PageHeader, QueryError, Stat, StatusText, TableWrap } from "@/components/ui";
+import { readProofPolicy } from "@/lib/data/payment-proofs-policy";
+import { isModuleEnabled } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
+import { parseProofPolicy } from "@/lib/payment-proofs/policy";
 import { formatBytes, parseStorageOverview, STORAGE_AREAS } from "@/lib/setup";
 import { rulesVersion } from "@/lib/settings-rules";
 import { parseUploadScanSummary, uploadScanView } from "@/lib/upload-scan";
 
 import { saveRetentionAction } from "./actions";
+import { ProofRetention } from "./proof-retention";
 
 export const metadata: Metadata = { title: "Storage · Settings" };
 
@@ -45,6 +49,15 @@ export default async function StoragePage() {
   // The virus check (0589): app.center_storage_overview's "scan" summary.
   const scan = uploadScanView(parseUploadScanSummary((res.data as { scan?: unknown } | null)?.scan));
   const version = rulesVersion(center.rules);
+  // Payment proofs (0865): the years kept and the legal hold. The storage overview does not list this area, so it has its own card.
+  const proofsOn = isModuleEnabled(session, "giving_proofs");
+  const proofPolicy = proofsOn ? await readProofPolicy(session) : null;
+  let proofHeld: number | null = null;
+  if (proofsOn && canAccess(session, "payments")) {
+    const files = await db.from("payment_proof_files").select("id", { count: "exact", head: true }).is("deleted_at", null);
+    if (files.error) console.error("[settings/storage] could not count the payment proof files:", files.error);
+    else proofHeld = files.count ?? 0;
+  }
   const pct = o.limitBytes ? Math.min(100, Math.round((o.usedBytes / o.limitBytes) * 100)) : null;
 
   return (
@@ -119,6 +132,20 @@ export default async function StoragePage() {
           </table>
         </TableWrap>
       </Card>
+      <div className="mt-4">
+        {proofPolicy && !proofPolicy.ok ? (
+          <Alert tone="danger" title="Could not load how long payment proofs are kept">
+            {proofPolicy.error}
+          </Alert>
+        ) : (
+          <ProofRetention
+            policy={proofPolicy && proofPolicy.ok ? proofPolicy.policy : parseProofPolicy(null)}
+            canEdit={proofsOn}
+            held={proofHeld}
+            moduleOn={proofsOn}
+          />
+        )}
+      </div>
       <div className="mt-3 text-[13px]" data-upload-scan>
         <p>
           <StatusText tone={scan.tone}>{scan.title}</StatusText>

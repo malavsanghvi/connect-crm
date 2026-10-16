@@ -18,7 +18,7 @@ import {
 } from "@/lib/giving-today/queue";
 import { SAMPLE_CARDS } from "@/lib/giving-workspace/fixtures";
 import { LEGACY_KIND, NEUTRAL_KIND, type KindProfile } from "@/lib/kind";
-import { visibleTaskSources, type GivingTaskDetail } from "@/lib/tasks";
+import { makeTask, visibleTaskSources, type GivingTaskDetail } from "@/lib/tasks";
 import { countsWord } from "@/lib/wording";
 
 const LABELS = { orgMemberLabel: "member", orgHouseholdLabel: "Club household ID" };
@@ -152,6 +152,48 @@ describe("Home and Today read the same task list, so they never disagree", () =>
       for (const t of input.tasks) expect(sources.has(t.source)).toBe(true);
     });
   }
+});
+
+describe("payment proofs and payments not on the bank (B115)", () => {
+  const detail = (kind: "proofs" | "unbanked", count: number): GivingTaskDetail => ({
+    kind, stage: "open", id: "all", householdId: null, amountCents: null, reference: null, reason: null, askedBy: null, mine: false, since: null, provider: null, count,
+  });
+  const withTasks = (): TodayInput => {
+    const base = sampleTodayInput(role("treasurer"));
+    return {
+      ...base,
+      tasks: [
+        ...base.tasks,
+        makeTask("proofs", "all", "4 payment proofs to verify", "Sent by members as soft credit", [{ label: "Open", href: "/giving/proofs" }], undefined, detail("proofs", 4)),
+        makeTask("unbanked", "all", "3 payments paid, not on the bank", "oldest 35 days", [{ label: "Open", href: "/giving/payments/bank?view=unbanked" }], undefined, detail("unbanked", 3)),
+      ],
+    };
+  };
+
+  it("show as one row each: proofs under Approvals, unbanked under Bank, with Home's number", () => {
+    const q = buildQueue(withTasks(), ctx({ manage: true, bankConfirm: true, allocate: true, countRecord: true, closeManage: true }));
+    const proofs = q.rows.find((r) => r.id === "proofs:all");
+    const unbanked = q.rows.find((r) => r.id === "unbanked:all");
+    expect(proofs).toMatchObject({ group: "approvals", title: "4 payment proofs to verify", count: 4 });
+    expect(proofs?.acts).toEqual([{ kind: "link", href: "/giving/proofs", label: "Open proofs", primary: true }]);
+    expect(unbanked).toMatchObject({ group: "bank", title: "3 payments paid, not on the bank", count: 3 });
+    expect(unbanked?.acts).toEqual([{ kind: "link", href: "/giving/payments/bank?view=unbanked", label: "Open the list", primary: true }]);
+    // The order stays approvals, bank, pledges, counts, books.
+    const order = q.rows.map((r) => GROUP_ORDER.indexOf(r.group));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it("do not disturb the bank numbers Home and Today share", () => {
+    const totals = bankTotalsFromTasks(withTasks().tasks);
+    expect(totals).toEqual({ lines: 9, deposits: 1, zelleUnseen: 1 });
+  });
+
+  it("a source that could not be read is said next to its group", () => {
+    const input: TodayInput = { ...sampleTodayInput(role("treasurer")), taskFailures: [{ source: "proofs", tag: "Proofs", message: "timeout" }, { source: "unbanked", tag: "Not banked", message: "timeout" }] };
+    const q = buildQueue(input, ctx({ manage: true, bankConfirm: true }));
+    expect(q.problems.map((p) => p.group)).toEqual(["approvals", "bank"]);
+    expect(q.problems[0].message).toBe("Could not load the proofs tasks: timeout.");
+  });
 });
 
 describe("a second approver who holds only giving.approve", () => {

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import { Alert, buttonClass, NoAccess, PageHeader, QueryError } from "@/components/ui";
+import { communityFormat } from "@/lib/community-format";
+import { readProofPolicy } from "@/lib/data/payment-proofs-policy";
 import { readPublicEnv } from "@/lib/env";
 import { explainError } from "@/lib/errors";
 import { parsePayeeQueue, parsePaymentReadiness } from "@/lib/payments/change-control";
@@ -14,6 +16,7 @@ import { getSession } from "@/lib/session";
 import type { ChangeControl } from "./change-control";
 import { PaymentsPanel } from "./payments-panel";
 import { PluginCards } from "./plugin-cards";
+import { ProofRules } from "./proof-rules";
 
 export const metadata: Metadata = { title: "Payments · Settings" };
 
@@ -111,6 +114,9 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
   }
   const settings = settingsRes.data as unknown as PaymentSettings;
   const env = readPublicEnv();
+  // Payment proofs (0865): the rules sit below the ways to pay, only while the add-on is on.
+  const proofsOn = isModuleEnabled(session, "giving_proofs");
+  const proofPolicy = proofsOn ? await readProofPolicy(session) : null;
   const connected = typeof sp.connected === "string" ? sp.connected : null;
   const connectError = typeof sp.connect_error === "string" ? sp.connect_error : null;
   return (
@@ -130,6 +136,17 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
       >
         <PluginCards s={settings} ps={plugins.value} tz={center.time_zone} cc={cc} bankOn={isModuleEnabled(session, "giving_bank")} />
       </PaymentsPanel>
+      {proofPolicy ? (
+        <div className="mt-4">
+          {proofPolicy.ok ? (
+            <ProofRules policy={proofPolicy.policy} canEdit={canAccess(session, "centerSettings")} currency={communityFormat(center).currency} />
+          ) : (
+            <Alert tone="danger" title="Could not load the payment proof rules">
+              {proofPolicy.error}
+            </Alert>
+          )}
+        </div>
+      ) : null}
     </>
   );
 }

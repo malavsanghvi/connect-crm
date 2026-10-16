@@ -15423,6 +15423,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      log_proof_view: {
+        Args: {
+          p_file: string;
+        };
+        Returns: undefined;
+      };
       make_primary_of_own_household: {
         Args: {
           p_person: string;
@@ -16678,6 +16684,13 @@ export type Database = {
       proof_policy: {
         Args: {
           p_center: string;
+        };
+        Returns: Json;
+      };
+      proof_retention_preview: {
+        Args: {
+          p_center: string;
+          p_years: number;
         };
         Returns: Json;
       };
