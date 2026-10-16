@@ -16,11 +16,14 @@ export function BankImport({
   accountName,
   expectedFormat,
   currency,
+  testStatement = false,
 }: {
   bankAccountId: string;
   accountName: string;
   expectedFormat: string;
   currency: string;
+  /** A sandbox or a demo community: offer the sample statement made from its own test data. */
+  testStatement?: boolean;
 }) {
   const [fileName, setFileName] = useState("");
   const [text, setText] = useState<string | null>(null);
@@ -102,6 +105,16 @@ export function BankImport({
           Also import money out (debits)
         </label>
       </div>
+      {testStatement ? (
+        <p className="text-sm text-muted">
+          Nothing to import yet?{" "}
+          <a href="/giving/payments/bank/test-statement" download className="crm-link font-semibold">
+            Test Bank Statement
+          </a>{" "}
+          is a sample file made from this community&apos;s test data: it has a line for an open pledge, a payment waiting for the bank, a waiting payment
+          confirmation, a payer nobody knows and a bank fee. Download it, then choose it above.
+        </p>
+      ) : null}
       {readError ? (
         <p role="alert" className="rounded-lg border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
           {readError}

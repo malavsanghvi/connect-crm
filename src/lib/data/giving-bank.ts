@@ -48,6 +48,7 @@ import { parseReportQueue, type ReportQueue } from "@/lib/payments/zelle";
 import { can, canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
+import { isTestCommunity } from "@/lib/test-statement";
 import { workspaceLabel } from "@/lib/workspaces";
 
 const BASE = "/giving/payments/bank";
@@ -128,6 +129,7 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
       configureZelle: can(session, ["giving.manage", "integrations.manage"]),
       pairPayouts: canAccess(session, "payoutPair"),
       undoMatch: canAccess(session, "givingManage"),
+      testStatement: canAccess(session, "bankImport") && isTestCommunity(center, session.demo === true),
     },
   };
   if (!canAccess(session, "bank") && !canConfirm) return { ...base, body: { state: "no_access", area: "Bank reconciliation", access: "bank" } };

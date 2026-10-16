@@ -28,6 +28,9 @@ Member app: open any paid pledge (Closed filter) › the confirmation with the s
 Portal: Households › a household › Pledges › Evidence. A payment that covered three pledges shows the same confirmation on all three.
 
 ## 4. Bank statement (Giving › Bank, needs Bank reconciliation)
+0. In a sandbox or a demo community, **Import a statement** has a **Test Bank Statement** link. It downloads a CSV made from that community's own test data
+   (an open pledge's uncovered amount, a payment recorded by hand and not yet banked, a waiting payment confirmation, a payer nobody knows, an
+   unexplained deposit and a bank fee), dated back from today, in the format of its bank account. A live community does not get it.
 1. Import a statement CSV as usual, then open **Reconcile**: each line shows what the money may already be (a payment awaiting the bank, a waiting
    payment confirmation, a Zelle report, a conflict, a lookalike, or new money) with the exact consequence in words.
 2. A line that equals a recorded payment: **Attach** (no pledge changes; the pledge becomes **Bank reconciled**). A line that equals a waiting
