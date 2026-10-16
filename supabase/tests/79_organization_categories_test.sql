@@ -507,10 +507,10 @@ select pg_temp.assert(app.module_enabled(:jsh, 'test_module79') and not app.modu
 insert into app.organization_categories (key, label, faith_based, terms) values
   ('test_cat79', 'Test category', false,
    '{"greeting":"Welcome","practice_tab":null,"give_tab":"Give","family_tab":"Family","store":"Store","school":null,"learning":null,"place":"office","assistant_context":"a test"}');
-select pg_temp.assert((select count(*) from app.category_modules where category_key = 'test_cat79') = 33
+select pg_temp.assert((select count(*) from app.category_modules where category_key = 'test_cat79') = 34
                       and (select count(*) from app.category_modules where category_key = 'test_cat79' and availability = 'default_on') = 2
                       and (select availability from app.category_modules where category_key = 'test_cat79' and module_key = 'people') = 'default_on',
-  'A · a category added later gets a row for every module (33 with the two test modules): only the core modules on');
+  'A · a category added later gets a row for every module (34 with the two test modules): only the core modules on');
 rollback to savepoint a_new_module_and_a_new_category;
 select pg_temp.assert((select count(*) from app.modules) = 32 and (select count(*) from app.category_modules) = 224
                       and (select count(*) from app.organization_categories) = 7,
@@ -536,9 +536,9 @@ select pg_temp.assert_raises($$select app.boli_minimum('79000000-0000-4000-8000-
 select pg_temp.assert(pg_temp.hint_of($$select app.boli_minimum('79000000-0000-4000-8000-0000000000e8')$$)
                         = 'Community Connect can change an organization''s category.',
   'C · and says who can change the category');
-select pg_temp.assert((select array_agg(key order by key) from app.my_modules(:'chm') where not enabled) = array['bolis', 'care', 'channels', 'gyan_path', 'jain_way', 'labh', 'market', 'matching', 'niva', 'pathshala', 'store', 'website']
-                      and (select count(*) from app.my_modules(:'chm')) = 31 and (select enabled and core from app.my_modules(:'chm') where key = 'people'),
-  'C · my_modules: the same 31 rows, the modules the chamber does not have come back enabled = false (0750: the Marketplace products it was not granted too; a sandbox has the iWeaver trial)');
+select pg_temp.assert((select array_agg(key order by key) from app.my_modules(:'chm') where not enabled) = array['bolis', 'care', 'channels', 'giving_proofs', 'gyan_path', 'jain_way', 'labh', 'market', 'matching', 'niva', 'pathshala', 'store', 'website']
+                      and (select count(*) from app.my_modules(:'chm')) = 32 and (select enabled and core from app.my_modules(:'chm') where key = 'people'),
+  'C · my_modules: the same 32 rows, the modules the chamber does not have come back enabled = false (0750: the Marketplace products it was not granted too; a sandbox has the iWeaver trial)');
 -- The switch: a module the category does not have cannot be switched on.
 select pg_temp.assert_raises(format($$select app.set_module_enabled(%L, 'bolis', true, 'Please')$$, :'chm'),
   'Bolis is not part of a Chamber of commerce organization, so it cannot be switched on', 'C · set_module_enabled refuses to switch on a module the category does not have');
@@ -559,7 +559,7 @@ select pg_temp.assert((select count(*) from app.setup_checklist(:'chm') where mo
                                         and (status <> 'skipped' or detail <> 'The My Store module is switched off.')),
   'C · and the Store steps, which the chamber may switch on, say what they always said');
 -- Settings › Modules.
-select pg_temp.assert((select count(*) from app.module_states(:'chm')) = 31
+select pg_temp.assert((select count(*) from app.module_states(:'chm')) = 32
                       and (select availability = 'not_available' and not enabled and not switchable and label = 'Bolis' from app.module_states(:'chm') where key = 'bolis')
                       and (select availability = 'default_off' and not enabled and switchable and label = 'Store' from app.module_states(:'chm') where key = 'store')
                       and (select label = 'Dues & payments' and enabled and switchable from app.module_states(:'chm') where key = 'giving')
@@ -594,7 +594,7 @@ select pg_temp.assert_raises(format($$select * from app.module_states(%L)$$, :'c
   'C · a member without settings.manage cannot read the module list');
 select pg_temp.assert_raises(format($$select * from app.log_practice(%L, '79000000-0000-4000-8000-0000000000eb')$$, :'chm'),
   'My Jain Way is not part of a Chamber of commerce organization.', 'C · a member cannot log a practice in a chamber (the Jain Way RPC refuses)');
-select pg_temp.assert((select count(*) from app.practices where center_id = :'chm') = 0 and (select count(*) from app.my_modules(:'chm')) = 31,
+select pg_temp.assert((select count(*) from app.practices where center_id = :'chm') = 0 and (select count(*) from app.my_modules(:'chm')) = 32,
   'C · a chamber member reads no practices and gets the same my_modules');
 reset role;
 select pg_temp.no_claims();
@@ -654,9 +654,9 @@ select pg_temp.claims(:cc, true);
 select pg_temp.assert(app.assert_module_enabled(:'chm', 'bolis') and (select count(*) from app.bolis where center_id = :'chm') = 1
                       and (select count(*) from app.pathshala_terms where center_id = :'chm') = 1,
   'C · a platform admin still passes the guards and reads a module the chamber does not have');
-select pg_temp.assert((select count(*) from app.module_states(:jsh)) = 31
+select pg_temp.assert((select count(*) from app.module_states(:jsh)) = 32
                       and not exists (select 1 from app.module_states(:jsh) where availability <> 'default_on' and key <> all (array['ai', 'website', 'channels', 'care', 'matching', 'market', 'giving_proofs']))
-                      and (select count(*) from app.module_states(:jsh) where switchable) = 30
+                      and (select count(*) from app.module_states(:jsh) where switchable) = 31
                       and not exists (select 1 from app.module_states(:jsh) m join app.modules b on b.key = m.key
                                        where m.label <> b.label and m.key not in ('giving_counts', 'labh', 'care'))
                       and (select label from app.module_states(:jsh) where key = 'giving_counts') = 'Bhandar counts'

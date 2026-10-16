@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Giving Bank: reconciliation preview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1280px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700;">Riverbend Community Center</span>
+<span style="background: #ffffff; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data · reference only</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1280px; margin: 0 auto; padding: 28px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">Giving › Bank</nav>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; color: #2b2a8a;">Bank</h1>
+<p style="margin: 0; font-size: 14.5px; color: #555a79;">Operating ··4608 · the bank statement, matched to families and to the payments recorded for them.</p>
+</div>
+<button style="min-height: 44px; padding: 0 20px; border-radius: 9999px; border: 2px solid #2b2a8a; background: #ffffff; color: #2b2a8a; font-size: 15px; font-weight: 700;">Import a statement</button>
+</div>
+
+<div role="group" aria-label="Bank views" style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+<button onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: 1px solid #2b2a8a; background: {{t.bg}}; color: {{t.fg}}; font-size: 15px; font-weight: 700;">{{t.label}}</button>
+</sc-for>
+</div>
+
+<sc-if value="{{isPreview}}" hint-placeholder-val="{{true}}">
+<div style="background: #f1eefc; border-radius: 14px; padding: 12px 16px; font-size: 15.5px; color: #1e1d5c;"><strong>Statement of Oct 1 to Oct 14, imported Oct 15.</strong> 62 lines, 41 incoming. <strong>Nothing has been written.</strong> Each line was first tried against payments already recorded, waiting proofs and Zelle reports, and only then against open pledges. Review, untick what you do not want, and apply.</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="6">
+<span style="background: {{g.bg}}; color: {{g.fg}}; border-radius: 9999px; padding: 3px 12px; font-size: 14px; font-weight: 700;">{{g.title}} {{g.count}}</span>
+</sc-for>
+</div>
+
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="6">
+<section style="display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;">
+<div style="display: flex; flex-direction: column;">
+<h2 style="margin: 0; font-size: 20px; font-weight: 700;">{{g.title}} <span style="font-weight: 600; color: #555a79;">({{g.count}})</span></h2>
+<span style="font-size: 14.5px; color: #33325f;">{{g.desc}}</span>
+</div>
+<sc-if value="{{g.batch}}" hint-placeholder-val="{{false}}">
+<button style="min-height: 44px; padding: 0 18px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 15px; font-weight: 700;">Apply the ticked Certain rows</button>
+</sc-if>
+</div>
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="2">
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; margin-top: 3px; width: 22px; height: 22px; border-radius: 6px; background: {{r.boxBg}}; border: 2px solid #2b2a8a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">{{r.box}}</span>
+<div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column;">
+<strong style="font-size: 16px;">{{r.amount}} <span style="font-weight: 600; color: #555a79;">· {{r.date}}</span></strong>
+<span style="font-size: 13px; color: #555a79; word-break: break-word;">{{r.desc}}</span>
+<span style="font-size: 14.5px; margin-top: 2px;">{{r.family}}</span>
+</div>
+<div style="flex: 2 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+<span style="align-self: flex-start; background: {{r.kBg}}; color: {{r.kFg}}; border-radius: 9999px; padding: 1px 10px; font-size: 13px; font-weight: 700;">{{r.kind}}</span>
+<span style="font-size: 15px; color: #1e1d5c;">{{r.text}}</span>
+<span style="font-size: 14.5px; color: #33325f;"><strong>If you apply:</strong> {{r.conseq}}</span>
+<span style="display: flex; flex-wrap: wrap; gap: 6px;">
+<sc-for list="{{r.reasons}}" as="x" hint-placeholder-count="3">
+<span style="background: #fffaf5; border: 1px solid #eee3d9; border-radius: 9999px; padding: 0 9px; font-size: 12.5px; color: #33325f;">{{x.t}}</span>
+</sc-for>
+</span>
+</div>
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; align-items: stretch;">
+<button disabled="{{r.dis}}" style="min-height: 44px; padding: 0 16px; border-radius: 9999px; border: none; background: {{r.aBg}}; color: #ffffff; font-size: 14.5px; font-weight: 700;">{{r.action}}</button>
+<sc-if value="{{r.hasAlt}}" hint-placeholder-val="{{false}}">
+<button style="min-height: 44px; padding: 0 16px; border-radius: 9999px; border: 2px solid #2b2a8a; background: #ffffff; color: #2b2a8a; font-size: 14.5px; font-weight: 700;">{{r.alt}}</button>
+</sc-if>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{g.more}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 14px; color: #555a79;">{{g.moreText}}</span>
+</sc-if>
+</section>
+</sc-for>
+<p style="margin: 0; font-size: 14.5px; color: #555a79;">Also on this statement: 7 lines of money out to check (fees, a returned item) and 2 ignored. Returned items are matched to the payment they reverse in a later release.</p>
+</sc-if>
+
+<sc-if value="{{isReport}}" hint-placeholder-val="{{false}}">
+<div style="background: #f1eefc; border-radius: 14px; padding: 12px 16px; font-size: 15.5px; color: #1e1d5c;"><strong>Paid, not on the bank.</strong> Payments from verified proofs (or recorded by hand) that no bank line has banked, past the usual window for their method. This is the safety net behind “closed by soft credit with no bank reconciliation”.</div>
+<div style="overflow-x: auto; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px;">
+<table style="width: 100%; min-width: 960px; border-collapse: collapse; font-size: 15px;">
+<thead>
+<tr style="text-align: left; background: #f1eefc;">
+<th scope="col" style="padding: 10px 14px;">Receipt</th>
+<th scope="col" style="padding: 10px 14px;">Household</th>
+<th scope="col" style="padding: 10px 14px;">Method</th>
+<th scope="col" style="padding: 10px 14px; text-align: right;">Amount</th>
+<th scope="col" style="padding: 10px 14px;">Verified</th>
+<th scope="col" style="padding: 10px 14px;">Came from</th>
+<th scope="col" style="padding: 10px 14px;">Days / usual</th>
+<th scope="col" style="padding: 10px 14px;">Next step</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{unbanked}}" as="u" hint-placeholder-count="3">
+<tr style="border-top: 1px solid #eee3d9;">
+<td style="padding: 10px 14px; font-weight: 700;">{{u.receipt}}</td>
+<td style="padding: 10px 14px;">{{u.family}}</td>
+<td style="padding: 10px 14px;">{{u.method}}</td>
+<td style="padding: 10px 14px; text-align: right; font-weight: 700;">{{u.amount}}</td>
+<td style="padding: 10px 14px;">{{u.verified}}</td>
+<td style="padding: 10px 14px;">{{u.source}}</td>
+<td style="padding: 10px 14px;"><span style="background: {{u.bg}}; color: {{u.fg}}; border-radius: 9999px; padding: 1px 10px; font-size: 13px; font-weight: 700; white-space: nowrap;">{{u.days}}</span></td>
+<td style="padding: 10px 14px; color: #33325f;">{{u.next}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px;">
+<div style="flex: 1 1 320px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px 16px;">
+<h2 style="margin: 0 0 6px; font-size: 18px; font-weight: 700;">Month-end close checklist</h2>
+<p style="margin: 0; font-size: 15px; color: #33325f;">Two new lines, both warnings, never a block:<br>• Proofs still waiting to be verified: <strong>4</strong><br>• Paid pledges not yet bank reconciled: <strong>3</strong></p>
+</div>
+<div style="flex: 1 1 320px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px 16px;">
+<h2 style="margin: 0 0 6px; font-size: 18px; font-weight: 700;">Usual windows (set under Settings)</h2>
+<p style="margin: 0; font-size: 15px; color: #33325f;">Zelle 5 days · bank transfer 7 · check 30 · cash 14 (a deposit or count) · stock 30 · fund grant 60 · other 45.</p>
+</div>
+</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1620}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const tab = s.tab || 'preview';
+    const R = (a) => a.map((t) => ({ t }));
+    const tones = {
+      certain: { bg: '#14502f', fg: '#ffffff' },
+      likely: { bg: '#e3f4ea', fg: '#14502f' },
+      possible: { bg: '#fff4d6', fg: '#7a3a0a' },
+      conflict: { bg: '#fbe4e1', fg: '#8c1c13' },
+      already: { bg: '#e6e2fa', fg: '#2b2a8a' },
+      money: { bg: '#fff0dd', fg: '#7a3a0a' }
+    };
+    const row = (o) => Object.assign({ box: '✓', boxBg: '#2b2a8a', hasAlt: false, alt: '', dis: false, aBg: '#2b2a8a' }, o);
+    const groups = [
+      {
+        key: 'certain', title: 'Certain', count: 6, batch: true, more: true, moreText: '4 more Certain rows, each with the same kind of reasons.',
+        desc: 'Exact amount, a matching reference or known payer name, inside the window, one candidate. May be applied together; each row is checked again as it is applied.',
+        rows: [
+          row({ amount: '$250.00', date: 'Oct 14', desc: 'CHECK 1048 DEPOSITED', family: 'Okafor household · H-1042', kind: 'Settles a waiting proof', kBg: '#14502f', kFg: '#ffffff',
+            text: 'This is the $250 check Adaeze sent a proof for on Oct 12.', conseq: 'the proof is approved and banked in one step. P-0587 and $90 of P-0601 go Paid, then Bank reconciled.',
+            reasons: R(['Amount ✓', 'Check number 1048 ✓', 'Inside window ✓', 'One candidate ✓']), action: 'Approve and reconcile' }),
+          row({ amount: '$200.00', date: 'Oct 13', desc: 'ZELLE PAYMENT FROM PRIYA SHAH JPM99BXK2Q1V', family: 'Shah household · H-0620', kind: 'Banks a payment already recorded', kBg: '#14502f', kFg: '#ffffff',
+            text: 'This is receipt R-2288, recorded Oct 6, not yet on the bank.', conseq: 'the line is attached to R-2288. No pledge changes.',
+            reasons: R(['Amount ✓', 'Known payer name ✓', 'Inside window ✓', 'One candidate ✓']), action: 'Attach to R-2288' })
+        ]
+      },
+      {
+        key: 'likely', title: 'Likely', count: 3, batch: false, more: false, moreText: '',
+        desc: 'Exact amount and window, one candidate, but the family or reference is inferred. One click each.',
+        rows: [
+          row({ amount: '$1,260.00', date: 'Oct 12', desc: 'DEPOSIT', family: 'Four payments recorded Oct 5 to Oct 11', kind: 'Banks several payments', kBg: '#e3f4ea', kFg: '#14502f', box: '', boxBg: '#ffffff',
+            text: 'Only one set of unbanked payments adds up to this deposit: R-2301 cash $300, R-2302 check $410, R-2303 check $350, R-2304 cash $200.', conseq: 'the four payments are banked together. No pledge changes.',
+            reasons: R(['Exact total ✓', 'One combination ✓', 'Oldest first ✓']), action: 'Bank these 4' })
+        ]
+      },
+      {
+        key: 'possible', title: 'Possible', count: 2, batch: false, more: false, moreText: '',
+        desc: 'Several candidates, or weak identity. Never a default: you choose.',
+        rows: [
+          row({ amount: '$100.00', date: 'Oct 10', desc: 'ACH CREDIT ORIG CO NAME COMMUNITY CREDIT TRSF', family: 'No family found by name', kind: 'Two proofs fit', kBg: '#fff4d6', kFg: '#7a3a0a', box: '', boxBg: '#ffffff',
+            text: 'Waiting proofs of exactly $100 by bank transfer: Hossain household (Oct 9) and Boateng household (Oct 9).', conseq: 'nothing, until you choose one. The other proof stays waiting.',
+            reasons: R(['Amount ✓', 'Method ✓', 'Two candidates', 'Payer unknown']), action: 'Choose a household', aBg: '#7a3a0a' })
+        ]
+      },
+      {
+        key: 'conflict', title: 'Conflict', count: 1, batch: false, more: false, moreText: '',
+        desc: 'Same family and method, but the amount differs.',
+        rows: [
+          row({ amount: '$180.00', date: 'Oct 11', desc: 'CHECK 2214 DEPOSITED', family: 'Rao household · H-0455', kind: 'Short by $20', kBg: '#fbe4e1', kFg: '#8c1c13', box: '', boxBg: '#ffffff',
+            text: 'The proof says $200; the bank shows $180.', conseq: 'the payment is recorded at $180 (the bank is the truth), $20 of the pledge stays open, the family is told, and you give a reason.',
+            reasons: R(['Check number ✓', 'Amount ✗ ($20 less)']), action: 'Record $180 and reconcile', aBg: '#8c1c13', hasAlt: true, alt: 'Leave unmatched' })
+        ]
+      },
+      {
+        key: 'already', title: 'Already accounted for', count: 4, batch: false, more: true, moreText: '3 more rows like this.',
+        desc: 'This money looks like a payment or proof already counted. Creating a second payment is blocked unless you say why it is a different gift.',
+        rows: [
+          row({ amount: '$200.00', date: 'Oct 8', desc: 'ZELLE FROM LINH NGUYEN REF PP0ABC', family: 'Nguyen household · H-0911', kind: 'Lookalike: blocked', kBg: '#e6e2fa', kFg: '#2b2a8a', box: '', boxBg: '#ffffff',
+            text: 'A $200 check from this family is recorded as R-2291 (Oct 6) and not yet on the bank. A Zelle with the same amount is not the same money, so this needs your eye.', conseq: 'either the line is attached to R-2291 (if the family paid by Zelle after all), or a new payment is created only after you type why it is a separate gift.',
+            reasons: R(['Same family', 'Same amount', 'Different method', 'Within 7 days']), action: 'Attach to R-2291', hasAlt: true, alt: 'A different gift (say why)' })
+        ]
+      },
+      {
+        key: 'money', title: 'New money', count: 5, batch: false, more: true, moreText: '4 more rows like this.',
+        desc: 'Nothing recorded or waiting explains this. Only now may it close pledges, and only pledges not already covered.',
+        rows: [
+          row({ amount: '$150.00', date: 'Oct 10', desc: 'ZELLE PAYMENT FROM KOFI MENSAH', family: 'Mensah household · H-1288', kind: 'New money', kBg: '#fff0dd', kFg: '#7a3a0a', box: '', boxBg: '#ffffff',
+            text: 'No payment or proof explains this. Oldest uncovered pledges first: P-0551 $100, P-0560 $50. Pledges in Soft credit are skipped.', conseq: 'a payment is recorded from the bank line, P-0551 goes Paid and P-0560 is part paid, both already Bank reconciled.',
+            reasons: R(['Known payer name ✓', 'No lookalike found', 'Window ✓']), action: 'Confirm' })
+        ]
+      }
+    ];
+    const withTone = groups.map((g) => Object.assign({}, g, tones[g.key], { rows: g.rows.map((r) => r) }));
+    return {
+      tabs: [
+        { label: 'Reconciliation preview', on: tab === 'preview', bg: tab === 'preview' ? '#2b2a8a' : '#ffffff', fg: tab === 'preview' ? '#ffffff' : '#2b2a8a', pick: () => this.setState({ tab: 'preview' }) },
+        { label: 'Paid, not on the bank (3)', on: tab === 'report', bg: tab === 'report' ? '#2b2a8a' : '#ffffff', fg: tab === 'report' ? '#ffffff' : '#2b2a8a', pick: () => this.setState({ tab: 'report' }) }
+      ],
+      isPreview: tab === 'preview',
+      isReport: tab === 'report',
+      groups: withTone,
+      unbanked: [
+        { receipt: 'R-2026-0348', family: 'Patel household', method: 'Check 3310', amount: '$400.00', verified: 'Sep 10', source: 'Member proof', days: '35 / 30 · past', bg: '#fbe4e1', fg: '#8c1c13', next: 'Ask the family whether the check was sent' },
+        { receipt: 'R-2026-0211', family: 'Okafor household', method: 'Cash, receipt 198', amount: '$60.00', verified: 'Sep 26', source: 'Member proof', days: '19 / 14 · past', bg: '#fff4d6', fg: '#7a3a0a', next: 'Look in the next deposit or offering count' },
+        { receipt: 'R-2026-0377', family: 'Hossain household', method: 'Bank transfer', amount: '$90.00', verified: 'Oct 8', source: 'Recorded by hand', days: '7 / 7 · due today', bg: '#eeeaf0', fg: '#33325f', next: 'Check tomorrow' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

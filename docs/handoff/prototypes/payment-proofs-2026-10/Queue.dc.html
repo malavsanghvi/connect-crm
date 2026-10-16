@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Giving Today: proofs to verify</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+button,input,textarea{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1280px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700;">Riverbend Community Center</span>
+<span style="background: #ffffff; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data · reference only</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1280px; margin: 0 auto; padding: 28px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">Giving › Today</nav>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; color: #2b2a8a;">Today</h1>
+</div>
+
+<div aria-label="On the treasurer's Home" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+<span style="font-size: 13px; font-weight: 700; color: #a8400d; letter-spacing: 0.06em;">ON YOUR HOME</span>
+<span style="background: #2b2a8a; color: #ffffff; border-radius: 9999px; padding: 4px 14px; font-size: 14px; font-weight: 700;">4 proofs to verify</span>
+<span style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 9999px; padding: 4px 14px; font-size: 14px;">12 bank lines to match</span>
+<span style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 9999px; padding: 4px 14px; font-size: 14px;">2 approvals</span>
+<span style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 9999px; padding: 4px 14px; font-size: 14px;">3 paid, not on the bank</span>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start;">
+<section aria-labelledby="proofs" style="flex: 1 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<h2 id="proofs" style="margin: 0; font-size: 22px; font-weight: 700; color: #1e1d5c;">Proofs to verify <span style="font-weight: 600; color: #555a79;">(4)</span></h2>
+<p style="margin: 0; font-size: 15px; color: #33325f;">Members paid another way and sent a photo. Their pledges show Soft credit until you decide. Oldest first.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+<button onClick="{{r.pick}}" aria-pressed="{{r.on}}" style="text-align: left; background: #ffffff; border: {{r.border}}; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; color: #1e1d5c; font-size: 16px;">
+<span style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; width: 100%;">
+<span style="display: flex; flex-direction: column;">
+<strong style="font-size: 17px;">{{r.name}}</strong>
+<span style="font-size: 13.5px; color: #555a79;">{{r.num}} · {{r.members}} · {{r.place}}</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end;">
+<strong style="font-size: 18px;">{{r.amount}}</strong>
+<span style="font-size: 13.5px; color: #555a79;">{{r.method}} · paid {{r.date}}</span>
+</span>
+</span>
+<span style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+<span style="background: {{r.ageBg}}; color: {{r.ageFg}}; border-radius: 9999px; padding: 1px 10px; font-size: 12.5px; font-weight: 700;">{{r.age}}</span>
+<span style="font-size: 13px; color: #555a79;">{{r.files}}</span>
+<sc-for list="{{r.flagChips}}" as="f" hint-placeholder-count="1">
+<span style="background: {{f.bg}}; color: {{f.fg}}; border-radius: 9999px; padding: 1px 10px; font-size: 12.5px; font-weight: 700;">{{f.label}}</span>
+</sc-for>
+</span>
+</button>
+</sc-for>
+</div>
+
+<h2 style="margin: 12px 0 0; font-size: 20px; font-weight: 700; color: #1e1d5c;">Bank lines to match <span style="font-weight: 600; color: #555a79;">(12)</span></h2>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+<span style="font-size: 15px; color: #33325f;">Oct 14 statement imported. 6 Certain, 3 Likely, 3 need a look.</span>
+<a href="Reconcile.dc.html" style="font-weight: 700;">Open the reconciliation preview</a>
+</div>
+<h2 style="margin: 12px 0 0; font-size: 20px; font-weight: 700; color: #1e1d5c;">Paid, not on the bank <span style="font-weight: 600; color: #555a79;">(3)</span></h2>
+<div style="background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+<span style="font-size: 15px; color: #33325f;">3 payments from verified proofs have no bank line after their usual window (oldest: 35 days, a check).</span>
+<a href="Reconcile.dc.html" style="font-weight: 700;">See the report</a>
+</div>
+</section>
+
+<aside aria-labelledby="review" style="flex: 1 1 520px; min-width: 0; background: #ffffff; border: 2px solid #2b2a8a; border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+<h2 id="review" style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 26px; font-weight: 600; color: #2b2a8a;">Review proof</h2>
+<span style="background: #e6e2fa; color: #2b2a8a; border-radius: 9999px; padding: 3px 12px; font-size: 13.5px; font-weight: 700;">Soft credit until you decide</span>
+</div>
+
+<div style="background: #fffaf5; border: 1px solid #eee3d9; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px;">
+<strong style="font-size: 18px;">{{sel.name}}</strong>
+<span style="font-size: 14px; color: #33325f;">{{sel.num}}</span>
+<span style="font-size: 14px; color: #33325f;">Members: {{sel.members}} · {{sel.place}}</span>
+<span style="font-size: 13px; color: #555a79;">Shown with its household card, never by name alone.</span>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px;">
+<div aria-label="Proof photo" style="flex: 1 1 260px; min-height: 190px; border-radius: 14px; background: #f6f1ec; border: 1px solid #eee3d9; position: relative; overflow: hidden;">
+<div style="position: absolute; left: 18px; top: 16px; width: 70%; height: 150px; background: #ffffff; border: 1px solid #b9b5ec; border-radius: 6px;">
+<div style="position: absolute; left: 12px; top: 14px; width: 120px; height: 6px; background: #d4d2f5;"></div>
+<div style="position: absolute; left: 12px; top: 34px; width: 190px; height: 6px; background: #d4d2f5;"></div>
+<div style="position: absolute; left: 12px; top: 54px; width: 150px; height: 6px; background: #d4d2f5;"></div>
+<div style="position: absolute; right: 12px; top: 14px; width: 70px; height: 20px; border: 1px solid #b9b5ec;"></div>
+<div style="position: absolute; left: 12px; bottom: 14px; width: 160px; height: 10px; background: #e6e2fa;"></div>
+</div>
+<span style="position: absolute; left: 10px; bottom: 8px; font-size: 12.5px; font-weight: 700; color: #555a79;">{{sel.method}} · photo 1 of {{sel.fileCount}}</span>
+</div>
+<dl style="flex: 1 1 200px; margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-content: start; font-size: 15px;">
+<dt style="color: #555a79;">Amount</dt><dd style="margin: 0; font-weight: 700;">{{sel.amount}}</dd>
+<dt style="color: #555a79;">Method</dt><dd style="margin: 0;">{{sel.method}}</dd>
+<dt style="color: #555a79;">Paid on</dt><dd style="margin: 0;">{{sel.date}}</dd>
+<dt style="color: #555a79;">Sent by</dt><dd style="margin: 0;">{{sel.sentBy}}</dd>
+<dt style="color: #555a79;">Files</dt><dd style="margin: 0;">{{sel.fileCount}} (viewing is logged)</dd>
+</dl>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 14px; font-weight: 700;">If you approve, the payment goes to these pledges, oldest first</span>
+<div style="overflow-x: auto;">
+<table style="width: 100%; min-width: 420px; border-collapse: collapse; font-size: 14.5px;">
+<tbody>
+<sc-for list="{{sel.pledges}}" as="p" hint-placeholder-count="2">
+<tr style="border-top: 1px solid #eee3d9;">
+<td style="padding: 6px 4px;"><strong>{{p.id}}</strong> {{p.title}}</td>
+<td style="padding: 6px 4px; text-align: right;">{{p.cover}}</td>
+<td style="padding: 6px 4px; font-weight: 700; color: #14502f;">{{p.result}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<span style="font-size: 14px; color: #33325f;">{{sel.afterNote}}</span>
+</div>
+
+<sc-if value="{{sel.hasFlags}}" hint-placeholder-val="{{true}}">
+<div role="group" aria-label="Checks the system ran" style="background: #fffaf5; border: 1px solid #ffb82a; border-radius: 14px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
+<span style="font-size: 13px; font-weight: 700; color: #a8400d; letter-spacing: 0.04em;">WHAT THE SYSTEM CHECKED</span>
+<sc-for list="{{sel.flags}}" as="f" hint-placeholder-count="2">
+<span style="font-size: 14.5px; color: #1e1d5c;"><strong style="color: {{f.fg}};">{{f.tag}}</strong> {{f.text}}</span>
+</sc-for>
+</div>
+</sc-if>
+
+<div role="group" aria-label="Your decision" style="display: flex; flex-wrap: wrap; gap: 6px;">
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="4">
+<button onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 1px solid #2b2a8a; background: {{m.bg}}; color: {{m.fg}}; font-size: 14.5px; font-weight: 700;">{{m.label}}</button>
+</sc-for>
+</div>
+
+<sc-if value="{{isChanges}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+<div style="flex: 1 1 120px; display: flex; flex-direction: column; gap: 3px;"><label for="chamt" style="font-size: 13.5px; font-weight: 700;">Amount seen on the proof</label><input id="chamt" type="text" value="$180.00" style="min-height: 44px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 15px;"></div>
+<div style="flex: 1 1 120px; display: flex; flex-direction: column; gap: 3px;"><label for="chdt" style="font-size: 13.5px; font-weight: 700;">Date</label><input id="chdt" type="text" value="Oct 12, 2026" style="min-height: 44px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 15px;"></div>
+</div>
+<span style="font-size: 14px; color: #33325f;">The payment is recorded as you enter it. Pledges are re-covered oldest first, and the member is told why it differs.</span>
+</sc-if>
+<sc-if value="{{isAsk}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 3px;"><label for="ask" style="font-size: 13.5px; font-weight: 700;">What do you need? (the member sees this)</label><input id="ask" type="text" value="Could you send a clearer photo of the front of the check?" style="min-height: 44px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 15px;"></div>
+<span style="font-size: 14px; color: #33325f;">The pledges stay Soft credit. After 14 days without a reply, the proof comes back here marked stale.</span>
+</sc-if>
+<sc-if value="{{isReject}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 3px;"><label for="rej" style="font-size: 13.5px; font-weight: 700;">Why? (required, the member sees this)</label><input id="rej" type="text" value="The photo does not show the amount." style="min-height: 44px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 15px;"></div>
+<span style="font-size: 14px; color: #33325f;">The soft credit is released, the pledges are Open again and their reminders resume.</span>
+</sc-if>
+<sc-if value="{{showMerge}}" hint-placeholder-val="{{false}}">
+<div style="background: #fff4d6; border: 1px solid #ffb82a; border-radius: 14px; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+<strong style="color: #7a3a0a;">Approving is blocked: this may be a payment you already recorded.</strong>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<button style="min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 2px solid #2b2a8a; background: #ffffff; color: #2b2a8a; font-size: 14.5px; font-weight: 700;">Merge: keep these photos as evidence on R-2291</button>
+<button style="min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 2px solid #2b2a8a; background: #ffffff; color: #2b2a8a; font-size: 14.5px; font-weight: 700;">A different gift (say why)</button>
+</div>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+<button disabled="{{primaryDisabled}}" style="min-height: 48px; padding: 0 22px; border-radius: 9999px; border: none; background: {{primaryBg}}; color: #ffffff; font-size: 16px; font-weight: 700;">{{primaryLabel}}</button>
+<span style="font-size: 13.5px; color: #555a79;">{{rule}}</span>
+</div>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1480}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const sel = s.sel == null ? 0 : s.sel;
+    const mode = s.mode || 'approve';
+    const data = [
+      {
+        name: 'Okafor household', num: 'H-1042 · org household 2210', members: 'Adaeze O., Chidi O.', place: 'Eastside, Riverbend',
+        amount: '$250.00', method: 'Check 1048', date: 'Oct 12', sentBy: 'Adaeze, Oct 12', fileCount: 2, age: '3 days', ageBg: '#eeeaf0', ageFg: '#33325f',
+        flags: [{ tag: 'Fits:', fg: '#14502f', text: 'a bank line is waiting: Oct 14, CHECK 1048, $250.00. Approving will also bank it.' },
+                { tag: 'Clear:', fg: '#14502f', text: 'no similar payment recorded; the photos are new.' }],
+        chips: [{ label: 'Bank line waiting', bg: '#e3f4ea', fg: '#14502f' }],
+        pledges: [{ id: 'P-0587', title: 'Harvest supper, 4 seats', cover: '$160 of $160', result: 'Paid' },
+                  { id: 'P-0601', title: 'Building fund', cover: '$90 of $300', result: 'Part paid, $210 stays open' }],
+        afterNote: 'Open balance stays $310: the $250 was already left out as soft credit. Paid goes up $250.',
+        primary: 'Approve and reconcile', blocked: false, rule: 'Both pledges go Paid, then Bank reconciled.'
+      },
+      {
+        name: 'Patel household', num: 'H-0377', members: 'Meera P., Anil P.', place: 'Westgate',
+        amount: '$75.00', method: 'Cash, receipt 214', date: 'Oct 11', sentBy: 'Meera, Oct 11', fileCount: 1, age: '4 days', ageBg: '#eeeaf0', ageFg: '#33325f',
+        flags: [{ tag: 'Note:', fg: '#7a3a0a', text: 'cash has no bank line of its own. It will be matched inside a deposit or an offering count.' }],
+        chips: [],
+        pledges: [{ id: 'P-0640', title: 'Food drive sponsorship', cover: '$75 of $75', result: 'Paid' }],
+        afterNote: 'Open balance for this family is unchanged; Paid goes up $75 and shows “paid, not on the bank” until deposited.',
+        primary: 'Approve', blocked: false, rule: 'You are not in this household, so you may verify it.'
+      },
+      {
+        name: 'Nguyen household', num: 'H-0911', members: 'Linh N.', place: 'Northfield',
+        amount: '$200.00', method: 'Check 2290', date: 'Oct 9', sentBy: 'Linh, Oct 9', fileCount: 1, age: '6 days', ageBg: '#fff4d6', ageFg: '#7a3a0a',
+        flags: [{ tag: 'Possible duplicate:', fg: '#8c1c13', text: 'a $200 check from this family was recorded Oct 6 (receipt R-2291).' },
+                { tag: 'Same photo:', fg: '#8c1c13', text: 'this file was already used in a proof sent Oct 6.' }],
+        chips: [{ label: 'Possible duplicate', bg: '#fbe4e1', fg: '#8c1c13' }],
+        pledges: [{ id: 'P-0577', title: 'Annual fund', cover: '$200 of $200', result: 'Paid' }],
+        afterNote: 'Nothing is recorded until you choose Merge or say why this is a different gift.',
+        primary: 'Approve', blocked: true, rule: 'A second payment is never created from a lookalike without a reason.'
+      },
+      {
+        name: 'Mensah household', num: 'H-1288', members: 'Kofi M., Ama M.', place: 'Eastside, Riverbend',
+        amount: '$3,000.00', method: 'Bank transfer, trace 88213', date: 'Oct 13', sentBy: 'Ama, Oct 13', fileCount: 2, age: '2 days', ageBg: '#eeeaf0', ageFg: '#33325f',
+        flags: [{ tag: 'Needs two people:', fg: '#7a3a0a', text: 'above the $2,500 limit your organization set. A second person with approval rights must also approve.' }],
+        chips: [{ label: 'Second person needed', bg: '#fff4d6', fg: '#7a3a0a' }],
+        pledges: [{ id: 'P-0602', title: 'Building fund', cover: '$3,000 of $3,000', result: 'Paid' }],
+        afterNote: 'The first approval is recorded; the payment is created when the second person approves.',
+        primary: 'Approve (first of two)', blocked: false, rule: 'Different person, giving.approve.'
+      }
+    ];
+    const cur = data[sel];
+    const lbl = { approve: 'Approve', changes: 'Approve with changes', ask: 'Ask for more', reject: 'Reject' };
+    const prim = {
+      approve: cur.primary,
+      changes: 'Approve with these changes',
+      ask: 'Ask the member',
+      reject: 'Reject and tell the member'
+    };
+    const blocked = mode === 'approve' && cur.blocked;
+    return {
+      rows: data.map((d, i) => ({
+        name: d.name, num: d.num, members: d.members, place: d.place, amount: d.amount, method: d.method, date: d.date,
+        age: d.age, ageBg: d.ageBg, ageFg: d.ageFg, files: d.fileCount + (d.fileCount === 1 ? ' file' : ' files'),
+        flagChips: d.chips,
+        on: sel === i,
+        border: sel === i ? '2px solid #2b2a8a' : '1px solid #eee3d9',
+        pick: () => this.setState({ sel: i, mode: 'approve' })
+      })),
+      sel: Object.assign({}, cur, { hasFlags: cur.flags.length > 0 }),
+      modes: Object.keys(lbl).map((k) => ({
+        label: lbl[k], on: mode === k,
+        bg: mode === k ? '#2b2a8a' : '#ffffff', fg: mode === k ? '#ffffff' : '#2b2a8a',
+        pick: () => this.setState({ mode: k })
+      })),
+      isChanges: mode === 'changes',
+      isAsk: mode === 'ask',
+      isReject: mode === 'reject',
+      showMerge: blocked,
+      primaryLabel: prim[mode],
+      primaryDisabled: blocked,
+      primaryBg: blocked ? '#9a98c4' : (mode === 'reject' ? '#b3261e' : '#2b2a8a'),
+      rule: mode === 'approve' ? cur.rule : 'Every decision is written to the audit log with your name.'
+    };
+  }
+}
+</script>
+</body>
+</html>
