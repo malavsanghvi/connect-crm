@@ -8,7 +8,7 @@ import { addDays, daysBetween, dateInTz, formatDate, todayInTz } from "@/lib/dat
 import { explainError, type DbErrorLike } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
 import { parsePayeeQueue, waitingRequests } from "@/lib/payments/change-control";
-import { parseProofCounts, parseUnbankedCounts, proofsTaskCopy, unbankedTaskCopy } from "@/lib/payment-proofs/counts";
+import { EXPIRING_WINDOW_DAYS, expiringTaskCopy, parseExpiringCounts, parseProofCounts, parseUnbankedCounts, proofsTaskCopy, unbankedTaskCopy } from "@/lib/payment-proofs/counts";
 import { untypedRpc } from "@/lib/payments/rpc";
 import { zelleWindowDays } from "@/lib/payments/zelle";
 import { can } from "@/lib/permissions";
@@ -54,7 +54,7 @@ function bankDetail(kind: "bank_lines" | "zelle_unseen", n: number, deposits: nu
 }
 
 /** The count Giving's Today shows for a task that is only a number (payment proofs, payments not on the bank). */
-function countDetail(kind: "proofs" | "unbanked", n: number): GivingTaskDetail {
+function countDetail(kind: "proofs" | "proofs_expiring" | "unbanked", n: number): GivingTaskDetail {
   return { kind, stage: "open", id: "all", householdId: null, amountCents: null, reference: null, reason: null, askedBy: null, mine: false, since: null, provider: null, count: n };
 }
 
@@ -89,6 +89,19 @@ const loaders: Record<TaskSourceKey, Loader> = {
     const copy = proofsTaskCopy(parseProofCounts(await countsRpc(session, "payment_proof_counts")));
     if (!copy) return [];
     return [makeTask("proofs", "all", copy.title, copy.meta, [{ label: "Open", href: "/giving/proofs" }], undefined, countDetail("proofs", copy.count))];
+  },
+
+  // Proof files that become due for removal in the next days, so staff can keep a copy first (0873). Nothing under a legal hold.
+  async proofs_expiring(session) {
+    const res = await session.db.rpc("proof_files_due_soon", { p_center: session.center.id, p_days: EXPIRING_WINDOW_DAYS });
+    if (res.error) {
+      // Only a database without the function yet is skipped silently; anything else is this source's failure.
+      if (res.error.code === "PGRST202" || res.error.code === "42883") return [];
+      throw new SourceError(res.error);
+    }
+    const copy = expiringTaskCopy(parseExpiringCounts(res.data), (v) => formatDate(v, session.center.time_zone));
+    if (!copy) return [];
+    return [makeTask("proofs_expiring", "all", copy.title, copy.meta, [{ label: "Open", href: "/settings/storage" }], undefined, countDetail("proofs_expiring", copy.count))];
   },
 
   // Payments recorded as paid that no bank line has been matched to (0868).

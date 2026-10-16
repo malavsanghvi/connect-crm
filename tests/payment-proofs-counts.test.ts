@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseProofCounts, parseUnbankedCounts, proofsTaskCopy, unbankedTaskCopy } from "@/lib/payment-proofs/counts";
+import { expiringNotice, expiringTaskCopy, parseExpiringCounts, parseProofCounts, parseUnbankedCounts, proofsTaskCopy, unbankedTaskCopy } from "@/lib/payment-proofs/counts";
 
 describe("payment proof counts", () => {
   it("reads the database answer and treats anything else as zero", () => {
@@ -39,5 +39,38 @@ describe("payment proof counts", () => {
     const c = unbankedTaskCopy({ total: 7, pastWindow: 2, oldestDays: 1 });
     expect(c?.title).toBe("7 payments paid, not on the bank");
     expect(c?.meta).toBe("2 payments past the usual days to reach the bank · oldest 1 day");
+  });
+
+  it("reads the files about to be removed and treats anything else as none", () => {
+    expect(parseExpiringCounts({ count: 3, soonest_on: "2027-01-01", legal_hold: false, days: 30 })).toEqual({ count: 3, soonestOn: "2027-01-01", legalHold: false, days: 30 });
+    expect(parseExpiringCounts({ count: "2", soonest_on: "soon", legal_hold: true })).toEqual({ count: 2, soonestOn: null, legalHold: true, days: 30 });
+    expect(parseExpiringCounts(null)).toEqual({ count: 0, soonestOn: null, legalHold: false, days: 30 });
+    expect(parseExpiringCounts({ count: -4 }).count).toBe(0);
+  });
+
+  const date = (v: string) => `on ${v}`;
+
+  it("makes a Home task only when files are about to be removed and no legal hold is on", () => {
+    expect(expiringTaskCopy({ count: 0, soonestOn: null, legalHold: false, days: 30 }, date)).toBeNull();
+    // A hold stops all removal, so there is nothing to warn about.
+    expect(expiringTaskCopy({ count: 5, soonestOn: "2027-01-01", legalHold: true, days: 30 }, date)).toBeNull();
+    expect(expiringTaskCopy({ count: 1, soonestOn: "2027-01-01", legalHold: false, days: 30 }, date)).toEqual({
+      count: 1,
+      title: "1 proof file about to be removed",
+      meta: "The first is due on 2027-01-01 · keep a copy of anything you still need · Settings › Storage",
+    });
+    const many = expiringTaskCopy({ count: 12, soonestOn: null, legalHold: false, days: 30 }, date);
+    expect(many?.title).toBe("12 proof files about to be removed");
+    expect(many?.meta).toBe("keep a copy of anything you still need · Settings › Storage");
+  });
+
+  it("words the Settings notice, with the hold when it is on", () => {
+    expect(expiringNotice({ count: 0, soonestOn: null, legalHold: false, days: 30 }, date)).toBeNull();
+    expect(expiringNotice({ count: 1, soonestOn: "2027-01-01", legalHold: false, days: 30 }, date)).toBe(
+      "1 file becomes due for removal by on 2027-01-01. Keep a copy of anything you still need before then.",
+    );
+    expect(expiringNotice({ count: 4, soonestOn: null, legalHold: true, days: 30 }, date)).toBe(
+      "4 files become due for removal within 30 days. Keep a copy of anything you still need before then. The legal hold is on, so none is removed while it stays on.",
+    );
   });
 });

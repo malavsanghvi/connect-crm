@@ -16670,6 +16670,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      proof_files_due_soon: {
+        Args: {
+          p_center: string;
+          p_days?: number;
+        };
+        Returns: Json;
+      };
       proof_lookalikes: {
         Args: {
           p_household: string;

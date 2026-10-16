@@ -14,6 +14,7 @@ import {
   parseLookalikes,
   parseProofQueue,
   proofFlags,
+  sentByLine,
   type CardCan,
   type ProofCard,
 } from "@/lib/payment-proofs/queue";
@@ -75,6 +76,17 @@ describe("reading the queue", () => {
     expect(c.covered).toEqual([{ pledgeId: "p1", number: "P-0587", title: "Harvest supper", coverCents: 16000, pledgeCents: 16000 }]);
     expect(c.files[0]).toMatchObject({ kind: "image", url: null, removed: false });
     expect(c.status).toBe("submitted");
+  });
+
+  it("reads who sent the proof, and tolerates an answer that has no sender", () => {
+    // raw() has no sent_by key at all: the shape the database sent before 0873.
+    expect(card().sentBy).toBeNull();
+    expect(sentByLine(card())).toBeNull();
+    expect(card({ sent_by: "Mina Rao" }).sentBy).toBe("Mina Rao");
+    expect(sentByLine(card({ sent_by: "Mina Rao" }))).toBe("Sent by Mina Rao");
+    expect(card({ sent_by: null }).sentBy).toBeNull();
+    expect(card({ sent_by: "   " }).sentBy).toBeNull();
+    expect(card({ sent_by: 7 }).sentBy).toBeNull();
   });
 
   it("treats no answer as an empty queue and anything that is not a list as unreadable", () => {
