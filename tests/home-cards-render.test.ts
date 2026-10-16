@@ -291,5 +291,14 @@ describe("Today, with the cards", () => {
   it("without cards (an older caller) it renders as before", () => {
     const out = html(today({ hasSources: true, tasks: true }));
     expect(out).toContain("12 bank lines to match");
+    expect(out).not.toContain("home-notices");
+  });
+
+  it("the owner's notice from the Weaver team sits above the routine and the tasks", () => {
+    const notice = { key: "chip-in-settings", tone: "info" as const, title: "Weaver's team changed your Chip In settings on Oct 19, 2026", lines: ["Your members are not asked for a Chip In."] };
+    const out = html(h(TodayView, { ...(today({ hasSources: true, tasks: true }).props as object), notices: [notice] }));
+    expect(out).toContain('data-testid="home-notices"');
+    expect(out).toContain("Your members are not asked for a Chip In.");
+    expect(out.indexOf("home-notices")).toBeLessThan(out.indexOf("12 bank lines to match"));
   });
 });

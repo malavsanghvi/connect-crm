@@ -21,11 +21,13 @@ const state = vi.hoisted(() => ({
   tasks: { tasks: [] as unknown[], failures: [] as unknown[] },
   kpis: [] as unknown[],
   cards: { memberWork: null, assignments: null, startHere: null } as unknown,
+  notices: [] as unknown[],
 }));
 vi.mock("@/lib/session", () => ({ getSession: async () => state.session }));
 vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: async () => state.tasks }));
 vi.mock("@/lib/data/home-kpis", () => ({ loadHomeKpis: async () => state.kpis }));
 vi.mock("@/lib/data/home-cards", () => ({ loadHomeCards: async () => state.cards }));
+vi.mock("@/lib/data/home-notices", () => ({ loadHomeNotices: async () => state.notices }));
 
 import HomePage from "@/app/(app)/page";
 import { buildAssignments, scopedAssignments } from "@/lib/home/assignments";
@@ -66,9 +68,29 @@ beforeEach(() => {
   state.tasks = { tasks: [], failures: [] };
   state.kpis = [];
   state.cards = { memberWork: null, assignments: null, startHere: null };
+  state.notices = [];
 });
 
 describe("Home", () => {
+  it("the owner's notice from the Weaver team comes first, above every card", async () => {
+    state.session = session(["treasurer"]);
+    state.tasks = {
+      tasks: [{ id: "deposits:all", source: "deposits", tag: "Deposits", color: "brown", title: "12 bank lines to match", meta: "Money in", links: [{ label: "Open", href: "/giving/bank" }] }],
+      failures: [],
+    };
+    state.notices = [{ key: "chip-in-settings", tone: "info", title: "Weaver's team changed your Chip In settings on Oct 19, 2026", lines: ["Your members are not asked for a Chip In."] }];
+    const out = await render();
+    expect(out).toContain('data-testid="home-notices"');
+    expect(out).toContain("Weaver&#x27;s team changed your Chip In settings on Oct 19, 2026");
+    expect(out).toContain("Your members are not asked for a Chip In.");
+    expect(out.indexOf("home-notices")).toBeLessThan(out.indexOf("12 bank lines to match"));
+  });
+
+  it("no notice, no notice block", async () => {
+    state.session = session(["treasurer"]);
+    expect(await render()).not.toContain("home-notices");
+  });
+
   it("a family member with no staff queue: the member-app card, and never 'Nothing here for your role'", async () => {
     state.session = session(["community_member"]);
     state.cards = { memberWork, assignments: null, startHere: null };

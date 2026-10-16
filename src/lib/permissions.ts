@@ -739,7 +739,7 @@ export const NAV: NavModule[] = [
       { href: "/platform/agreements", label: "Agreements", access: "dashboard", platformOnly: true },
       // o-https: portal address and HTTPS status.
       { href: "/platform/https", label: "HTTPS", access: "dashboard", platformOnly: true },
-      // Payments plan PR 5: Community Connect pauses a way to pay (the only power the platform team has over payments).
+      // Payments plan PR 5: Community Connect pauses a way to pay; 0862: it also sets the Stripe fee-rate estimate (no money moves, no credential is read).
       { href: "/platform/payments", label: "Payments", access: "dashboard", platformOnly: true },
       // B91: keys and counts of the repeated work found across the communities that agreed to recording (no community, no person).
       { href: "/platform/automation", label: "Automation backlog", access: "dashboard", platformOnly: true },

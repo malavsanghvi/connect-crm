@@ -150,6 +150,13 @@ code); it applies to postings sent after it, and a posted entry keeps the docume
   (callable without a session), `app.can_use_feature(center, area)` and the Settings › Access levels RPCs. For live darshan the
   stream's row, and with it the link, is protected by RLS (guests can watch it by default; the link itself is only as private as the
   site it points to); the other areas are hidden by the app. See [ACCESS_LEVELS.md](ACCESS_LEVELS.md).
+- **The Chip In and the card-fee estimate** (0861-0863, [PAYMENT_ADDONS.md](PAYMENT_ADDONS.md)) are set by a Weaver platform admin only, in the
+  portal: Platform › Centers › [organization] › Chip In and card fees (the switch, the yearly limit per account, the suggested amounts, an
+  organization's own Stripe rate, this year's figures) and Platform › Payments (the platform-wide Stripe rates, beside the pauses). The rules
+  are the database's: `platform_set_chip_in`, `chip_in_overview`, `platform_set_fee_rate` check `is_platform_admin()` themselves, and
+  `chip_in_settings` and `payment_fee_rates` are readable by platform admins only; the screens' own check is a convenience. A reason is required,
+  every save is audited and there is no fresh 2FA code (owner rule of 2026-10-14). The organization's owner reads the setting through
+  `chip_in_summary` (a Home notice for 14 days after a change). Nothing is asked of any member until the switch is on.
 - **Money is integer cents** everywhere (`*_cents`). Format only at the edge.
 - **Errors are always shown to the user in plain English** with a retry where one
   exists; never console-only, never a silent fallback. Log the technical detail.

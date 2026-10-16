@@ -124,11 +124,34 @@ A change to a payee that is already saved (the Zelle address or name, the bank a
 arrive in, the PayPal email) is asked for by the owner or a holder of `integrations.manage` or
 `giving.manage` and takes effect only when a **different** person with `giving.approve` (the owner
 included) confirms it, each with a fresh 2FA check and a reason. `app.payee_has_permission` is the
-vault's rule: **a platform admin's blanket permissions do not count**. Community Connect's only power over
-payments is the pause (`app.suspend_payment_plugin`, platform admins only). The fresh 2FA check is
+vault's rule: **a platform admin's blanket permissions do not count**. Community Connect's power over
+where money goes is the pause (`app.suspend_payment_plugin`, platform admins only); the Chip In and the
+Stripe fee-rate estimate (next section) are the only other payment settings the platform team holds, and
+neither reads a credential or moves money. The fresh 2FA check is
 asked of a person who has an authenticator app or whose organization requires 2FA for staff
 (`security.require_2fa_for_staff`); JSH has that rule off. An organization needs two holders of
 `giving.approve` (the owner counts) to be able to fix a typo in a payee once it is set.
+
+## The Chip In and the card-fee estimate: platform admins only (0861, 0862; docs/PAYMENT_ADDONS.md §11.2)
+
+A Weaver platform admin, and nobody else, decides whether an organization's members are asked for the optional Chip In to Weaver
+at payment, and which Stripe rate estimates the card fee a member may choose to cover. The database is the rule: `app.platform_set_chip_in`,
+`app.chip_in_overview` and `app.platform_set_fee_rate` check `app.is_platform_admin()` themselves, and the tables `chip_in_settings` and
+`payment_fee_rates` can be read by platform admins only. A reason is required and every save is audited; **no fresh 2FA code** (the
+owner's rule of 2026-10-14: that is asked only for creating a sandbox, approving go-live, promoting and granting a module). The portal's
+screens check the same flag first and are a convenience; when the database refuses, they say "You don't have access to this area".
+
+| What | Where | Server Action |
+|---|---|---|
+| The switch (off by default), the yearly limit per account ($1 to $1,000), one to four suggested amounts; the switch cannot be turned on until a limit and a suggestion are **saved** | Platform › Centers › [organization] › Chip In and card fees | `saveChipInAction` |
+| This year's figures (live and test apart, no names) | the same card | read: `app.chip_in_overview` |
+| An organization's own Stripe fee rate (its approved nonprofit pricing, say) | the same card | `addFeeRateAction` |
+| The platform-wide Stripe fee rates (card, bank debit) | Platform › Payments, beside the pauses | `addFeeRateAction` |
+
+Nothing is asked of any member until a platform admin has saved a limit and suggestions **and** switched it on (JSH has its limit
+and suggestions saved, asking off). The organization's owner is told on Home for 14 days after every change (`chip_in_summary`, read as the
+owner; no reason and no names in it). The same read is open to anyone who may see the payment settings (`payments_can_view`); Settings ›
+Payments will show it read-only (slice 4).
 
 ## Prototype permission names → schema permissions (Content and Communications)
 

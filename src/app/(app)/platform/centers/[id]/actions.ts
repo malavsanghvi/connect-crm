@@ -8,6 +8,9 @@ import { expectedVersion, writeCenterRules } from "@/lib/data/center-rules-write
 import { failure, type ActionResult } from "@/lib/errors";
 import { parseKindPreview, type KindPreview } from "@/lib/kind-change";
 import { moduleLabelFor } from "@/lib/modules";
+import { canTurnOn, parseChipInForm, parseChipInSettingsRow, savedMessage, TURN_ON_BLOCKED } from "@/lib/payments/chip-in-platform";
+import { reasonProblem } from "@/lib/payments/change-control";
+import { untypedRpc } from "@/lib/payments/rpc";
 import { isUuid } from "@/lib/search-params";
 import { dbWithReason, loadSession, type CrmSession } from "@/lib/session";
 import { ENTITLEMENT_INFO, entitlementLabel, parseEntitlementInput } from "@/lib/tenancy";
@@ -236,4 +239,56 @@ export async function saveAssistantAction(_prev: ActionResult | null, formData: 
   }, { centerId: center });
   if (result.ok) revalidatePath(`/platform/centers/${center}`);
   return result;
+}
+
+// ── The optional Chip In (docs/PAYMENT_ADDONS.md §11.2) ───────────────────────
+
+/**
+ * Save an organization's Chip In: the yearly limit per account, one to four suggested amounts and whether its members are asked
+ * (app.platform_set_chip_in: platform admins only, a reason required, audited, no fresh 2FA code by the owner's rule of 2026-10-14).
+ * The form takes dollars; they become integer cents in parseChipInForm. The switch cannot be turned on until a limit and a suggestion
+ * are already SAVED: the card disables it, and this checks again because an action can be posted directly. The database checks
+ * everything once more and is the rule. While the switch is off nothing is asked of any member.
+ */
+export async function saveChipInAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const doing = "save the Chip In settings";
+  const center = String(formData.get("center") ?? "");
+  if (!isUuid(center)) return { ok: false, error: `Could not ${doing} — the form is out of date. Reload and try again.` };
+  const auth = await platformOnly(doing);
+  if (!auth.ok) return auth;
+  const reason = String(formData.get("reason") ?? "").trim();
+  const noReason = reasonProblem(reason, doing);
+  if (noReason) return { ok: false, error: noReason };
+  const parsed = parseChipInForm({
+    limit: String(formData.get("limit") ?? ""),
+    suggestions: formData.getAll("suggestion").map((v) => String(v)),
+    asking: formData.get("asking") === "on",
+  });
+  if (!parsed.ok) return { ok: false, error: `Could not ${doing} — ${parsed.error}` };
+  const want = parsed.value;
+
+  if (want.asking) {
+    const saved = await auth.session.db
+      .from("chip_in_settings")
+      .select("asking, yearly_limit_cents, suggested_cents, reason, updated_by, updated_at")
+      .eq("center_id", center)
+      .maybeSingle();
+    if (saved.error) return failure(`Could not ${doing}`, saved.error);
+    const row = parseChipInSettingsRow(saved.data);
+    if (!row.ok) return { ok: false, error: `Could not ${doing} — ${row.error}.` };
+    if (!canTurnOn(row.value)) return { ok: false, error: `Could not ${doing} — ${TURN_ON_BLOCKED}` };
+  }
+
+  const db = await dbWithReason(auth.session, reason);
+  // The generated types cannot say "no limit yet" (a null argument), so this goes through the untyped call, as the payment actions do.
+  const { data, error } = await untypedRpc(db)("platform_set_chip_in", {
+    p_center: center,
+    p_limit_cents: want.limitCents,
+    p_suggested_cents: want.suggestedCents,
+    p_asking: want.asking,
+    p_reason: reason,
+  });
+  if (error) return failure(`Could not ${doing}`, error);
+  revalidatePath(`/platform/centers/${center}`);
+  return { ok: true, message: savedMessage(data) };
 }
