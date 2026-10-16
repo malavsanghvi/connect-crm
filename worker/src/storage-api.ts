@@ -26,3 +26,9 @@ export function objectUrl(base: string, bucket: string, name: string): string {
   if (hasDotSegment(name)) throw new Error("An object name with a . or .. segment cannot be fetched safely.");
   return `${bucketUrl(base, bucket)}/${name.split("/").map(encodeURIComponent).join("/")}`;
 }
+
+/** <SUPABASE_URL>/storage/v1/object/info/<bucket>/<name>: the metadata of one object (200), or "not found"; a name with a "." or ".." segment is refused. */
+export function objectInfoUrl(base: string, bucket: string, name: string): string {
+  if (hasDotSegment(name)) throw new Error("An object name with a . or .. segment cannot be looked up safely.");
+  return `${base.replace(/\/+$/, "")}/storage/v1/object/info/${encodeURIComponent(bucket)}/${name.split("/").map(encodeURIComponent).join("/")}`;
+}

@@ -16681,6 +16681,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      proof_retention_preview: {
+        Args: {
+          p_center: string;
+          p_years: number;
+        };
+        Returns: Json;
+      };
       public_kpi_catalog: {
         Args: {
           p_center: string;
