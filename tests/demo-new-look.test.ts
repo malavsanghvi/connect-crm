@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // A demo shows the newest look (src/app/demo/actions.ts): starting one sets the "New look" cookie unless the visitor already chose a look
 // in this browser, and never keeps it past the browser session. The database, the cookies and the redirect are replaced.
 const jar = new Map<string, string>();
-const set = vi.fn((name: string, value: string, options?: Record<string, unknown>) => void (options, jar.set(name, value)));
+const set = vi.fn<(name: string, value: string, options?: Record<string, unknown>) => void>((name, value) => {
+  jar.set(name, value);
+});
 let start: { ok: true } | { ok: false; error: string } = { ok: true };
 
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: (n: string) => (jar.has(n) ? { name: n, value: jar.get(n) } : undefined), set }) }));
