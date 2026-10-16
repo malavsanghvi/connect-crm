@@ -25,8 +25,10 @@ import { readPublicEnv } from "@/lib/env";
 import { newRequestId } from "@/lib/supabase/trace";
 import type { AppSupabase } from "@/lib/supabase/server";
 
-import { centsToDecimal, stripePaymentMethodTypes, type Processor } from "./view";
+import { planStripeSession, type CheckoutInfo } from "./stripe-session";
+import { centsToDecimal } from "./view";
 
+export type { CheckoutInfo } from "./stripe-session";
 export type Mode = "test" | "live";
 
 /** A platform setting is missing: the plain sentence names the variables, never a value. */
@@ -115,36 +117,22 @@ async function send(url: string, init: RequestInit, provider: string): Promise<R
   return providerJson(provider, res);
 }
 
-export type CheckoutInfo = {
-  checkout_id: string;
-  processor: Processor;
-  mode: Mode;
-  amount_cents: number;
-  currency: string;
-  account_id: string | null;
-  payee_email: string | null;
-  statement_descriptor: string | null;
-  methods: string[];
-  center_name: string;
-  for_label: string;
-};
-
 export type ProviderCheckout = { providerRef: string; url: string };
 
+/**
+ * The Stripe Checkout Session: a DIRECT charge on the organization's connected account (platform key + Stripe-Account header),
+ * laid out by planStripeSession from the numbers app.create_checkout returned: the gift, then the card fee the payer chose to
+ * cover, then the Chip In (with Stripe's application fee), docs/PAYMENT_ADDONS.md §8. Nothing is worked out here.
+ */
 async function stripeCheckout(c: CheckoutInfo, successUrl: string, cancelUrl: string): Promise<ProviderCheckout> {
   await loadPlatformConfig();
   if (!c.account_id) throw new ProviderError("The organization's Stripe account is not connected.");
-  const suffix = (c.statement_descriptor ?? "").trim().slice(0, 22);
-  const body = formEncode({
-    mode: "payment",
-    client_reference_id: c.checkout_id,
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    payment_method_types: stripePaymentMethodTypes(c.methods),
-    line_items: [{ quantity: 1, price_data: { currency: c.currency || "usd", unit_amount: c.amount_cents, product_data: { name: `${c.for_label} · ${c.center_name}`.slice(0, 250) } } }],
-    metadata: { checkout_id: c.checkout_id },
-    payment_intent_data: { metadata: { checkout_id: c.checkout_id }, ...(suffix.length >= 2 ? { statement_descriptor_suffix: suffix } : {}) },
-  });
+  const plan = planStripeSession(c, successUrl, cancelUrl, Math.floor(Date.now() / 1000));
+  if (!plan.ok) {
+    console.error(`[payments] checkout ${c.checkout_id} was not sent to Stripe: ${plan.error}`);
+    throw new ProviderError(plan.error);
+  }
+  const body = formEncode(plan.params);
   const s = await send(`${stripeBase()}/v1/checkout/sessions`, {
     method: "POST",
     headers: {

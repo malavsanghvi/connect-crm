@@ -41,6 +41,7 @@ import * as qboPullLists from "./qbo.pull_lists";
 import * as qboRefreshToken from "./qbo.refresh_token";
 import * as qboTestPost from "./qbo.test_post";
 import * as paymentsRefund from "./payments.refund";
+import * as paymentsReleaseChipIns from "./payments.release_chip_ins";
 import * as paymentsReportsSweep from "./payments.reports_sweep";
 import * as paymentsSyncPayouts from "./payments.sync_payouts";
 import * as paymentsTestCharge from "./payments.test_charge";
@@ -94,6 +95,8 @@ export const HANDLERS: HandlerModule[] = [
   paymentsSyncPayouts,
   // Payments plan PR 3: Zelle reports not seen at the bank within their window (0582)
   paymentsReportsSweep,
+  // The optional Chip In (0861): once a day, give back the yearly allowance of reservations that can no longer be paid
+  paymentsReleaseChipIns,
   // o-demo
   demoLoad,
   demoClear,

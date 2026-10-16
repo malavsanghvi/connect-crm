@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { isPublicPath } from "@/lib/supabase/proxy";
 import { parseStripeSignature, paypalVerifyBody, secretsFrom, stripeSignatureFor, verifyStripeSignature } from "@/lib/payments/signature";
 import {
-  OFFLINE_METHODS, centsToDecimal, parseIntentRequest, processorStatusView, statementDescriptorProblem, stripePaymentMethodTypes,
+  OFFLINE_METHODS, centsToDecimal, checkoutRefusalMessage, isCheckoutRefusalCode, parseIntentRequest, processorStatusView, statementDescriptorProblem,
+  stripePaymentMethodTypes,
 } from "@/lib/payments/view";
 
 const H = "11111111-1111-4111-8111-111111111111";
@@ -63,9 +64,48 @@ describe("payment settings rules", () => {
 describe("the checkout route's input", () => {
   it("accepts a well-formed request and fills safe defaults", () => {
     const r = parseIntentRequest({ center_id: H, household_id: H, amount_cents: 2500, pledge_ids: [H], context: "pledges", for_label: " Pledge P-1 " });
-    expect(r).toEqual({ ok: true, value: { center_id: H, household_id: H, amount_cents: 2500, pledge_ids: [H], processor: null, context: "pledges", for_label: "Pledge P-1", return_url: null } });
+    // An app that sends none of the add-ons (an older app) means: no covered fee, no Chip In, no method chosen, no total to check.
+    expect(r).toEqual({
+      ok: true,
+      value: {
+        center_id: H, household_id: H, amount_cents: 2500, pledge_ids: [H], processor: null, context: "pledges", for_label: "Pledge P-1", return_url: null,
+        cover_fee: false, chip_in_cents: 0, pay_method: null, expected_total_cents: null,
+      },
+    });
     const d = parseIntentRequest({ center_id: H, household_id: H, amount_cents: 100, context: "weird", processor: "venmo", return_url: "javascript:x" });
     expect(d.ok && d.value).toMatchObject({ context: "other", processor: null, return_url: null, for_label: "Gift", pledge_ids: [] });
+  });
+  it("passes the payer's add-on choices through: the card fee, the Chip In, the method and the total they saw", () => {
+    const r = parseIntentRequest({ center_id: H, household_id: H, amount_cents: 10000, cover_fee: true, chip_in_cents: 500, pay_method: "ach", expected_total_cents: 10845 });
+    expect(r.ok && r.value).toMatchObject({ amount_cents: 10000, cover_fee: true, chip_in_cents: 500, pay_method: "ach", expected_total_cents: 10845 });
+    const none = parseIntentRequest({ center_id: H, household_id: H, amount_cents: 10000, cover_fee: null, chip_in_cents: null, pay_method: null, expected_total_cents: null });
+    expect(none.ok && none.value).toMatchObject({ cover_fee: false, chip_in_cents: 0, pay_method: null, expected_total_cents: null });
+    expect(parseIntentRequest({ center_id: H, household_id: H, amount_cents: 10000, chip_in_cents: 0, expected_total_cents: 0 }).ok).toBe(true);
+  });
+  it("refuses an add-on choice of the wrong kind instead of dropping it (a dropped choice would charge something the payer did not choose)", () => {
+    const base = { center_id: H, household_id: H, amount_cents: 10000 };
+    expect(parseIntentRequest({ ...base, cover_fee: "yes" })).toEqual({ ok: false, error: "cover_fee must be true or false." });
+    expect(parseIntentRequest({ ...base, cover_fee: 1 }).ok).toBe(false);
+    expect(parseIntentRequest({ ...base, chip_in_cents: 5.5 }).ok).toBe(false);
+    expect(parseIntentRequest({ ...base, chip_in_cents: -100 }).ok).toBe(false);
+    expect(parseIntentRequest({ ...base, chip_in_cents: "500" }).ok).toBe(false);
+    expect(parseIntentRequest({ ...base, pay_method: "apple_pay" })).toEqual({ ok: false, error: "pay_method must be card or ach." });
+    expect(parseIntentRequest({ ...base, expected_total_cents: 108.45 }).ok).toBe(false);
+    expect(parseIntentRequest({ ...base, expected_total_cents: -1 }).ok).toBe(false);
+    expect(parseIntentRequest({ ...base, expected_total_cents: "10845" }).ok).toBe(false);
+  });
+  it("words a refused add-on in plain English, ending with 'Nothing was charged.'", () => {
+    expect(checkoutRefusalMessage("CCTOT", "The total changed from $105.00 to $108.45. Review it and try again.")).toBe(
+      "Could not start the payment. The total changed from $105.00 to $108.45. Review it and try again. Nothing was charged.",
+    );
+    expect(checkoutRefusalMessage("CCLIM", "You have reached this year's Chip In limit.")).toBe("Could not add a Chip In. You have reached this year's Chip In limit. Nothing was charged.");
+    expect(checkoutRefusalMessage("CCCHP", "A Chip In is not available for this payment")).toBe("Could not add a Chip In. A Chip In is not available for this payment. Nothing was charged.");
+    expect(checkoutRefusalMessage("CCFEE", "Jain Society does not take a covered card fee on this kind of payment.")).toBe(
+      "Could not start the payment. Jain Society does not take a covered card fee on this kind of payment. Nothing was charged.",
+    );
+    expect(checkoutRefusalMessage("CCFEE", "")).toBe("Could not start the payment. It is not available for this payment. Nothing was charged.");
+    expect(["CCFEE", "CCCHP", "CCLIM", "CCTOT"].every(isCheckoutRefusalCode)).toBe(true);
+    expect(["CCENT", "42501", "22023", undefined, null].some(isCheckoutRefusalCode)).toBe(false);
   });
   it("refuses fractional or tiny amounts and bad ids", () => {
     expect(parseIntentRequest({ center_id: H, household_id: H, amount_cents: 12.5 }).ok).toBe(false);

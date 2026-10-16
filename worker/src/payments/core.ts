@@ -4,7 +4,7 @@
 // a payout). Money rules stay in the database: these steps only tell it what
 // the provider reported.
 
-import { PermanentError } from "../errors";
+import { PermanentError, messageOf } from "../errors";
 import type { JobContext } from "../types";
 import { asMode, decimalToCents, paypalMethod, paypalRequest, stripeMethod, stripeRequest, centsToDecimal, type Mode } from "./providers";
 
@@ -15,6 +15,7 @@ export type Checkout = {
   processor: "stripe" | "paypal";
   mode: Mode;
   context: string;
+  /** The ORGANIZATION's charge: gift + the card fee the payer covered. The Chip In is not in it. */
   amount_cents: number;
   currency: string;
   status: string;
@@ -24,6 +25,15 @@ export type Checkout = {
   account_id: string | null;
   connect_method: string | null;
   payee_email: string | null;
+  // 0862: what the payer was asked to pay. Absent on an older database (a gift only).
+  gift_cents?: number | null;
+  covered_fee_cents?: number | null;
+  chip_in_cents?: number | null;
+  /** What Weaver takes of the charge as Stripe's application fee. */
+  application_fee_cents?: number | null;
+  /** What the card is charged: gift + covered fee + Chip In. */
+  total_cents?: number | null;
+  pay_method?: string | null;
 };
 
 export async function dbValue<T>(ctx: JobContext, sql: string, params: unknown[]): Promise<T | null> {
@@ -39,12 +49,37 @@ export async function loadCheckout(ctx: JobContext, id: string | null, processor
   return v ? { ...v, mode: asMode(v.mode) } : null;
 }
 
-export type Recorded = { duplicate?: boolean; payment_id?: string | null; checkout_id?: string; test?: boolean };
+export type Recorded = {
+  duplicate?: boolean;
+  payment_id?: string | null;
+  checkout_id?: string;
+  test?: boolean;
+  gift_cents?: number;
+  covered_fee_cents?: number;
+  chip_in_cents?: number;
+  /** How Stripe's fees on the charge were told apart (a Stripe payment only): the job's result shows it. */
+  fees?: { fee_cents: number; processing_fee_cents: number; application_fee_cents: number; itemised: boolean };
+};
 
-export function recordPayment(ctx: JobContext, checkout: Checkout, ref: string, amountCents: number, feeCents: number, method: string, detail: string | null) {
-  return dbValue<Recorded>(ctx, "select app.worker_record_online_payment($1, $2, $3, $4, $5, $6) as v", [
-    checkout.id, ref, amountCents, feeCents, method, detail,
-  ]).then((v) => v ?? {});
+/**
+ * Tell the database what the provider reported. `amountCents` is what was charged in TOTAL; `feeCents` is the provider's own
+ * processing fee only (Stripe: never the application fee). `applicationFeeCents` is passed only when the payment has one (or
+ * the checkout asked for one): a gift paid through PayPal or Stripe is recorded with exactly the call it always had.
+ */
+export function recordPayment(
+  ctx: JobContext,
+  checkout: Checkout,
+  ref: string,
+  amountCents: number,
+  feeCents: number,
+  method: string,
+  detail: string | null,
+  applicationFeeCents?: number,
+) {
+  const args: unknown[] = [checkout.id, ref, amountCents, feeCents, method, detail];
+  if (applicationFeeCents !== undefined) args.push(applicationFeeCents);
+  const slots = args.map((_, i) => `$${i + 1}`).join(", ");
+  return dbValue<Recorded>(ctx, `select app.worker_record_online_payment(${slots}) as v`, args).then((v) => v ?? {});
 }
 
 export type FlaggedRefund = {
@@ -91,7 +126,69 @@ export function closeCheckout(ctx: JobContext, checkoutId: string, status: "fail
 type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (v && typeof v === "object" && !Array.isArray(v) ? (v as Obj) : {});
 
-/** A paid Checkout Session: read its PaymentIntent (fee, method) on the connected account and record it. */
+export type StripeFees = {
+  /** balance_transaction.fee, whatever it includes. */
+  feeCents: number;
+  /** What Stripe charges the organization for processing: every fee_details entry except the application fee. */
+  processingCents: number;
+  /** What Weaver takes: the fee_details entries of type application_fee. */
+  applicationCents: number;
+  /** False when Stripe sent no fee_details, so the two cannot be told apart. */
+  itemised: boolean;
+  /** Each fee_details type and its cents (for the log and the job result). */
+  byType: Record<string, number>;
+};
+
+/**
+ * Split a charge's balance transaction into Stripe's processing fee and Weaver's application fee (docs/PAYMENT_ADDONS.md §7.5).
+ * A charge with an application fee has a fee breakdown of BOTH, and `fee` may total them; only the processing part is the
+ * organization's card fee (payments.fee_cents, what posts to QuickBooks as merchant fees). The application fee is Weaver's and
+ * is passed on separately. Entries of every other type (stripe_fee, tax on it, a payment-method pass-through fee) are costs
+ * Stripe takes from the organization's balance, so they belong with the processing fee: leaving them out would leave the books
+ * short of the deposit. A plain gift's balance transaction has no application fee entry and the result is `fee`, as before.
+ */
+export function splitStripeFees(bt: Obj): StripeFees {
+  const feeCents = typeof bt.fee === "number" ? bt.fee : 0;
+  if (!Array.isArray(bt.fee_details)) return { feeCents, processingCents: feeCents, applicationCents: 0, itemised: false, byType: {} };
+  const byType: Record<string, number> = {};
+  let processingCents = 0;
+  let applicationCents = 0;
+  for (const entry of bt.fee_details) {
+    const d = obj(entry);
+    const cents = typeof d.amount === "number" ? d.amount : 0;
+    const type = typeof d.type === "string" && d.type ? d.type : "unknown";
+    byType[type] = (byType[type] ?? 0) + cents;
+    if (type === "application_fee") applicationCents += cents;
+    else processingCents += cents;
+  }
+  return { feeCents, processingCents, applicationCents, itemised: true, byType };
+}
+
+const dollars = (c: number) => `$${centsToDecimal(c)}`;
+
+/**
+ * The database refused to record a payment because Stripe's numbers are not the checkout's (worker_record_online_payment, 0862:
+ * "... Not recorded."). Retrying cannot change them, so it becomes a permanent failure whose message says in plain words what
+ * differs and what to do. The job fails at once and the webhook event keeps the sentence: never a silent success.
+ */
+export function recordingProblem(err: unknown, checkout: Checkout, paymentRef: string, chargedCents: number, applicationFeeCents: number): unknown {
+  if (!/Not recorded\.?\s*$/i.test(messageOf(err))) return err;
+  const expected = checkout.total_cents ?? checkout.amount_cents;
+  const expectedFee = checkout.application_fee_cents ?? 0;
+  const what =
+    chargedCents !== expected
+      ? `Stripe charged ${dollars(chargedCents)} for payment ${paymentRef}, but Weaver's checkout asked for ${dollars(expected)}`
+      : `Stripe took an application fee of ${dollars(applicationFeeCents)} on payment ${paymentRef}, but Weaver's checkout asked for ${dollars(expectedFee)}`;
+  return new PermanentError(
+    `${what}. The payment was NOT recorded in Weaver. Look at it in the Stripe dashboard and in Giving › Payments, then record or refund it by hand.`,
+  );
+}
+
+/**
+ * A paid Checkout Session: read its PaymentIntent (fees, method) on the connected account and record it.
+ * The database checks the numbers (the charge must equal the checkout's total, and a Chip In's application fee must be the one
+ * the checkout asked for); this step only reports what Stripe says, with the processing fee and the application fee kept apart.
+ */
 export async function recordStripeSession(ctx: JobContext, checkout: Checkout, session: Obj, account: string | null): Promise<Recorded> {
   const pi = typeof session.payment_intent === "string" ? session.payment_intent : String(obj(session.payment_intent).id ?? "");
   if (!pi) throw new PermanentError(`Stripe session ${String(session.id)} has no payment to record.`);
@@ -104,9 +201,46 @@ export async function recordStripeSession(ctx: JobContext, checkout: Checkout, s
   const charge = obj(intent.latest_charge);
   const bt = obj(charge.balance_transaction);
   const amount = Number(intent.amount_received ?? intent.amount ?? session.amount_total);
-  const fee = typeof bt.fee === "number" ? bt.fee : 0;
+  const fees = splitStripeFees(bt);
   const { method, detail } = stripeMethod(charge);
-  return recordPayment(ctx, checkout, pi, amount, fee, method, detail);
+
+  // The application fee as the PaymentIntent reports it (null: none). A checkout with a Chip In, or a charge that carries an
+  // application fee the checkout never asked for, is reported to the database, which compares it with the checkout.
+  const intentAppFee = typeof intent.application_fee_amount === "number" ? intent.application_fee_amount : 0;
+  const hasAddOns = Number(checkout.chip_in_cents ?? 0) > 0 || Number(checkout.covered_fee_cents ?? 0) > 0;
+  if (hasAddOns && !fees.itemised) {
+    // Without Stripe's breakdown the card fee cannot be told apart from Weaver's application fee; guessing would book the Chip In as a fee.
+    throw new Error(`Stripe returned no fee breakdown for payment ${pi}, so its card fee cannot be told apart from Weaver's application fee; it will be checked again.`);
+  }
+  if (fees.itemised && fees.applicationCents !== intentAppFee) {
+    ctx.log.warn("stripe: the fee breakdown and the PaymentIntent disagree about the application fee", {
+      payment_intent: pi, application_fee_in_breakdown_cents: fees.applicationCents, application_fee_on_intent_cents: intentAppFee,
+    });
+  }
+  ctx.log.info("stripe: fees of a charge", {
+    payment_intent: pi, charged_cents: amount, balance_transaction_fee_cents: fees.feeCents, fee_details_cents: fees.byType,
+    processing_fee_cents: fees.processingCents, application_fee_cents: intentAppFee,
+  });
+
+  let recorded: Recorded;
+  try {
+    recorded = await recordPayment(
+      ctx, checkout, pi, amount, fees.processingCents, method, detail,
+      Number(checkout.chip_in_cents ?? 0) > 0 || intentAppFee > 0 ? intentAppFee : undefined,
+    );
+  } catch (err) {
+    const problem = recordingProblem(err, checkout, pi, amount, intentAppFee);
+    if (problem !== err) {
+      ctx.log.error("stripe: a payment was NOT recorded because Stripe's numbers are not the checkout's", {
+        payment_intent: pi, checkout: checkout.id, charged_cents: amount, application_fee_cents: intentAppFee, database: messageOf(err),
+      });
+    }
+    throw problem;
+  }
+  return {
+    ...recorded,
+    fees: { fee_cents: fees.feeCents, processing_fee_cents: fees.processingCents, application_fee_cents: intentAppFee, itemised: fees.itemised },
+  };
 }
 
 export async function stripeRefund(ctx: JobContext, mode: Mode, account: string | null, paymentIntent: string, amountCents: number, idempotencyKey: string) {
