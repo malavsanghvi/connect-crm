@@ -359,9 +359,10 @@ select pg_temp.assert(not has_function_privilege('authenticated', 'app.demo_alig
 select pg_temp.assert_raises(format('select app.demo_align_center(%L)', :jsh), 'not a demo community', 'E · a community that is not a demo is refused: JSH is never aligned');
 select pg_temp.assert_raises($$select app.demo_align_center('82000000-0000-4000-8000-0000000000ff')$$, 'not a demo community', 'E · and so is one that does not exist');
 select pg_temp.assert((select category_key = 'nonprofit_secular' from app.centers where id = :'nc')
-                      and not exists (select 1 from app.center_module_grants g where g.center_id = :'nc' and g.reason like 'Demo community:%')
+                      and not exists (select 1 from app.center_module_grants g where g.center_id = :'nc' and g.reason like 'Demo community: its pack%')
+                      and not exists (select 1 from app.center_module_grants g where g.center_id = :'nc' and g.module_key in ('store', 'pathshala', 'gyan_path'))
                       and pg_temp.pack_vs_rows(:'nc', 'demo_neutral_club_v1') = '' and (select count(*) = 21 from app.demo_personas where center_id = :'nc'),
-  'E · the club demo (not faith-based) is as it was: its kind, no modules granted by a pack, its 21 demo people');
+  'E · the club demo (not faith-based) is as it was: its kind, no modules granted by a pack, no shop or school (0877 adds only add-ons of modules it has), its 21 demo people');
 select pg_temp.assert((select category_key = 'jain_center' from app.centers where id = :jsh) and not app.is_demo_center(:jsh)
                       and not exists (select 1 from app.center_module_grants g where g.center_id = :jsh and g.reason like 'Demo community:%'),
   'E · and JSH is still a Jain Center, untouched');
