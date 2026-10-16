@@ -264,6 +264,20 @@ an ordinary step; thank-yous start from the first save, with the option to inclu
 one from before the rules began; relationship owners see gift dates and counts, never amounts. **Not in slice 3:** the Giving Today group (the Home row is
 there; Today's own group is a later change).
 
+**Built (slice 4, 2026-10-16, migrations 0884-0885, test 884):** `app.care_health_facts(center, households)` (up to 100 households the caller may see:
+gifts in the last 12 months and the 12 before by 0882's rule, first and last gift day, adults who checked in or served, messages an adult opened, personal
+touches that went well with how many were asks, last touch, open thank-you steps; counts and dates only, **no amount**, so no giving role is needed beyond the
+care key; asking for a household the caller may not see refuses the whole call; logged) and `app.care_dashboard(center)` (care.view and care.manage; counts
+only: households that gave in each window, kept, last year but not this, some year but not this, retention, the first-year group kept, thank-you speed of the
+last 90 days, no-ask touches per ask, key households with an owner; logged). `app._care_history_months` says how many months of records Weaver holds.
+Portal: `src/lib/care/health.ts` turns the facts into a level and its reasons in words (arithmetic and templates: no score, no AI, no amounts); the level shows as
+a **Sign** column on the Households list and as "How the relationship is going" on the Care card, with every reason; **Dashboard** (`/care/dashboard`, a new tab for
+care.view and care.manage; a relationship owner sees households, not the totals). Rules as built: Lapsed = nothing on record (a gift, an event, a shift) for
+18 months; At risk = gave the year before, not in the last 12 months; Cooling = fewer gifts than the year before, or no gift for 6 months; Thriving = as many
+gifts as the year before, took part, and 3 or more no-ask touches for every ask; Steady = the rest; No activity yet = nothing on record. Under about 11 months of
+records every household reads "Not enough history yet", and the dashboard shows "Not enough yet" for any number that compares two years until Weaver holds
+about 23 months. Without Giving the gift rules are left out. Not built: a Today group for the weakest signs.
+
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt
 closes an ordinary step; start from the first save with "include the last 30 days"; relationship owners see gift dates

@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Alert, Card, ChipLinks, EmptyState, Field, FilterBar, PageHeader, Pagination, TableWrap, buttonClass } from "@/components/ui";
+import { HealthChip } from "@/components/care/health-chip";
 import { LIST_FILTERS, NO_ACCESS, formatDay, householdLine, type CareListFilter } from "@/lib/care/model";
-import { CARE_PAGE_SIZE, loadCareList, seesCare } from "@/lib/data/care";
+import { CARE_PAGE_SIZE, loadCareList, loadHealth, seesCare } from "@/lib/data/care";
 import { kindName } from "@/lib/kind";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -88,6 +89,9 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
   }
 
   const data = list.data;
+  // The sign of each household on this page (slice 4). A failed read costs the column, never the list: the note above the table says so.
+  const health = await loadHealth(session, data.rows.map((r) => r.household.id));
+  const signs = health.status === "ok" ? health.data : {};
   const chips = LIST_FILTERS.filter((f) => data.can.all || f === "mine" || f === "resting").map((f) => {
     const count = f === "all" ? data.counts.all : f === "mine" ? data.counts.mine : f === "needs_owner" ? data.counts.needsOwner : data.counts.resting;
     return { key: f, label: `${FILTER_LABEL[f]}${count === null ? "" : ` (${count})`}`, href: hrefWith("/care", sp, { show: f, page: null }) };
@@ -103,6 +107,11 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
           <input id="care-q" name="q" defaultValue={search ?? ""} className="crm-input" placeholder="Name, household number or ID" maxLength={100} />
         </Field>
       </FilterBar>
+      {health.status === "error" ? (
+        <p role="alert" className="m-0 mb-2 text-[13px] text-danger">
+          Could not load the engagement signs — {health.error.replace(/\.?$/, ".")} Reload the page to try again.
+        </p>
+      ) : null}
       <Card padded={false}>
         {data.rows.length === 0 ? (
           <EmptyState title={search ? "No household matches that search." : data.filter === "mine" ? "You do not own any household yet." : data.filter === "needs_owner" ? "Every household has an owner." : data.filter === "resting" ? "No household is resting." : "No households yet."}>
@@ -115,6 +124,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
                 <tr>
                   <th scope="col">Household</th>
                   <th scope="col">Relationship owner</th>
+                  <th scope="col">Sign</th>
                   <th scope="col">Last personal touch</th>
                   <th scope="col">Asking</th>
                 </tr>
@@ -138,6 +148,7 @@ export default async function CarePage({ searchParams }: { searchParams: Promise
                         </>
                       )}
                     </td>
+                    <td>{signs[r.household.id] ? <HealthChip health={signs[r.household.id]} /> : "—"}</td>
                     <td>{when(r.lastTouchAt, tz)}</td>
                     <td>{r.resting ? (r.restUntil ? `Do not ask until ${formatDay(r.restUntil)}` : "Do not ask") : "—"}</td>
                   </tr>

@@ -36,6 +36,8 @@ vi.mock("@/lib/data/care", async () => {
     CARE_PAGE_SIZE: 50,
     seesCare: (s: Parameters<typeof careCan>[0]) => careCan(s, "own"),
     loadCareList: async () => listResult.value,
+    // The signs are their own read (tests/care-health-render.test.ts); here the list is drawn without them.
+    loadHealth: async () => ({ status: "ok", data: {} }),
   };
 });
 

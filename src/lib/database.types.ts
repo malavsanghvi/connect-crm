@@ -13911,6 +13911,19 @@ export type Database = {
         };
         Returns: boolean;
       };
+      care_dashboard: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      care_health_facts: {
+        Args: {
+          p_center: string;
+          p_households: string[];
+        };
+        Returns: Json;
+      };
       care_holders: {
         Args: {
           p_center: string;

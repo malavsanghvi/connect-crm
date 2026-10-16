@@ -15,6 +15,7 @@ import {
   type ProfileCall,
   type TouchCall,
 } from "@/app/(app)/households/[id]/care-actions";
+import { HealthChip } from "@/components/care/health-chip";
 import { ThankActions } from "@/components/care/thank-actions";
 import { buttonClass } from "@/components/ui";
 import {
@@ -46,6 +47,7 @@ import {
   type CareTouchPage,
   type CareTouchRow,
 } from "@/lib/care/model";
+import type { Health } from "@/lib/care/health";
 import { dueLine, giftLine, personalLine, type HouseholdThanks } from "@/lib/care/thanks";
 import type { CareCardLoad, CareRead } from "@/lib/data/care";
 import { formatCents } from "@/lib/money";
@@ -144,7 +146,17 @@ export function CareCard({ load, householdId, timeZone, retryHref }: { load: Car
       </Shell>
     );
   }
-  return <CareCardBody data={card.data} touches={load.touches} holders={load.holders} thanks={load.thanks ?? null} householdId={householdId} timeZone={timeZone} />;
+  return (
+    <CareCardBody
+      data={card.data}
+      touches={load.touches}
+      holders={load.holders}
+      thanks={load.thanks ?? null}
+      health={load.health ?? null}
+      householdId={householdId}
+      timeZone={timeZone}
+    />
+  );
 }
 
 function CareCardBody({
@@ -152,6 +164,7 @@ function CareCardBody({
   touches,
   holders,
   thanks,
+  health,
   householdId,
   timeZone,
 }: {
@@ -159,6 +172,7 @@ function CareCardBody({
   touches: CareRead<CareTouchPage>;
   holders: CareRead<CareHolder[]> | null;
   thanks: CareRead<HouseholdThanks> | null;
+  health: CareRead<Health | null> | null;
   householdId: string;
   timeZone: string;
 }) {
@@ -178,6 +192,7 @@ function CareCardBody({
         </p>
       ) : null}
       <Owners data={data} holders={holders} householdId={householdId} />
+      <HealthBox health={health} />
       <Profile data={data} householdId={householdId} />
       <Thanks thanks={thanks} householdId={householdId} />
       <Touches data={data} first={touches} householdId={householdId} timeZone={timeZone} />
@@ -185,6 +200,36 @@ function CareCardBody({
       <PeopleFields data={data} />
       <p className="m-0 mt-4 border-t border-line pt-3 text-[12.5px] text-muted">{accessLine(data.label, data.access)}</p>
     </Shell>
+  );
+}
+
+// ── How the relationship is going (slice 4) ─────────────────────────────────
+// One sign with the reasons behind it, worked out from counts and dates (src/lib/care/health.ts: no score, no AI), so a person can see
+// why a household is Cooling and what to do about it. A failed read is said in words, never an empty box.
+function HealthBox({ health }: { health: CareRead<Health | null> | null }) {
+  if (!health) return null;
+  if (health.status === "error") {
+    return (
+      <div className="mb-3">
+        <Failure message={`Could not load how this relationship is going — ${health.error.replace(/\.?$/, ".")} Reload the page to try again.`} />
+      </div>
+    );
+  }
+  if (health.status !== "ok" || !health.data) return null;
+  const h = health.data;
+  return (
+    <div className="mb-3 border-t border-line pt-3" data-testid="care-health">
+      <h3 className={H3}>How the relationship is going</h3>
+      <p className="m-0 text-[15px]">
+        <HealthChip health={h} />
+      </p>
+      <ul className="m-0 mt-1 list-disc pl-5 text-[13.5px] text-muted">
+        {h.reasons.map((r) => (
+          <li key={r}>{r}</li>
+        ))}
+      </ul>
+      <p className="m-0 mt-1 text-[12px] text-faint">Worked out from the counts and dates in Weaver&apos;s records: no score, no amounts. A prompt to reach out, not a verdict.</p>
+    </div>
   );
 }
 
