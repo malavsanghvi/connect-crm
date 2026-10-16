@@ -18,6 +18,7 @@ export function AccountPanel({
   pending,
   error,
   onNavigate,
+  links = [],
 }: {
   id: string;
   name: string;
@@ -28,6 +29,8 @@ export function AccountPanel({
   pending: boolean;
   error: string | null;
   onNavigate: () => void;
+  /** Places that have no room in the top bar (Platform), listed above Account. */
+  links?: { label: string; href: string }[];
 }) {
   return (
     <div id={id} role="group" aria-label="Account" className="v2-usermenu">
@@ -37,6 +40,11 @@ export function AccountPanel({
         <p className="mt-1 text-[12px] text-muted">{roles.length > 0 ? roles.join(", ") : role}</p>
       </div>
       <div className="border-t border-line-soft pt-1">
+        {links.map((l) => (
+          <Link key={l.href} href={l.href} className="v2-menu-item" data-spotlight={l.href === "/platform" ? "nav-platform" : undefined} onClick={onNavigate}>
+            {l.label}
+          </Link>
+        ))}
         <Link href="/account/security" className="v2-menu-item" title="Two-step verification, phone and sessions" onClick={onNavigate}>
           Account and security
         </Link>
@@ -62,7 +70,21 @@ export function AccountPanel({
  * The account menu of the redesigned top bar: one avatar button that opens a small panel with the person's name and roles, Account,
  * "Classic look" (the way back to the classic portal) and Sign out. Escape or a click elsewhere closes it.
  */
-export function UserMenuV2({ name, email, role, roles, initials }: { name: string; email: string | null; role: string; roles: string[]; initials: string }) {
+export function UserMenuV2({
+  name,
+  email,
+  role,
+  roles,
+  initials,
+  links,
+}: {
+  name: string;
+  email: string | null;
+  role: string;
+  roles: string[];
+  initials: string;
+  links?: { label: string; href: string }[];
+}) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(async () => signOutAction(), null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -113,6 +135,7 @@ export function UserMenuV2({ name, email, role, roles, initials }: { name: strin
           pending={pending}
           error={state && !state.ok ? state.error : null}
           onNavigate={() => setOpen(false)}
+          links={links}
         />
       ) : null}
     </div>
