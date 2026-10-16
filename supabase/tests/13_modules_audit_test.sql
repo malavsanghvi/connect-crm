@@ -232,9 +232,9 @@ set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 select pg_temp.assert((select count(*) from app.center_modules where center_id = :jsh) = 6, 'members read their center''s module switches');
 select pg_temp.assert((select array_agg(key order by key) from app.my_modules(:jsh) where not enabled)
-                        = '{accounting,bolis,care,channels,events,giving,giving_bank,giving_counts,giving_insights,giving_opportunities,giving_recurring,giving_statements,gyan_path,jain_way,labh,market,matching,website}'
+                        = '{accounting,bolis,care,channels,events,giving,giving_bank,giving_counts,giving_insights,giving_opportunities,giving_proofs,giving_recurring,giving_statements,gyan_path,jain_way,labh,market,matching,website}'
                       and (select enabled and core from app.my_modules(:jsh) where key = 'people')
-                      and (select count(*) from app.my_modules(:jsh)) = 31,
+                      and (select count(*) from app.my_modules(:jsh)) = 32,
   'my_modules lists every module with its state, core ones always on (Giving off: its seven add-ons too, 0740/0741; the Marketplace products JSH does not hold, 0750, 0830)');
 select pg_temp.assert((select count(*) from app.my_modules(:other)) = 0, 'my_modules says nothing about a center you do not belong to');
 commit;

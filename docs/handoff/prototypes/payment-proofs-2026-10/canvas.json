@@ -1,0 +1,35 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-15T20:00:00Z" },
+  "title": "Payment proofs and bank reconciliation",
+  "launch": { "view": "canvas", "page": "overview" },
+  "pages": [
+    { "id": "overview", "name": "Overview" },
+    { "id": "member", "name": "Member app" },
+    { "id": "crm", "name": "CRM" }
+  ],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 1640, "title": "How a pledge moves, and the open-balance rule", "page": "overview", "expand": "fill" },
+    "AppFlow.dc.html": { "x": 0, "y": 0, "w": 390, "h": 844, "title": "Open pledges: I paid another way (clickable)", "page": "member", "is_interactive": true },
+    "AppCheckout.dc.html": { "x": 470, "y": 0, "w": 820, "h": 844, "title": "RSVP checkout and store checkout", "page": "member" },
+    "AppProofs.dc.html": { "x": 1370, "y": 0, "w": 1710, "h": 844, "title": "My payment proofs: waiting, more needed, decided", "page": "member" },
+    "AppPledgeDetail.dc.html": { "x": 3160, "y": 0, "w": 1270, "h": 844, "title": "Any old pledge: its proofs stay connected, for the years the admin set", "page": "member" },
+    "Queue.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 1480, "title": "Giving › Today: proofs to verify, and the review sheet (clickable)", "page": "crm", "expand": "fill", "is_interactive": true },
+    "Household.dc.html": { "x": 1520, "y": 0, "w": 1440, "h": 1380, "title": "A household's pledges: four states, evidence, timeline", "page": "crm", "expand": "fill" },
+    "Reconcile.dc.html": { "x": 3040, "y": 0, "w": 1440, "h": 1620, "title": "Giving › Bank: reconciliation preview (clickable)", "page": "crm", "expand": "fill", "is_interactive": true },
+    "Settings.dc.html": { "x": 4560, "y": 0, "w": 1440, "h": 1360, "title": "Settings: how long proofs are kept, and the proof rules (clickable years)", "page": "crm", "expand": "fill", "is_interactive": true }
+  },
+  "order": ["Main.dc.html", "AppFlow.dc.html", "AppCheckout.dc.html", "AppProofs.dc.html", "AppPledgeDetail.dc.html", "Queue.dc.html", "Household.dc.html", "Reconcile.dc.html", "Settings.dc.html"],
+  "notes": {
+    "member_title": { "x": 0, "y": -300, "text": "Member app: I paid another way, with proof", "kind": "title1", "maxW": 4270, "page": "member" },
+    "crm_title": { "x": 0, "y": -300, "text": "CRM: verify the proof, then reconcile the bank", "kind": "title1", "maxW": 6000, "page": "crm" },
+    "m1": { "x": 0, "y": 904, "w": 340, "text": "First release by OTA: Choose a photo only. Take a photo and Attach a file arrive with the next app build (new camera and file permissions).", "fill": "orange", "page": "member" },
+    "m2": { "x": 470, "y": 904, "w": 380, "text": "The RSVP amount is locked to the RSVP's own pledge. A pay-at-pickup store order creates a pledge, so there is something to credit.", "fill": "orange", "page": "member" },
+    "m3": { "x": 1370, "y": 904, "w": 380, "text": "A waiting proof can be withdrawn until it is decided. Reminders for the covered pledges pause while it waits and resume if it is rejected.", "fill": "orange", "page": "member" },
+    "m4": { "x": 3160, "y": 904, "w": 420, "text": "Evidence is linked to the payment, so every pledge it credited shows the proof, with the share it covered. The family can open it until the date the admin's years allow; after that the photo is gone and the receipt stays.", "fill": "orange", "page": "member" },
+    "c1": { "x": 0, "y": 1540, "w": 420, "text": "Open a row to see the review sheet. A family never verifies its own proof; a proof above the organization's limit needs a second person.", "fill": "orange", "page": "crm" },
+    "c2": { "x": 1520, "y": 1440, "w": 420, "text": "Open balance never includes Soft credit or reconciled money. Soft credit has its own figure beside it.", "fill": "orange", "page": "crm" },
+    "c3": { "x": 3040, "y": 1680, "w": 420, "text": "Nothing here is written until a person clicks. Only the Certain rows can be confirmed in one batch, and each is re-checked as it is applied.", "fill": "orange", "page": "crm" },
+    "c4": { "x": 4560, "y": 1420, "w": 420, "text": "Sample values. Years, hold and limits are per organization; no tradition-specific wording anywhere.", "fill": "orange", "page": "crm" }
+  }
+}

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How a pledge moves</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+a{color:#2b2a8a}a:hover{color:#1e1d5c}
+a:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1280px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; letter-spacing: -0.01em; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700; color: #1e1d5c;">Riverbend Community Center</span>
+<span style="background: #ffffff; color: #1e1d5c; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data · reference only</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1280px; margin: 0 auto; padding: 32px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px;">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">Prototype › Payment proofs and bank reconciliation</nav>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.015em; color: #2b2a8a;">Payment proofs, soft credit and bank reconciliation</h1>
+<p style="margin: 0; max-width: 820px; font-size: 18px; line-height: 1.6; color: #33325f;">A member who paid another way (cash, check, bank transfer, stock) sends a photo or file of the receipt. The pledges it covers, oldest first, show <strong>Soft credit</strong>. The treasury team verifies the proof, the pledges become <strong>Paid</strong>, and when the bank statement shows the money they become <strong>Bank reconciled</strong>.</p>
+</div>
+
+<section aria-labelledby="chain" style="display: flex; flex-direction: column; gap: 14px;">
+<h2 id="chain" style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 26px; font-weight: 600; color: #2b2a8a;">How a pledge moves</h2>
+<ol aria-label="Pledge states" style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch;">
+<sc-for list="{{chain}}" as="c" hint-placeholder-count="4">
+<li style="flex: 1 1 250px; display: flex; flex-direction: column; gap: 8px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px;">
+<span style="align-self: flex-start; background: {{c.bg}}; color: {{c.fg}}; border-radius: 9999px; padding: 3px 12px; font-size: 14px; font-weight: 700;">{{c.name}}</span>
+<span style="font-weight: 700; color: #1e1d5c;">{{c.who}}</span>
+<span style="font-size: 15px; color: #33325f;">{{c.what}}</span>
+</li>
+</sc-for>
+</ol>
+<p style="margin: 0; font-size: 15px; color: #555a79;">Rejecting a proof sends a Soft credit pledge back to Open. Written off and Cancelled are the other two final states, as today. Final states: Bank reconciled, Written off, Cancelled.</p>
+</section>
+
+<section aria-labelledby="table" style="display: flex; flex-direction: column; gap: 14px;">
+<h2 id="table" style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 26px; font-weight: 600; color: #2b2a8a;">What each state does</h2>
+<div style="overflow-x: auto; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px;">
+<table style="width: 100%; min-width: 880px; border-collapse: collapse; font-size: 15px;">
+<thead>
+<tr style="text-align: left; background: #f1eefc; color: #1e1d5c;">
+<th scope="col" style="padding: 12px 16px;">State</th>
+<th scope="col" style="padding: 12px 16px;">In Open balance?</th>
+<th scope="col" style="padding: 12px 16px;">Counts as given?</th>
+<th scope="col" style="padding: 12px 16px;">QuickBooks</th>
+<th scope="col" style="padding: 12px 16px;">Reminders</th>
+<th scope="col" style="padding: 12px 16px;">Who sees it</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<tr style="border-top: 1px solid #eee3d9;">
+<td style="padding: 12px 16px;"><span style="background: {{r.bg}}; color: {{r.fg}}; border-radius: 9999px; padding: 3px 12px; font-size: 14px; font-weight: 700; white-space: nowrap;">{{r.name}}</span></td>
+<td style="padding: 12px 16px; color: #33325f;">{{r.open}}</td>
+<td style="padding: 12px 16px; color: #33325f;">{{r.given}}</td>
+<td style="padding: 12px 16px; color: #33325f;">{{r.qbo}}</td>
+<td style="padding: 12px 16px; color: #33325f;">{{r.remind}}</td>
+<td style="padding: 12px 16px; color: #33325f;">{{r.who}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</section>
+
+<section aria-labelledby="rule" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch;">
+<div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 10px; background: #ffffff; border: 2px solid #2b2a8a; border-radius: 16px; padding: 20px;">
+<h2 id="rule" style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a;">The open-balance rule</h2>
+<p style="margin: 0; font-size: 17px; color: #33325f;"><strong>Open balance = amount − paid − soft credit</strong>, added up over pledges that are Open or Partly paid.</p>
+<p style="margin: 0; font-size: 15.5px; color: #33325f;">A pledge in Soft credit, Paid or Bank reconciled adds nothing to it. Soft credit is shown as its own figure beside it, never inside it. This holds on every screen, for members and for the treasury team. Giving totals count only verified payments.</p>
+</div>
+<div style="flex: 1 1 520px; display: flex; flex-direction: column; gap: 10px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 20px;">
+<h3 style="margin: 0; font-size: 18px; color: #1e1d5c;">Worked example: a $250 check covers two pledges</h3>
+<div style="overflow-x: auto;">
+<table style="width: 100%; min-width: 520px; border-collapse: collapse; font-size: 15px;">
+<thead>
+<tr style="text-align: left; color: #555a79;">
+<th scope="col" style="padding: 6px 8px;">Pledge</th>
+<th scope="col" style="padding: 6px 8px; text-align: right;">Amount</th>
+<th scope="col" style="padding: 6px 8px; text-align: right;">Soft credit</th>
+<th scope="col" style="padding: 6px 8px; text-align: right;">In Open balance</th>
+<th scope="col" style="padding: 6px 8px;">Shows</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{example}}" as="e" hint-placeholder-count="4">
+<tr style="border-top: 1px solid #eee3d9;">
+<td style="padding: 8px;">{{e.title}}</td>
+<td style="padding: 8px; text-align: right;">{{e.amount}}</td>
+<td style="padding: 8px; text-align: right;">{{e.soft}}</td>
+<td style="padding: 8px; text-align: right; font-weight: 700;">{{e.open}}</td>
+<td style="padding: 8px;"><span style="background: {{e.bg}}; color: {{e.fg}}; border-radius: 9999px; padding: 2px 10px; font-size: 13px; font-weight: 700; white-space: nowrap;">{{e.pill}}</span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<p style="margin: 0; font-size: 15px; color: #33325f;"><strong>Open balance $310</strong> (not $560 or $660). <strong>Soft credit waiting $250.</strong> The $120 membership is Bank reconciled and counts nowhere in Open.</p>
+</div>
+</section>
+
+<section aria-labelledby="bank" style="display: flex; flex-direction: column; gap: 14px;">
+<h2 id="bank" style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 26px; font-weight: 600; color: #2b2a8a;">A bank line asks first: is this money already counted?</h2>
+<ol aria-label="What a bank line is tried against" style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px;">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+<li style="flex: 1 1 220px; display: flex; gap: 12px; align-items: flex-start; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 14px 16px;">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 9999px; background: #ffb82a; color: #1e1d5c; display: flex; align-items: center; justify-content: center; font-weight: 700;">{{s.n}}</span>
+<span style="font-size: 15.5px; color: #33325f;"><strong>{{s.head}}</strong> {{s.text}}</span>
+</li>
+</sc-for>
+</ol>
+<p style="margin: 0; font-size: 15px; color: #555a79;">Only step 5 can close an open pledge, and only pledges not already covered. A line that looks like money already counted is attached to it, not turned into a second payment.</p>
+</section>
+
+<section aria-labelledby="screens" style="display: flex; flex-direction: column; gap: 14px;">
+<h2 id="screens" style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 26px; font-weight: 600; color: #2b2a8a;">The screens</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 16px;">
+<div style="flex: 1 1 360px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+<h3 style="margin: 0; font-size: 18px; color: #1e1d5c;">Member app (page “Member app”)</h3>
+<a href="AppFlow.dc.html">Open pledges → I paid another way → proof → review → sent (clickable)</a>
+<a href="AppCheckout.dc.html">The same sheet at RSVP checkout and store checkout</a>
+<a href="AppProofs.dc.html">My payment proofs: waiting, more needed, decided</a>
+</div>
+<div style="flex: 1 1 360px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+<h3 style="margin: 0; font-size: 18px; color: #1e1d5c;">CRM (page “CRM”)</h3>
+<a href="Queue.dc.html">Giving › Today: the Proofs to verify task and the review sheet (clickable)</a>
+<a href="Household.dc.html">A household: four states, evidence panel, timeline</a>
+<a href="Reconcile.dc.html">Giving › Bank: reconciliation preview and “Paid but not on the bank” (clickable)</a>
+<a href="Settings.dc.html">Settings: how long proofs are kept, and the proof rules</a>
+</div>
+</div>
+<p style="margin: 0; font-size: 15px; color: #555a79;">Plan: docs/PAYMENT_PROOFS_AND_RECONCILIATION_PLAN.md. These screens are reference only and are never shipped; every build slice waits for its own approval.</p>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      chain: [
+        { name: 'Open', bg: '#fff0dd', fg: '#7a3a0a', who: 'Nothing covered yet', what: 'The pledge is made (an RSVP, a store order, a promise). Reminders run.' },
+        { name: 'Soft credit', bg: '#e6e2fa', fg: '#2b2a8a', who: 'Member sends a proof', what: 'The proof covers this pledge, oldest first. Waiting for the treasury team. Nothing is booked, reminders pause.' },
+        { name: 'Paid', bg: '#e3f4ea', fg: '#14502f', who: 'Treasury team approves', what: 'A payment is recorded with the proof as evidence. Receipt issued, QuickBooks posts as for any recorded payment.' },
+        { name: 'Bank reconciled', bg: '#14502f', fg: '#ffffff', who: 'Bank statement matches', what: 'Every payment on the pledge is matched to a bank line, deposit, count or payout. A final state.' }
+      ],
+      rows: [
+        { name: 'Open', bg: '#fff0dd', fg: '#7a3a0a', open: 'Yes, the unpaid part', given: 'No', qbo: 'Nothing', remind: 'Yes', who: 'Member and staff' },
+        { name: 'Soft credit', bg: '#e6e2fa', fg: '#2b2a8a', open: 'No, shown on its own line', given: 'No (pending)', qbo: 'Nothing', remind: 'Paused', who: 'Member and staff' },
+        { name: 'Paid', bg: '#e3f4ea', fg: '#14502f', open: 'No', given: 'Yes, on the payment date', qbo: 'Payment posted (undeposited funds)', remind: 'Stop', who: 'Member and staff' },
+        { name: 'Bank reconciled', bg: '#14502f', fg: '#ffffff', open: 'No', given: 'Yes', qbo: 'Deposit posted', remind: 'Stop', who: 'Staff (member may see a tick)' },
+        { name: 'Written off', bg: '#eeeaf0', fg: '#555a79', open: 'No', given: 'No', qbo: 'As today', remind: 'Stop', who: 'Member and staff' },
+        { name: 'Cancelled', bg: '#eeeaf0', fg: '#555a79', open: 'No', given: 'No', qbo: 'As today', remind: 'Stop', who: 'Member and staff' }
+      ],
+      example: [
+        { title: 'P-0587 Harvest supper, 4 seats', amount: '$160', soft: '$160', open: '$0', pill: 'Soft credit', bg: '#e6e2fa', fg: '#2b2a8a' },
+        { title: 'P-0601 Building fund', amount: '$300', soft: '$90', open: '$210', pill: 'Open · soft credit $90 waiting', bg: '#fff0dd', fg: '#7a3a0a' },
+        { title: 'P-0633 Food drive sponsorship', amount: '$100', soft: '$0', open: '$100', pill: 'Open', bg: '#fff0dd', fg: '#7a3a0a' },
+        { title: 'P-0412 Membership 2026', amount: '$120', soft: '$0', open: '$0', pill: 'Bank reconciled', bg: '#14502f', fg: '#ffffff' }
+      ],
+      steps: [
+        { n: '1', head: 'Payments awaiting the bank.', text: 'A recorded payment (often from a verified proof) that no bank line has banked yet.' },
+        { n: '2', head: 'Proofs still waiting.', text: 'Approved and banked in one click if the line fits.' },
+        { n: '3', head: 'Member Zelle reports.', text: 'The reports members already send today.' },
+        { n: '4', head: 'Offering counts.', text: 'Cash counted by two people and deposited.' },
+        { n: '5', head: 'New money.', text: 'Only if nothing above explains it: oldest uncovered pledges first.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
