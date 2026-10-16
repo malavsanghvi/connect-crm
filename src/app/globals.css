@@ -1504,8 +1504,9 @@ html:has([data-shell-frame="top"]) {
       display: flex;
     }
     /* The panel lists what the page's own tab row listed: from here the row is not drawn (Giving's Today keeps its row, which has the counts). */
+    /* !important: a row drawn with a utility class such as flex (the Family page's) would otherwise keep its display. */
     [data-shell-frame="top"] [data-section-tabs] {
-      display: none;
+      display: none !important;
     }
   }
   .v2-panel-head {
@@ -1615,6 +1616,47 @@ html:has([data-shell-frame="top"]) {
     color: var(--v2-blue);
     font-weight: 700;
   }
+  /* A record page's own sections (a household): the way back, the record's name and card line, and a link to the whole workspace. */
+  .v2-panel-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 32px;
+    color: var(--v2-blue);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .v2-panel-record {
+    margin-bottom: 4px;
+    padding: 4px 18px 10px;
+    border-bottom: 1px solid var(--v2-line);
+  }
+  .v2-panel-record-name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--v2-ink);
+    overflow-wrap: anywhere;
+  }
+  .v2-panel-record-sub {
+    margin: 2px 0 0;
+    color: var(--v2-muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+  .v2-panel-foot {
+    flex: none;
+    padding: 10px 18px;
+    border-top: 1px solid var(--v2-line);
+  }
+  .v2-panel-foot-link {
+    color: var(--v2-blue);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+  }
   /* Collapsed: a 56px strip of two-letter marks. */
   .v2-panel[data-state="closed"] {
     width: 56px;
@@ -1622,6 +1664,9 @@ html:has([data-shell-frame="top"]) {
   .v2-panel[data-state="closed"] .v2-panel-title,
   .v2-panel[data-state="closed"] .v2-panel-label,
   .v2-panel[data-state="closed"] .v2-panel-group-title,
+  .v2-panel[data-state="closed"] .v2-panel-back,
+  .v2-panel[data-state="closed"] .v2-panel-record,
+  .v2-panel[data-state="closed"] .v2-panel-foot,
   .v2-panel[data-state="closed"] .v2-panel-sub {
     display: none;
   }
@@ -1661,6 +1706,9 @@ html:has([data-shell-frame="top"]) {
     .v2-panel[data-state="auto"] .v2-panel-title,
     .v2-panel[data-state="auto"] .v2-panel-label,
     .v2-panel[data-state="auto"] .v2-panel-group-title,
+    .v2-panel[data-state="auto"] .v2-panel-back,
+    .v2-panel[data-state="auto"] .v2-panel-record,
+    .v2-panel[data-state="auto"] .v2-panel-foot,
     .v2-panel[data-state="auto"] .v2-panel-sub {
       display: none;
     }

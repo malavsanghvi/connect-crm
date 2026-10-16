@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Icon } from "@/components/brand/icons";
+import { useRecordNav } from "@/components/shell/record-nav";
 import { type RailWorkspace } from "@/components/shell/workspace-rail";
 import { PANEL_COOKIE, type PanelPref } from "@/lib/panel-pref";
 import { activeWorkspace } from "@/lib/workspaces";
@@ -35,6 +36,7 @@ export function SectionPanel({ workspaces, sections, initial }: { workspaces: Ra
   const [pref, setPref] = useState<PanelPref>(initial);
   const [wide, setWide] = useState(true);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const record = useRecordNav();
 
   useEffect(() => {
     const mq = window.matchMedia(WIDE);
@@ -66,6 +68,47 @@ export function SectionPanel({ workspaces, sections, initial }: { workspaces: Ra
 
   const ws = activeWorkspace(workspaces, pathname);
   const sec = ws ? sections.find((s) => s.key === ws.key) : undefined;
+  // A record page (a household) lists its own sections here for as long as it is open (record-nav.tsx).
+  if (record) {
+    return (
+      <aside className="v2-panel" data-section-panel="" data-state={pref} aria-label={`${record.title} sections`}>
+        <div className="v2-panel-head">
+          <Link href={record.backHref} className="v2-panel-back" title={`Back to ${record.backLabel}`}>
+            <Icon name="chevron" className="h-3 w-3 rotate-90" strokeWidth={3} />
+            {record.backLabel}
+          </Link>
+          <button type="button" className="v2-panel-toggle" onClick={toggle} aria-expanded={isOpen} aria-label="Section list" title={`${isOpen ? "Collapse" : "Expand"} (Ctrl B)`}>
+            <Icon name="chevron" className={isOpen ? "h-4 w-4 rotate-90" : "h-4 w-4 -rotate-90"} />
+          </button>
+        </div>
+        <div className="v2-panel-record">
+          <p className="v2-panel-record-name">{record.title}</p>
+          {record.subtitle ? <p className="v2-panel-record-sub">{record.subtitle}</p> : null}
+        </div>
+        <nav className="v2-panel-nav" aria-label={`${record.title} sections`}>
+          <ul className="v2-panel-list">
+            {record.items.map((item) => (
+              <li key={item.key}>
+                <Link href={item.href} scroll={false} aria-current={item.active ? "page" : undefined} aria-label={item.label} title={item.label} className="v2-panel-item">
+                  <span className="v2-panel-mono" aria-hidden="true">
+                    {monogram(item.label)}
+                  </span>
+                  <span className="v2-panel-label">{item.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        {sec && ws ? (
+          <div className="v2-panel-foot">
+            <Link href={ws.href} className="v2-panel-foot-link">
+              All {sec.label} sections
+            </Link>
+          </div>
+        ) : null}
+      </aside>
+    );
+  }
   if (!sec || sectionCount(sec.groups) < 2) return null;
   const current = activeSectionKey(sec.groups, pathname);
   const flip = (id: string) =>

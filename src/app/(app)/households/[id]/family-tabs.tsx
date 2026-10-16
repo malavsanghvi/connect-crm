@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { RecordNav } from "@/components/shell/record-nav";
 import { glanceHref } from "@/lib/giving-glance/period";
 import { tabPeriod, type GlancePrep } from "@/lib/giving-glance/page";
 import { tabDefaultPerson } from "@/lib/people-v2/event-add-props";
@@ -51,7 +52,15 @@ export async function FamilyTabs({
 
   return (
     <section aria-label="Giving, memberships and history">
-      <nav aria-label="More about this family" className="mb-3.5 flex gap-1 overflow-x-auto border-b border-line">
+      {/* From 1024px wide the left panel lists these sections (and the way back); the row below is for narrower screens. */}
+      <RecordNav
+        title={model.name}
+        subtitle={[model.card.number, ...model.card.orgIds, model.card.place].filter(Boolean).join(" · ")}
+        backHref="/households"
+        backLabel="Households"
+        items={tabs.map((t) => ({ key: t.key, label: t.label, href: href(t.key), active: !legacyIds && t.key === active }))}
+      />
+      <nav aria-label="More about this family" className="mb-3.5 flex gap-1 overflow-x-auto border-b border-line" data-section-tabs="">
         {tabs.map((t) => (
           <Link
             key={t.key}
