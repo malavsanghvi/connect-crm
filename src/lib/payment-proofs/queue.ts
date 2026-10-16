@@ -39,6 +39,8 @@ export type ProofCard = {
   reference: string | null;
   note: string | null;
   createdAt: string;
+  /** The first and last name of the person who sent it (0873); null when the database did not say (staff entry, an older answer). */
+  sentBy: string | null;
   ageDays: number;
   question: string | null;
   excessCents: number;
@@ -147,6 +149,7 @@ function parseCard(v: unknown): ProofCard | null {
     reference: str(v.reference),
     note: str(v.note),
     createdAt: str(v.created_at) ?? "",
+    sentBy: str(v.sent_by)?.trim() ?? null,
     ageDays: Math.max(0, int(v.age_days)),
     question: str(v.question),
     excessCents: Math.max(0, int(v.excess_cents)),
@@ -208,6 +211,11 @@ export function ageChip(days: number): AgeChip {
   if (days >= 7) return { label, tone: "warn" };
   if (days >= 3) return { label, tone: "soft" };
   return { label, tone: "plain" };
+}
+
+/** "Sent by Mina Rao", or null when nobody is named (never a made-up name). */
+export function sentByLine(c: Pick<ProofCard, "sentBy">): string | null {
+  return c.sentBy ? `Sent by ${c.sentBy}` : null;
 }
 
 /** "1 file" / "3 files" (files the retention job removed do not count as files you can open). */

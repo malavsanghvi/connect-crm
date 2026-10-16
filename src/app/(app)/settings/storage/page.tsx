@@ -3,10 +3,13 @@ import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
 import { Alert, Card, KpiGrid, NoAccess, PageHeader, QueryError, Stat, StatusText, TableWrap } from "@/components/ui";
+import { formatDate } from "@/lib/dates";
 import { readProofPolicy } from "@/lib/data/payment-proofs-policy";
+import { failure } from "@/lib/errors";
 import { isModuleEnabled } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
+import { EXPIRING_WINDOW_DAYS, expiringNotice, parseExpiringCounts } from "@/lib/payment-proofs/counts";
 import { parseProofPolicy } from "@/lib/payment-proofs/policy";
 import { formatBytes, parseStorageOverview, STORAGE_AREAS } from "@/lib/setup";
 import { rulesVersion } from "@/lib/settings-rules";
@@ -57,6 +60,20 @@ export default async function StoragePage() {
     const files = await db.from("payment_proof_files").select("id", { count: "exact", head: true }).is("deleted_at", null);
     if (files.error) console.error("[settings/storage] could not count the payment proof files:", files.error);
     else proofHeld = files.count ?? 0;
+  }
+  // Files that become due for removal soon (0873): a notice before the daily job deletes them. A database without the function yet shows nothing;
+  // any other failure is said on the card.
+  let proofExpiring: string | null = null;
+  let proofExpiringError: string | null = null;
+  if (proofsOn) {
+    const due = await db.rpc("proof_files_due_soon", { p_center: center.id, p_days: EXPIRING_WINDOW_DAYS });
+    if (due.error) {
+      if (due.error.code !== "PGRST202" && due.error.code !== "42883") {
+        proofExpiringError = failure("Could not check which payment proofs are about to be removed", due.error).error;
+      }
+    } else {
+      proofExpiring = expiringNotice(parseExpiringCounts(due.data), (v) => formatDate(v, center.time_zone));
+    }
   }
   const pct = o.limitBytes ? Math.min(100, Math.round((o.usedBytes / o.limitBytes) * 100)) : null;
 
@@ -143,6 +160,8 @@ export default async function StoragePage() {
             canEdit={proofsOn}
             held={proofHeld}
             moduleOn={proofsOn}
+            expiring={proofExpiring}
+            expiringError={proofExpiringError}
           />
         )}
       </div>

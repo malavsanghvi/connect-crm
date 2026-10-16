@@ -19,6 +19,7 @@ import {
   householdLine,
   methodLabel,
   proofFlags,
+  sentByLine,
   type CardCan,
   type FlagTone,
   type ProofCard,
@@ -155,6 +156,7 @@ export function ProofQueue({ cards, can, fmt, timeZone, labels }: QueueProps) {
                     <span className="flex flex-wrap items-center gap-1.5">
                       <span className={`rounded-full px-2.5 py-px text-[12px] font-bold ${AGE[age.tone]}`}>{age.label}</span>
                       <span className="text-[12.5px] text-muted">{filesLabel(c.files)}</span>
+                      {sentByLine(c) ? <span className="text-[12.5px] text-muted">{sentByLine(c)}</span> : null}
                       {cardChips(c).map((chip) => (
                         <span key={chip.label} className={`rounded-full px-2.5 py-px text-[12px] font-bold ${CHIP[chip.tone]}`}>
                           {chip.label}
@@ -276,6 +278,7 @@ function ProofReview({
           <dt className="text-muted">Sent</dt>
           <dd className="m-0">
             {date(card.createdAt)} from {entryLabel(card.entry)}
+            {card.sentBy ? `, by ${card.sentBy}` : ""}
           </dd>
           <dt className="text-muted">Files</dt>
           <dd className="m-0">{stillOpen}</dd>

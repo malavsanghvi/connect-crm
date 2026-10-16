@@ -41,15 +41,18 @@ describe("task sources", () => {
 
   it("shows a treasurer giving and accounting tasks", () => {
     const keys = visibleTaskSources(ctx(["giving.view", "giving.manage", "giving.approve", "accounting.manage"])).map((s) => s.key);
-    expect(keys).toEqual(["refund", "payee", "mapping", "writeoff", "credit", "deposits", "proofs", "unbanked", "quickbooks"]);
+    expect(keys).toEqual(["refund", "payee", "mapping", "writeoff", "credit", "deposits", "proofs", "proofs_expiring", "unbanked", "quickbooks"]);
   });
 
-  it("shows proofs to verify and payments not on the bank to the people who record offline payments", () => {
+  it("shows proofs to verify, proofs about to be removed and payments not on the bank to the people who record offline payments", () => {
     const volunteer = visibleTaskSources(ctx(["giving.record_offline"])).map((s) => s.key);
-    expect(volunteer).toEqual(["deposits", "proofs", "unbanked"]);
+    expect(volunteer).toEqual(["deposits", "proofs", "proofs_expiring", "unbanked"]);
     // giving.view alone reads the numbers but cannot act on them, so neither task shows.
     expect(canSeeTask(ctx(["giving.view"]), "proofs")).toBe(false);
     expect(canSeeTask(ctx(["giving.view"]), "unbanked")).toBe(false);
+    expect(canSeeTask(ctx(["giving.view"]), "proofs_expiring")).toBe(false);
+    expect(canSeeTask(ctx(["giving.manage"]), "proofs_expiring")).toBe(true);
+    expect(taskSource("proofs_expiring").href).toBe("/settings/storage");
     expect(taskSource("proofs").href).toBe("/giving/proofs");
     expect(taskSource("unbanked").href).toBe("/giving/payments/bank?view=unbanked");
   });
@@ -57,11 +60,14 @@ describe("task sources", () => {
   it("hides each of them when its module is switched off", () => {
     const keys = (modulesOff: string[]) => visibleTaskSources({ ...ctx(["giving.record_offline", "giving.manage"]), modulesOff }).map((s) => s.key);
     expect(keys(["giving_proofs"])).not.toContain("proofs");
+    expect(keys(["giving_proofs"])).not.toContain("proofs_expiring");
+    expect(keys(["giving_bank"])).toContain("proofs_expiring");
     expect(keys(["giving_proofs"])).toContain("unbanked");
     expect(keys(["giving_bank"])).not.toContain("unbanked");
     expect(keys(["giving_bank"])).toContain("proofs");
     // Both are add-ons of Giving: switching Giving off takes them with it.
     expect(keys(["giving"])).not.toContain("proofs");
+    expect(keys(["giving"])).not.toContain("proofs_expiring");
     expect(keys(["giving"])).not.toContain("unbanked");
   });
 

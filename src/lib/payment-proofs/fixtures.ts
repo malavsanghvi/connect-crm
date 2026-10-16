@@ -55,6 +55,7 @@ export function sampleProofCards(): ProofCard[] {
       amount_cents: 25000,
       paid_on: "2026-10-12",
       reference: "1048",
+      sent_by: "Adaeze Okafor",
       created_at: "2026-10-12T15:00:00Z",
       age_days: 3,
       household: household(1, "Okafor household", "H-1042", "2210", "Adaeze O., Chidi O.", "Eastside", "Riverbend", 31000),

@@ -21,6 +21,7 @@ export type TaskSourceKey =
   | "override"
   | "deposits"
   | "proofs"
+  | "proofs_expiring"
   | "unbanked"
   | "membership"
   | "newsletter"
@@ -63,6 +64,8 @@ export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "deposits", tag: "Deposits", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/bank", module: "giving_bank" },
   // Payment proofs members sent (0866): the treasury team verifies them under Giving > Payment proofs.
   { key: "proofs", tag: "Proofs", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/proofs", module: "giving_proofs" },
+  // Proof files that become due for removal in the next 30 days (0873): the warning before the daily job deletes them, in Settings > Storage.
+  { key: "proofs_expiring", tag: "Proofs ending", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/settings/storage", module: "giving_proofs" },
   // Payments recorded as paid but not yet on a bank statement (0868): Bank > Paid, not on the bank.
   { key: "unbanked", tag: "Not banked", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/payments/bank?view=unbanked", module: "giving_bank" },
   { key: "membership", tag: "Membership", color: "navy", anyOf: ["people.approve"], href: "/memberships/applications" },
@@ -120,7 +123,7 @@ export type TaskApproval = {
  * and meta line, Today builds its row from this.
  */
 export type GivingTaskDetail = {
-  kind: "refund" | "flagged_refund" | "write_off" | "credit" | "payee" | "bank_lines" | "zelle_unseen" | "proofs" | "unbanked";
+  kind: "refund" | "flagged_refund" | "write_off" | "credit" | "payee" | "bank_lines" | "zelle_unseen" | "proofs" | "proofs_expiring" | "unbanked";
   /**
    * first: a first approval is needed (a treasurer, giving.manage); second: a DIFFERENT person with giving.approve;
    * complete: both approvals are in and a treasurer finishes it; handle: a treasurer acts, then marks it handled;
@@ -180,7 +183,7 @@ export function makeTask(
 }
 
 /** The Home task sources that belong to Giving (Today's Approvals and Bank rows, and QuickBooks and the account mapping under Books). */
-export const GIVING_TASK_SOURCES: readonly TaskSourceKey[] = ["refund", "payee", "mapping", "writeoff", "credit", "deposits", "proofs", "unbanked", "quickbooks"];
+export const GIVING_TASK_SOURCES: readonly TaskSourceKey[] = ["refund", "payee", "mapping", "writeoff", "credit", "deposits", "proofs", "proofs_expiring", "unbanked", "quickbooks"];
 
 /** "{n} thing" / "{n} things". */
 export function plural(n: number, one: string, many = `${one}s`): string {

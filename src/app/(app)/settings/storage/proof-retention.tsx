@@ -26,12 +26,18 @@ export function ProofRetention({
   canEdit,
   held,
   moduleOn,
+  expiring,
+  expiringError,
 }: {
   policy: ProofPolicy;
   canEdit: boolean;
   /** Files held now, when this person can count them; null when they cannot. */
   held: number | null;
   moduleOn: boolean;
+  /** "N files become due for removal by <date>. ..." when some do; null when none do (or the function is not there yet). */
+  expiring: string | null;
+  /** Why the count of files about to be removed could not be read, in plain words; null when it could. */
+  expiringError: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -131,6 +137,17 @@ export function ProofRetention({
               <dd className="m-0 mt-0.5">End of the accounting year of the payment, and only once its pledges are final.</dd>
             </div>
           </dl>
+
+          {expiring ? (
+            <p role="status" data-proof-expiring className="m-0 rounded-field border border-warning-200 bg-warning-50 px-3 py-2 text-[13.5px] text-warning-ink">
+              {expiring}
+            </p>
+          ) : null}
+          {expiringError ? (
+            <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+              {expiringError}
+            </p>
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-[13.5px] font-bold">Kept for</span>

@@ -985,19 +985,19 @@ function bookTaskRows(tasks: HomeTask[]): QueueRow[] {
  * Payment proofs to verify (Approvals) and payments paid but not on the bank (Bank): one row each, a count that opens its own
  * screen. Home reads the same tasks, so the two cannot disagree about the number.
  */
-function proofTaskRows(tasks: HomeTask[], source: "proofs" | "unbanked"): QueueRow[] {
+function proofTaskRows(tasks: HomeTask[], source: "proofs" | "proofs_expiring" | "unbanked"): QueueRow[] {
   return tasks
     .filter((t) => t.source === source)
     .map((t) => ({
       id: t.id,
-      group: source === "proofs" ? ("approvals" as const) : ("bank" as const),
-      tone: source === "proofs" ? ("sun" as const) : ("blue" as const),
-      icon: source === "proofs" ? ("approve" as const) : ("deposit" as const),
+      group: source === "unbanked" ? ("bank" as const) : ("approvals" as const),
+      tone: source === "unbanked" ? ("blue" as const) : ("sun" as const),
+      icon: source === "unbanked" ? ("deposit" as const) : ("approve" as const),
       title: t.title,
       lines: [t.meta],
       family: null,
       since: null,
-      acts: t.links.map((l) => ({ kind: "link" as const, href: l.href, label: source === "proofs" ? "Open proofs" : "Open the list", primary: true })),
+      acts: t.links.map((l) => ({ kind: "link" as const, href: l.href, label: source === "proofs" ? "Open proofs" : source === "proofs_expiring" ? "Open storage settings" : "Open the list", primary: true })),
       count: t.giving?.count ?? 1,
     }));
 }
@@ -1087,6 +1087,7 @@ const SOURCE_GROUP: Record<string, GroupKey> = {
   credit: "approvals",
   deposits: "bank",
   proofs: "approvals",
+  proofs_expiring: "approvals",
   unbanked: "bank",
   quickbooks: "books",
   mapping: "books",
@@ -1113,6 +1114,7 @@ export function buildQueue(input: TodayInput, ctx: TodayContext): TodayQueue {
   const rows: QueueRow[] = [
     ...approvalRows(input, ctx),
     ...proofTaskRows(input.tasks, "proofs"),
+    ...proofTaskRows(input.tasks, "proofs_expiring"),
     ...partRows(input.bank, "bank", problems, (b) => {
       for (const m of b.problems) problems.push({ group: "bank", message: m });
       return bankRows(b, ctx);
