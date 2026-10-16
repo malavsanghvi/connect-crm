@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Open pledges: I paid another way</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+button,input{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+
+<div style="height: 100%; display: flex; flex-direction: column;">
+<div style="background: #ff7640; padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 13px; font-weight: 700; color: #1e1d5c;">Riverbend Community Center</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #1e1d5c;">Pledges</span>
+</div>
+<div style="flex: 1; overflow: hidden; padding: 12px 16px 0; display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; gap: 8px;">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="3">
+<div style="flex: 1; background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 8px 10px; display: flex; flex-direction: column; gap: 0;">
+<span style="font-size: 11.5px; font-weight: 700; color: #a8400d; letter-spacing: 0.04em;">{{t.label}}</span>
+<span style="font-size: 20px; font-weight: 700; color: #1e1d5c;">{{t.value}}</span>
+<span style="font-size: 12px; color: #555a79;">{{t.sub}}</span>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{claimed}}" hint-placeholder-val="{{false}}">
+<div style="background: #f1eefc; border-radius: 12px; padding: 8px 12px; font-size: 14px; color: #1e1d5c;">Your $250.00 proof is with the treasury team. Open balance leaves out what it covers.</div>
+</sc-if>
+<div style="display: flex; gap: 8px;">
+<span style="background: #2b2a8a; color: #ffffff; border-radius: 9999px; padding: 4px 14px; font-size: 14px; font-weight: 700;">All</span>
+<span style="background: #ffffff; border: 1px solid #eee3d9; color: #33325f; border-radius: 9999px; padding: 4px 14px; font-size: 14px;">Open</span>
+<span style="background: #ffffff; border: 1px solid #eee3d9; color: #33325f; border-radius: 9999px; padding: 4px 14px; font-size: 14px;">Closed</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+<div style="background: #ffffff; border: 1px solid {{r.edge}}; border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start;">
+<sc-if value="{{r.hasBox}}" hint-placeholder-val="{{true}}">
+<span aria-hidden="true" style="flex: none; margin-top: 2px; width: 22px; height: 22px; border-radius: 6px; background: #2b2a8a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">✓</span>
+</sc-if>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+<span style="font-weight: 700; font-size: 15.5px;">{{r.title}}</span>
+<span style="font-size: 13px; color: #555a79;">{{r.meta}}</span>
+<sc-if value="{{r.noteShow}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 13px; font-weight: 700; color: #2b2a8a;">{{r.note}}</span>
+</sc-if>
+<sc-if value="{{r.leftShow}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 13px; font-weight: 700; color: #7a3a0a;">{{r.left}}</span>
+</sc-if>
+</div>
+<div style="flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+<span style="font-weight: 700; font-size: 16px;">{{r.amount}}</span>
+<span style="background: {{r.bg}}; color: {{r.fg}}; border-radius: 8px; padding: 1px 8px; font-size: 12.5px; font-weight: 700;">{{r.pill}}</span>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="background: #ffffff; border-top: 1px solid #eee3d9; padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 8px;">
+<button style="min-height: 46px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">{{payLabel}}</button>
+<button onClick="{{openSheet}}" style="min-height: 46px; border-radius: 9999px; border: 2px solid #2b2a8a; background: #ffffff; color: #2b2a8a; font-size: 16px; font-weight: 700;">I paid another way</button>
+<sc-if value="{{claimed}}" hint-placeholder-val="{{false}}">
+<button onClick="{{reset}}" style="min-height: 36px; border: none; background: transparent; color: #555a79; font-size: 14px; text-decoration: underline;">Start the prototype again</button>
+</sc-if>
+</div>
+</div>
+
+<sc-if value="{{showSheet}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; inset: 0; background: rgba(30, 29, 92, 0.5);"></div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: #ffffff; border-radius: 24px 24px 0 0; padding: 10px 18px 18px; display: flex; flex-direction: column; gap: 12px; max-height: 760px; box-sizing: border-box;">
+<div aria-hidden="true" style="align-self: center; width: 44px; height: 5px; border-radius: 9999px; background: #d4d2f5;"></div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+<div style="display: flex; flex-direction: column;">
+<span style="font-size: 13px; font-weight: 700; color: #a8400d; letter-spacing: 0.04em;">{{stepLabel}}</span>
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; font-weight: 600; color: #2b2a8a; line-height: 1.15;">{{sheetTitle}}</span>
+</div>
+<button onClick="{{closeSheet}}" aria-label="Close" style="flex: none; width: 44px; height: 44px; border-radius: 9999px; border: none; background: #f1eefc; color: #2b2a8a; font-size: 22px; line-height: 1;">×</button>
+</div>
+
+<sc-if value="{{isDetails}}" hint-placeholder-val="{{true}}">
+<p style="margin: 0; font-size: 15px; color: #33325f;">Tell us what you paid. The treasury team checks it against the bank, then your pledges show Paid.</p>
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<label for="amt" style="font-size: 14px; font-weight: 700;">Amount you paid</label>
+<input id="amt" type="text" value="$250.00" style="min-height: 46px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 17px; color: #1e1d5c; background: #ffffff;">
+<span style="font-size: 13.5px; color: #555a79;">Your open balance is $560.00. It covers your oldest pledges first.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 14px; font-weight: 700;">How did you pay?</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{methods}}" as="m" hint-placeholder-count="5">
+<button onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="min-height: 44px; padding: 0 16px; border-radius: 9999px; border: 1px solid {{m.edge}}; background: {{m.bg}}; color: {{m.fg}}; font-size: 15px; font-weight: 700;">{{m.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; gap: 10px;">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+<label for="dt" style="font-size: 14px; font-weight: 700;">Date you paid</label>
+<input id="dt" type="text" value="Oct 12, 2026" style="min-height: 46px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 16px; color: #1e1d5c; background: #ffffff;">
+</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+<label for="ref" style="font-size: 14px; font-weight: 700;">{{refLabel}}</label>
+<input id="ref" type="text" value="{{refValue}}" style="min-height: 46px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 16px; color: #1e1d5c; background: #ffffff;">
+</div>
+</div>
+<button onClick="{{toProof}}" style="min-height: 48px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Next: add your proof</button>
+</sc-if>
+
+<sc-if value="{{isProof}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 15px; color: #33325f;">A photo of the check, the bank confirmation, or a receipt. You may cover your account number; we only need the amount, date and check number.</p>
+<div style="display: flex; gap: 8px;">
+<button onClick="{{addFile}}" style="flex: 1; min-height: 64px; border-radius: 14px; border: 1px dashed #2b2a8a; background: #f1eefc; color: #2b2a8a; font-size: 14px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>Take a photo</button>
+<button onClick="{{addFile}}" style="flex: 1; min-height: 64px; border-radius: 14px; border: 1px dashed #2b2a8a; background: #f1eefc; color: #2b2a8a; font-size: 14px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 16l-5-5-8 9"></path></svg>Choose a photo</button>
+<button onClick="{{addFile}}" style="flex: 1; min-height: 64px; border-radius: 14px; border: 1px dashed #2b2a8a; background: #f1eefc; color: #2b2a8a; font-size: 14px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>Attach a file</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="font-size: 14px; font-weight: 700;">{{fileCount}}</span>
+<sc-for list="{{files}}" as="f" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px; background: #fffaf5; border: 1px solid #eee3d9; border-radius: 12px; padding: 6px 8px;">
+<div aria-hidden="true" style="flex: none; width: 54px; height: 40px; border-radius: 6px; background: #ffffff; border: 1px solid #b9b5ec; position: relative; overflow: hidden;">
+<div style="position: absolute; left: 5px; top: 6px; width: 24px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; left: 5px; top: 14px; width: 38px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; left: 5px; top: 22px; width: 30px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; right: 5px; bottom: 4px; width: 14px; height: 6px; background: #ffb82a;"></div>
+</div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+<span style="font-size: 14.5px; font-weight: 700;">{{f.label}}</span>
+<span style="font-size: 12.5px; color: #555a79;">{{f.size}}</span>
+</div>
+<button onClick="{{f.remove}}" aria-label="Remove this file" style="flex: none; width: 44px; height: 44px; border: none; background: transparent; color: #b3261e; font-size: 14px; font-weight: 700;">Remove</button>
+</div>
+</sc-for>
+<sc-if value="{{noFiles}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 14px; font-weight: 700; color: #b3261e;">Add at least one photo or file. A check needs a proof.</span>
+</sc-if>
+</div>
+<div style="display: flex; gap: 8px;">
+<button onClick="{{toDetails}}" style="flex: 1; min-height: 48px; border-radius: 9999px; border: 2px solid #2b2a8a; background: #ffffff; color: #2b2a8a; font-size: 16px; font-weight: 700;">Back</button>
+<button onClick="{{toReview}}" disabled="{{noFiles}}" style="flex: 2; min-height: 48px; border-radius: 9999px; border: none; background: {{nextBg}}; color: #ffffff; font-size: 16px; font-weight: 700;">Next: check and send</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isReview}}" hint-placeholder-val="{{false}}">
+<div style="background: #fffaf5; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;">
+<span style="font-weight: 700; font-size: 16px;">$250.00 · {{methodName}} {{refShort}}</span>
+<span style="font-size: 13.5px; color: #555a79;">Paid Oct 12, 2026 · {{fileCount}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 14px; font-weight: 700;">Where it will go, oldest pledge first</span>
+<div style="display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #eee3d9; padding-bottom: 6px;">
+<span style="font-size: 14.5px;">Harvest supper · 4 seats<br><span style="font-size: 12.5px; color: #555a79;">P-0587 · Sep 2</span></span>
+<span style="text-align: right; font-size: 14.5px;"><strong>$160</strong> of $160<br><span style="background: #e6e2fa; color: #2b2a8a; border-radius: 8px; padding: 1px 8px; font-size: 12.5px; font-weight: 700;">Soft credit</span></span>
+</div>
+<div style="display: flex; justify-content: space-between; gap: 8px;">
+<span style="font-size: 14.5px;">Building fund<br><span style="font-size: 12.5px; color: #555a79;">P-0601 · Sep 20</span></span>
+<span style="text-align: right; font-size: 14.5px;"><strong>$90</strong> of $300<br><span style="font-size: 12.5px; color: #7a3a0a; font-weight: 700;">$210 still to pay</span></span>
+</div>
+</div>
+<div style="background: #f1eefc; border-radius: 12px; padding: 10px 12px; font-size: 14px; color: #1e1d5c;">Nothing is paid until the treasury team checks your proof. Until then these pledges show Soft credit and their reminders pause. You can take it back before it is checked.</div>
+<div style="display: flex; gap: 8px;">
+<button onClick="{{toProof}}" style="flex: 1; min-height: 48px; border-radius: 9999px; border: 2px solid #2b2a8a; background: #ffffff; color: #2b2a8a; font-size: 16px; font-weight: 700;">Back</button>
+<button onClick="{{send}}" style="flex: 2; min-height: 48px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Send to the treasury team</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isSent}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; inset: 0; background: #fffaf5; display: flex; flex-direction: column;">
+<div style="background: #ff7640; height: 12px;"></div>
+<div style="flex: 1; padding: 36px 24px 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;">
+<div aria-hidden="true" style="width: 72px; height: 72px; border-radius: 9999px; background: #e3f4ea; display: flex; align-items: center; justify-content: center;">
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#14502f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+</div>
+<h2 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 28px; font-weight: 600; color: #2b2a8a;">Sent to the treasury team</h2>
+<p style="margin: 0; font-size: 16px; color: #33325f;">Your $250.00 proof is in. Two pledges now show Soft credit.</p>
+<ol style="list-style: none; margin: 8px 0 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 8px; text-align: left;">
+<li style="display: flex; gap: 10px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; align-items: flex-start;"><span style="flex: none; width: 28px; height: 28px; border-radius: 9999px; background: #ffb82a; display: flex; align-items: center; justify-content: center; font-weight: 700;">1</span><span style="font-size: 15px; color: #33325f;">The treasury team looks at your photo and the amount.</span></li>
+<li style="display: flex; gap: 10px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; align-items: flex-start;"><span style="flex: none; width: 28px; height: 28px; border-radius: 9999px; background: #ffb82a; display: flex; align-items: center; justify-content: center; font-weight: 700;">2</span><span style="font-size: 15px; color: #33325f;">If it is right, your pledges show Paid and you get a receipt.</span></li>
+<li style="display: flex; gap: 10px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 14px; padding: 10px 12px; align-items: flex-start;"><span style="flex: none; width: 28px; height: 28px; border-radius: 9999px; background: #ffb82a; display: flex; align-items: center; justify-content: center; font-weight: 700;">3</span><span style="font-size: 15px; color: #33325f;">If they need more, we ask you here. You can follow it in My payment proofs.</span></li>
+</ol>
+<div style="flex: 1;"></div>
+<button onClick="{{done}}" style="width: 100%; min-height: 48px; border-radius: 9999px; border: none; background: #2b2a8a; color: #ffffff; font-size: 16px; font-weight: 700;">Back to my pledges</button>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const screen = s.screen || 'pledges';
+    const claimed = !!s.claimed;
+    const method = s.method || 'check';
+    const files = s.files || [{ id: 1, label: 'Check, front', size: '1.4 MB' }, { id: 2, label: 'Check, back', size: '1.1 MB' }];
+    const set = (o) => () => this.setState(o);
+    const refs = {
+      cash: ['Receipt or envelope number (optional)', ''],
+      check: ['Check number', '1048'],
+      ach: ['Bank reference (optional)', ''],
+      stock: ['Shares and symbol', ''],
+      other: ['Reference (optional)', '']
+    };
+    const names = { cash: 'Cash', check: 'Check', ach: 'Bank transfer', stock: 'Stock', other: 'Other' };
+    const stepLabels = { details: 'STEP 1 OF 3', proof: 'STEP 2 OF 3', review: 'STEP 3 OF 3' };
+    const titles = { details: 'I paid another way', proof: 'Add your proof', review: 'Check and send' };
+    const pill = (l, bg, fg) => ({ pill: l, bg, fg });
+    const rows = claimed
+      ? [
+          { title: 'Harvest supper · 4 seats', meta: 'Sep 2, 2026 · P-0587', amount: '$160', ...pill('Soft credit', '#e6e2fa', '#2b2a8a'), hasBox: false, edge: '#b9b5ec', note: 'Waiting for the treasury team', noteShow: true, left: '', leftShow: false },
+          { title: 'Building fund', meta: 'Sep 20, 2026 · P-0601', amount: '$300', ...pill('Open', '#fff0dd', '#7a3a0a'), hasBox: true, edge: '#2b2a8a', note: 'Soft credit $90 waiting', noteShow: true, left: '$210 left to pay', leftShow: true },
+          { title: 'Fall food drive sponsorship', meta: 'Oct 3, 2026 · P-0633', amount: '$100', ...pill('Open', '#fff0dd', '#7a3a0a'), hasBox: true, edge: '#2b2a8a', note: '', noteShow: false, left: '', leftShow: false },
+          { title: 'Membership 2026', meta: 'Jan 14, 2026 · P-0412', amount: '$120', ...pill('Paid Jan 14', '#e3f4ea', '#14502f'), hasBox: false, edge: '#eee3d9', note: '', noteShow: false, left: '', leftShow: false }
+        ]
+      : [
+          { title: 'Harvest supper · 4 seats', meta: 'Sep 2, 2026 · P-0587', amount: '$160', ...pill('Open', '#fff0dd', '#7a3a0a'), hasBox: true, edge: '#2b2a8a', note: '', noteShow: false, left: '', leftShow: false },
+          { title: 'Building fund', meta: 'Sep 20, 2026 · P-0601', amount: '$300', ...pill('Open', '#fff0dd', '#7a3a0a'), hasBox: true, edge: '#2b2a8a', note: '', noteShow: false, left: '', leftShow: false },
+          { title: 'Fall food drive sponsorship', meta: 'Oct 3, 2026 · P-0633', amount: '$100', ...pill('Open', '#fff0dd', '#7a3a0a'), hasBox: true, edge: '#2b2a8a', note: '', noteShow: false, left: '', leftShow: false },
+          { title: 'Membership 2026', meta: 'Jan 14, 2026 · P-0412', amount: '$120', ...pill('Paid Jan 14', '#e3f4ea', '#14502f'), hasBox: false, edge: '#eee3d9', note: '', noteShow: false, left: '', leftShow: false }
+        ];
+    const tiles = claimed
+      ? [
+          { label: 'OPEN BALANCE', value: '$310', sub: '2 open' },
+          { label: 'SOFT CREDIT', value: '$250', sub: 'waiting to be checked' },
+          { label: 'PAID IN 2026', value: '$120', sub: '1 pledge' }
+        ]
+      : [
+          { label: 'OPEN BALANCE', value: '$560', sub: '3 open' },
+          { label: 'SOFT CREDIT', value: '$0', sub: 'none waiting' },
+          { label: 'PAID IN 2026', value: '$120', sub: '1 pledge' }
+        ];
+    const noFiles = files.length === 0;
+    return {
+      claimed,
+      tiles,
+      rows,
+      payLabel: claimed ? 'Pay $310 now' : 'Pay $560 now',
+      showSheet: screen === 'details' || screen === 'proof' || screen === 'review',
+      isDetails: screen === 'details',
+      isProof: screen === 'proof',
+      isReview: screen === 'review',
+      isSent: screen === 'sent',
+      stepLabel: stepLabels[screen] || '',
+      sheetTitle: titles[screen] || '',
+      methods: Object.keys(names).map((k) => ({
+        label: names[k],
+        on: method === k,
+        edge: method === k ? '#2b2a8a' : '#b9b5ec',
+        bg: method === k ? '#2b2a8a' : '#ffffff',
+        fg: method === k ? '#ffffff' : '#2b2a8a',
+        pick: set({ method: k })
+      })),
+      refLabel: refs[method][0],
+      refValue: refs[method][1],
+      methodName: names[method],
+      refShort: refs[method][1] ? refs[method][1] : '',
+      files: files.map((f) => ({ ...f, remove: () => this.setState({ files: files.filter((x) => x.id !== f.id) }) })),
+      fileCount: files.length + (files.length === 1 ? ' file' : ' files') + ' of 5',
+      noFiles,
+      nextBg: noFiles ? '#9a98c4' : '#2b2a8a',
+      addFile: () => this.setState({ files: files.length >= 5 ? files : files.concat([{ id: Date.now(), label: 'Photo ' + (files.length + 1), size: '0.9 MB' }]) }),
+      openSheet: set({ screen: 'details' }),
+      closeSheet: set({ screen: 'pledges' }),
+      toDetails: set({ screen: 'details' }),
+      toProof: set({ screen: 'proof' }),
+      toReview: set({ screen: 'review' }),
+      send: set({ screen: 'sent' }),
+      done: set({ screen: 'pledges', claimed: true }),
+      reset: set({ screen: 'pledges', claimed: false, method: 'check', files: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

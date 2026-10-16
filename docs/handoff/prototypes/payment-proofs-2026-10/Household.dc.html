@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A household's pledges</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+a{color:#2b2a8a}a:hover{color:#1e1d5c}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1280px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700;">Riverbend Community Center</span>
+<span style="background: #ffffff; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data · reference only</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1280px; margin: 0 auto; padding: 28px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">People › Households › Okafor household › Giving</nav>
+<h1 style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; color: #2b2a8a;">Okafor household</h1>
+<p style="margin: 0; font-size: 15px; color: #33325f;">H-1042 · org household 2210 · Adaeze O., Chidi O. · Eastside, Riverbend</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px;">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+<div style="flex: 1 1 250px; background: #ffffff; border: {{t.border}}; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px;">
+<span style="font-size: 13px; font-weight: 700; color: #a8400d; letter-spacing: 0.05em;">{{t.label}}</span>
+<span style="font-size: 30px; line-height: 1.15; font-weight: 700; color: #1e1d5c;">{{t.value}}</span>
+<span style="font-size: 14px; color: #555a79;">{{t.sub}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="background: #f1eefc; border-radius: 14px; padding: 12px 16px; font-size: 15.5px; color: #1e1d5c;"><strong>How Open balance is counted:</strong> amount − paid − soft credit, over pledges that are Open or Partly paid. Soft credit, Paid and Bank reconciled pledges add nothing. $740 pledged − $180 paid − $250 soft credit = <strong>$310</strong>.</div>
+
+<section aria-labelledby="pl" style="display: flex; flex-direction: column; gap: 10px;">
+<h2 id="pl" style="margin: 0; font-size: 22px; font-weight: 700;">Pledges</h2>
+<div style="overflow-x: auto; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px;">
+<table style="width: 100%; min-width: 980px; border-collapse: collapse; font-size: 15px;">
+<thead>
+<tr style="text-align: left; background: #f1eefc;">
+<th scope="col" style="padding: 10px 14px;">Pledge</th>
+<th scope="col" style="padding: 10px 14px;">Pledged</th>
+<th scope="col" style="padding: 10px 14px; text-align: right;">Amount</th>
+<th scope="col" style="padding: 10px 14px; text-align: right;">Paid (verified)</th>
+<th scope="col" style="padding: 10px 14px; text-align: right;">Soft credit</th>
+<th scope="col" style="padding: 10px 14px; text-align: right;">In Open balance</th>
+<th scope="col" style="padding: 10px 14px;">Status</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+<tr style="border-top: 1px solid #eee3d9;">
+<td style="padding: 10px 14px;"><strong>{{r.id}}</strong> {{r.title}}</td>
+<td style="padding: 10px 14px; color: #33325f;">{{r.date}}</td>
+<td style="padding: 10px 14px; text-align: right;">{{r.amount}}</td>
+<td style="padding: 10px 14px; text-align: right;">{{r.paid}}</td>
+<td style="padding: 10px 14px; text-align: right;">{{r.soft}}</td>
+<td style="padding: 10px 14px; text-align: right; font-weight: 700;">{{r.open}}</td>
+<td style="padding: 10px 14px;">
+<span style="background: {{r.bg}}; color: {{r.fg}}; border-radius: 9999px; padding: 2px 11px; font-size: 13.5px; font-weight: 700; white-space: nowrap;">{{r.status}}</span>
+<span style="display: block; font-size: 13px; color: #555a79; margin-top: 2px;">{{r.note}}</span>
+</td>
+</tr>
+</sc-for>
+<tr style="border-top: 2px solid #1e1d5c; background: #fffaf5; font-weight: 700;">
+<td style="padding: 10px 14px;">Total</td><td></td>
+<td style="padding: 10px 14px; text-align: right;">$740</td>
+<td style="padding: 10px 14px; text-align: right;">$180</td>
+<td style="padding: 10px 14px; text-align: right;">$250</td>
+<td style="padding: 10px 14px; text-align: right;">$310</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start;">
+<section aria-labelledby="ev" style="flex: 1 1 520px; min-width: 0; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="ev" style="margin: 0; font-size: 20px; font-weight: 700;">Evidence</h2>
+<sc-for list="{{evidence}}" as="e" hint-placeholder-count="2">
+<div style="border: 1px solid #eee3d9; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;">
+<div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+<strong>{{e.title}}</strong>
+<span style="background: {{e.bg}}; color: {{e.fg}}; border-radius: 9999px; padding: 1px 10px; font-size: 13px; font-weight: 700;">{{e.state}}</span>
+</div>
+<div style="display: flex; gap: 8px;">
+<div aria-hidden="true" style="width: 84px; height: 58px; border-radius: 8px; background: #ffffff; border: 1px solid #b9b5ec; position: relative;">
+<div style="position: absolute; left: 6px; top: 9px; width: 38px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; left: 6px; top: 20px; width: 58px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; right: 6px; bottom: 6px; width: 18px; height: 8px; background: #ffb82a;"></div>
+</div>
+<div aria-hidden="true" style="width: 84px; height: 58px; border-radius: 8px; background: #ffffff; border: 1px solid #b9b5ec; position: relative;">
+<div style="position: absolute; left: 6px; top: 9px; width: 46px; height: 3px; background: #d4d2f5;"></div>
+<div style="position: absolute; left: 6px; top: 20px; width: 30px; height: 3px; background: #d4d2f5;"></div>
+</div>
+</div>
+<span style="font-size: 14px; color: #33325f;">{{e.line1}}</span>
+<span style="font-size: 14px; color: #555a79;">{{e.line2}}</span>
+</div>
+</sc-for>
+<span style="font-size: 13.5px; color: #555a79;">Photos open for the household's adults and for staff who verify payments. Every staff view is logged. Nothing here is in an export, a search, an e-mail or a push.</span>
+</section>
+
+<section aria-labelledby="tl" style="flex: 1 1 420px; min-width: 0; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="tl" style="margin: 0; font-size: 20px; font-weight: 700;">Timeline: P-0412 Membership 2026</h2>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{timeline}}" as="t" hint-placeholder-count="4">
+<li style="display: flex; gap: 12px; align-items: flex-start;">
+<span style="flex: none; margin-top: 2px; background: {{t.bg}}; color: {{t.fg}}; border-radius: 9999px; padding: 1px 10px; font-size: 13px; font-weight: 700; white-space: nowrap;">{{t.state}}</span>
+<span style="font-size: 14.5px; color: #33325f;"><strong>{{t.when}}</strong> {{t.text}}</span>
+</li>
+</sc-for>
+</ol>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1380}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const open = { bg: '#fff0dd', fg: '#7a3a0a' };
+    const soft = { bg: '#e6e2fa', fg: '#2b2a8a' };
+    const paid = { bg: '#e3f4ea', fg: '#14502f' };
+    const rec = { bg: '#14502f', fg: '#ffffff' };
+    return {
+      tiles: [
+        { label: 'OPEN BALANCE', value: '$310', sub: '2 pledges. Leaves out soft credit and reconciled money.', border: '2px solid #2b2a8a' },
+        { label: 'SOFT CREDIT, WAITING', value: '$250', sub: '1 proof from Oct 12, not yet verified', border: '1px solid #eee3d9' },
+        { label: 'PAID, NOT ON THE BANK', value: '$60', sub: '1 payment, 19 days since verified', border: '1px solid #eee3d9' },
+        { label: 'BANK RECONCILED', value: '$120', sub: '1 pledge, final', border: '1px solid #eee3d9' }
+      ],
+      rows: [
+        Object.assign({ id: 'P-0412', title: 'Membership 2026', date: 'Jan 14', amount: '$120', paid: '$120', soft: '$0', open: '$0', status: 'Bank reconciled', note: 'Check 0988 on the Jan 20 statement' }, rec),
+        Object.assign({ id: 'P-0398', title: 'Summer picnic', date: 'Jun 2', amount: '$60', paid: '$60', soft: '$0', open: '$0', status: 'Paid', note: 'Cash, no bank line after 19 days (usual window 14)' }, paid),
+        Object.assign({ id: 'P-0587', title: 'Harvest supper, 4 seats', date: 'Sep 2', amount: '$160', paid: '$0', soft: '$160', open: '$0', status: 'Soft credit', note: 'Proof $250, check 1048, waiting' }, soft),
+        Object.assign({ id: 'P-0601', title: 'Building fund', date: 'Sep 20', amount: '$300', paid: '$0', soft: '$90', open: '$210', status: 'Open', note: 'Soft credit $90 waiting; $210 still to pay' }, open),
+        Object.assign({ id: 'P-0633', title: 'Food drive sponsorship', date: 'Oct 3', amount: '$100', paid: '$0', soft: '$0', open: '$100', status: 'Open', note: '' }, open)
+      ],
+      evidence: [
+        { title: 'Proof for $250.00, check 1048', state: 'Waiting', bg: '#e6e2fa', fg: '#2b2a8a', line1: 'Sent by Adaeze Oct 12. Viewed by Priya (treasury) Oct 13, 9:02 am.', line2: 'Kept until Dec 31, 2033 (7 years from the end of the payment year), once the pledges are final. The family can open it until then, from every pledge it credited.' },
+        { title: 'Receipt photo for P-0398, cash', state: 'Evidence on payment R-2026-0211', bg: '#e3f4ea', fg: '#14502f', line1: 'Approved by Priya Sep 26. Receipt number 198 from the volunteer.', line2: 'Kept until Dec 31, 2033. The family can open it until then.' }
+      ],
+      timeline: [
+        { state: 'Open', bg: '#fff0dd', fg: '#7a3a0a', when: 'Jan 14', text: 'Pledged at sign-up.' },
+        { state: 'Soft credit', bg: '#e6e2fa', fg: '#2b2a8a', when: 'Jan 14', text: 'Adaeze sent a $120 check as proof. Reminders paused.' },
+        { state: 'Paid', bg: '#e3f4ea', fg: '#14502f', when: 'Jan 16', text: 'Priya approved. Receipt R-2026-0007 issued; QuickBooks posted to undeposited funds.' },
+        { state: 'Bank reconciled', bg: '#14502f', fg: '#ffffff', when: 'Jan 20', text: 'Check 0988 found on the statement and attached. No pledge changed.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

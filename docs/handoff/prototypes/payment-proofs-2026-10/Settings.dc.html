@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings: payment proofs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fffaf5}
+button,input{font-family:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #2b2a8a;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #fffaf5; color: #1e1d5c; font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+<header style="background: #ff7640;">
+<div style="max-width: 1280px; margin: 0 auto; padding: 12px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1; font-weight: 600; color: #2b2a8a;">Weaver</span>
+<span style="font-size: 11.5px; line-height: 1; font-weight: 600; color: #1e1d5c;">Community management platform</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+<span style="font-weight: 700;">Riverbend Community Center</span>
+<span style="background: #ffffff; border-radius: 9999px; padding: 4px 12px; font-size: 13px; font-weight: 700;">Sample data · reference only</span>
+</div>
+</div>
+</header>
+<main style="max-width: 1280px; margin: 0 auto; padding: 28px 20px 72px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px;">
+
+<section aria-labelledby="stor" style="display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">Settings › Storage</nav>
+<h1 id="stor" style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 36px; line-height: 1.1; font-weight: 600; color: #2b2a8a;">How long files are kept</h1>
+</div>
+<div style="overflow-x: auto; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px;">
+<table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 15px;">
+<thead>
+<tr style="text-align: left; background: #f1eefc;">
+<th scope="col" style="padding: 10px 14px;">Files</th>
+<th scope="col" style="padding: 10px 14px;">Kept for</th>
+<th scope="col" style="padding: 10px 14px;">Counted from</th>
+<th scope="col" style="padding: 10px 14px;">Held now</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-top: 1px solid #eee3d9;"><td style="padding: 10px 14px;">Imports</td><td style="padding: 10px 14px;">90 days</td><td style="padding: 10px 14px;">Upload date</td><td style="padding: 10px 14px;">412 files</td></tr>
+<tr style="border-top: 1px solid #eee3d9;"><td style="padding: 10px 14px;">Class recordings</td><td style="padding: 10px 14px;">90 days</td><td style="padding: 10px 14px;">Upload date</td><td style="padding: 10px 14px;">96 files</td></tr>
+<tr style="border-top: 1px solid #eee3d9;"><td style="padding: 10px 14px;">Homework</td><td style="padding: 10px 14px;">180 days</td><td style="padding: 10px 14px;">Upload date</td><td style="padding: 10px 14px;">1,031 files</td></tr>
+<tr style="border-top: 2px solid #2b2a8a; background: #fffaf5;">
+<td style="padding: 12px 14px; font-weight: 700;">Payment proofs <span style="background: #ffb82a; color: #1e1d5c; border-radius: 9999px; padding: 0 8px; font-size: 12px; font-weight: 700;">New</span></td>
+<td style="padding: 12px 14px;">
+<div style="display: flex; align-items: center; gap: 8px;">
+<button onClick="{{less}}" aria-label="One year less" style="width: 44px; height: 44px; border-radius: 9999px; border: 1px solid #2b2a8a; background: #ffffff; color: #2b2a8a; font-size: 20px; font-weight: 700;">−</button>
+<strong style="min-width: 64px; text-align: center; font-size: 18px;">{{yearsLabel}}</strong>
+<button onClick="{{more}}" aria-label="One year more" style="width: 44px; height: 44px; border-radius: 9999px; border: 1px solid #2b2a8a; background: #ffffff; color: #2b2a8a; font-size: 20px; font-weight: 700;">+</button>
+</div>
+<span style="font-size: 13px; color: #555a79;">From 3 to 25 years. Default 7.</span>
+</td>
+<td style="padding: 12px 14px;">End of the accounting year of the payment, and only once its pledges are final</td>
+<td style="padding: 12px 14px;">1,284 files · 3.1 GB</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 14px;">
+<div style="flex: 1 1 380px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+<strong>Legal hold</strong>
+<span style="background: #eeeaf0; color: #33325f; border-radius: 9999px; padding: 3px 14px; font-size: 14px; font-weight: 700;">Off</span>
+</div>
+<span style="font-size: 14.5px; color: #33325f;">While on, no proof is removed and families keep access, whatever the years say. Use it during an audit or a dispute.</span>
+<strong style="margin-top: 4px;">What is removed, and what stays</strong>
+<span style="font-size: 14.5px; color: #33325f;">The photo or file is deleted. A small record stays: its fingerprint, size, type, who sent it, and when and why it was removed, so the audit trail still shows it existed. Rejected or withdrawn proofs are removed after 13 months. We tell the treasury team 30 days before the first removal of a batch, with a way to export first.</span>
+</div>
+<div style="flex: 1 1 380px; background: #ffffff; border: 1px solid {{previewEdge}}; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+<strong>{{previewTitle}}</strong>
+<span style="font-size: 14.5px; color: #33325f;">{{previewText}}</span>
+<sc-if value="{{lowering}}" hint-placeholder-val="{{false}}">
+<label for="why" style="font-size: 13.5px; font-weight: 700;">Why are you shortening it? (required, kept in the audit log)</label>
+<input id="why" type="text" value="Board policy update, Oct 2026" style="min-height: 44px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 15px;">
+<span style="font-size: 13.5px; color: #555a79;">You will also be asked for your sign-in code, as for other admin-level changes.</span>
+<button style="align-self: flex-start; min-height: 46px; padding: 0 20px; border-radius: 9999px; border: none; background: #b3261e; color: #ffffff; font-size: 15px; font-weight: 700;">Shorten and schedule removals</button>
+</sc-if>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="rules" style="display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<nav aria-label="Breadcrumb" style="font-size: 14.5px; color: #555a79;">Settings › Payments › Payment proofs</nav>
+<h2 id="rules" style="margin: 0; font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif; font-size: 30px; line-height: 1.15; font-weight: 600; color: #2b2a8a;">Payment proofs</h2>
+<p style="margin: 0; max-width: 820px; font-size: 16px; color: #33325f;">Members can send a photo or file when they paid another way. These rules are per organization. Under Giving, “Payment proofs” is an add-on switch, off until you turn it on.</p>
+</div>
+
+<div style="overflow-x: auto; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px;">
+<table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 15px;">
+<thead>
+<tr style="text-align: left; background: #f1eefc;">
+<th scope="col" style="padding: 10px 14px;">Method the family can choose</th>
+<th scope="col" style="padding: 10px 14px;">Accepted</th>
+<th scope="col" style="padding: 10px 14px;">Proof needed?</th>
+<th scope="col" style="padding: 10px 14px;">Usual time to reach the bank</th>
+</tr>
+</thead>
+<tbody>
+<sc-for list="{{methods}}" as="m" hint-placeholder-count="7">
+<tr style="border-top: 1px solid #eee3d9;">
+<td style="padding: 10px 14px; font-weight: 700;">{{m.name}}<span style="display: block; font-weight: 400; font-size: 13px; color: #555a79;">{{m.note}}</span></td>
+<td style="padding: 10px 14px;"><span style="background: #e3f4ea; color: #14502f; border-radius: 9999px; padding: 1px 10px; font-size: 13px; font-weight: 700;">Yes</span></td>
+<td style="padding: 10px 14px;">{{m.proof}}</td>
+<td style="padding: 10px 14px;">{{m.window}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 14px;">
+<div style="flex: 1 1 380px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<strong>Who checks, and when two people are needed</strong>
+<span style="font-size: 14.5px; color: #33325f;">Anyone who can record payments (treasurer, finance volunteer) may verify a proof, except a proof from their own household.</span>
+<div style="display: flex; flex-direction: column; gap: 3px;">
+<label for="lim" style="font-size: 13.5px; font-weight: 700;">A proof above this amount needs a second person with approval rights</label>
+<input id="lim" type="text" value="$2,500.00" style="min-height: 44px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 15px; max-width: 220px;">
+</div>
+<div style="display: flex; flex-direction: column; gap: 3px;">
+<label for="wait" style="font-size: 13.5px; font-weight: 700;">Days to wait for a member's reply before the proof returns to the queue</label>
+<input id="wait" type="text" value="14" style="min-height: 44px; box-sizing: border-box; border: 1px solid #b9b5ec; border-radius: 12px; padding: 0 12px; font-size: 15px; max-width: 120px;">
+</div>
+</div>
+<div style="flex: 1 1 380px; background: #ffffff; border: 1px solid #eee3d9; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<strong>While a proof is waiting (Soft credit)</strong>
+<sc-for list="{{toggles}}" as="t" hint-placeholder-count="3">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+<span style="font-size: 14.5px; color: #33325f;">{{t.label}}</span>
+<span style="flex: none; background: {{t.bg}}; color: {{t.fg}}; border-radius: 9999px; padding: 3px 14px; font-size: 14px; font-weight: 700;">{{t.state}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1360}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const y = s.years == null ? 7 : s.years;
+    const files = { 6: 38, 5: 214, 4: 480, 3: 902 };
+    const lowering = y < 7;
+    const first = 2033 - (7 - y);
+    return {
+      yearsLabel: y + ' years',
+      less: () => this.setState({ years: Math.max(3, y - 1) }),
+      more: () => this.setState({ years: Math.min(25, y + 1) }),
+      lowering,
+      previewEdge: lowering ? '#b3261e' : '#eee3d9',
+      previewTitle: lowering ? 'If you shorten this to ' + y + ' years' : 'Nothing is scheduled for removal',
+      previewText: lowering
+        ? files[y] + ' files that are kept today would become eligible. The first removals would be on January 1, ' + (first + 1) + ', and only for proofs whose pledges are final. Families lose access to those files at the same moment. Nothing is removed today.'
+        : 'The oldest proof is from 2026, so the first removals would not happen before January 2034. Raising the years never removes anything.',
+      methods: [
+        { name: 'Cash', note: 'Reference: a receipt or envelope number', proof: 'Optional', window: '14 days (a deposit or an offering count)' },
+        { name: 'Check', note: 'Check number asked', proof: 'Required', window: '30 days' },
+        { name: 'Bank transfer', note: 'Trace number optional', proof: 'Required', window: '7 days' },
+        { name: 'Zelle', note: 'Keeps today’s report; the pledge shows Soft credit, no money counts until the bank line', proof: 'Optional', window: '5 days' },
+        { name: 'Stock', note: 'Shares and symbol; the treasurer sets the credited value', proof: 'Required', window: '30 days' },
+        { name: 'Fund grant (donor-advised or matching)', note: 'Arrives from the fund, not the family', proof: 'Required', window: '60 days' },
+        { name: 'Other', note: '', proof: 'Required', window: '45 days' }
+      ],
+      toggles: [
+        { label: 'Admit people to an event whose pledge is in Soft credit', state: 'On', bg: '#e3f4ea', fg: '#14502f' },
+        { label: 'Release a store order for pickup while its pledge is in Soft credit', state: 'Off', bg: '#eeeaf0', fg: '#33325f' },
+        { label: 'Daily push to people who verify, listing proofs waiting (each person opts in)', state: 'Off', bg: '#eeeaf0', fg: '#33325f' },
+        { label: 'Pause reminders for pledges in Soft credit', state: 'On, always', bg: '#e6e2fa', fg: '#2b2a8a' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
