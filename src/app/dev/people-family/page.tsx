@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PreviewShell } from "@/app/dev/people-shell";
 import { AddToEventControl } from "@/components/people-v2/events/person-events";
+import { RecordNav } from "@/components/shell/record-nav";
 import { EventsTable } from "@/components/people-v2/family/events-table";
 import { GivingGlanceView } from "@/components/giving-glance/giving-glance";
 import type { FamilyLinks } from "@/components/people-v2/family/family-header";
@@ -119,7 +120,15 @@ function PreviewTabs({ showGiving, showEvents, events }: { showGiving: boolean; 
   const active = events ? "Events" : tabs[0];
   return (
     <section aria-label="Giving, memberships and history">
-      <nav aria-label="More about this family" className="mb-3.5 flex gap-1 overflow-x-auto border-b border-line">
+      {/* As on the real page: from 1024px wide the left panel lists these sections and the row below is not drawn. */}
+      <RecordNav
+        title="Hassan household"
+        subtitle="No. 0301 · RCC-H-1102 · Riverside, North Riverside"
+        backHref="/dev/people-home"
+        backLabel="Households"
+        items={tabs.map((t) => ({ key: t, label: t, href: `/dev/people-family?tab=${t.toLowerCase()}`, active: t === active }))}
+      />
+      <nav aria-label="More about this family" className="mb-3.5 flex gap-1 overflow-x-auto border-b border-line" data-section-tabs="">
         {tabs.map((t) => (
           <span
             key={t}
