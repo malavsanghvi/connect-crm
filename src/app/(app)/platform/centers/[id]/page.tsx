@@ -7,6 +7,7 @@ import { BlockGrid, Card, DefinitionList, EmptyState, PageHeader, QueryError, St
 import { confirmToolChoices } from "@/lib/assistant/choices";
 import { assistantApiKey } from "@/lib/assistant/key";
 import { consentFromRules } from "@/lib/activity/consent";
+import { loadChipInCard } from "@/lib/data/chip-in-platform";
 import { assistantEnabled } from "@/lib/assistant/settings";
 import { portalBaseDomain } from "@/lib/center-resolve";
 import { formatDateTime } from "@/lib/dates";
@@ -19,6 +20,7 @@ import { ENTITLEMENT_INFO, entitlementLabel, formatEntitlement, formatJoinCode, 
 
 import { PlatformNoAccess } from "../../platform-no-access";
 import { addDomainAction, removeDomainAction, saveAssistantAction, setEntitlementAction } from "./actions";
+import { ChipInCard } from "./chip-in-card";
 import { KindPanel } from "./kind-panel";
 import { ModulesPanel } from "./modules-panel";
 import { RecordingCard } from "./recording-card";
@@ -50,13 +52,14 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
   }
   if (!centerRes.data) notFound();
   const center = centerRes.data;
-  const [entRes, domainRes, codeRes, promotedRes, kinds, statesRes] = await Promise.all([
+  const [entRes, domainRes, codeRes, promotedRes, kinds, statesRes, chipIn] = await Promise.all([
     db.rpc("center_entitlement_list", { p_center: id }),
     db.from("center_domains").select("domain, created_at").eq("center_id", id).order("domain"),
     db.from("member_join_codes").select("code, expires_at, created_at").eq("center_id", id).eq("active", true).order("created_at", { ascending: false }),
     center.sandbox_for ? db.from("centers").select("name, slug").eq("id", center.sandbox_for).maybeSingle() : Promise.resolve(null),
     loadExperiences(db),
     db.rpc("module_states", { p_center: id }),
+    loadChipInCard(session, id),
   ]);
   const moduleRows = statesRes.error ? [] : buildModuleRowsFromStates(statesRes.data ?? []);
   const kindLabel = (kinds.status === "ok" ? kinds.experiences.find((k) => k.key === center.category_key)?.label : null) ?? null;
@@ -149,6 +152,8 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
             <ModulesPanel centerId={id} rows={moduleRows} kindLabel={kindLabel} tz={tz} />
           )}
         </Card>
+
+        <ChipInCard centerId={id} data={chipIn} tz={tz} />
 
         <Card
           span={12}

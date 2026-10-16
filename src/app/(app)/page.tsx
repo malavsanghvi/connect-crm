@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AssignmentsCard } from "@/components/home/assignments-card";
+import { HomeNotices } from "@/components/home/notices";
 import { MemberAppCard } from "@/components/home/member-app-card";
 import { MyTasksCard } from "@/components/home/my-tasks-card";
 import { StartHereCard } from "@/components/home/start-here-card";
@@ -10,6 +11,7 @@ import { TourInvite } from "@/components/spotlight/tour-invite";
 import { BlockGrid, Card, KpiGrid, PageHeader, Stat, capitalize } from "@/components/ui";
 import { loadHomeCards } from "@/lib/data/home-cards";
 import { loadHomeKpis } from "@/lib/data/home-kpis";
+import { loadHomeNotices } from "@/lib/data/home-notices";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 import { showsTasksCard } from "@/lib/home/cards";
 import { LOOK_COOKIE, parseLook } from "@/lib/look";
@@ -34,7 +36,7 @@ export default async function HomePage() {
   if (parseLook(jar.get(LOOK_COOKIE)?.value) === "v2") return <TodayHome session={session} />;
 
   const { center } = session;
-  const [{ tasks, failures }, kpis, cards] = await Promise.all([loadHomeTasks(session), loadHomeKpis(session), loadHomeCards(session)]);
+  const [{ tasks, failures }, kpis, cards, notices] = await Promise.all([loadHomeTasks(session), loadHomeKpis(session), loadHomeCards(session), loadHomeNotices(session)]);
   const hasSources = visibleTaskSources(session).length > 0;
   // A person with no staff queue whose work is on a card (their assignments, or the member app) is not told there is nothing for their role.
   const showTasks = showsTasksCard(hasSources, cards);
@@ -49,6 +51,7 @@ export default async function HomePage() {
       {/* An invitation to a guided tour, only for a person who has one they have not started (src/lib/spotlight). */}
       <TourInvite />
       <BlockGrid>
+        <HomeNotices notices={notices} />
         {cards.assignments ? <AssignmentsCard card={cards.assignments} /> : null}
         {cards.memberWork ? <MemberAppCard work={cards.memberWork} /> : null}
         {cards.startHere ? <StartHereCard start={cards.startHere} /> : null}

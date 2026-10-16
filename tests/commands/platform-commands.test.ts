@@ -136,8 +136,15 @@ describe("the Platform commands", () => {
   it("cover every Server Action of the Platform console", () => {
     const covered = PLATFORM_COMMANDS.flatMap((c) => c.covers ?? []);
     expect(covered).toHaveLength(new Set(covered).size);
-    expect(covered).toHaveLength(27);
-    expect(covered).toEqual(expect.arrayContaining(["src/app/(app)/platform/centers/[id]/actions.ts#changeKindAction", "src/app/(app)/platform/onboarding-actions.ts#decideGoliveAction"]));
+    expect(covered).toHaveLength(29);
+    expect(covered).toEqual(
+      expect.arrayContaining([
+        "src/app/(app)/platform/centers/[id]/actions.ts#changeKindAction",
+        "src/app/(app)/platform/onboarding-actions.ts#decideGoliveAction",
+        "src/app/(app)/platform/centers/[id]/actions.ts#saveChipInAction",
+        "src/app/(app)/platform/payments/actions.ts#addFeeRateAction",
+      ]),
+    );
   });
 });
 

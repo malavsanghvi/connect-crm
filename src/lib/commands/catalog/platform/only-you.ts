@@ -71,23 +71,37 @@ export const setLimitsAndAddresses = onlyYou({
   covers: ["src/app/(app)/platform/centers/[id]/actions.ts#setEntitlementAction", "src/app/(app)/platform/centers/[id]/actions.ts#addDomainAction", "src/app/(app)/platform/centers/[id]/actions.ts#removeDomainAction"],
 });
 
+// A command key is also registered in the database's activity catalog (app.activity_register, tests/activity-commands.test.ts), so a new key
+// needs a migration. The Chip In switch and the Stripe fee rates therefore ride on the two commands whose subject they share.
 export const setCommunitySwitches = onlyYou({
   key: "platform.set_community_switches",
-  title: "Switch recording or Niva's actions on or off for a community",
+  title: "Switch recording, Niva's actions or the Chip In on or off for a community",
   description:
-    "Switch on or off the recording of how a community uses the portal (only after its own administrator has agreed), or choose which actions Niva may prepare for it. A reason is required and goes in the audit log.",
-  label: "Open Platform, open the community and use How this community uses Weaver or Niva for admins",
+    "Switch on or off the recording of how a community uses the portal (only after its own administrator has agreed), choose which actions Niva may prepare for it, " +
+    "or switch on or off the optional Chip In to Weaver for it and set its yearly limit per account and its suggested amounts (nothing is asked of any member until that switch is on, and the community's owner sees a notice on Home). " +
+    "A reason is required and goes in the audit log.",
+  label: "Open Platform, open the community and use How this community uses Weaver, Niva for admins or Chip In and card fees",
   href: "/platform",
-  covers: ["src/app/(app)/platform/centers/[id]/actions.ts#setActivityRecordingAction", "src/app/(app)/platform/centers/[id]/actions.ts#saveAssistantAction"],
+  covers: [
+    "src/app/(app)/platform/centers/[id]/actions.ts#setActivityRecordingAction",
+    "src/app/(app)/platform/centers/[id]/actions.ts#saveAssistantAction",
+    "src/app/(app)/platform/centers/[id]/actions.ts#saveChipInAction",
+  ],
 });
 
 export const pauseWaysToPay = onlyYou({
   key: "platform.pause_ways_to_pay",
-  title: "Pause or restart a way to pay",
-  description: "Pause a way to pay for one community or for all of them, or lift a pause. It is the only power the team has over payments, and it stops new payments only.",
-  label: "Open Platform › Payments and use Pause or Lift",
+  title: "Pause or restart a way to pay, or set the Stripe fee rates",
+  description:
+    "Pause a way to pay for one community or for all of them, or lift a pause. A pause stops new payments only; nothing already recorded changes. " +
+    "Also add a Stripe fee rate, which only estimates the card fee a member may choose to cover (for every community, or for one community's own pricing); a reason is required and goes in the audit log.",
+  label: "Open Platform › Payments and use Pause, Lift or Stripe fee estimate (a community's own rate is on its page, in Chip In and card fees)",
   href: "/platform/payments",
-  covers: ["src/app/(app)/platform/payments/actions.ts#suspendPluginAction", "src/app/(app)/platform/payments/actions.ts#liftPauseAction"],
+  covers: [
+    "src/app/(app)/platform/payments/actions.ts#suspendPluginAction",
+    "src/app/(app)/platform/payments/actions.ts#liftPauseAction",
+    "src/app/(app)/platform/payments/actions.ts#addFeeRateAction",
+  ],
 });
 
 export const createSandbox = onlyYou({
