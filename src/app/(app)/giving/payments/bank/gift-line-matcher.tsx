@@ -9,6 +9,7 @@ import { Badge, buttonClass } from "@/components/ui";
 import { previewAllocation } from "@/lib/allocation";
 import { formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
+import { stillToPayCents } from "@/lib/pledge-balance";
 
 import { attachBankLineAction, confirmBankMatchAction, type ConfirmResult, type DuplicateZelle } from "./actions";
 import { useReportOutcome } from "./bank-results";
@@ -297,7 +298,7 @@ export function GiftLineMatcher({
                       />
                       <span className="font-mono">{p.pledge_number ?? "pledge"}</span>
                       <span className="text-muted">{p.campaign ?? p.source.replace(/_/g, " ")}</span>
-                      <span>{formatCents(p.amount_cents - p.paid_cents, currency)} open</span>
+                      <span>{formatCents(stillToPayCents(p), currency)} open</span>
                       {line ? <Badge tone={line.closes ? "success" : "navy"}>{line.closes ? "closes" : `${formatCents(line.amount_cents, currency)} applied`}</Badge> : null}
                     </label>
                   </li>

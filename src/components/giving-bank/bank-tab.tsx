@@ -18,15 +18,21 @@ import { GivingTabRow } from "@/components/giving-today/giving-tabs";
 import { buttonClass } from "@/components/ui";
 import type { BankModel } from "@/lib/giving-bank/views";
 
+import { ReconcileView } from "./reconcile-view";
+import { UnbankedView } from "./unbanked-view";
+
 import { HistoryRow, ImportSheet, MoreMenu, PayoutRow } from "./bank-parts";
 import { IgnoreLineAct } from "./line-acts";
 
 const INTRO: Record<BankModel["view"], string> = {
   match: "Gift lines from the bank (bank transfers, fund grants) with the family they most likely came from.",
+  reconcile:
+    "A preview of the whole statement: each line tried against payments already recorded, waiting proofs and Zelle reports first, then open pledges. Nothing is written until you apply a row.",
   deposits: "Deposits of paper payments and cash: tick the recorded payments in each one. They must add up to the cent.",
   zelle: "What members reported sending, against the bank statement. Nothing is credited until you confirm it.",
   payouts:
     "Card payouts move money the platform already recorded; they are never matched to a family. The provider's side and the bank's side are shown together, with the difference. Explain and accept pairs them; a difference needs a reason.",
+  unbanked: "Payments counted as paid that no bank line has banked yet. Those past the usual window for their method are flagged.",
   history: "Lines already dealt with, and money out to check.",
 };
 
@@ -105,6 +111,12 @@ export function BankTab({ model, importer, noAccount, exportSlot }: { model: Ban
                   </div>
                 ))
               : null}
+            {model.view === "reconcile" && model.reconcile ? (
+              <ReconcileView accountId={model.reconcile.accountId} labels={model.labels} currency={model.currency} locale={model.locale} timeZone={model.timeZone} canConfirm={model.can.confirm} />
+            ) : null}
+            {model.view === "unbanked" && model.unbanked ? (
+              <UnbankedView model={model.unbanked} labels={model.labels} currency={model.currency} locale={model.locale} timeZone={model.timeZone} />
+            ) : null}
             {model.view === "payouts" ? model.payouts.map((p) => <PayoutRow key={p.id} row={p} canPair={model.can.pairPayouts === true} labels={model.labels} />) : null}
             {model.view === "history"
               ? model.historyRows.map((h) => <HistoryRow key={h.id} row={h} ctx={ctxFor(h.id)} done={done[h.id]} labels={model.labels} />)
@@ -154,6 +166,8 @@ export function BankTab({ model, importer, noAccount, exportSlot }: { model: Ban
 }
 
 function isEmpty(model: BankModel): boolean {
+  // Reconcile and Unbanked say their own empty state.
+  if (model.view === "reconcile" || model.view === "unbanked") return false;
   if (model.view === "payouts") return model.payouts.length === 0;
   if (model.view === "history") return model.historyRows.length === 0;
   // Someone who may only look sees the reports below without the exact-match row: no "no exact matches" line for them.

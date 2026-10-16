@@ -17,6 +17,7 @@ import { previewAllocation } from "@/lib/allocation";
 import { formatDate } from "@/lib/dates";
 import { familyFrom, familyRef, type Act, type Family, type SuggestionView } from "@/lib/giving-today/queue";
 import { formatCents } from "@/lib/money";
+import { stillToPayCents } from "@/lib/pledge-balance";
 
 import { InlineError, SMALL, useRun, type ActContext } from "./row-actions";
 import { FamilyCard, GivingSheet, NO_UNDO } from "./sheet";
@@ -283,7 +284,7 @@ export function GiftAct({ act, ctx }: { act: Extract<Act, { kind: "gift" }>; ctx
                       />
                       <span className="min-w-0 flex-1">
                         <span className="font-mono">{p.pledge_number ?? "pledge"}</span>
-                        {p.campaign ? ` · ${p.campaign}` : ""} · {money(p.amount_cents - p.paid_cents)} open
+                        {p.campaign ? ` · ${p.campaign}` : ""} · {money(stillToPayCents(p))} open
                       </span>
                     </label>
                   ))

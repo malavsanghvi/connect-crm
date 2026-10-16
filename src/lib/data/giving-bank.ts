@@ -7,6 +7,7 @@ import "server-only";
 import { identifierRules } from "@/lib/center-rules";
 import { communityFormat } from "@/lib/community-format";
 import { countsForBankLines } from "@/lib/data/giving-counts";
+import { loadUnbanked, unbankedCount } from "@/lib/data/giving-reconcile";
 import { depositLinesIn, giftLinesIn, loadExact } from "@/lib/data/giving-today";
 import { householdCards, userNames } from "@/lib/data/lookups";
 import { chunk } from "@/lib/data/fetch-all";
@@ -126,6 +127,7 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
       import: canAccess(session, "bankImport"),
       configureZelle: can(session, ["giving.manage", "integrations.manage"]),
       pairPayouts: canAccess(session, "payoutPair"),
+      undoMatch: canAccess(session, "givingManage"),
     },
   };
   if (!canAccess(session, "bank") && !canConfirm) return { ...base, body: { state: "no_access", area: "Bank reconciliation", access: "bank" } };
@@ -180,7 +182,7 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
 
   const payoutsSince = addDays(today, -PAYOUT_LOOKBACK_DAYS);
   const exportKey = bankLineKey(view, history);
-  const [matchN, depositsN, outN, matchedN, ignoredN, payoutPairs, learned, payoutLinesN] = await Promise.all([
+  const [matchN, depositsN, outN, matchedN, ignoredN, payoutPairs, learned, payoutLinesN, unbankedN] = await Promise.all([
     count(lists.match, "the gift lines"),
     count(lists.deposits, "the deposits"),
     count(lists.out, "the money out"),
@@ -189,6 +191,7 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
     on.payouts ? loadPayoutPairs(session, account.id, payoutsSince) : Promise.resolve(null),
     loadLearned(session),
     exportKey === "payouts" ? count(() => bankLinesQuery(session, account.id, "payouts", { count: true, since: payoutsSince }), "the card payout lines") : Promise.resolve(null),
+    unbankedCount(session),
   ]);
   // Export this view's lines (slice 9): the count the view shows, the account and the view in words.
   const exportCount = exportKey ? { match: matchN, deposits: depositsN, out: outN, matched: matchedN, ignored: ignoredN, payouts: payoutLinesN }[exportKey] : null;
@@ -202,7 +205,13 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
     history,
     views: bankViewChips(
       on,
-      { match: matchN, deposits: depositsN, zelle: zelleCounts, payouts: payoutPairs && "pairs" in payoutPairs ? payoutViews.filter((p) => p.attention).length : null },
+      {
+        match: matchN,
+        deposits: depositsN,
+        zelle: zelleCounts,
+        payouts: payoutPairs && "pairs" in payoutPairs ? payoutViews.filter((p) => p.attention).length : null,
+        unbanked: unbankedN ? unbankedN.total : null,
+      },
       view,
       zelleWord,
       hrefView,
@@ -235,6 +244,10 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
         : null,
   };
   const pageHref = (n: number) => hrefWith(BASE, sp, { page: n });
+
+  if (view === "reconcile") return { ...model, reconcile: { accountId: account.id } };
+
+  if (view === "unbanked") return { ...model, unbanked: await loadUnbanked(session) };
 
   if (view === "payouts") {
     if (payoutPairs && "error" in payoutPairs) return { ...model, body: { state: "error", error: payoutPairs.error, retry } };
@@ -276,10 +289,10 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
   const res = await lists[history]().order("posted_on", { ascending: false }).order("id").range(from, from + BANK_PAGE_SIZE - 1);
   if (res.error) return { ...model, body: { state: "error", error: failure("Could not read the bank lines", res.error).error, retry } };
   const lines = res.data ?? [];
-  const [cards, names, receipts, counts] = await Promise.all([
+  const [cards, names, payInfo, counts] = await Promise.all([
     history === "matched" ? householdCards(db, lines.map((l) => l.matched_household_id)) : Promise.resolve(null),
     history === "out" ? Promise.resolve(null) : userNames(db, center.id, lines.map((l) => l.matched_by)),
-    history === "matched" ? readReceipts(session, lines.map((l) => l.payment_id)) : Promise.resolve(new Map<string, string | null>()),
+    history === "matched" ? readPayments(session, lines.map((l) => l.payment_id)) : Promise.resolve(new Map<string, PaymentInfo>()),
     // A deposit matched to a count (slice 5) names that count, read-only.
     history === "matched" ? countsForBankLines(session, lines.map((l) => l.id)) : Promise.resolve(null),
   ]);
@@ -294,7 +307,9 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
       description: l.description,
       status: l.status,
       family: card ? familyFrom(card) : null,
-      receipt: l.payment_id ? (receipts.get(l.payment_id) ?? null) : null,
+      receipt: l.payment_id ? (payInfo.get(l.payment_id)?.receipt ?? null) : null,
+      // Only a line that attached a payment recorded before it (an offline payment) can be undone here; a deposit of several cannot.
+      undoable: !l.is_batch_deposit && !!l.payment_id && payInfo.get(l.payment_id)?.provider === "offline",
       by: l.matched_by ? (names?.get(l.matched_by)?.name ?? null) : null,
       at: l.matched_at,
       notes: l.notes,
@@ -304,7 +319,7 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
   });
   return {
     ...model,
-    historyRows: historyLines.map((l) => historyRowView(l, history, ctx, canIgnore)),
+    historyRows: historyLines.map((l) => historyRowView(l, history, ctx, canIgnore, base.can.undoMatch === true)),
     pager: bankPager(page, res.count ?? 0, pageHref),
   };
 }
@@ -322,16 +337,18 @@ function exactPairs(q: ReportQueue): ExactPairIn[] {
   }));
 }
 
-async function readReceipts(session: CrmSession, ids: (string | null)[]): Promise<Map<string, string | null>> {
-  const out = new Map<string, string | null>();
+type PaymentInfo = { receipt: string | null; provider: string | null };
+
+async function readPayments(session: CrmSession, ids: (string | null)[]): Promise<Map<string, PaymentInfo>> {
+  const out = new Map<string, PaymentInfo>();
   const wanted = ids.filter((x): x is string => !!x);
   for (const part of chunk(wanted)) {
-    const r = await session.db.from("payments").select("id, receipt_number").in("id", part);
+    const r = await session.db.from("payments").select("id, receipt_number, provider").in("id", part);
     if (r.error) {
       console.error("[giving-bank] reading the receipts of matched lines failed; those lines show no receipt:", r.error);
       break;
     }
-    for (const p of r.data ?? []) out.set(p.id, p.receipt_number);
+    for (const p of r.data ?? []) out.set(p.id, { receipt: p.receipt_number, provider: p.provider });
   }
   return out;
 }

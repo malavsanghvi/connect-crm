@@ -1,3 +1,5 @@
+import { stillToPayCents } from "@/lib/pledge-balance";
+
 // Client-side PREVIEW of how a payment would settle pledges.
 //
 // app.allocate_payment() is not callable by clients (0011 revokes it), so the
@@ -13,6 +15,8 @@ export type AllocatablePledge = {
   paid_cents: number;
   pledged_at: string;
   status?: string;
+  /** Claims waiting to be verified (0865). Money is never applied to this part: it is not open any more. */
+  soft_credit_cents?: number | null;
 };
 
 export type AllocationLine = {
@@ -31,8 +35,8 @@ export type AllocationPreview = {
 
 const OPEN_STATUSES = new Set(["open", "partially_paid"]);
 
-export function openCents(p: Pick<AllocatablePledge, "amount_cents" | "paid_cents">): number {
-  return Math.max(0, p.amount_cents - p.paid_cents);
+export function openCents(p: Pick<AllocatablePledge, "amount_cents" | "paid_cents" | "soft_credit_cents">): number {
+  return stillToPayCents(p);
 }
 
 /** Pledges in the order allocate_payment() would visit them. */

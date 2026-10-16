@@ -16,6 +16,7 @@ import { OFFLINE_METHODS, PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 import type { RecordPrefill } from "@/lib/giving-workspace/view";
 import { duplicateWarning, type RecordedZelle } from "@/lib/payments/zelle";
+import { stillToPayCents } from "@/lib/pledge-balance";
 
 import { applyPaymentAction, possibleDuplicateZelleAction, recordOfflinePaymentAction, type RecordPaymentResult } from "./actions";
 
@@ -285,7 +286,7 @@ export function RecordPaymentForm({
                 className="cc-chip min-h-[34px]"
                 aria-pressed={chosen.includes(p.id)}
                 onClick={() => togglePledge(p.id)}
-                title={`${p.pledge_number ?? "Pledge"} · ${formatCents(p.amount_cents - p.paid_cents, currency)} open`}
+                title={`${p.pledge_number ?? "Pledge"} · ${formatCents(stillToPayCents(p), currency)} open`}
               >
                 {p.campaign ?? p.source.replace(/_/g, " ")} · {monthYear(p.pledged_at, timeZone)}
                 {chosen.includes(p.id) && chosen.length > 1 ? ` (#${chosen.indexOf(p.id) + 1})` : ""}

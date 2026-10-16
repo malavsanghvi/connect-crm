@@ -6,6 +6,7 @@ import { addDays, formatDate, todayInTz } from "@/lib/dates";
 import { explainError, type DbErrorLike } from "@/lib/errors";
 import { isModuleEnabled } from "@/lib/modules";
 import { can, canAccess } from "@/lib/permissions";
+import { stillToPayCents } from "@/lib/pledge-balance";
 import type { CrmSession } from "@/lib/session";
 import { compactMoney, percent, plural } from "@/lib/tasks";
 
@@ -110,14 +111,14 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
         const { data, error, truncated } = await fetchAll((from, to) =>
           db
             .from("pledges")
-            .select("id, amount_cents, paid_cents")
+            .select("id, amount_cents, paid_cents, soft_credit_cents")
             .eq("center_id", cid)
             .in("status", ["open", "partially_paid"])
             .order("id")
             .range(from, to),
         );
         if (error) throw new KpiError(error);
-        const open = data.reduce((a, p) => a + p.amount_cents - p.paid_cents, 0);
+        const open = data.reduce((a, p) => a + stillToPayCents(p), 0);
         return { value: compactMoney(open, center.currency), sub: `${plural(data.length, "pledge")}${truncated ? " (first 50,000 only)" : ""}` };
       },
     },

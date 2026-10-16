@@ -116,6 +116,8 @@ export async function preparePayment(
     source: str(p.source) ?? "other",
     amount_cents: int(p.amount_cents),
     paid_cents: int(p.paid_cents),
+    // The database context does not carry soft credit yet; when it does, the open figure leaves it out (the Open balance rule).
+    soft_credit_cents: int(p.soft_credit_cents),
     status: str(p.status) ?? "open",
     pledged_at: str(p.pledged_at) ?? "",
     due_on: str(p.due_on),

@@ -15,6 +15,7 @@ import { explainError } from "@/lib/errors";
 import { PLEDGE_VIEWS, monthYear, pledgeStatusText, pledgeViewFromParam, writeOffPostingText, type WriteOffPosting } from "@/lib/giving";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
+import { softCreditWaitingCents, stillToPayCents } from "@/lib/pledge-balance";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { getSession } from "@/lib/session";
@@ -72,7 +73,7 @@ async function PledgesPage({ searchParams }: { searchParams: Promise<RawSearchPa
   let tableQuery = db
     .from("pledges")
     .select(
-      "id, pledge_number, household_id, campaign_id, source, amount_cents, paid_cents, status, pledged_at, due_on, written_off_by, written_off_second_approver, write_off_reason, written_off_by_name, closed_at",
+      "id, pledge_number, household_id, campaign_id, source, amount_cents, paid_cents, soft_credit_cents, reconciled_at, status, pledged_at, due_on, written_off_by, written_off_second_approver, write_off_reason, written_off_by_name, closed_at",
       { count: "exact" },
     )
     .eq("center_id", center.id);
@@ -88,7 +89,7 @@ async function PledgesPage({ searchParams }: { searchParams: Promise<RawSearchPa
   const aging = await fetchAll((f, t) => {
     let q = db
       .from("pledges")
-      .select("id, amount_cents, paid_cents, pledged_at, due_on")
+      .select("id, amount_cents, paid_cents, soft_credit_cents, pledged_at, due_on")
       .eq("center_id", center.id)
       .in("status", ["open", "partially_paid"]);
     if (campaign === "none") q = q.is("campaign_id", null);
@@ -100,7 +101,7 @@ async function PledgesPage({ searchParams }: { searchParams: Promise<RawSearchPa
   for (const p of aging.data) {
     const b = agingBucket(p.due_on, dateInTz(p.pledged_at, tz), today);
     buckets[b].count += 1;
-    buckets[b].open_cents += p.amount_cents - p.paid_cents;
+    buckets[b].open_cents += stillToPayCents(p);
   }
   const totalOpen = Object.values(buckets).reduce((s, b) => s + b.open_cents, 0);
 
@@ -202,7 +203,7 @@ async function PledgesPage({ searchParams }: { searchParams: Promise<RawSearchPa
                   {rows.map((p) => {
                     const h = households.map.get(p.household_id);
                     const outstanding = p.status === "open" || p.status === "partially_paid";
-                    const st = pledgeStatusText(p.status, p.amount_cents, p.paid_cents);
+                    const st = pledgeStatusText(p.status, p.amount_cents, p.paid_cents, p.reconciled_at);
                     const bucket = outstanding ? agingBucket(p.due_on, dateInTz(p.pledged_at, tz), today) : null;
                     return (
                       <HouseholdRow key={p.id} householdId={p.household_id} label={`Open ${h?.display_name ?? "the household"}`}>
@@ -241,6 +242,9 @@ async function PledgesPage({ searchParams }: { searchParams: Promise<RawSearchPa
                                 ) : null;
                               })()}
                             </div>
+                          ) : null}
+                          {softCreditWaitingCents(p) > 0 ? (
+                            <div className="text-xs text-muted">Soft credit {formatCents(softCreditWaitingCents(p), center.currency)} waiting to be verified</div>
                           ) : null}
                           {bucket && bucket !== "not_due" ? (
                             <div className={`text-xs ${bucket === "d90_plus" ? "font-semibold text-danger" : "text-muted"}`}>

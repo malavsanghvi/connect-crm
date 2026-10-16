@@ -182,7 +182,7 @@ async function readPledgesExport(session: CrmSession, sp: RawSearchParams): Prom
     const open = await openPledgesLite(session, filterText);
     if (open.error) return unread("The pledges", open.error);
     if (open.truncated) return tooMany("pledges");
-    const ids = selectOpen(open.data, chip === "closed" || chip === "all" ? "open" : chip, bucket, today, center.time_zone).map((p) => p.id);
+    const ids = selectOpen(open.data, chip === "closed" || chip === "all" || chip === "soft" ? "open" : chip, bucket, today, center.time_zone).map((p) => p.id);
     const at = new Map(ids.map((id, i) => [id, i]));
     for (const part of chunk(ids)) {
       const res = await readPledges(session, part);
@@ -191,7 +191,7 @@ async function readPledgesExport(session: CrmSession, sp: RawSearchParams): Prom
     }
     rows = rows.sort((a, b) => (at.get(a.id) ?? 0) - (at.get(b.id) ?? 0));
   } else {
-    const read = await fetchAll((f, t) => pledgesInDb(session, chip === "closed" ? "closed" : "all", filterText, false).range(f, t), { max: MAX_EXPORT_ROWS });
+    const read = await fetchAll((f, t) => pledgesInDb(session, chip === "closed" ? "closed" : chip === "soft" ? "soft" : "all", filterText, false).range(f, t), { max: MAX_EXPORT_ROWS });
     if (read.error) return unread("The pledges", read.error);
     if (read.truncated) return tooMany("pledges");
     rows = read.data as PledgeRowDb[];
@@ -213,6 +213,8 @@ async function readPledgesExport(session: CrmSession, sp: RawSearchParams): Prom
     amountCents: r.amount_cents,
     paidCents: r.paid_cents,
     writeOffWaiting: isOpenStatus(r.status) && r.written_off_by !== null,
+    softCreditCents: r.soft_credit_cents,
+    bankReconciled: r.status === "paid" && r.reconciled_at !== null,
   }));
   return { ok: true, header, lines: pledgeExportLines(exportRows, fams.map, { currency: fmt.currency }), filter, count: exportRows.length };
 }

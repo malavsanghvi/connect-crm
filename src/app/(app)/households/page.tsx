@@ -28,6 +28,7 @@ import { identifierKindLabel } from "@/lib/identifiers";
 import { formatCents } from "@/lib/money";
 import { bestTier, tierLabel, tierTone } from "@/lib/people";
 import { can, canAccess } from "@/lib/permissions";
+import { stillToPayCents } from "@/lib/pledge-balance";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
@@ -106,7 +107,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
     const { data, error } = await fetchAll((f, t) =>
       db
         .from("pledges")
-        .select("id, household_id, amount_cents, paid_cents")
+        .select("id, household_id, amount_cents, paid_cents, soft_credit_cents")
         .eq("center_id", cid)
         .in("household_id", ids)
         .in("status", ["open", "partially_paid"])
@@ -114,7 +115,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
         .range(f, t),
     );
     if (error) balanceError = error;
-    for (const p of data) balances.set(p.household_id, (balances.get(p.household_id) ?? 0) + p.amount_cents - p.paid_cents);
+    for (const p of data) balances.set(p.household_id, (balances.get(p.household_id) ?? 0) + stillToPayCents(p));
   }
 
   // Members (names + their org person IDs) and the household's org household ID, so rows

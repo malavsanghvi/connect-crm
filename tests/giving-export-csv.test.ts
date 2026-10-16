@@ -98,7 +98,7 @@ describe("the pledge lines", () => {
       { currency: "EUR" },
     );
     expect(pledgeExportHeader("Community household ID")[4]).toBe("Community household ID");
-    expect(lines[0]).toEqual(["PL-0388", "2026-02-01", "2026-08-01", "0388", "", "Nguyen household", "Annual appeal", "Partly paid", "500.00", "350.00", "150.00", "EUR", "Yes"]);
+    expect(lines[0]).toEqual(["PL-0388", "2026-02-01", "2026-08-01", "0388", "", "Nguyen household", "Annual appeal", "Partly paid", "500.00", "350.00", "150.00", "EUR", "Yes", "0.00", ""]);
     expect(lines[1].slice(7, 12)).toEqual(["Written off", "150.00", "50.00", "0.00", "EUR"]);
   });
 });

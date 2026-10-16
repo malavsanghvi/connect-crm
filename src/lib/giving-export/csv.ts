@@ -118,6 +118,10 @@ export type PledgeExportRow = {
   paidCents: number;
   /** A write-off was asked for and waits for its second person. */
   writeOffWaiting: boolean;
+  /** Claims waiting to be verified (soft credit); not in Open and not in Paid. */
+  softCreditCents?: number;
+  /** Paid and every payment on it matched to the bank (reconciled_at is set). */
+  bankReconciled?: boolean;
 };
 
 export function pledgeExportHeader(householdIdLabel: string): string[] {
@@ -135,6 +139,8 @@ export function pledgeExportHeader(householdIdLabel: string): string[] {
     "Open",
     "Currency",
     "Write-off waiting for approval",
+    "Soft credit waiting",
+    "Bank reconciled",
   ];
 }
 
@@ -150,9 +156,12 @@ export function pledgeExportLines(rows: readonly PledgeExportRow[], households: 
     PLEDGE_STATUS_LABEL[r.status] ?? words(r.status),
     centsAsDecimal(r.amountCents),
     centsAsDecimal(r.paidCents),
-    centsAsDecimal(OPEN.has(r.status) ? Math.max(0, r.amountCents - r.paidCents) : 0),
+    // The Open balance rule: amount - paid - soft credit, for an Open or Partly paid pledge only.
+    centsAsDecimal(OPEN.has(r.status) ? Math.max(0, r.amountCents - r.paidCents - Math.max(0, r.softCreditCents ?? 0)) : 0),
     o.currency,
     r.writeOffWaiting ? "Yes" : "",
+    centsAsDecimal(Math.max(0, r.softCreditCents ?? 0)),
+    r.status === "paid" ? (r.bankReconciled ? "Yes" : "No") : "",
   ]);
 }
 

@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/dates";
 import type { Family } from "@/lib/giving-today/queue";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
+import { softCreditWaitingCents, stillToPayCents } from "@/lib/pledge-balance";
 
 /** The family with its household card line ("No. 0127 · RCC-H-1102 · Asha & Ravi Patel · Riverside"): never a name alone. */
 export type GivingHousehold = Family & { cardLine: string };
@@ -19,7 +20,10 @@ export type FamilyPledge = {
   campaign: string | null;
   amountCents: number;
   paidCents: number;
+  /** Still to pay: amount - paid - soft credit (the Open balance rule). */
   openCents: number;
+  /** Soft credit waiting to be verified on this pledge, shown beside the open figure and never inside it. */
+  softCreditCents: number;
   pledgedAt: string;
   dueOn: string | null;
   status: string;
@@ -50,7 +54,7 @@ export const LAST_GIFTS = 5;
 
 const OPEN = new Set(["open", "partially_paid"]);
 
-export type PledgeRowIn = { id: string; pledge_number: string | null; campaign: string | null; amount_cents: number; paid_cents: number; pledged_at: string; due_on: string | null; status: string };
+export type PledgeRowIn = { id: string; pledge_number: string | null; campaign: string | null; amount_cents: number; paid_cents: number; soft_credit_cents?: number | null; pledged_at: string; due_on: string | null; status: string };
 export type PaymentRowIn = { id: string; receipt_number: string | null; amount_cents: number; refunded_cents: number | null; method: string; status: string; received_on: string | null };
 
 function toPledge(p: PledgeRowIn): FamilyPledge {
@@ -60,7 +64,8 @@ function toPledge(p: PledgeRowIn): FamilyPledge {
     campaign: p.campaign,
     amountCents: p.amount_cents,
     paidCents: p.paid_cents,
-    openCents: Math.max(0, p.amount_cents - p.paid_cents),
+    openCents: stillToPayCents(p),
+    softCreditCents: softCreditWaitingCents(p),
     pledgedAt: p.pledged_at,
     dueOn: p.due_on,
     status: p.status,
@@ -114,6 +119,7 @@ const STATUS_WORD: Record<string, string> = {
   pending: "Pending",
   open: "Open",
   partially_paid: "Partly paid",
+  soft_credit: "Soft credit",
   paid: "Paid",
   written_off: "Written off",
   cancelled: "Cancelled",
@@ -142,8 +148,9 @@ export function pledgeTitle(p: Pick<FamilyPledge, "number" | "campaign">): strin
 }
 
 /** "$500.00 pledged · $120.00 open · Partly paid". */
-export function pledgeDetail(p: Pick<FamilyPledge, "amountCents" | "openCents" | "status">, currency: string, locale?: string): string {
-  return `${formatCents(p.amountCents, currency, locale)} pledged · ${formatCents(p.openCents, currency, locale)} open · ${statusWord(p.status)}`;
+export function pledgeDetail(p: Pick<FamilyPledge, "amountCents" | "openCents" | "status"> & { softCreditCents?: number }, currency: string, locale?: string): string {
+  const soft = p.softCreditCents && p.softCreditCents > 0 ? ` · ${formatCents(p.softCreditCents, currency, locale)} soft credit waiting` : "";
+  return `${formatCents(p.amountCents, currency, locale)} pledged · ${formatCents(p.openCents, currency, locale)} open · ${statusWord(p.status)}${soft}`;
 }
 
 /** "Owes $120.00 on 2 open pledges", or that nothing is owed. */

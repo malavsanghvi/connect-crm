@@ -23,7 +23,7 @@ export async function loadGlanceRows(db: AppSupabase, centerId: string, timeZone
     const [pledgeRes, paymentRes, recurringRes, campaignRes, fundRes] = await Promise.all([
       fetchAll(
         (from, to) => {
-          const q = db.from("pledges").select("id, household_id, pledged_by_person_id, campaign_id, fund_id, amount_cents, paid_cents, status, pledged_at, due_on");
+          const q = db.from("pledges").select("id, household_id, pledged_by_person_id, campaign_id, fund_id, amount_cents, paid_cents, soft_credit_cents, status, pledged_at, due_on");
           return (byHousehold ? q.in("household_id", source.households) : q.eq("pledged_by_person_id", source.person)).order("pledged_at", { ascending: false }).order("id").range(from, to);
         },
         { max: MAX_ROWS },
@@ -84,6 +84,7 @@ export async function loadGlanceRows(db: AppSupabase, centerId: string, timeZone
       person_id: p.pledged_by_person_id,
       amount_cents: p.amount_cents,
       paid_cents: p.paid_cents,
+      soft_credit_cents: p.soft_credit_cents,
       status: p.status,
       pledged_on: dateInTz(p.pledged_at, timeZone),
       due_on: p.due_on,

@@ -26,6 +26,7 @@ import {
 } from "@/lib/giving-today/queue";
 import type { GivingTab } from "@/lib/giving-today/tabs";
 import { acceptLabel, differenceSentence, reasonLabel } from "@/lib/giving-payouts/explain";
+import type { UnbankedModel } from "@/lib/data/giving-reconcile";
 import { formatCents } from "@/lib/money";
 import type { ReportQueue } from "@/lib/payments/zelle";
 
@@ -35,14 +36,15 @@ export const PAYOUT_WINDOW_DAYS = 3;
 /** Card payouts look back this far (the bank keeps a payout line as "payout" for good: it is never matched to a family). */
 export const PAYOUT_LOOKBACK_DAYS = 90;
 
-export type BankViewKey = "match" | "deposits" | "zelle" | "payouts" | "history";
+// reconcile: the preview of the whole statement (0868); unbanked: payments counted as paid that no bank line has banked.
+export type BankViewKey = "match" | "reconcile" | "deposits" | "zelle" | "payouts" | "unbanked" | "history";
 export type HistoryKey = "matched" | "ignored" | "out";
 
 /** Which views exist for this community: Zelle with the Zelle payment method, Card payouts with the Accounting module. */
 export type BankViewsOn = { zelle: boolean; payouts: boolean };
 
 export function bankViewKeys(on: BankViewsOn): BankViewKey[] {
-  return ["match", "deposits", ...(on.zelle ? (["zelle"] as const) : []), ...(on.payouts ? (["payouts"] as const) : []), "history"];
+  return ["match", "reconcile", "deposits", ...(on.zelle ? (["zelle"] as const) : []), ...(on.payouts ? (["payouts"] as const) : []), "unbanked", "history"];
 }
 
 const HISTORY_ALIASES: Record<string, HistoryKey> = { matched: "matched", ignored: "ignored", out: "out", debits: "out" };
@@ -62,7 +64,7 @@ export function bankViewFromParam(view: string | undefined, show: string | undef
 }
 
 export function bankViewLabel(key: BankViewKey, zelleWord: string): string {
-  return { match: "To match", deposits: "Deposits", zelle: zelleWord, payouts: "Card payouts", history: "History" }[key];
+  return { match: "To match", reconcile: "Reconcile", deposits: "Deposits", zelle: zelleWord, payouts: "Card payouts", unbanked: "Unbanked", history: "History" }[key];
 }
 
 export function bankViewChips(
@@ -302,6 +304,8 @@ export type HistoryLineIn = {
   at: string | null;
   notes: string | null;
   isDeposit: boolean;
+  /** The line attached an offline payment that was recorded before it (so "Undo match" can put it back). */
+  undoable?: boolean;
   /** The count this deposit was matched to (Offering counts, slice 5): "Count of Oct 5, 2026 · $412.50 · bags 118, 119". */
   count?: string | null;
 };
@@ -316,9 +320,11 @@ export type HistoryRowView = {
   what: string;
   /** restore: an ignored line goes back to the lines to match; ignore: money out is set aside once checked. */
   act: "restore" | "ignore" | null;
+  /** "Undo match…" (giving.manage): the line attached a payment recorded before it. */
+  undo?: boolean;
 };
 
-export function historyRowView(l: HistoryLineIn, key: HistoryKey, ctx: Pick<BankRowContext, "currency" | "locale" | "timeZone">, canIgnore: boolean): HistoryRowView {
+export function historyRowView(l: HistoryLineIn, key: HistoryKey, ctx: Pick<BankRowContext, "currency" | "locale" | "timeZone">, canIgnore: boolean, canUndo = false): HistoryRowView {
   const when = l.at ? ` on ${formatDate(l.at, ctx.timeZone)}` : "";
   const by = l.by ? ` by ${l.by}` : "";
   let what: string;
@@ -344,6 +350,7 @@ export function historyRowView(l: HistoryLineIn, key: HistoryKey, ctx: Pick<Bank
     family: key === "matched" ? l.family : null,
     what,
     act: !canIgnore ? null : key === "ignored" ? "restore" : key === "out" ? "ignore" : null,
+    ...(canUndo && key === "matched" && l.undoable === true ? { undo: true } : {}),
   };
 }
 
@@ -358,6 +365,8 @@ export type BankCan = {
   configureZelle: boolean;
   /** Pair a card payout with its bank line, or undo it (giving.manage; slice 9). */
   pairPayouts?: boolean;
+  /** Undo a bank match, with a reason (giving.manage; 0868). */
+  undoMatch?: boolean;
 };
 export type BankBody = Exclude<ListBody, { state: "ok" }> | { state: "ok" } | { state: "no_account"; canAdd: boolean };
 
@@ -380,6 +389,10 @@ export type BankModel = {
   /** All accounts, for the Zelle settings. */
   zelleAccounts: { id: string; name: string; last4: string | null; active: boolean }[];
   rows: BankRow[];
+  /** The Reconcile view: the preview is read in the browser (a server action), so the page only says which account. */
+  reconcile?: { accountId: string | null } | null;
+  /** The Unbanked view: payments counted as paid that no bank line has banked, past or inside their window. */
+  unbanked?: UnbankedModel | null;
   zelle: ReportQueue | null;
   payouts: PayoutRowView[];
   historyRows: HistoryRowView[];
@@ -407,6 +420,8 @@ export function bankPager(page: number, total: number, hrefFor: (n: number) => s
 
 export function emptyText(view: BankViewKey, history: HistoryKey): string {
   if (view === "match") return "Every gift line is matched or set aside.";
+  if (view === "reconcile") return "Every incoming line is matched or set aside.";
+  if (view === "unbanked") return "Every verified payment is on the bank.";
   if (view === "deposits") return "No deposits waiting.";
   if (view === "zelle") return "No exact matches right now.";
   if (view === "payouts") return `No card payouts in the last ${PAYOUT_LOOKBACK_DAYS} days.`;

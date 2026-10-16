@@ -8,6 +8,7 @@
 import { formatCents } from "@/lib/money";
 import { isModuleEnabled, type ModuleContext } from "@/lib/modules";
 import { visibleNav, type ScopedContext } from "@/lib/permissions";
+import { stillToPayCents } from "@/lib/pledge-balance";
 import { plural, visibleTaskSources } from "@/lib/tasks";
 
 import { problemSentence, type Read } from "./read";
@@ -49,8 +50,9 @@ export type MemberWorkData = {
   notices: Read<number> | null;
 };
 
-export function summarizePledges(rows: readonly { amount_cents: number; paid_cents: number }[]): OpenPledges {
-  const left = rows.map((r) => Math.max(0, r.amount_cents - r.paid_cents));
+export function summarizePledges(rows: readonly { amount_cents: number; paid_cents: number; soft_credit_cents?: number | null }[]): OpenPledges {
+  // The Open balance rule: what is left leaves out the part a waiting proof covers.
+  const left = rows.map((r) => stillToPayCents(r));
   return { count: rows.length, leftCents: left.reduce((a, b) => a + b, 0), paidCents: rows.length === 1 ? Math.max(0, rows[0].paid_cents) : 0 };
 }
 

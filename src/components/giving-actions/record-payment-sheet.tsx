@@ -23,6 +23,7 @@ import { OFFLINE_METHODS, PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 import type { AllocationMode } from "@/lib/payments/offline-payment";
 import { duplicateWarning, type RecordedZelle } from "@/lib/payments/zelle";
+import { stillToPayCents } from "@/lib/pledge-balance";
 
 import { useGivingSheetBackend } from "./backend";
 import { GivingSheet, NO_UNDO } from "./sheet";
@@ -451,9 +452,9 @@ export function RecordPaymentSheet({
                       aria-pressed={chosen.includes(p.id)}
                       onClick={() => togglePledge(p.id)}
                       className={`${CHIP} ${chipTone(chosen.includes(p.id))}`}
-                      title={`${p.pledge_number ?? "Pledge"} · ${money(p.amount_cents - p.paid_cents)} open`}
+                      title={`${p.pledge_number ?? "Pledge"} · ${money(stillToPayCents(p))} open`}
                     >
-                      {p.pledge_number ?? p.campaign ?? "Pledge"} · {money(p.amount_cents - p.paid_cents)} open · {monthYear(p.pledged_at, ctx.timeZone)}
+                      {p.pledge_number ?? p.campaign ?? "Pledge"} · {money(stillToPayCents(p))} open · {monthYear(p.pledged_at, ctx.timeZone)}
                     </button>
                   ))}
                   <button type="button" aria-pressed={mode === "none"} onClick={() => { setChosen([]); setMode("none"); }} className={`${CHIP} ${chipTone(mode === "none")}`}>

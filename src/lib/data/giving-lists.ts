@@ -44,6 +44,7 @@ import {
 import {
   CLOSED_STATUSES,
   OPEN_STATUSES,
+  SOFT_CREDIT_STATUS,
   bucketChips,
   bucketFromParam,
   pledgeChipFromParam,
@@ -147,7 +148,7 @@ const err = (e: string, retry: string): ListBody => ({ state: "error", error: e,
 // ---------------------------------------------------------------------------- Pledges
 
 const PLEDGE_COLUMNS =
-  "id, pledge_number, household_id, campaign_id, amount_cents, paid_cents, status, pledged_at, due_on, written_off_by, written_off_second_approver, write_off_reason, written_off_by_name, updated_at";
+  "id, pledge_number, household_id, campaign_id, amount_cents, paid_cents, soft_credit_cents, reconciled_at, status, pledged_at, due_on, written_off_by, written_off_second_approver, write_off_reason, written_off_by_name, updated_at";
 
 export async function loadPledgesList(session: CrmSession, sp: RawSearchParams): Promise<PledgesModel> {
   const { db, center } = session;
@@ -170,8 +171,8 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
   const filter = search ? searchFilter(search, { numberColumn: "pledge_number", householdIds }) : null;
   const nothing = search !== null && filter === null;
 
-  const [openRes, closedRes] = nothing
-    ? [{ data: [] as OpenPledgeLite[], error: null, truncated: false }, { count: 0, error: null }]
+  const [openRes, closedRes, softRes] = nothing
+    ? [{ data: [] as OpenPledgeLite[], error: null, truncated: false }, { count: 0, error: null }, { count: 0, error: null }]
     : await Promise.all([
         openPledgesLite(session, filter),
         (() => {
@@ -179,13 +180,24 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
           if (filter) x = x.or(filter);
           return x;
         })(),
+        (() => {
+          let x = db.from("pledges").select("id", { count: "exact", head: true }).eq("center_id", center.id).eq("status", SOFT_CREDIT_STATUS);
+          if (filter) x = x.or(filter);
+          return x;
+        })(),
       ]);
   if (openRes.error) problems.push(failure("Could not count the open pledges", openRes.error).error);
   if (closedRes.error) problems.push(failure("Could not count the closed pledges", closedRes.error).error);
+  if (softRes.error) problems.push(failure("Could not count the pledges in soft credit", softRes.error).error);
   const summary = openRes.error ? null : summarizeOpen(openRes.data, ctx.today, ctx.timeZone);
 
-  const chips = pledgeChips(summary, closedRes.error ? null : (closedRes.count ?? 0), chip, bucket, (k) =>
-    hrefWith("/giving/pledges", sp, { status: k === "open" ? undefined : k, age: undefined, page: undefined }),
+  const chips = pledgeChips(
+    summary,
+    closedRes.error ? null : (closedRes.count ?? 0),
+    chip,
+    bucket,
+    (k) => hrefWith("/giving/pledges", sp, { status: k === "open" ? undefined : k, age: undefined, page: undefined }),
+    softRes.error ? null : (softRes.count ?? 0),
   );
   const buckets = bucketChips(summary, bucket, money, (b) => hrefWith("/giving/pledges", sp, { age: bucket === b ? undefined : b, status: undefined, page: undefined }));
   const summaryText = summary
@@ -204,7 +216,7 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
   } else if (bucket || chip === "open" || chip === "behind" || chip === "waiting") {
     if (openRes.error) rowsError = failure("Could not read the pledges", openRes.error).error;
     else {
-      const list = selectOpen(openRes.data, chip === "closed" || chip === "all" ? "open" : chip, bucket, ctx.today, ctx.timeZone);
+      const list = selectOpen(openRes.data, chip === "closed" || chip === "all" || chip === "soft" ? "open" : chip, bucket, ctx.today, ctx.timeZone);
       total = list.length;
       const ids = list.slice(from, from + PAGE_SIZE).map((p) => p.id);
       const res = await readPledges(session, ids);
@@ -213,7 +225,7 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
       rows = [...res.data].sort((a, b) => (at.get(a.id) ?? 0) - (at.get(b.id) ?? 0));
     }
   } else {
-    const res = await pledgesInDb(session, chip === "closed" ? "closed" : "all", filter, true).range(from, from + PAGE_SIZE - 1);
+    const res = await pledgesInDb(session, chip === "closed" ? "closed" : chip === "soft" ? "soft" : "all", filter, true).range(from, from + PAGE_SIZE - 1);
     if (res.error) rowsError = failure("Could not read the pledges", res.error).error;
     rows = res.data ?? [];
     total = res.count ?? rows.length;
@@ -248,6 +260,8 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
         campaign: r.campaign_id ? (campaignName.get(r.campaign_id) ?? "Campaign") : null,
         amountCents: r.amount_cents,
         paidCents: r.paid_cents,
+        softCreditCents: r.soft_credit_cents,
+        reconciledAt: r.reconciled_at,
         status: r.status,
         pledgedAt: r.pledged_at,
         dueOn: r.due_on,
@@ -297,7 +311,7 @@ export function openPledgesLite(session: CrmSession, filter: string | null) {
   return fetchAll((f, t) => {
     let x = db
       .from("pledges")
-      .select("id, amount_cents, paid_cents, status, pledged_at, due_on, written_off_by")
+      .select("id, amount_cents, paid_cents, soft_credit_cents, status, pledged_at, due_on, written_off_by")
       .eq("center_id", center.id)
       .in("status", [...OPEN_STATUSES]);
     if (filter) x = x.or(filter);
@@ -309,6 +323,7 @@ export function openPledgesLite(session: CrmSession, filter: string | null) {
         id: p.id,
         amountCents: p.amount_cents,
         paidCents: p.paid_cents,
+        softCreditCents: p.soft_credit_cents,
         status: p.status,
         pledgedAt: p.pledged_at,
         dueOn: p.due_on,
@@ -319,9 +334,10 @@ export function openPledgesLite(session: CrmSession, filter: string | null) {
 }
 
 /** Closed or All pledges, newest first, read in the database: the list pages them, the export reads them all. */
-export function pledgesInDb(session: CrmSession, chip: "closed" | "all", filter: string | null, count: boolean) {
+export function pledgesInDb(session: CrmSession, chip: "closed" | "soft" | "all", filter: string | null, count: boolean) {
   let x = session.db.from("pledges").select(PLEDGE_COLUMNS, { count: count ? "exact" : undefined }).eq("center_id", session.center.id);
   if (chip === "closed") x = x.in("status", [...CLOSED_STATUSES]);
+  if (chip === "soft") x = x.eq("status", SOFT_CREDIT_STATUS);
   if (filter) x = x.or(filter);
   return x.order("pledged_at", { ascending: false }).order("id", { ascending: false });
 }
@@ -339,6 +355,8 @@ export type PledgeRowDb = {
   campaign_id: string | null;
   amount_cents: number;
   paid_cents: number;
+  soft_credit_cents: number;
+  reconciled_at: string | null;
   status: "open" | "partially_paid" | "soft_credit" | "paid" | "written_off" | "cancelled";
   pledged_at: string;
   due_on: string | null;

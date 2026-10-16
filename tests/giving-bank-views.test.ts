@@ -34,8 +34,8 @@ const gift = (id: string, cents: number, suggestions: GiftLineIn["suggestions"],
 
 describe("which views a community has", () => {
   it("shows Zelle only with Zelle and Card payouts only with Accounting", () => {
-    expect(bankViewKeys({ zelle: true, payouts: true })).toEqual(["match", "deposits", "zelle", "payouts", "history"]);
-    expect(bankViewKeys({ zelle: false, payouts: false })).toEqual(["match", "deposits", "history"]);
+    expect(bankViewKeys({ zelle: true, payouts: true })).toEqual(["match", "reconcile", "deposits", "zelle", "payouts", "unbanked", "history"]);
+    expect(bankViewKeys({ zelle: false, payouts: false })).toEqual(["match", "reconcile", "deposits", "unbanked", "history"]);
   });
 
   it("lands the classic screen's addresses in the right view, and an unavailable view on To match", () => {
@@ -48,6 +48,11 @@ describe("which views a community has", () => {
     expect(bankViewFromParam("payouts", undefined, on).view).toBe("match");
     expect(bankViewFromParam("zelle", undefined, { zelle: false, payouts: true }).view).toBe("match");
     expect(bankViewFromParam(undefined, undefined, on).view).toBe("match");
+  });
+
+  it("opens Unbanked (the link the Home chip uses) and Reconcile, for every community", () => {
+    expect(bankViewFromParam("unbanked", undefined, { zelle: false, payouts: false })).toEqual({ view: "unbanked", history: "matched" });
+    expect(bankViewFromParam("reconcile", undefined, { zelle: false, payouts: false }).view).toBe("reconcile");
   });
 });
 
@@ -187,12 +192,21 @@ describe("History", () => {
     const out = { ...line, amountCents: -18_000, family: null, by: null, at: null };
     expect(historyRowView(out, "out", USD, true)).toMatchObject({ act: "ignore", negative: true, amount: "-$180.00" });
   });
+
+  it("offers Undo match only to giving.manage, only for a line that attached a payment recorded before it", () => {
+    const attached = { ...line, undoable: true };
+    expect(historyRowView(attached, "matched", USD, true, true).undo).toBe(true);
+    expect(historyRowView(attached, "matched", USD, true, false).undo).toBeUndefined();
+    expect(historyRowView(line, "matched", USD, true, true).undo).toBeUndefined();
+    expect(historyRowView({ ...attached, isDeposit: true, undoable: false }, "matched", USD, true, true).undo).toBeUndefined();
+    expect(historyRowView({ ...attached, status: "ignored" }, "ignored", USD, true, true).undo).toBeUndefined();
+  });
 });
 
 describe("the page model for each role and community", () => {
   it("gives a treasurer of the club every view, with counts", () => {
     const m = sampleBankModel({ community: "club", role: "treasurer" });
-    expect(m.views.map((v) => v.label)).toEqual(["To match", "Deposits", "Zelle", "Card payouts", "History"]);
+    expect(m.views.map((v) => v.label)).toEqual(["To match", "Reconcile", "Deposits", "Zelle", "Card payouts", "Unbanked", "History"]);
     // One payout differs from its bank line; one is linked and equal; one arrives today and is not due at the bank yet.
     expect(m.views.find((v) => v.key === "payouts")?.count).toBe(1);
     expect(m.can).toEqual({ confirm: true, ignore: true, import: true, configureZelle: true, pairPayouts: true });
@@ -201,7 +215,7 @@ describe("the page model for each role and community", () => {
 
   it("has no Zelle for the allotment society, and amounts in pounds", () => {
     const m = sampleBankModel({ community: "allotment", role: "treasurer" });
-    expect(m.views.map((v) => v.key)).toEqual(["match", "deposits", "payouts", "history"]);
+    expect(m.views.map((v) => v.key)).toEqual(["match", "reconcile", "deposits", "payouts", "unbanked", "history"]);
     expect(m.rows[0].line?.amount).toBe("£120.00");
     expect(JSON.stringify(m)).not.toContain("Zelle payment");
   });

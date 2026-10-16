@@ -15,6 +15,7 @@ import type { BankModel, HistoryRowView, PayoutRowView } from "@/lib/giving-bank
 import { familyLine } from "@/lib/giving-today/queue";
 
 import { IgnoreLineAct, RestoreLineAct } from "./line-acts";
+import { UndoMatchAct } from "./undo-match";
 
 /** Import a statement, in a sheet. The import itself is today's importer, with its own button; the sheet only closes. */
 export function ImportSheet({ model, children }: { model: BankModel; children: ReactNode }) {
@@ -174,6 +175,11 @@ export function HistoryRow({ row, ctx, done, labels }: { row: HistoryRowView; ct
         ) : null}
         <p className="m-0 mt-0.5 text-[13px] text-ink-2">{row.what}</p>
       </div>
+      {row.undo ? (
+        <div className="flex flex-wrap gap-2 md:justify-end">
+          <UndoMatchAct txnId={row.id} amount={row.amount} labels={labels} onDone={(text) => ctx.onDone(text)} />
+        </div>
+      ) : null}
       {row.act ? (
         <div className="flex flex-wrap gap-2 md:justify-end">
           {row.act === "restore" ? <RestoreLineAct id={row.id} amount={row.amount} ctx={ctx} /> : <IgnoreLineAct id={row.id} amount={row.amount} label="Ignore…" ctx={ctx} />}

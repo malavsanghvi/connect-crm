@@ -16,6 +16,7 @@ import { explainError, type DbErrorLike } from "@/lib/errors";
 import { identifierKindLabel } from "@/lib/identifiers";
 import { formatPhone, relationshipLabel, tierLabel } from "@/lib/people";
 import { can, canAccess } from "@/lib/permissions";
+import { stillToPayCents } from "@/lib/pledge-balance";
 import type { CrmSession } from "@/lib/session";
 
 import { hasGap, type HouseholdFilters, type Zone } from "./ask";
@@ -48,10 +49,10 @@ export async function loadZones(session: CrmSession): Promise<{ zones: Zone[]; e
 async function openBalances(session: CrmSession): Promise<{ map: Map<string, number>; error: DbErrorLike | null; truncated: boolean }> {
   const { db, center } = session;
   const res = await fetchAll((from, to) =>
-    db.from("pledges").select("id, household_id, amount_cents, paid_cents").eq("center_id", center.id).in("status", ["open", "partially_paid"]).order("id").range(from, to),
+    db.from("pledges").select("id, household_id, amount_cents, paid_cents, soft_credit_cents").eq("center_id", center.id).in("status", ["open", "partially_paid"]).order("id").range(from, to),
   );
   const map = new Map<string, number>();
-  for (const p of res.data) map.set(p.household_id, (map.get(p.household_id) ?? 0) + Math.max(0, p.amount_cents - p.paid_cents));
+  for (const p of res.data) map.set(p.household_id, (map.get(p.household_id) ?? 0) + stillToPayCents(p));
   return { map, error: res.error, truncated: res.truncated };
 }
 

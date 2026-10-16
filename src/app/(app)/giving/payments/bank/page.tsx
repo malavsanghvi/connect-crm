@@ -3,9 +3,14 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
+import { ReconcileView } from "@/components/giving-bank/reconcile-view";
+import { UnbankedView } from "@/components/giving-bank/unbanked-view";
+import { UndoMatchAct } from "@/components/giving-bank/undo-match";
 import { Badge, Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
+import { communityFormat } from "@/lib/community-format";
 import { LOOK_COOKIE, parseLook } from "@/lib/look";
+import { loadUnbanked, unbankedCount } from "@/lib/data/giving-reconcile";
 import { householdsById, toCard, userNames } from "@/lib/data/lookups";
 import { explainError } from "@/lib/errors";
 import { formatDate, formatDateTime } from "@/lib/dates";
@@ -29,8 +34,9 @@ export const metadata: Metadata = { title: "Bank reconciliation" };
 const PAGE_SIZE = 20;
 const LINE_VIEWS = ["gifts", "deposits", "payouts", "debits", "matched", "ignored"] as const;
 type LineView = (typeof LINE_VIEWS)[number];
-// "zelle" is not a list of bank lines: members' Zelle reports against the statement (0582–0583).
-const VIEWS = [...LINE_VIEWS, "zelle"] as const;
+// "zelle" is not a list of bank lines: members' Zelle reports against the statement (0582–0583). "reconcile" is the preview of the whole
+// statement and "unbanked" the payments counted as paid that no bank line has banked (0868); neither lists bank lines here.
+const VIEWS = [...LINE_VIEWS, "zelle", "reconcile", "unbanked"] as const;
 type View = (typeof VIEWS)[number];
 const VIEW_LABEL: Record<View, string> = {
   gifts: "Gifts to match",
@@ -40,6 +46,8 @@ const VIEW_LABEL: Record<View, string> = {
   matched: "Matched",
   ignored: "Ignored",
   zelle: "Zelle reports",
+  reconcile: "Reconcile",
+  unbanked: "Unbanked",
 };
 
 /** The New look draws Bank anew (docs/GIVING_REDESIGN.md slice 4); the classic look is the page below, unchanged. */
@@ -85,6 +93,7 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
   const retry = hrefWith("/giving/payments/bank", sp, {});
   const canConfirm = canAccess(session, "bankConfirm");
   const canIgnore = canAccess(session, "bankIgnore");
+  const canUndo = canAccess(session, "givingManage");
 
   const accountsRes = await db
     .from("bank_accounts")
@@ -138,7 +147,7 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
     return q;
   };
 
-  const [counts, zelleCount] = await Promise.all([
+  const [counts, zelleCount, unbankedN] = await Promise.all([
     Promise.all(
       LINE_VIEWS.map(async (v) => {
         const r = await scoped(v).range(0, 0);
@@ -153,14 +162,16 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
       const c = r.data as { reported?: unknown; unmatched?: unknown } | null;
       return (Number(c?.reported) || 0) + (Number(c?.unmatched) || 0);
     }),
+    unbankedCount(session),
   ]);
-  const countOf = new Map<View, number | null>([...counts, ["zelle", zelleCount]]);
+  const countOf = new Map<View, number | null>([...counts, ["zelle", zelleCount], ["unbanked", unbankedN ? unbankedN.total : null]]);
 
   const from = (page - 1) * PAGE_SIZE;
   const ascending = view === "gifts" || view === "deposits";
-  const lineView: LineView = view === "zelle" ? "gifts" : view;
+  const isLineView = (LINE_VIEWS as readonly string[]).includes(view);
+  const lineView: LineView = isLineView ? (view as LineView) : "gifts";
   const res =
-    view === "zelle"
+    !isLineView
       ? { data: [] as Awaited<ReturnType<typeof scoped>>["data"], error: null, count: 0 }
       : await scoped(lineView).order("posted_on", { ascending }).order("id").range(from, from + PAGE_SIZE - 1);
   const lines = res.data ?? [];
@@ -183,6 +194,9 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
           };
     }
   }
+
+  // The Unbanked report (0868) is one read; the Reconcile preview is read in the browser by a server action.
+  const unbanked = view === "unbanked" ? await loadUnbanked(session) : null;
 
   // Suggestions for the lines on this page.
   const suggestions = new Map<string, { rows: Suggestion[]; error: string | null }>();
@@ -237,8 +251,8 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
     view === "matched" ? householdsById(db, lines.map((l) => l.matched_household_id)) : Promise.resolve({ map: new Map(), error: null }),
     view === "matched" || view === "ignored" ? userNames(db, center.id, lines.map((l) => l.matched_by)) : Promise.resolve(new Map()),
     view === "matched" && lines.some((l) => l.payment_id)
-      ? db.from("payments").select("id, receipt_number").in("id", lines.map((l) => l.payment_id).filter((x): x is string => !!x))
-      : Promise.resolve({ data: [] as { id: string; receipt_number: string | null }[], error: null }),
+      ? db.from("payments").select("id, receipt_number, provider").in("id", lines.map((l) => l.payment_id).filter((x): x is string => !!x))
+      : Promise.resolve({ data: [] as { id: string; receipt_number: string | null; provider: string | null }[], error: null }),
     db
       .from("external_ids")
       .select("id, value, household_id, times_matched, last_matched_at")
@@ -249,6 +263,7 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
       .limit(8),
   ]);
   const receiptBy = new Map((receipts.data ?? []).map((p) => [p.id, p.receipt_number]));
+  const providerBy = new Map((receipts.data ?? []).map((p) => [p.id, p.provider]));
   const learnedHouseholds = await householdsById(db, (learned.data ?? []).map((l) => l.household_id));
 
   return (
@@ -323,6 +338,10 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
               </Link>
             </div>
           )
+        ) : view === "reconcile" ? (
+          <ReconcileView accountId={account.id} labels={labels} currency={center.currency} locale={communityFormat(center).locale} timeZone={tz} canConfirm={canConfirm} />
+        ) : view === "unbanked" && unbanked ? (
+          <UnbankedView model={unbanked} labels={labels} currency={center.currency} locale={communityFormat(center).locale} timeZone={tz} />
         ) : res.error ? (
           <QueryError what="bank lines" error={res.error} retryHref={retry} />
         ) : lines.length === 0 ? (
@@ -442,6 +461,11 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
                         <p className="text-muted">
                           by {l.matched_by ? (matchers.get(l.matched_by)?.name ?? "staff") : "—"}, {formatDateTime(l.matched_at, tz)}
                         </p>
+                        {canUndo && !l.is_batch_deposit && l.payment_id && providerBy.get(l.payment_id) === "offline" ? (
+                          <div className="mt-2">
+                            <UndoMatchAct txnId={l.id} amount={formatCents(l.amount_cents, center.currency)} labels={labels} />
+                          </div>
+                        ) : null}
                       </div>
                     ) : view === "ignored" ? (
                       <div className="text-sm">

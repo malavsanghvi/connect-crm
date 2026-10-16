@@ -25,6 +25,7 @@ import { changePledgeDueAction } from "@/app/(app)/giving/pledges/due-date-actio
 import { grantSuggestionsAction, type GrantSuggestion } from "@/app/(app)/giving/lists-actions";
 import { applyPaymentAction } from "@/app/(app)/giving/payments/actions";
 import { confirmBankMatchAction, matchDepositAction } from "@/app/(app)/giving/payments/bank/actions";
+import { DepositSetPicker } from "@/components/giving-bank/deposit-set-picker";
 import { confirmExactMatchesAction } from "@/app/(app)/giving/payments/bank/zelle-actions";
 import { recordCountingDepositAction } from "@/app/(app)/giving/payments/counting-actions";
 import { DonorMatchApprove } from "@/components/books/donor-match-act";
@@ -401,6 +402,21 @@ function DepositAct({ act, ctx }: { act: Extract<Act, { kind: "deposit" }>; ctx:
       call={() => matchDepositAction({ txnId: act.txnId, paymentIds: chosen.map((c) => c.paymentId) })}
       done={(r) => doneFrom(r.message, `Done: deposit of ${money(act.amountCents)} matched to ${chosen.length} payments.`)}
     >
+      {act.exact ? null : (
+        <DepositSetPicker
+          payments={act.candidates.map((c) => ({
+            id: c.paymentId,
+            amountCents: c.amountCents,
+            receivedOn: c.receivedOn,
+            receipt: c.receipt,
+            label: `${c.amount} · ${c.family ? c.family.name : (c.householdName ?? "Household not shown")} · ${c.line}`,
+          }))}
+          targetCents={act.amountCents}
+          currency={ctx.currency}
+          locale={ctx.locale}
+          onPick={setSelected}
+        />
+      )}
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {act.candidates.map((c) => (
           <li key={c.paymentId}>
