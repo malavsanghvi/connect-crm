@@ -5,6 +5,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { RecordPaymentButton, RecordPledgeButton } from "@/components/giving-actions/provider";
 import { GivingTabRow } from "@/components/giving-today/giving-tabs";
 import { Alert, NoAccess, buttonClass } from "@/components/ui";
@@ -15,11 +16,15 @@ import type { Chip } from "@/lib/giving-lists/types";
 /** `actions`: buttons before Record payment (the list's Export, slice 9), passed in so this file stays free of client-only pieces. */
 export function ListHeader({ model, active, description, actions }: { model: ListsCommon; active: GivingTabKey; description: string; actions?: ReactNode }) {
   return (
-    <header className="mb-4 flex flex-col gap-4">
+    <header className="mb-3 flex flex-col gap-2">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="m-0 font-display text-[30px] font-semibold leading-[1.15] text-ink">{model.title}</h1>
-          <p className="m-0 text-[14px] text-muted">{description}</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="m-0 font-display text-[26px] font-semibold leading-[1.15] text-ink">{model.title}</h1>
+          {/* What the page is for: a tooltip on the mark and plain text for a screen reader, so it takes no line of its own. */}
+          <span title={description} className="inline-flex text-muted">
+            <Icon name="help" className="h-4 w-4" />
+          </span>
+          <span className="sr-only">{description}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {actions}

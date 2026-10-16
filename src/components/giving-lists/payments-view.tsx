@@ -1,10 +1,13 @@
 // Giving › Payments in the New look (docs/GIVING_REDESIGN.md section 4, slice 3): every payment, searchable by family, receipt
-// number or amount, with chips for the method, the source and the year; the views Refunds, Grants to match and Recurring
-// (read-only). The offering counts have their own tab (slice 5). Today's Record payment form sits on top when the address asks for it.
+// number or amount, with dropdowns for the method, the source and the year on one line (docs/CRM_NAV_REDESIGN_PLAN.md, slice 2); the
+// views Refunds, Grants to match and Recurring (read-only). The offering counts have their own tab (slice 5). Today's Record
+// payment form sits on top when the address asks for it.
 
 import type { ReactNode } from "react";
 
+import { ListToolbar, type ToolbarMenu } from "@/components/list-toolbar/list-toolbar";
 import type { PaymentsModel } from "@/lib/giving-lists/model";
+import { menuView } from "@/lib/list-toolbar";
 
 import { ExportButton } from "./export-button";
 import { BodyState, ChipRow, ListCard, ListHeader, PagerNav, Problems } from "./list-chrome";
@@ -28,6 +31,14 @@ const LIST_LABEL: Record<PaymentsModel["view"], string> = {
 export function PaymentsView({ model, recordSlot }: { model: PaymentsModel; recordSlot?: ReactNode }) {
   const body = model.body;
   const ctx: RowsContext = { currency: model.currency, locale: model.locale, timeZone: model.timeZone, today: model.today, labels: model.labels };
+  const menus: ToolbarMenu[] = [
+    { label: "Method", chips: model.methods },
+    { label: "Source", chips: model.sources },
+    { label: "Year", chips: model.years },
+    { label: "Status", chips: model.statuses },
+  ]
+    .filter((m) => m.chips.length > 0)
+    .map((m) => ({ label: m.label, view: menuView(m.chips) }));
   return (
     <div className="flex flex-col gap-1" data-testid="giving-payments">
       <ListHeader
@@ -38,23 +49,24 @@ export function PaymentsView({ model, recordSlot }: { model: PaymentsModel; reco
       />
       {recordSlot ? <div className="mb-4">{recordSlot}</div> : null}
       <Problems problems={model.problems} note={model.note} />
-      <div className="mb-3">
-        <ChipRow chips={model.views} label="Payments views" />
-      </div>
       {body.state !== "ok" ? (
-        <BodyState body={body} />
+        <>
+          <div className="mb-3">
+            <ChipRow chips={model.views} label="Payments views" />
+          </div>
+          <BodyState body={body} />
+        </>
       ) : (
         <ListCard>
-          <div className="mb-3 flex flex-col gap-2.5">
-            {model.searchLabel ? <ListSearch label={model.searchLabel} initial={model.q} base={model.searchBase} /> : null}
-            <ChipRow chips={model.methods} label="Method" />
-            <ChipRow chips={model.sources} label="Source" />
-            <ChipRow chips={model.years} label="Year" />
-            <ChipRow chips={model.statuses} label="Recurring gifts to show" />
-            {model.view === "recurring" ? (
-              <p className="m-0 text-[13px] text-muted">Recurring gifts are set up in the member app. They never close a pledge unless the giver links them.</p>
-            ) : null}
-          </div>
+          <ListToolbar
+            search={model.searchLabel ? <ListSearch label={model.searchLabel} initial={model.q} base={model.searchBase} compact /> : null}
+            switchLabel="Payments views"
+            switchChips={model.views}
+            menus={menus}
+          />
+          {model.view === "recurring" ? (
+            <p className="m-0 mb-3 text-[13px] text-muted">Recurring gifts are set up in the member app. They never close a pledge unless the giver links them.</p>
+          ) : null}
           {model.view === "refunds" && model.flagged.length > 0 ? (
             <div className="mb-4">
               <h2 className="m-0 mb-1 text-[15px] font-bold text-ink">Refunds made in a card provider&apos;s dashboard</h2>
