@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { DepositSetPicker } from "@/components/giving-bank/deposit-set-picker";
 import { buttonClass } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
@@ -95,6 +96,21 @@ export function DepositMatcher({
       ) : (
         <p className="text-sm text-muted">Tick the payments in this deposit.</p>
       )}
+      {!exactTotal && canConfirm ? (
+        <DepositSetPicker
+          payments={candidates.map((c) => ({
+            id: c.payment_id,
+            amountCents: c.amount_cents,
+            receivedOn: c.received_on,
+            receipt: c.receipt_number,
+            label: `${formatCents(c.amount_cents, currency)} · ${c.household_name ?? "Household"} · ${PAYMENT_METHOD_LABEL[c.method] ?? c.method}${c.check_number ? ` #${c.check_number}` : ""} · ${formatDate(c.received_on, timeZone)}`,
+          }))}
+          targetCents={amountCents}
+          currency={currency}
+          disabled={pending}
+          onPick={setSelected}
+        />
+      ) : null}
       <ul className="space-y-1 text-sm">
         {candidates.map((c) => (
           <li key={c.payment_id}>

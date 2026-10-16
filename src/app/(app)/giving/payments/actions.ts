@@ -55,7 +55,7 @@ async function applyToPledges(
 
   const pledgesRes = await db
     .from("pledges")
-    .select("id, pledge_number, amount_cents, paid_cents, pledged_at, status")
+    .select("id, pledge_number, amount_cents, paid_cents, soft_credit_cents, pledged_at, status")
     .eq("center_id", center.id)
     .eq("household_id", householdId)
     .in("status", ["open", "partially_paid"]);

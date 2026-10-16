@@ -234,16 +234,17 @@ export function samplePledgesModel(role: ListsRole = "treasurer", sp: RawSearchP
   const open = matching.filter((p) => isOpenStatus(p.status));
   const lite = open.map((p) => ({ ...p, writeOffBy: p.writeOffBy }));
   const summary = summarizeOpen(lite, TODAY_DATE, c.timeZone);
-  const closed = matching.length - open.length;
+  const softN = matching.filter((p) => p.status === "soft_credit").length;
+  const closed = matching.length - open.length - softN;
   const href = (o: Record<string, string | undefined>) => hrefWith("/dev/giving-lists", { ...sp, tab: "pledges" }, { page: undefined, ...o });
   const money = (n: number) => formatCents(n, c.currency, c.locale);
   const rows =
     bucket || chip === "open" || chip === "behind" || chip === "waiting"
-      ? selectOpen(lite, chip === "closed" || chip === "all" ? "open" : chip, bucket, TODAY_DATE, c.timeZone).map((l) => open.find((p) => p.id === l.id)!)
-      : matching.filter((p) => chip === "all" || !isOpenStatus(p.status));
+      ? selectOpen(lite, chip === "closed" || chip === "all" || chip === "soft" ? "open" : chip, bucket, TODAY_DATE, c.timeZone).map((l) => open.find((p) => p.id === l.id)!)
+      : matching.filter((p) => (chip === "soft" ? p.status === "soft_credit" : chip === "all" || (!isOpenStatus(p.status) && p.status !== "soft_credit")));
   return {
     ...b,
-    chips: pledgeChips(summary, closed, chip, bucket, (k) => href({ status: k === "open" ? undefined : k, age: undefined })),
+    chips: pledgeChips(summary, closed, chip, bucket, (k) => href({ status: k === "open" ? undefined : k, age: undefined }), softN),
     buckets: bucketChips(summary, bucket, money, (k) => href({ age: bucket === k ? undefined : k, status: undefined })),
     summary: `${money(summary.open.cents)} open across ${summary.open.count} pledges · ${money(summary.behind.cents)} of it behind`,
     body: {
@@ -415,8 +416,8 @@ export function sampleExportLines(list: GivingExportList, role: ListsRole, sp: R
   const open = matching.filter((p) => isOpenStatus(p.status));
   const rows =
     bucket || chip === "open" || chip === "behind" || chip === "waiting"
-      ? selectOpen(open, chip === "closed" || chip === "all" ? "open" : chip, bucket, TODAY_DATE, c.timeZone).map((l) => open.find((p) => p.id === l.id)!)
-      : matching.filter((p) => chip === "all" || !isOpenStatus(p.status));
+      ? selectOpen(open, chip === "closed" || chip === "all" || chip === "soft" ? "open" : chip, bucket, TODAY_DATE, c.timeZone).map((l) => open.find((p) => p.id === l.id)!)
+      : matching.filter((p) => (chip === "soft" ? p.status === "soft_credit" : chip === "all" || (!isOpenStatus(p.status) && p.status !== "soft_credit")));
   const filter = pledgeExportFilter(chip, bucket, search ? q : null);
   const lines = pledgeExportLines(
     rows.map((p) => ({
@@ -429,6 +430,8 @@ export function sampleExportLines(list: GivingExportList, role: ListsRole, sp: R
       amountCents: p.amountCents,
       paidCents: p.paidCents,
       writeOffWaiting: isOpenStatus(p.status) && p.writeOffBy !== null,
+      softCreditCents: 0,
+      bankReconciled: false,
     })),
     households,
     { currency: c.currency },

@@ -252,6 +252,7 @@ export async function openPledgesOf(session: CrmSession, householdIds: readonly 
     pledge_number: string | null;
     amount_cents: number;
     paid_cents: number;
+    soft_credit_cents: number;
     pledged_at: string;
     status: string;
     source: string;
@@ -264,7 +265,7 @@ export async function openPledgesOf(session: CrmSession, householdIds: readonly 
       ...(must(
         await db
           .from("pledges")
-          .select("id, household_id, pledge_number, amount_cents, paid_cents, pledged_at, status, source, due_on, campaign_id, fund_id")
+          .select("id, household_id, pledge_number, amount_cents, paid_cents, soft_credit_cents, pledged_at, status, source, due_on, campaign_id, fund_id")
           .eq("center_id", center.id)
           .in("household_id", part)
           .in("status", ["open", "partially_paid"])
@@ -285,6 +286,7 @@ export async function openPledgesOf(session: CrmSession, householdIds: readonly 
       id: r.id,
       amount_cents: r.amount_cents,
       paid_cents: r.paid_cents,
+      soft_credit_cents: r.soft_credit_cents,
       pledged_at: r.pledged_at,
       status: r.status,
       pledge_number: r.pledge_number,

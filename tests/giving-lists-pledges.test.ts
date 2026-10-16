@@ -222,6 +222,7 @@ describe("the Pledges model (dev preview data, the same pure core)", () => {
       ["Open", 6, true],
       ["Behind", 4, false],
       ["Waiting for approval", 2, false],
+      ["Soft credit", 0, false],
       ["Closed", 2, false],
       ["All", 8, false],
     ]);
@@ -250,5 +251,25 @@ describe("the Pledges model (dev preview data, the same pure core)", () => {
     expect(samplePledgesModel("approver").recordHref).toBeNull();
     expect(LISTS_ROLES.approver.permissions).not.toContain("giving.manage");
     expect(LISTS_COMMUNITY.currency).toBe("USD");
+  });
+});
+
+describe("Soft credit and Bank reconciled on a pledge row", () => {
+  const base = byNumber("PL-0455");
+  it("shows a Soft credit pledge as Soft credit, with no way to record a payment on it", () => {
+    const r = pledgeRow({ ...base, status: "soft_credit", paidCents: 0, softCreditCents: base.amountCents }, F.adeyemi, ctx());
+    expect(r.status).toEqual({ label: "Soft credit", tone: "info" });
+    expect(kinds(r, "menu")).not.toContain("record_payment");
+    expect(r.lines.join(" ")).toContain("waiting to be verified");
+  });
+  it("shows a paid pledge as Bank reconciled only when the database says every payment is on the bank", () => {
+    const paid = { ...base, status: "paid", paidCents: base.amountCents };
+    expect(pledgeRow({ ...paid, reconciledAt: "2026-10-01T12:00:00Z" }, F.adeyemi, ctx()).status).toEqual({ label: "Bank reconciled", tone: "ok" });
+    expect(pledgeRow({ ...paid, reconciledAt: null }, F.adeyemi, ctx()).status).toEqual({ label: "Paid", tone: "ok" });
+  });
+  it("shows the open figure after soft credit, and says what is waiting", () => {
+    const r = pledgeRow({ ...base, status: "open", paidCents: 0, amountCents: 30_000, softCreditCents: 9_000 }, F.adeyemi, ctx());
+    expect(r.amount).toBe("$210.00");
+    expect(r.lines.join(" ")).toContain("Soft credit $90.00 waiting to be verified; $210.00 is still to pay");
   });
 });

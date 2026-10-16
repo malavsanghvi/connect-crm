@@ -62,10 +62,15 @@ export function longMonth(first: string): string {
 
 export type StatusTone = "ok" | "warn" | "bad" | "muted";
 
-/** The prototype's pledge status text: Closed (green) / Partial / Open (amber). */
-export function pledgeStatusText(status: string, amountCents: number, paidCents: number): { label: string; tone: StatusTone } {
+/**
+ * The prototype's pledge status text: Closed (green) / Partial / Open (amber), plus Soft credit (covered by claims nobody has verified
+ * yet) and Bank reconciled (paid, and every payment on it matched to the bank: `reconciledAt`).
+ */
+export function pledgeStatusText(status: string, amountCents: number, paidCents: number, reconciledAt?: string | null): { label: string; tone: StatusTone } {
   if (status === "written_off") return { label: "Written off", tone: "muted" };
   if (status === "cancelled") return { label: "Cancelled", tone: "muted" };
+  if (status === "soft_credit") return { label: "Soft credit", tone: "warn" };
+  if (status === "paid" && reconciledAt) return { label: "Bank reconciled", tone: "ok" };
   if (status === "paid" || paidCents >= amountCents) return { label: "Closed", tone: "ok" };
   if (paidCents > 0 || status === "partially_paid") return { label: "Partial", tone: "warn" };
   return { label: "Open", tone: "warn" };
@@ -73,8 +78,9 @@ export function pledgeStatusText(status: string, amountCents: number, paidCents:
 
 /** Pledge list chips (prototype: All · Open · Closed). */
 export const PLEDGE_VIEWS = {
-  all: { label: "All", statuses: [] as readonly ("open" | "partially_paid" | "paid" | "written_off" | "cancelled")[] },
+  all: { label: "All", statuses: [] as readonly ("open" | "partially_paid" | "soft_credit" | "paid" | "written_off" | "cancelled")[] },
   open: { label: "Open", statuses: ["open", "partially_paid"] },
+  soft: { label: "Soft credit", statuses: ["soft_credit"] },
   closed: { label: "Closed", statuses: ["paid", "written_off", "cancelled"] },
 } as const;
 export type PledgeView = keyof typeof PLEDGE_VIEWS;
@@ -82,6 +88,7 @@ export type PledgeView = keyof typeof PLEDGE_VIEWS;
 /** Old `?status=` values from the previous Pledges page still land on the right chip. */
 export function pledgeViewFromParam(value: string | undefined): PledgeView {
   if (value === "open" || value === "outstanding" || value === "partially_paid") return "open";
+  if (value === "soft" || value === "soft_credit") return "soft";
   if (value === "closed" || value === "paid" || value === "written_off" || value === "cancelled") return "closed";
   return "all";
 }

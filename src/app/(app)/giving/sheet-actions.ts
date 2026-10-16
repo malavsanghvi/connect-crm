@@ -34,10 +34,10 @@ export async function sheetHouseholdAction(householdId: string): Promise<ActionR
   }
 }
 
-const PLEDGE_COLUMNS = "id, pledge_number, campaign_id, amount_cents, paid_cents, pledged_at, due_on, status";
+const PLEDGE_COLUMNS = "id, pledge_number, campaign_id, amount_cents, paid_cents, soft_credit_cents, pledged_at, due_on, status";
 const PAYMENT_COLUMNS = "id, receipt_number, amount_cents, refunded_cents, method, status, received_on";
 
-type PledgeDb = { id: string; pledge_number: string | null; campaign_id: string | null; amount_cents: number; paid_cents: number; pledged_at: string; due_on: string | null; status: string };
+type PledgeDb = { id: string; pledge_number: string | null; campaign_id: string | null; amount_cents: number; paid_cents: number; soft_credit_cents: number; pledged_at: string; due_on: string | null; status: string };
 
 /** One family's giving for the slide-over in Giving. `focus` is the payment or pledge the box found: it is shown first. */
 export async function familyGivingAction(householdId: string, focus: FamilyFocus | null = null): Promise<ActionResult<FamilyGiving>> {

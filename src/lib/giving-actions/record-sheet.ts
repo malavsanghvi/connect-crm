@@ -8,6 +8,7 @@ import type { Family } from "@/lib/giving-today/queue";
 import { listWords, type OfflineMethodKey } from "@/lib/giving-workspace/ask";
 import { OFFLINE_METHODS } from "@/lib/labels";
 import { formatCents, parseAmountToCents } from "@/lib/money";
+import { stillToPayCents } from "@/lib/pledge-balance";
 import type { AllocationMode } from "@/lib/payments/offline-payment";
 
 /** What the box (or a button) already knows. The person checks every field before pressing the button. */
@@ -58,7 +59,7 @@ export type GivingSheetContext = {
   canOpenFamily: boolean;
 };
 
-export type SheetPledge = { id: string; pledge_number: string | null; amount_cents: number; paid_cents: number; pledged_at: string; status?: string };
+export type SheetPledge = { id: string; pledge_number: string | null; amount_cents: number; paid_cents: number; soft_credit_cents?: number | null; pledged_at: string; status?: string };
 
 const TRAILING_WORD = /\s(?:household|family|home|residence)$/i;
 
@@ -105,7 +106,7 @@ export function whatHappens(i: {
   if (!i.canAllocate) return "Recorded but not applied: a treasurer can apply it to the family's pledges.";
   if (i.mode === "none") return "Recorded as a general gift, not applied to any pledge.";
   if (i.pledges === null) return "Reading the family's open pledges…";
-  const open = i.pledges.reduce((s, p) => s + Math.max(0, p.amount_cents - p.paid_cents), 0);
+  const open = i.pledges.reduce((s, p) => s + stillToPayCents(p), 0);
   const count = i.pledges.length;
   if (!i.amountCents || i.amountCents <= 0) {
     return count === 0

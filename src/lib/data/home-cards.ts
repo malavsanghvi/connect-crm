@@ -83,7 +83,7 @@ export const loadMemberWork = cache(async (session: CrmSession): Promise<MemberW
       : attempt("read the household's open pledges", async () => {
           const householdId = household?.ok ? household.value : null;
           if (!householdId) return summarizePledges([]);
-          return summarizePledges(rowsOf(await db.from("pledges").select("amount_cents, paid_cents").eq("household_id", householdId).in("status", ["open", "partially_paid"])));
+          return summarizePledges(rowsOf(await db.from("pledges").select("amount_cents, paid_cents, soft_credit_cents").eq("household_id", householdId).in("status", ["open", "partially_paid"])));
         })
     : null;
 

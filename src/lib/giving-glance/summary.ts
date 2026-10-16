@@ -6,6 +6,7 @@
 //   - an open pledge is overdue the day after its due date, or 30 days after it was made when it has no due date.
 
 import { addDays, daysBetween } from "@/lib/dates";
+import { stillToPayCents } from "@/lib/pledge-balance";
 
 import { inWindow, monthsOfYear, type GlanceWindow } from "./period";
 
@@ -16,7 +17,9 @@ export type GlancePledge = {
   person_id: string | null;
   amount_cents: number;
   paid_cents: number;
-  /** open, partially_paid, paid, written_off or cancelled. */
+  /** Claims waiting to be verified (0865). Not open any more, and not paid either. */
+  soft_credit_cents?: number;
+  /** open, partially_paid, soft_credit, paid, written_off or cancelled. */
   status: string;
   /** The day it was made, in the community's time zone. */
   pledged_on: string;
@@ -62,8 +65,9 @@ export const isGift = (p: GlancePayment): boolean => !p.is_opening_balance && !N
 const refundedOf = (p: GlancePayment): number => Math.min(Math.max(p.refunded_cents, 0), Math.max(p.amount_cents, 0));
 /** What a gift kept after refunds. */
 export const netOf = (p: GlancePayment): number => Math.max(p.amount_cents, 0) - refundedOf(p);
-export const isOpenPledge = (p: GlancePledge): boolean => OPEN_PLEDGE.has(p.status) && p.amount_cents > p.paid_cents;
-const owed = (p: GlancePledge): number => Math.max(p.amount_cents - p.paid_cents, 0);
+// The Open balance rule (owner, 2026-10-15): amount - paid - soft credit, over Open and Partly paid pledges. A Soft credit pledge adds nothing.
+const owed = (p: GlancePledge): number => stillToPayCents(p);
+export const isOpenPledge = (p: GlancePledge): boolean => OPEN_PLEDGE.has(p.status) && owed(p) > 0;
 
 export type PeriodTotals = {
   pledgedCents: number;
@@ -92,7 +96,7 @@ export function periodTotals(rows: Pick<GlanceRows, "pledges" | "payments">, fro
     pledgedCents += p.amount_cents;
     pledgedCount += 1;
     paidOnPledgesCents += Math.min(Math.max(p.paid_cents, 0), p.amount_cents);
-    if (p.status === "written_off") writtenOffCents += owed(p);
+    if (p.status === "written_off") writtenOffCents += Math.max(p.amount_cents - p.paid_cents, 0);
   }
   let grossCents = 0;
   let refundedCents = 0;

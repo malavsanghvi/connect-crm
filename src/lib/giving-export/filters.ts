@@ -43,7 +43,7 @@ export function methodWord(locale: string): (method: string) => string {
 export type BankLineKey = "match" | "deposits" | "payouts" | HistoryKey;
 
 export function bankLineKey(view: BankViewKey, history: HistoryKey): BankLineKey | null {
-  if (view === "zelle") return null;
+  if (view === "zelle" || view === "reconcile" || view === "unbanked") return null;
   return view === "history" ? history : view;
 }
 

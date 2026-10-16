@@ -6,6 +6,7 @@ import { ageOn, todayInTz } from "@/lib/dates";
 import type { DbErrorLike } from "@/lib/errors";
 import { can } from "@/lib/permissions";
 import { bestTier, type HouseholdRole, type Tier } from "@/lib/people";
+import { stillToPayCents } from "@/lib/pledge-balance";
 import type { CrmSession } from "@/lib/session";
 
 // The household and person records behind the People drawers and the full
@@ -95,7 +96,7 @@ export async function loadHouseholdRecord(session: CrmSession, id: string): Prom
     seesGiving
       ? db
           .from("pledges")
-          .select("id, pledge_number, campaign_id, source, amount_cents, paid_cents, status, pledged_at")
+          .select("id, pledge_number, campaign_id, source, amount_cents, paid_cents, soft_credit_cents, status, pledged_at")
           .eq("household_id", id)
           .in("status", ["open", "partially_paid", "paid"])
           .order("pledged_at", { ascending: false })
@@ -177,7 +178,7 @@ export async function loadHouseholdRecord(session: CrmSession, id: string): Prom
       giving = {
         ok: true,
         data: {
-          openCents: rows.filter((p) => p.status !== "paid").reduce((a, p) => a + p.amount_cents - p.paid_cents, 0),
+          openCents: rows.filter((p) => p.status !== "paid").reduce((a, p) => a + stillToPayCents(p), 0),
           pledges: rows.slice(0, 6).map((p) => ({
             id: p.id,
             label: (p.campaign_id ? campBy.get(p.campaign_id) : null) ?? p.pledge_number ?? String(p.source).replace(/_/g, " "),

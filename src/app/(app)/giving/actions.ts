@@ -45,6 +45,8 @@ export type OpenPledge = {
   source: string;
   amount_cents: number;
   paid_cents: number;
+  /** Claims waiting to be verified: not open any more (optional so older fixtures still type). */
+  soft_credit_cents?: number;
   pledged_at: string;
   due_on: string | null;
   status: string;
@@ -59,7 +61,7 @@ export async function openPledgesAction(householdId: string): Promise<ActionResu
   const [pRes, cRes] = await Promise.all([
     db
       .from("pledges")
-      .select("id, pledge_number, campaign_id, source, amount_cents, paid_cents, pledged_at, due_on, status")
+      .select("id, pledge_number, campaign_id, source, amount_cents, paid_cents, soft_credit_cents, pledged_at, due_on, status")
       .eq("center_id", center.id)
       .eq("household_id", householdId)
       .in("status", ["open", "partially_paid"])
@@ -78,6 +80,7 @@ export async function openPledgesAction(householdId: string): Promise<ActionResu
       source: p.source,
       amount_cents: p.amount_cents,
       paid_cents: p.paid_cents,
+      soft_credit_cents: p.soft_credit_cents,
       pledged_at: p.pledged_at,
       due_on: p.due_on,
       status: p.status,

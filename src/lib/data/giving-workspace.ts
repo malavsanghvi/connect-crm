@@ -31,6 +31,7 @@ import { pluginName } from "@/lib/kind-samples";
 import { isModuleEnabled } from "@/lib/modules";
 import { enabledPaymentPlugins } from "@/lib/payments/plugins/enabled";
 import { can, canAccess } from "@/lib/permissions";
+import { stillToPayCents } from "@/lib/pledge-balance";
 import type { CrmSession } from "@/lib/session";
 import { workspaceLabel } from "@/lib/workspaces";
 
@@ -72,19 +73,22 @@ async function fromCommand<T, V>(key: string, input: unknown, doing: string, vie
 export async function loadPledgeTotals(session: CrmSession): Promise<Part<PledgeTotals>> {
   if (!canAccess(session, "pledges")) return { state: "no_access" };
   const { db, center } = session;
-  const { data, error, truncated } = await fetchAll<{ household_id: string; amount_cents: number; paid_cents: number }>((from, to) =>
-    db.from("pledges").select("household_id, amount_cents, paid_cents").eq("center_id", center.id).in("status", ["open", "partially_paid"]).order("id").range(from, to),
+  const { data, error, truncated } = await fetchAll<{ household_id: string; amount_cents: number; paid_cents: number; soft_credit_cents: number }>((from, to) =>
+    db.from("pledges").select("household_id, amount_cents, paid_cents, soft_credit_cents").eq("center_id", center.id).in("status", ["open", "partially_paid"]).order("id").range(from, to),
   );
   if (error) return { state: "error", error: failure("Could not add up the open pledges", error).error };
   let pledged = 0;
   let paid = 0;
+  let open = 0;
   const households = new Set<string>();
   for (const p of data) {
     pledged += p.amount_cents;
     paid += p.paid_cents;
+    // The Open balance rule: amount - paid - soft credit. Soft credit is not paid (nobody verified it) and not open (it is covered).
+    open += stillToPayCents(p);
     households.add(p.household_id);
   }
-  return { state: "ok", data: { pledged_cents: pledged, paid_cents: paid, open_cents: pledged - paid, households: households.size, pledges: data.length, truncated } };
+  return { state: "ok", data: { pledged_cents: pledged, paid_cents: paid, open_cents: open, households: households.size, pledges: data.length, truncated } };
 }
 
 /** Everything the Giving page needs except the conversation itself (that runs in the browser through Server Actions). */
