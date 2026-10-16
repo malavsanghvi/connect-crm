@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { useActiveWorkspaceKey, type RailWorkspace } from "@/components/shell/workspace-rail";
 import { fitWorkspaces } from "@/lib/workspace-fit";
 
@@ -145,9 +146,7 @@ export function WorkspaceMenu({
           >
             More
             <span className="sr-only"> workspaces, {under.length}</span>
-            <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
+            <Icon name="chevron" className="h-2.5 w-2.5" strokeWidth={3} />
           </button>
           {open ? (
             <ul ref={panelRef} id={panelId} className="v2-top-more-panel" onKeyDown={onPanelKey}>
@@ -173,9 +172,7 @@ export function WorkspaceMenu({
         ))}
         <span className="v2-top-item">
           More
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-            <path d="M6 9l6 6 6-6" />
-          </svg>
+          <Icon name="chevron" className="h-2.5 w-2.5" strokeWidth={3} />
         </span>
       </div>
     </nav>

@@ -1,10 +1,12 @@
-# CRM navigation and filters: two options (plan, nothing built)
+# CRM navigation and filters: Option A (adopted 2026-10-16)
 
 Owner request, 2026-10-16: move every workspace menu into the top bar (with a **More** menu for what does not fit), move the sub-menu to the left as a collapsible, scrolling section list, and shrink the filters. Giving's first screen is about 60% menus and tiles before the first row.
 
 Design canvas (6 boards, sample data): https://claude.ai/artifact/36MJnv9ud5RcJ68E9hyTiG
 
-Status: **awaiting the owner's choice.** No code changes until then.
+Status: **Option A adopted by the owner on 2026-10-16 ("build and deploy").** Slice 1 (top bar, More, left panel) is built; slices 2 to 4 follow, each its own PR. Defaults taken from section 9: the left panel starts open from 1280px wide and each person's choice is remembered; Today, People, Giving, Events and Messages come first in the bar and the rest go under More as space runs out; it ships in the existing New look first.
+
+As built in slice 1, where it differs from the text below: under 1024px the pages keep their own tab rows instead of a drawer behind a menu button; the collapsed strip shows two-letter marks (icons come later); Giving Today keeps its tab row because it carries the counts; Settings is the gear in the bar and Platform is in the account menu.
 
 ## 1. Where the first screen goes today (Giving › Pledges, 900px tall)
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { Icon } from "@/components/brand/icons";
 import { type RailWorkspace } from "@/components/shell/workspace-rail";
 import { PANEL_COOKIE, type PanelPref } from "@/lib/panel-pref";
 import { activeWorkspace } from "@/lib/workspaces";
@@ -20,11 +21,7 @@ export function monogram(label: string): string {
 }
 
 function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" className={open ? "" : "-rotate-90"}>
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
+  return <Icon name="chevron" className={open ? "h-2.5 w-2.5" : "h-2.5 w-2.5 -rotate-90"} strokeWidth={3.5} />;
 }
 
 /**
@@ -84,9 +81,7 @@ export function SectionPanel({ workspaces, sections, initial }: { workspaces: Ra
       <div className="v2-panel-head">
         <h2 className="v2-panel-title">{sec.label}</h2>
         <button type="button" className="v2-panel-toggle" onClick={toggle} aria-expanded={isOpen} aria-label="Section list" title={`${isOpen ? "Collapse" : "Expand"} (Ctrl B)`}>
-          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className={isOpen ? "" : "rotate-180"}>
-            <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" />
-          </svg>
+          <Icon name="chevron" className={isOpen ? "h-4 w-4 rotate-90" : "h-4 w-4 -rotate-90"} />
         </button>
       </div>
       <nav className="v2-panel-nav" aria-label={`${sec.label} sections`}>

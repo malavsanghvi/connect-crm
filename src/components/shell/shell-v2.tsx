@@ -114,7 +114,7 @@ export function ShellV2({
         <div className="hidden min-w-0 flex-1 md:flex">
           <WorkspaceMenu workspaces={items} todayBadge={todayBadge} todayBadgeLabel={todayBadgeLabel} />
         </div>
-        <div className="hidden w-[220px] shrink-0 md:block xl:w-[300px]">{showFind ? <FindBox variant="bar" cookieName={recentCookie} /> : null}</div>
+        <div className="hidden w-[170px] shrink-0 md:block lg:w-[220px] xl:w-[300px]">{showFind ? <FindBox variant="bar" cookieName={recentCookie} /> : null}</div>
         {canSearch ? <FamilyVisitTracker cookieName={recentCookie} /> : null}
         <div className="flex-1 md:hidden" />
         {/* Niva has two ways in on this look: this button (the bottom bar on a phone) and Ctrl+J. */}
