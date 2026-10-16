@@ -97,6 +97,7 @@ function listContext(session: CrmSession, paypalEmailOnly: boolean): ListContext
     today: todayInTz(center.time_zone),
     labels: { orgMemberLabel: rules.orgMemberLabel, orgHouseholdLabel: rules.orgHouseholdLabel },
     paypalEmailOnly,
+    evidence: isModuleEnabled(session, "giving_proofs") ? { canAttach: canAccess(session, "recordPayment"), canRemove: canAccess(session, "givingManage") } : null,
   };
 }
 

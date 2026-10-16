@@ -3,6 +3,7 @@ import Link from "next/link";
 import { setCloseItemAction } from "@/app/(app)/accounting/close/actions";
 import { LockMonthButton } from "@/app/(app)/accounting/close/lock-button";
 import { ActionForm } from "@/components/action-form";
+import { CloseWarningLines } from "@/components/books/close-warnings";
 import { DonorMatchApprove } from "@/components/books/donor-match-act";
 import { FamilyCard } from "@/components/giving-actions/sheet";
 import type { CardLabels } from "@/components/household-card";
@@ -69,6 +70,7 @@ export function BooksView({ state, months, closerName, labels, timeZone: tz, can
               <CheckLine key={i.key} item={i} month={state.month} canMark={canClose && !state.locked} />
             ))}
           </ul>
+          <CloseWarningLines warnings={state.warnings} />
           {state.locked ? (
             <p className="mt-3 text-[13px] text-success">
               Locked {formatDateTime(state.period?.closed_at, tz)}

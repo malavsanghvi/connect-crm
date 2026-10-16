@@ -15,6 +15,7 @@ import { PLEDGE_STANDING_LABEL, isOpenPledgeStatus, pledgeStanding, softCreditWa
 import type { CrmSession } from "@/lib/session";
 
 import { PledgeEvidence } from "./pledge-evidence";
+import { PledgeTimeline } from "./pledge-timeline";
 
 const STANDING_TONE: Record<PledgeStanding, "warning" | "navy" | "success" | "neutral"> = {
   open: "warning",
@@ -170,6 +171,7 @@ export async function PledgesTab({ session, householdId, period, recordPledge = 
                     {showProofs || softCreditWaitingCents(p) > 0 || p.status === "paid" ? (
                       <PledgeEvidence pledgeId={p.id} reference={p.pledge_number ?? "the pledge"} currency={center.currency} timeZone={tz} />
                     ) : null}
+                    <PledgeTimeline pledgeId={p.id} reference={p.pledge_number ?? "the pledge"} currency={center.currency} timeZone={tz} />
                   </td>
                   <td className="num">{formatCents(p.amount_cents, center.currency)}</td>
                   <td className="num">{formatCents(p.paid_cents, center.currency)}</td>

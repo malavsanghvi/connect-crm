@@ -9,6 +9,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { ActButtons, type ActContext } from "@/components/giving-actions/row-actions";
 import type { CardLabels } from "@/components/household-card";
+import { PaymentEvidence } from "@/components/payment-evidence/payment-evidence";
 import { HistoryButton } from "@/components/record-history";
 import { familyLine } from "@/lib/giving-today/queue";
 import type { ListRow, Tone } from "@/lib/giving-lists/types";
@@ -107,6 +108,9 @@ function Row({ row, ctx, expanded }: { row: ListRow; ctx: ActContext; expanded: 
         ))}
         {row.note ? <p className="m-0 mt-1 text-[12.5px] font-semibold text-ink-2">{row.note}</p> : null}
         {row.found ? <p className="m-0 mt-0.5 text-[12px] text-faint">{row.found}</p> : null}
+        {row.evidence ? (
+          <PaymentEvidence paymentId={row.evidence.paymentId} reference={row.evidence.reference} timeZone={ctx.timeZone} canAttach={row.evidence.canAttach} canRemove={row.evidence.canRemove} />
+        ) : null}
       </div>
       <div className="flex items-baseline justify-between gap-3 md:block md:text-right">
         <p className="m-0 text-[15px] font-bold tabular-nums text-ink">{row.amount}</p>

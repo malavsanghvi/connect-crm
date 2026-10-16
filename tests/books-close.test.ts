@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { closeItems, readyToLock, type CloseProofs } from "@/lib/books/close";
+import { closeItems, closeWarnings, readyToLock, type CloseProofs, type Seen } from "@/lib/books/close";
 import { groupSuggestions, type MatchRow } from "@/lib/books/donors";
 import { BOOKS_PROOFS, sampleBooks } from "@/lib/books/fixtures";
 import { booksViewOrder } from "@/lib/books/views";
@@ -62,6 +62,84 @@ describe("month-end close: the checks the data proves tick themselves", () => {
   it("the preview data draws without a session", () => {
     expect(sampleBooks("clear").state.items.filter((i) => i.proven)).toHaveLength(3);
     expect(sampleBooks("no_access").canClose).toBe(false);
+  });
+});
+
+describe("month-end close: warning lines that never block", () => {
+  const warn = (proofsWaiting: Seen<number> | null, unbanked: Seen<number> | null) => closeWarnings({ proofsWaiting, unbanked });
+
+  it("says how many proofs wait and how many paid pledges are not on the bank, proofs first", () => {
+    expect(warn({ ok: true, value: 3 }, { ok: true, value: 12 })).toEqual([
+      { key: "proofs_waiting", label: "Payment proofs still waiting to be verified: 3", href: "/giving/proofs" },
+      { key: "unbanked", label: "Paid pledges not yet bank reconciled: 12", href: "/giving/payments/bank?view=unbanked" },
+    ]);
+    expect(warn({ ok: true, value: 1_204 }, null).map((w) => w.label)).toEqual(["Payment proofs still waiting to be verified: 1,204"]);
+  });
+
+  it("draws nothing when the module is off or the reader cannot see the count, and nothing when nothing waits", () => {
+    expect(warn(null, null)).toEqual([]);
+    expect(warn({ ok: true, value: 0 }, { ok: true, value: 0 })).toEqual([]);
+    expect(warn({ ok: false, why: "no_access" }, { ok: false, why: "no_access" })).toEqual([]);
+    expect(closeWarnings(undefined)).toEqual([]);
+  });
+
+  it("a count that could not be read is said in words, never drawn as zero", () => {
+    expect(warn({ ok: false, why: "error" }, { ok: true, value: 2 }).map((w) => w.label)).toEqual([
+      "Could not count the payment proofs still waiting to be verified",
+      "Paid pledges not yet bank reconciled: 2",
+    ]);
+  });
+
+  it("never blocks: the checks, and whether the month can be locked, are the same with or without them", () => {
+    const withWarnings: CloseProofs = { ...BOOKS_PROOFS.clear, warnings: { proofsWaiting: { ok: true, value: 9 }, unbanked: { ok: true, value: 9 } } };
+    expect(closeItems({ statements_generated: true }, withWarnings, FORMAT)).toEqual(closeItems({ statements_generated: true }, BOOKS_PROOFS.clear, FORMAT));
+    expect(readyToLock(closeItems({ statements_generated: true }, withWarnings, FORMAT))).toBe(true);
+    expect(closeItems({}, withWarnings, FORMAT)).toHaveLength(4);
+  });
+
+  it("the preview data shows both lines on the waiting sample and none on the clear one", () => {
+    expect(sampleBooks("waiting").state.warnings.map((w) => w.label)).toEqual([
+      "Payment proofs still waiting to be verified: 2",
+      "Paid pledges not yet bank reconciled: 5",
+    ]);
+    expect(sampleBooks("clear").state.warnings).toEqual([]);
+  });
+});
+
+describe("month-end close: reading the warning counts", () => {
+  const load = async (opts: { proofsOn: boolean; bankOn: boolean; payments: boolean; bank: boolean; proofs?: unknown; unbanked?: unknown }) => {
+    vi.resetModules();
+    vi.doMock("@/lib/modules", () => ({ isModuleEnabled: (_s: unknown, key: string) => (key === "giving_proofs" ? opts.proofsOn : key === "giving_bank" ? opts.bankOn : false) }));
+    vi.doMock("@/lib/permissions", () => ({ canAccess: (_s: unknown, key: string) => (key === "payments" ? opts.payments : key === "bank" ? opts.bank : false), can: () => false }));
+    const calls: string[] = [];
+    const rpc = async (fn: string) => {
+      calls.push(fn);
+      return fn === "payment_proof_counts" ? (opts.proofs ?? { data: { waiting: 2, needs_info: 1 }, error: null }) : (opts.unbanked ?? { data: { total: 4 }, error: null });
+    };
+    const { loadWarningCounts } = await import("@/lib/data/books-close");
+    const counts = await loadWarningCounts({ db: { rpc }, center: { id: "c1" } } as never);
+    return { counts, calls };
+  };
+
+  it("counts proofs waiting for the team and for a family's answer, and the paid pledges not on the bank", async () => {
+    const r = await load({ proofsOn: true, bankOn: true, payments: true, bank: true });
+    expect(r.counts).toEqual({ proofsWaiting: { ok: true, value: 3 }, unbanked: { ok: true, value: 4 } });
+  });
+
+  it("asks nothing, and draws no line, for a module that is off or a reader who may not see it", async () => {
+    const off = await load({ proofsOn: false, bankOn: false, payments: true, bank: true });
+    expect(off).toEqual({ counts: { proofsWaiting: null, unbanked: null }, calls: [] });
+    const noAccess = await load({ proofsOn: true, bankOn: true, payments: false, bank: false });
+    expect(noAccess).toEqual({ counts: { proofsWaiting: null, unbanked: null }, calls: [] });
+  });
+
+  it("a failed read is a failed count, not zero", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await load({ proofsOn: true, bankOn: true, payments: true, bank: true, proofs: { data: null, error: { message: "boom" } } });
+    expect(r.counts.proofsWaiting).toEqual({ ok: false, why: "error" });
+    expect(r.counts.unbanked).toEqual({ ok: true, value: 4 });
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
 
