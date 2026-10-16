@@ -12,7 +12,14 @@
 // children's names are obviously fictional. To change a pack, change this file and generate a NEW migration (never edit
 // an applied one); bump `version`.
 //
-// The script also checks the pack on its own: every "@ref" that a row uses is defined by some row, every role of the
+// Versions of the packs and the migration that carries each (the migration's header says what changed):
+//   demo_faith_jain_v1     1 = 0628 · 2 = 0786 · 3 = 0797 · 4 = 0820 (neutral) · 5 = 0840 (Aarav enrolled) · 6 = 0878 (the community member's app is full)
+//   demo_neutral_club_v1   1 = 0628 · 2 = 0798 · 3 = 0879 (the same, with the shop and the assistant switched on by the pack)
+// The last step of a pack, "lived_in" (spec.extras; faith 6, club 3): what the community member's app shows beyond the money and the events: the calendar,
+// photo albums (links only), surveys, special days, the committee list, member numbers, profile details, the library and, in the faith pack, the Learning
+// Center's class days, attendance, reports and announcements and a learning path. A pack cannot load a file (photos, audio, statements): those screens stay thin.
+//
+// The script also checks the pack on its own: every "@ref" that a row uses is defined by exactly one row, every role of the
 // kind's role catalog has exactly one persona, and the counts the PR promises.
 import fs from "node:fs";
 import path from "node:path";
@@ -126,10 +133,18 @@ function membershipOps(spec) {
 
 function givingOps(spec) {
   const ops = [];
+  // Things a family can give to (version 6 of each pack): tiers and fixed gifts under a campaign. They come before the pledges so a pledge can name one.
+  if (spec.opportunities) {
+    ops.push(rows("opportunities", spec.opportunities.map((o) => ({
+      id: `@opp:${o.k}`, campaign_id: `@camp:${o.camp}`, name: o.name, description: o.descr ?? null, amount_cents: o.cents ?? null,
+      quantity_available: o.qty ?? null, sort_order: o.sort, kind: o.kind, status: "open", ...(o.options ? { options: o.options } : {}),
+    }))));
+  }
   ops.push(rows("pledges", spec.pledges.map((p) => ({
     id: `@pledge:${p.ref}`, household_id: `@h:${p.hh}`, pledged_by_person_id: `@p:${p.hh}.${p.who}`,
     ...(p.camp ? { campaign_id: `@camp:${p.camp}` } : { fund_id: `@fund:${p.fund}` }),
     ...(p.fund && p.camp ? { fund_id: `@fund:${p.fund}` } : {}),
+    ...(p.opp ? { opportunity_id: `@opp:${p.opp}`, ...(p.opt ? { opportunity_option: p.opt } : {}) } : {}),
     source: p.source, ...(p.srcRef ? { source_ref_id: `@${p.srcRef}` } : {}), amount_cents: p.cents, pledged_at: d(-p.ago),
     ...(p.due !== undefined ? { due_on: d(p.due) } : {}), created_by: "@actor",
     // A write-off one person (the community's administrator-of-record, "@actor") has asked for and a different person with giving.approve confirms.
@@ -151,6 +166,14 @@ function givingOps(spec) {
       bank_account_id: "@bank:main", posted_on: d(-ago), amount_cents: cents, description: desc, ...(type ? { bank_type: type, bank_details: "CREDIT" } : {}), status: "unmatched",
     }))));
   }
+  // A gift a family set up in the app. It waits for a payment method and is never charged (owner decision 0026): a demo community takes no real payment.
+  if (spec.recurring) {
+    ops.push(rows("recurring_gifts", spec.recurring.map((r) => ({
+      id: `@recurring:${r.k}`, household_id: `@h:${r.hh}`, person_id: `@p:${r.hh}.${r.who}`,
+      ...(r.camp ? { campaign_id: `@camp:${r.camp}` } : { fund_id: `@fund:${r.fund}` }),
+      amount_cents: r.cents, frequency: r.freq, method: r.method, next_charge_on: d(r.next), status: "pending_payment_method", starts_on: d(-r.since), end_kind: "until_stopped",
+    }))));
+  }
   return ops;
 }
 
@@ -158,9 +181,24 @@ function eventOps(spec) {
   const ops = [rows("events", spec.events.map((e) => ({
     id: `@ev:${e.k}`, template_id: null, name: e.name, description: e.descr, venue: e.venue, starts_at: at(e.day, e.from), ends_at: at(e.day, e.to),
     program_year: null, capacity: e.cap, audience: e.audience, rsvp_opens_at: e.opens === null ? null : at(e.opens, "09:00"),
-    rsvp_closes_at: e.closes === null ? null : at(e.closes, "20:00"), lunch_enabled: false, lunch_starts_at: null, lunch_slot_minutes: 15,
-    lunch_seats_per_slot: null, owner_person_id: `@p:${e.owner}`, status: e.status, created_by: "@actor", waitlist_enabled: !!e.waitlist,
+    rsvp_closes_at: e.closes === null ? null : at(e.closes, "20:00"), lunch_enabled: !!e.lunch, lunch_starts_at: e.lunch ? at(e.day, e.lunch.at) : null,
+    lunch_slot_minutes: e.lunch?.minutes ?? 15, lunch_seats_per_slot: e.lunch?.seats ?? null, owner_person_id: `@p:${e.owner}`, status: e.status, created_by: "@actor",
+    waitlist_enabled: !!e.waitlist,
+    // Donation choices on the RSVP (cents) and how long before the start the "Still coming?" question goes out (24 hours unless the event says).
+    ...(e.commit ? { commitment_options: e.commit } : {}), ...(e.confirmHours ? { confirmation_hours_before: e.confirmHours } : {}),
   })))];
+  // The lunch times of an event that serves a meal: back-to-back slots from the first one, each with its seats. Nobody is seated yet (the platform seats
+  // people when they check in), so every slot starts empty.
+  for (const e of spec.events) {
+    if (!e.lunch) continue;
+    const [h0, m0] = e.lunch.at.split(":").map(Number);
+    const slots = [];
+    for (let i = 0; i < e.lunch.slots; i++) {
+      const from = h0 * 60 + m0 + i * e.lunch.minutes, to = from + e.lunch.minutes;
+      slots.push({ event_id: `@ev:${e.k}`, starts_at: at(e.day, `${pad2(Math.floor(from / 60))}:${pad2(from % 60)}`), ends_at: at(e.day, `${pad2(Math.floor(to / 60))}:${pad2(to % 60)}`), seats: e.lunch.seats, assigned: 0, served: 0, status: "scheduled" });
+    }
+    ops.push(rows("lunch_slots", slots));
+  }
   for (const [ev, hh, status] of spec.rsvps) ops.push({ op: "rsvp", event: `ev:${ev}`, household: hh, status });
   ops.push(rows("volunteer_shifts", spec.shifts.map((s) => ({
     id: `@shift:${s.k}`, event_id: `@ev:${s.ev}`, station: s.station, starts_at: at(s.day, s.from), ends_at: at(s.day, s.to), capacity: s.cap, notes: s.notes ?? null,
@@ -229,12 +267,15 @@ function queueOps(spec) {
   const ops = [];
   if (spec.inboxes) {
     ops.push(rows("inboxes", spec.inboxes.map(([k, name, hours, zone]) => ({ id: `@inbox:${k}`, key: k, name, ...(zone ? { zone_id: `@zone:${zone}` } : {}), response_target_hours: hours }))));
+    // A thread with a `reply` is one the office answered a day later and closed: it shows in the family's own messages with the answer under the question.
     ops.push(rows("threads", spec.threads.map((t) => ({
-      id: `@thread:${t.k}`, inbox_id: `@inbox:${t.inbox}`, from_person_id: `@p:${t.from}`, subject: t.subject, status: "open", created_at: at(-t.ago, t.time),
+      id: `@thread:${t.k}`, inbox_id: `@inbox:${t.inbox}`, from_person_id: `@p:${t.from}`, subject: t.subject, status: t.reply ? "closed" : "open", created_at: at(-t.ago, t.time),
+      ...(t.reply ? { assignee_user: "@actor", first_response_at: at(-(t.ago - 1), "10:15"), closed_at: at(-(t.ago - 1), "10:30") } : {}),
     }))));
-    ops.push(rows("thread_messages", spec.threads.map((t) => ({
-      thread_id: `@thread:${t.k}`, from_role: false, body: t.body, created_at: at(-t.ago, t.time),
-    }))));
+    ops.push(rows("thread_messages", spec.threads.flatMap((t) => [
+      { thread_id: `@thread:${t.k}`, from_role: false, body: t.body, created_at: at(-t.ago, t.time) },
+      ...(t.reply ? [{ thread_id: `@thread:${t.k}`, author_user: "@actor", from_role: true, body: t.reply, created_at: at(-(t.ago - 1), "10:15") }] : []),
+    ])));
   }
   if (spec.whatsapp) {
     ops.push(rows("whatsapp_groups", spec.whatsapp.groups.map(([k, name, descr, audience, zone]) => ({
@@ -317,6 +358,99 @@ function pathshalaPeopleOps(spec) {
   return ops;
 }
 
+/**
+ * What makes the community member's app feel lived in (owner request 2026-10-16: "fill up all spots that we can fill with test data"): the
+ * calendar, photo albums, surveys, special days, the committee list, profile details, and, where there is a school, its class days, attendance,
+ * progress reports, class announcements and a learning path; the guide's text that Niva answers from. Every row is invented, every date relative.
+ * The photo albums only link to an online album (a placeholder address on a domain nobody owns): the platform keeps the photos themselves in
+ * storage, and a pack cannot load a file.
+ */
+function extrasOps(spec) {
+  const X = spec.extras;
+  const ops = [];
+  ops.push(rows("calendar_layers", X.layers.map(([k, name, kind, color]) => ({ id: `@layer:${k}`, key: `${spec.tag}_${k}`, name, kind, default_on: true, color }))));
+  ops.push(rows("calendar_entries", [
+    ...spec.events.filter((e) => e.status === "published" || e.status === "completed").map((e) => ({
+      layer_id: "@layer:events", title: e.name, starts_on: d(e.day), all_day: false, starts_at: at(e.day, e.from), ends_at: at(e.day, e.to), event_id: `@ev:${e.k}`,
+    })),
+    ...X.entries.map(([layer, title, day]) => ({ layer_id: `@layer:${layer}`, title, starts_on: d(day), all_day: true })),
+  ]));
+  ops.push(rows("photo_albums", X.albums.map(([ev, title, url, photos, ago]) => ({
+    ...(ev ? { event_id: `@ev:${ev}` } : {}), title, external_url: url, visibility: "members", created_by: "@actor", external_photo_count: photos, external_synced_at: at(-ago, "09:00"), created_at: at(-ago, "09:00"),
+  }))));
+  // Surveys: the feedback form of the last event (open), an open poll, and a few answers so the results are not empty.
+  ops.push(rows("surveys", X.surveys.map((s) => ({
+    id: `@survey:${s.k}`, title: s.title, description: s.descr, questions: s.questions, audience: { all_members: true }, status: "open", kind: s.kind,
+    ...(s.ev ? { event_id: `@ev:${s.ev}` } : {}), opens_at: at(s.opens, "09:00"), closes_at: at(s.closes, "20:00"), created_by: "@actor", created_at: at(s.opens, "09:00"),
+  }))));
+  ops.push(rows("survey_responses", X.surveys.flatMap((s) => s.answers.map(([who, answers], i) => ({
+    survey_id: `@survey:${s.k}`, person_id: `@p:${who}`, answers, submitted_at: at(Math.min(s.opens + 1 + (i % 3), -1), `1${i % 10}:20`),
+  })))));
+  ops.push(rows("special_days", X.specialDays.map(([hh, who, kind, label, day, home]) => ({
+    household_id: `@h:${hh}`, ...(who ? { person_id: `@p:${who}` } : {}), kind, label, calendar_date: d(day), show_on_home: home,
+  }))));
+  ops.push(rows("role_roster", X.roster.map(([body, title, who, name], i) => ({
+    body, title, person_id: `@p:${who}`, display_name: name, term_starts_on: d(-200), term_ends_on: d(165), sort_order: i + 1,
+  }))));
+  // The numbers the community keeps for the family (the Family screen shows them) and whether each adult may vote, with the reasons.
+  ops.push(rows("external_ids", X.identifiers.map(([hh, who, value]) => ({
+    household_id: `@h:${hh}`, ...(who ? { person_id: `@p:${hh}.${who}`, kind: "org_member" } : { kind: "org_household" }), system: "demo_register", value, label: who ? "Member ID" : "Household ID",
+    is_primary: true, source: "import",
+  }))));
+  ops.push(rows("eligibility_snapshots", X.eligibility.map(([who, canVote, reasons]) => ({ person_id: `@p:${who}`, can_vote: canVote, reasons }))));
+  ops.push(rows("person_profile_details", X.profiles.map((p) => ({
+    person_id: `@p:${p.who}`, dietary: p.dietary, ...(p.anniversary ? { anniversary: p.anniversary } : {}),
+    ...(p.emergency ? { emergency_contact_name: p.emergency[0], emergency_contact_relationship: p.emergency[1], emergency_contact_phone: p.emergency[2] } : {}),
+  }))));
+  // Library texts the community's assistant answers from (approved) and two that members can read (published).
+  ops.push(rows("content_items", X.content.map((c) => ({
+    id: `@content:x.${c.k}`, kind: c.kind, slug: c.slug, title: c.title, body_md: c.body, language: "en", metadata: {}, status: c.status,
+    ...(c.status === "published" ? { published_at: at(-c.ago, "10:00") } : {}), approved_by: "@actor", created_by: "@actor", created_at: at(-c.ago, "10:00"),
+  }))));
+  if (X.learning) ops.push(...learningOps(spec));
+  return ops;
+}
+
+/** The Learning Center of the faith pack: class days with attendance, a progress report, class announcements and a learning path of the community's own. */
+function learningOps(spec) {
+  const L = spec.extras.learning;
+  const ops = [];
+  // Class days: not the latest one, so the teacher's "attendance not taken" stays true. Every class day has the learners of the class marked.
+  ops.push(rows("pathshala_sessions", L.sessions.map(([i, ago, topic]) => ({ id: `@session:${L.cls}.${i}`, class_id: `@class:${L.cls}`, held_on: d(-ago), topic, opened_by: "@actor" }))));
+  const marks = { p: "present", l: "late", a: "absent", e: "excused" };
+  ops.push(rows("pathshala_attendance", L.sessions.flatMap(([i, ago]) => Object.entries(L.attendance).map(([child, row]) => ({
+    session_id: `@session:${L.cls}.${i}`, enrollment_id: `@enroll:${child}`, status: marks[row[i - 1]], marked_by: "@actor", marked_via: "teacher", marked_at: at(-ago, "11:45"),
+  })))));
+  // A progress report counts the class days: present (or late) over the days held, and the late ones.
+  ops.push(rows("pathshala_progress_reports", L.reports.map((r) => {
+    const row = L.attendance[r.child];
+    return {
+      id: `@report:${r.child}`, enrollment_id: `@enroll:${r.child}`, term_id: "@term:current", period: r.period, attendance_present: [...row].filter((c) => c === "p" || c === "l").length,
+      attendance_total: row.length, attendance_late: [...row].filter((c) => c === "l").length, teacher_comments: r.comments, gyan_path_summary: {}, published_at: at(-r.ago, "10:00"), authored_by: "@actor",
+    };
+  })));
+  // A place for a volunteer teacher to apply for (the member app's "Volunteer to teach").
+  ops.push(t("teacher_positions", { id: "@position:l2", term_id: "@term:current", level_id: "@level:faith2", title: L.position[0], description: L.position[1], min_qualifications: L.position[2], status: "open", created_by: "@actor" }));
+  ops.push(rows("class_announcements", L.announcements.map(([ago, title, body]) => ({
+    class_id: `@class:${L.cls}`, term_id: "@term:current", title, body_md: body, author_user: "@actor", published_at: at(-ago, "09:00"), created_at: at(-ago, "09:00"),
+  }))));
+  // The learning path: one goal that belongs to the community (no tradition), levels of three steps, and the children's progress on it.
+  const G = L.goal;
+  ops.push(t("gyan_goals", { id: "@goal:path", tradition: null, key: G.key, name: G.name, description: G.descr, sort_order: 1, recommended: true, tint: G.tint, mark: G.mark }));
+  ops.push(rows("gyan_levels", G.levels.map((l, i) => ({
+    id: `@glevel:${i + 1}`, goal_id: "@goal:path", key: String(i + 1), name: l.name, sort_order: i + 1, points: 20, treasure: l.treasure, requires_teacher_signoff: false, chapter: l.chapter, treasure_points: l.treasurePoints,
+  }))));
+  const POINTS = { read: 5, quiz: 10, practice: 10 };
+  ops.push(rows("gyan_steps", G.levels.flatMap((l, i) => l.steps.map((s, j) => ({
+    id: `@gstep:${i + 1}.${j + 1}`, level_id: `@glevel:${i + 1}`, kind: s.kind, title: s.title, sort_order: j + 1, points: POINTS[s.kind],
+    ...(s.kind === "quiz" ? { quiz: { questions: s.questions } } : { activity: { cards: s.cards, ...(s.kind === "practice" ? { confirm_label: s.confirm } : {}) } }),
+  })))));
+  ops.push(rows("gyan_progress", L.progress.map(([child, level, step, stars, ago]) => ({
+    person_id: `@p:patni.${child}`, step_id: `@gstep:${level}.${step}`, stars, completed_at: at(-ago, "12:00"),
+  }))));
+  return ops;
+}
+
 function build(spec) {
   const ppl = people(spec);
   const steps = {
@@ -331,6 +465,9 @@ function build(spec) {
   const order = ["setup", "people", "membership", "giving", "events", "store"];
   if (spec.pathshala) { steps.pathshala = [...pathshalaPeopleOps(spec)]; order.push("pathshala"); steps.setup.push(...pathshalaOps(spec)); }
   order.push("community");
+  // The last step (version 6 of the faith pack, 3 of the club): what makes the community member's app feel lived in. It needs the events, the
+  // classes and the people, so it comes after all of them.
+  if (spec.extras) { steps.lived_in = extrasOps(spec); order.push("lived_in"); }
   return { center: spec.center, order, steps, personas: ppl.personas };
 }
 
@@ -409,6 +546,8 @@ const faith = {
   ],
   changeRequests: [
     { k: "wadhwa", hh: "wadhwa", kind: "add_member", ago: 1, details: { first_name: "Leela", last_name: "Wadhwa", relationship: "parent", dob: "1958-04-12" } },
+    // The community member's family asked to add a grandparent (the member app's "Add a family member"); the membership coordinator decides.
+    { k: "patni", hh: "patni", kind: "add_member", ago: 2, details: { first_name: "Kamala", last_name: "Patni", relationship: "parent", dob: "1956-02-20" } },
   ],
   memberships: [
     ["varma", "asha", "life", -4000], ["doshiwal", "meera", "yearly", -200, 165], ["parmar", "hemant", "yearly", -150, 215], ["lunawat", "sanjay", "yearly", -120, 245],
@@ -428,6 +567,10 @@ const faith = {
     { ref: "g1", hh: "rathore", who: "lalit", fund: "general", source: "general", cents: 5100, ago: 70 },
     { ref: "g2", hh: "patni", who: "tarun", fund: "general", source: "general", cents: 5100, ago: 40 },
     { ref: "g3", hh: "wadhwa", who: "priya", fund: "general", source: "general", cents: 2500, ago: 12 },
+    // The community member's family has a history (owner request 2026-10-16): the annual appeal paid in full by check, and a pledge to the new hall,
+    // a row of bricks, paid in part (a Zelle transfer and a test-mode card payment). Their open pledges below are untouched; the part-paid one is newer than the oldest of them.
+    { ref: "p1", hh: "patni", who: "tarun", camp: "annual", source: "general", cents: 10000, ago: 150 },
+    { ref: "p2", hh: "patni", who: "tarun", camp: "building", source: "construction", cents: 50000, ago: 55, opp: "bricks", opt: "row" },
     // A write-off the community's record-keeper asked for: the treasurer is the second, different person who confirms or turns it down.
     { ref: "w1", hh: "nahar", who: "sunil", camp: "annual", source: "general", cents: 10100, ago: 240, writeOff: "The family moved out of the area and asked to be released (demo)." },
     ...[["anaya", "varma", "asha"], ["ved", "doshiwal", "meera"], ["tia", "lunawat", "sanjay"], ["neel", "lunawat", "sanjay"], ["jay", "salecha", "pooja"], ["ishaan", "chopda", "deepa"], ["mira", "bhandari", "anita"], ["dev", "patni", "tarun"], ["maya", "patni", "tarun"], ["aarav", "patni", "tarun"]]
@@ -449,21 +592,45 @@ const faith = {
     { ref: "b1b", hh: "kataria", who: "bharat", cents: 125000, method: "ach", ago: 160, pledges: ["b1"], memo: "Building fund" },
     { ref: "b2", hh: "nahar", who: "sunil", cents: 125000, method: "zelle", ago: 280, pledges: ["b2"], memo: "Building fund" },
     { ref: "g1", hh: "rathore", who: "lalit", cents: 2500, method: "cash", ago: 60, pledges: ["g1"] },
+    { ref: "p1", hh: "patni", who: "tarun", cents: 10000, method: "check", ago: 145, pledges: ["p1"], check: "5530", memo: "Annual appeal" },
+    { ref: "p2a", hh: "patni", who: "tarun", cents: 20000, method: "zelle", ago: 45, pledges: ["p2"], memo: "New building fund" },
+    { ref: "p2b", hh: "patni", who: "nisha", cents: 10000, method: "card", ago: 18, pledges: ["p2"], memo: "New building fund" },
     { ref: "pfee.varma", hh: "varma", who: "asha", cents: 15000, method: "zelle", ago: 55, pledges: ["pfee.anaya"], memo: "Learning Center fees" },
     { ref: "pfee.doshiwal", hh: "doshiwal", who: "meera", cents: 15000, method: "card", ago: 54, pledges: ["pfee.ved"], memo: "Learning Center fees" },
     { ref: "pfee.lunawat", hh: "lunawat", who: "sanjay", cents: 28500, method: "check", ago: 53, pledges: ["pfee.tia", "pfee.neel"], check: "3321", memo: "Learning Center fees" },
     { ref: "pfee.salecha", hh: "salecha", who: "pooja", cents: 15000, method: "zelle", ago: 52, pledges: ["pfee.jay"], memo: "Learning Center fees" },
   ],
+  // Things a family can give to. Neutral titles, tiers like a building fund's.
+  opportunities: [
+    { k: "founding", camp: "building", name: "Founding circle", descr: "Your family's name on the founders' wall of the new hall.", cents: 500000, sort: 1, kind: "fixed" },
+    { k: "pillar", camp: "building", name: "Pillar sponsor", descr: "One of twelve pillars of the new hall.", cents: 250000, qty: 12, sort: 2, kind: "fixed" },
+    { k: "bricks", camp: "building", name: "Brick by brick", descr: "Choose how much of the wall your family would like to build.", sort: 3, kind: "tier", options: [
+      { key: "brick", label: "A brick", amount_cents: 10000, note: "Your family's name in the brick book." },
+      { key: "row", label: "A row of bricks", amount_cents: 50000, note: "A row of the entrance wall." },
+      { key: "course", label: "A full course", amount_cents: 250000, recognition: "Named on the wall plaque." }] },
+    { k: "any", camp: "building", name: "Any amount for the new hall", descr: "Give what you can; every gift counts toward the goal.", sort: 4, kind: "amount", options: [{ amount_cents: 2500 }, { amount_cents: 5100 }, { amount_cents: 10100 }] },
+    { k: "meal", camp: "annual", name: "Sponsor a shared meal", descr: "Host the shared lunch after a weekly gathering.", cents: 25100, sort: 1, kind: "fixed" },
+  ],
+  // A monthly gift the Patni family set up in the app. It waits for a card and is never charged.
+  recurring: [{ k: "tarun", hh: "patni", who: "tarun", fund: "general", cents: 2500, freq: "monthly", method: "card", next: 18, since: 20 }],
   events: [
     { k: "weekly", name: "Weekly gathering and lunch", descr: "A short service, a talk and a shared lunch.", venue: "Main hall", day: -12, from: "10:00", to: "13:00", cap: 120, audience: "members_and_guests", opens: -30, closes: -13, owner: "lunawat.sanjay", status: "completed" },
     // Five days away: close enough that the event lead's routine and the check-in list are due, far enough that the volunteers' waivers still matter.
-    { k: "dinner", name: "Annual appreciation dinner", descr: "Honoring this year's volunteers and teachers, followed by a shared meal.", venue: "Main hall", day: 5, from: "10:00", to: "14:00", cap: 200, audience: "members_and_guests", opens: -14, closes: 4, owner: "lunawat.sanjay", status: "published", waitlist: true },
+    { k: "dinner", name: "Annual appreciation dinner", descr: "Honoring this year's volunteers and teachers, followed by a shared meal.", venue: "Main hall", day: 5, from: "10:00", to: "14:00", cap: 200, audience: "members_and_guests", opens: -14, closes: 4, owner: "lunawat.sanjay", status: "published", waitlist: true,
+      // The shared meal at noon in six back-to-back lunch times, and donation choices on the RSVP (cents).
+      lunch: { at: "12:00", minutes: 15, seats: 40, slots: 6 }, commit: { per_person: [1500, 2500, 3500], lump_sum: [5000, 10000, 25000], open: true } },
     { k: "festival", name: "Community festival night", descr: "An evening of music, a short service and a shared meal.", venue: "Worship hall", day: 40, from: "18:00", to: "21:00", cap: null, audience: "public", opens: -5, closes: 39, owner: "kataria.bharat", status: "published" },
+    // Tomorrow morning's gathering: the family of the community member has an RSVP that waits for "Still coming?" (the question goes out 36 hours before, so it is
+    // open all day today). It is the next event of the community, so it has families coming.
+    { k: "weekly2", name: "Weekly gathering and lunch", descr: "A short service, a talk and a shared lunch.", venue: "Main hall", day: 1, from: "10:00", to: "13:00", cap: 120, audience: "members_and_guests",
+      opens: -6, closes: null, owner: "lunawat.sanjay", status: "published", confirmHours: 36, lunch: { at: "12:00", minutes: 15, seats: 30, slots: 4 } },
     { k: "picnic", name: "Youth picnic", descr: "A picnic for the youth group (being planned).", venue: "Lakeview park", day: 60, from: "11:00", to: "16:00", cap: 60, audience: "members_only", opens: null, closes: null, owner: "salecha.pooja", status: "draft" },
   ],
   rsvps: [
     ...["varma", "doshiwal", "lunawat", "salecha", "kataria", "chopda", "bhandari"].map((h) => ["weekly", h, "attended"]),
-    ["weekly", "nahar", "no_show"],
+    ["weekly", "nahar", "no_show"], ["weekly", "patni", "attended"],
+    ["weekly2", "varma", "confirmed"], ["weekly2", "kataria", "confirmed"], ["weekly2", "bhandari", "confirmed"], ["weekly2", "doshiwal", "rsvpd"], ["weekly2", "lunawat", "rsvpd"],
+    ["weekly2", "salecha", "rsvpd"], ["weekly2", "chopda", "rsvpd"], ["weekly2", "patni", "rsvpd"],
     ["dinner", "varma", "confirmed"], ["dinner", "doshiwal", "confirmed"], ["dinner", "lunawat", "confirmed"], ["dinner", "kataria", "confirmed"],
     ["dinner", "salecha", "rsvpd"], ["dinner", "chopda", "rsvpd"], ["dinner", "bhandari", "rsvpd"], ["dinner", "singhvi", "rsvpd"], ["dinner", "nahar", "cancelled"],
     ["festival", "varma", "rsvpd"], ["festival", "rathore", "rsvpd"], ["festival", "patni", "rsvpd"],
@@ -488,11 +655,16 @@ const faith = {
   ],
   groups: [["kitchen", "Kitchen and hospitality", false], ["teaching", "Learning Center teaching", true], ["events", "Events and decoration", false], ["parking", "Parking and welcome", false]],
   interests: [["lunawat.riya", "events", "active"], ["bhandari.vijay", "kitchen", "active"], ["salecha.nikhil", "events", "interested"], ["nahar.rekha", "parking", "active"],
-             ["rathore.kavita", "kitchen", "interested"], ["varma.rohit", "events", "active"], ["doshiwal.kiran", "teaching", "interested"], ["patni.nisha", "kitchen", "active"]],
+             ["rathore.kavita", "kitchen", "interested"], ["varma.rohit", "events", "active"], ["doshiwal.kiran", "teaching", "interested"], ["patni.nisha", "kitchen", "active"],
+             ["patni.tarun", "events", "active"]],
   guide: [
     ["visiting-us", "Visiting us", "Everyone is welcome. Silence your phone and sit where you are comfortable.\n\n(Demo content.)", false],
     ["first-visit-checklist", "Your first visit", "- Arrive a few minutes early\n- Dress modestly\n- Say hello at the office\n- Ask about the Learning Center for the children", true],
     ["parking-and-access", "Parking and access", "The east door is step-free. Overflow parking opens on busy days; volunteers will guide you.\n\n(Demo content.)", false],
+    // The pages the member app's Life tiles open: the times (a | What | When | table that the home card reads too), the links and membership.
+    ["timings", "Times and visiting", "| What | When |\n|---|---|\n| Weekly gathering | Sundays 10:00 AM – 1:00 PM |\n| Shared lunch | Sundays 12:00 PM |\n| Learning Center classes | Sundays 10:00 AM – 11:30 AM |\n| Store pickup | Sundays 11:00 AM – 1:00 PM |\n| Quiet time in the hall | Daily 7:00 AM – 7:00 PM |\n| Front office | Weekdays 9:00 AM – 4:00 PM |\n\n(Demo times.)", false],
+    ["links", "Links", "The community's own pages (demo addresses):\n\n- Community website: https://www.example.com/sunrise-worship-demo\n- Event photos: https://photos.example.com/sunrise-worship-demo\n- Learning Center parents' page: https://www.example.com/sunrise-worship-demo/learning\n\n(Demo content.)", false],
+    ["membership", "Membership", "A yearly membership includes your spouse and lets you vote at the annual meeting. A life membership also needs the executive committee's approval. Apply in the app: a member who knows you vouches for you, then the membership team decides.\n\n(Demo text.)", false],
   ],
   store: {
     where: "Community hall kitchen",
@@ -510,6 +682,9 @@ const faith = {
       { ref: "o2", hh: "doshiwal", who: "meera", win: "past", status: "picked_up", lines: [["102", 1], ["301", 4]] },
       { ref: "o3", hh: "lunawat", who: "sanjay", win: "next", status: "ready", lines: [["201", 2]] },
       { ref: "o4", hh: "salecha", who: "pooja", win: "next", status: "placed", lines: [["102", 1], ["202", 2]] },
+      // The community member's family: a lunch they picked up last time and an order waiting for the next pickup (items that are not counted on the shelf).
+      { ref: "o5", hh: "patni", who: "tarun", win: "past", status: "picked_up", lines: [["101", 1], ["301", 3]] },
+      { ref: "o6", hh: "patni", who: "tarun", win: "next", status: "placed", lines: [["102", 2]] },
     ],
   },
   alerts: [
@@ -531,6 +706,10 @@ const faith = {
     { k: "school", inbox: "school", from: "varma.asha", ago: 1, time: "08:15", subject: "Is there class at the Learning Center on the weekend after the festival?", body: "Anaya asked whether class meets the weekend after the festival or whether there is a break." },
     { k: "carpool", inbox: "zone-north", from: "wadhwa.priya", ago: 1, time: "15:00", subject: "Is anyone driving from the north zone to the appreciation dinner?", body: "I do not drive on the highway. Is there a carpool from the north zone on the morning of the appreciation dinner?" },
     { k: "gathering", inbox: "zone-north", from: "parmar.hemant", ago: 3, time: "10:20", subject: "Who is hosting this month's north zone family gathering?", body: "Nobody has written yet about this month's gathering. Can the zone lead confirm the host and the day?" },
+    // One the front office answered and closed: it shows in the family's own messages, the answer under the question.
+    { k: "summary", inbox: "office", from: "patni.tarun", ago: 4, time: "09:40", subject: "Where do I find our giving summary for the year?",
+      body: "We would like a summary of our family's gifts this year for our records. Is it in the app, and when is it ready?",
+      reply: "Thank you for asking. Your gifts and receipts are under Give in the app, and the year-end summary is added there in January. If you need one sooner, write to us and we will prepare it. (Demo reply.)" },
   ],
   whatsapp: {
     groups: [["north", "North zone families", "Updates for the families of the north zone.", "zone", "north"], ["helpers", "Volunteer helpers", "Shift reminders for people who volunteer.", "volunteers", null]],
@@ -574,12 +753,104 @@ const faith = {
     // A late registration (the term's window closed 45 days ago): Zara asks for a level that has no class yet.
     waiting: [{ child: "zara", hh: "singhvi", level: 4, status: "requested", ago: 2 }],
   },
+  // What makes the app of the community member (Tarun Patni, his wife and three children) feel lived in. Every word is neutral: no tradition's.
+  extras: {
+    layers: [["events", "Gatherings and events", "events", "#B5532B"], ["learning", "Learning Center", "pathshala", "#4B5A8A"]],
+    entries: [["learning", "No Learning Center class", 21], ["learning", "Progress reports go home", 14], ["learning", "No Learning Center class", 35], ["learning", "Learning Center annual day", 90]],
+    // [event, title, online album (a placeholder address), photos in it, days since it was made]
+    albums: [["weekly", "Weekly gathering · photos", "https://photos.example.com/sunrise-weekly-demo", 32, 9], [null, "Volunteer thank-you morning · photos", "https://photos.example.com/sunrise-thank-you-demo", 18, 40]],
+    surveys: [
+      { k: "feedback", kind: "event_feedback", ev: "weekly", title: "How was the weekly gathering?", descr: "Two quick questions about the last weekly gathering. (Demo.)", opens: -11, closes: 9,
+        questions: [{ id: "q1", type: "rating", label: "How was the gathering?", required: true }, { id: "q2", type: "text", label: "What should we change?", required: false }],
+        answers: [["lunawat.sanjay", { q1: 5, q2: "" }], ["varma.asha", { q1: 4, q2: "More seating near the front" }], ["salecha.pooja", { q1: 5, q2: "" }]] },
+      { k: "poll", kind: "poll", title: "Which evening suits a family dinner?", descr: "We are planning a monthly family dinner and want to pick the best evening. (Demo poll.)", opens: -3, closes: 11,
+        questions: [{ id: "q1", type: "single", label: "Which evening works best for your family?", options: ["Thursday", "Friday", "Saturday"], required: true }],
+        answers: [["varma.asha", { q1: "Friday" }], ["doshiwal.meera", { q1: "Saturday" }], ["lunawat.sanjay", { q1: "Friday" }], ["chopda.deepa", { q1: "Thursday" }]] },
+    ],
+    // [household, person or null for the whole family, kind, label, days from today, on Home]
+    specialDays: [
+      ["patni", "patni.nisha", "birthday", "Nisha's birthday", 9, true], ["patni", "patni.aarav", "birthday", "Aarav's birthday", 34, true],
+      ["patni", null, "anniversary", "Tarun and Nisha's anniversary", 120, false], ["patni", null, "other", "Remembrance day for Grandma Patni", 75, false],
+    ],
+    roster: [
+      ["executive_committee", "President", "varma.asha", "Asha Varma"], ["executive_committee", "Treasurer", "doshiwal.meera", "Meera Doshiwal"],
+      ["executive_committee", "Secretary", "salecha.pooja", "Pooja Salecha"], ["executive_committee", "Membership chair", "parmar.hemant", "Hemant Parmar"],
+      ["learning_center_committee", "Principal", "chopda.deepa", "Deepa Chopda"], ["learning_center_committee", "Teacher representative", "bhandari.anita", "Anita Bhandari"],
+      ["learning_center_committee", "Parent representative", "chopda.manish", "Manish Chopda"],
+    ],
+    // [household, person (none for the household's own number), the number]
+    identifiers: [["patni", null, "0412"], ["patni", "tarun", "0412"], ["patni", "nisha", "0413"], ["patni", "dev", "0414"], ["patni", "maya", "0415"], ["patni", "aarav", "0416"]],
+    // [person, may vote, why]: a community member who has applied for a yearly membership cannot vote yet.
+    eligibility: [
+      ["patni.tarun", false, [{ label: "A yearly or life membership is needed to vote", ok: false }, { label: "Your application is with the membership team", ok: null }]],
+      ["patni.nisha", false, [{ label: "A yearly or life membership is needed to vote", ok: false }]],
+    ],
+    profiles: [
+      { who: "patni.tarun", dietary: ["vegetarian"], anniversary: "2014-11-23", emergency: ["Sameer Patni", "Brother", "+13125550190"] },
+      { who: "patni.nisha", dietary: ["vegetarian"], emergency: ["Leena Patni", "Sister-in-law", "+13125550192"] },
+    ],
+    content: [
+      { k: "join", kind: "faq", slug: "how-to-join-demo", title: "How do I join? (demo)", status: "published", ago: 40, body: "Apply for a yearly membership in the app. A member who knows you vouches for you, then the membership team decides. (Demo.)" },
+      { k: "gathering", kind: "explainer", slug: "weekly-gathering-demo", title: "What happens at a weekly gathering (demo)", status: "published", ago: 30, body: "A short service, a talk and a shared lunch. Everyone is welcome; sit where you are comfortable. (Demo.)" },
+      // The guide's own text, approved, for the assistant to answer from.
+      { k: "visit", kind: "niva_source", slug: "niva-visiting-us-demo", title: "Visiting us", status: "approved", ago: 20, body: "Everyone is welcome. Silence your phone and sit where you are comfortable. Arrive a few minutes early, dress modestly and say hello at the office. (Demo.)" },
+      { k: "parking", kind: "niva_source", slug: "niva-parking-demo", title: "Parking and access", status: "approved", ago: 20, body: "The east door is step-free. Overflow parking opens on busy days; volunteers will guide you. (Demo.)" },
+      { k: "times", kind: "niva_source", slug: "niva-times-demo", title: "Times and visiting", status: "approved", ago: 20, body: "Weekly gathering on Sundays 10:00 AM to 1:00 PM, shared lunch at noon, Learning Center classes 10:00 to 11:30 AM, store pickup 11:00 AM to 1:00 PM, front office open weekdays 9:00 AM to 4:00 PM. (Demo.)" },
+      { k: "membership", kind: "niva_source", slug: "niva-membership-demo", title: "Membership", status: "approved", ago: 20, body: "A yearly membership includes your spouse and lets you vote at the annual meeting. A life membership also needs the executive committee's approval. (Demo.)" },
+    ],
+    learning: {
+      cls: "l2",
+      position: ["Assistant teacher · Level 2", "Help the Level 2 teacher on Sunday mornings: stories, activities and attendance.", "Comfortable with children aged 8 to 10."],
+      // [class day number, days ago, topic]. The latest class day is left out on purpose: the teacher still has attendance to take.
+      sessions: [[1, 35, "Why we share"], [2, 28, "Being honest"], [3, 21, "Caring for living things"], [4, 14, "Stories that teach"]],
+      // One letter per class day: p present, l late, a absent, e excused. Aarav joined three days ago, so he has no class day yet.
+      attendance: { anaya: "pppp", jay: "pplp", ishaan: "pape", dev: "pppl", maya: "pppp" },
+      reports: [
+        { child: "dev", period: "Mid-term", ago: 4, comments: "Dev joins in every discussion and listens well to others. He is welcome to share more of his own ideas. Keep reading the class stories together at home." },
+        { child: "maya", period: "Mid-term", ago: 4, comments: "Maya is thoughtful and kind to her classmates. She asks good questions about our stories and helps the younger children settle in." },
+      ],
+      announcements: [
+        [2, "Bring a snack to share this week", "Each child is asked to bring a small snack to share at the end of class. Please tell the teacher about any allergies. (Demo.)"],
+        [6, "Mid-term progress reports", "Progress reports go home on the mid-term day. Please read them with your child and write to the teacher with any questions. (Demo.)"],
+        [12, "Welcome to the new term", "Class meets on Sundays from 10:00 to 11:30 in Room B. Children should bring a notebook and a water bottle. (Demo.)"],
+      ],
+      goal: {
+        key: "kindness_at_home", name: "Kindness at home", descr: "Small ways to be kind to the people and the world around you (demo lessons, about two weeks).", tint: "#2F7A6B", mark: "K",
+        levels: [
+          { name: "Kind words", chapter: "Chapter 1 · Words", treasure: "Kind words badge", treasurePoints: 0, steps: [
+            { kind: "read", title: "Why kind words matter", cards: [
+              { title: "Words are powerful", body_md: "A kind word can brighten someone's whole day. A hurtful word can stay with a person for a long time.", emoji: "💬" },
+              { title: "Try this", body_md: "Before you speak, ask yourself: is it **kind**, is it **true**, is it **helpful**?", emoji: "🤔" }] },
+            { kind: "quiz", title: "Quick quiz: kind words", questions: [
+              { type: "choice", question: "Which is a kind thing to say to a friend who dropped their lunch?", options: ["That was silly", "Let's share mine", "Never mind"], answer: 1, explain: "Sharing is a kind way to help someone who is having a hard moment." },
+              { type: "truefalse", statement: "A kind word is only for people we know well.", answer: false, explain: "We can be kind to everyone we meet." }] },
+            { kind: "practice", title: "Say something kind today", confirm: "I said something kind", cards: [
+              { title: "Pick a person", body_md: "Choose someone at home or at school.", emoji: "🙂" },
+              { title: "Say it", body_md: "Tell them something kind and true, and notice how they smile.", emoji: "🎉" }] },
+          ] },
+          { name: "Helping hands", chapter: "Chapter 2 · Actions", treasure: "Helping hands badge and 25 bonus points", treasurePoints: 25, steps: [
+            { kind: "read", title: "Ways to help at home", cards: [
+              { title: "Many small jobs", body_md: "Setting the table, watering a plant or tidying the shoes by the door are all ways of helping.", emoji: "🏠" },
+              { title: "Ask first", body_md: "Ask, \"How can I help?\" and listen to the answer.", emoji: "🙋" }] },
+            { kind: "practice", title: "Help with one chore", confirm: "I helped with a chore", cards: [
+              { title: "Choose a chore", body_md: "Pick one job at home that you can do without being asked.", emoji: "🧹" },
+              { title: "Do it", body_md: "Do the job and tell someone at home that you did it.", emoji: "👍" }] },
+            { kind: "quiz", title: "Helping hands quiz", questions: [
+              { type: "choice", question: "What is a good first step when you want to help?", options: ["Wait to be told", "Ask how you can help", "Do it your own way"], answer: 1, explain: "Asking shows you care about what the other person needs." },
+              { type: "truefalse", statement: "Only grown-ups can be helpers.", answer: false, explain: "Children help in many ways, at home and in the community." }] },
+          ] },
+        ],
+      },
+      // [child, level, step, stars, days ago]
+      progress: [["dev", 1, 1, 3, 30], ["dev", 1, 2, 2, 29], ["dev", 1, 3, 3, 27], ["dev", 2, 1, 3, 10], ["maya", 1, 1, 3, 25], ["maya", 1, 2, 3, 24], ["aarav", 1, 1, 2, 3]],
+    },
+  },
 };
 
 // ═══ Lakeside Neighbors Club (Demo) · not faith-based ═════════════════════════
 const club = {
   tag: "lakeside",
-  center: { kind: "neutral", name: "Lakeside Neighbors Club (Demo)", short_name: "Lakeside Demo", slug: "lakeside-neighbors-demo", category_key: "nonprofit_secular", city: "Lakeview", state: "IL" },
+  center: { kind: "neutral", name: "Lakeside Neighbors Club (Demo)", short_name: "Lakeside Demo", slug: "lakeside-neighbors-demo", category_key: "nonprofit_secular", city: "Lakeview", state: "IL", modules: ["store", "niva"] },
   scopes: { event_lead: { scope: "ev:cleanup" }, checkin_volunteer: { scope: "ev:cleanup" }, zone_lead: { scope: "zone:north" } },
   zones: [["north", "North shore", ["60201", "60202"]], ["south", "South shore", ["60211", "60212"]]],
   households: [
@@ -649,6 +920,10 @@ const club = {
     { ref: "g3", hh: "osei", who: "kwame", camp: "garden", source: "sponsorship", cents: 12500, ago: 60 },
     { ref: "g4", hh: "sullivan", who: "patrick", fund: "general", source: "general", cents: 5000, ago: 40 },
     { ref: "g5", hh: "reyes", who: "mateo", fund: "general", source: "general", cents: 2500, ago: 20 },
+    // The community member's family has a history (owner request 2026-10-16): the annual appeal paid in full by card, and a raised bed for the garden, paid in
+    // part (a Zelle transfer and a check). Their open garden pledge (g3) is untouched; the part-paid one is newer than it.
+    { ref: "oa1", hh: "osei", who: "kwame", camp: "annual", source: "general", cents: 15000, ago: 170 },
+    { ref: "ob1", hh: "osei", who: "kwame", camp: "garden", source: "sponsorship", cents: 30000, ago: 45, opp: "bed" },
     // A write-off the record-keeper asked for: the treasurer is the second, different person who confirms or turns it down.
     { ref: "w1", hh: "whitfield", who: "grace", camp: "annual", source: "general", cents: 10000, ago: 230, writeOff: "The family moved away and asked to be released (demo)." },
   ],
@@ -661,16 +936,39 @@ const club = {
     { ref: "g1a", hh: "whitfield", who: "grace", cents: 50000, method: "check", ago: 90, pledges: ["g1"], check: "7788", memo: "Garden" },
     { ref: "g1b", hh: "whitfield", who: "grace", cents: 25000, method: "ach", ago: 30, pledges: ["g1"], memo: "Garden" },
     { ref: "g2", hh: "haddad", who: "layla", cents: 25000, method: "zelle", ago: 70, pledges: ["g2"], memo: "Garden" },
+    { ref: "oa1", hh: "osei", who: "kwame", cents: 15000, method: "card", ago: 165, pledges: ["oa1"], memo: "Annual appeal" },
+    { ref: "ob1a", hh: "osei", who: "kwame", cents: 10000, method: "zelle", ago: 30, pledges: ["ob1"], memo: "Garden" },
+    { ref: "ob1b", hh: "osei", who: "abena", cents: 5000, method: "check", ago: 12, pledges: ["ob1"], check: "1204", memo: "Garden" },
   ],
+  // Things a family can give to: garden beds and a tool shed.
+  opportunities: [
+    { k: "bed", camp: "garden", name: "Raised garden bed", descr: "Sponsor one of the eight new raised beds; your name goes on the bed's marker.", cents: 30000, qty: 8, sort: 1, kind: "fixed" },
+    { k: "shed", camp: "garden", name: "Tool shed", descr: "Help build the new tool shed: a roof panel, the door or the whole frame.", sort: 2, kind: "tier", options: [
+      { key: "panel", label: "A roof panel", amount_cents: 5000 }, { key: "door", label: "The door and lock", amount_cents: 15000 },
+      { key: "frame", label: "The frame", amount_cents: 50000, recognition: "Named on the shed's plaque." }] },
+    { k: "soil", camp: "garden", name: "Seed and soil kit", descr: "Soil, seeds and tools for one new gardener.", cents: 4000, sort: 3, kind: "fixed" },
+    { k: "any", camp: "garden", name: "Any amount for the garden", descr: "Give what you can; every gift goes to the beds and the shed.", sort: 4, kind: "amount", options: [{ amount_cents: 1000 }, { amount_cents: 2500 }, { amount_cents: 5000 }] },
+    { k: "potluck", camp: "annual", name: "Sponsor a potluck", descr: "Cover the tables, plates and drinks for one neighbors potluck.", cents: 15000, qty: 4, sort: 1, kind: "fixed" },
+  ],
+  // A monthly gift the Osei family set up in the app. It waits for a card and is never charged.
+  recurring: [{ k: "kwame", hh: "osei", who: "kwame", camp: "garden", cents: 2000, freq: "monthly", method: "card", next: 18, since: 25 }],
   events: [
     { k: "potluck", name: "Neighbors potluck", descr: "Bring a dish to share and meet the neighbors.", venue: "Lakeside hall", day: -10, from: "17:00", to: "20:00", cap: 80, audience: "members_and_guests", opens: -30, closes: -11, owner: "petrov.irina", status: "completed" },
-    { k: "cleanup", name: "Spring clean-up day", descr: "Gloves, bags and lunch provided; we tidy the shoreline and the garden.", venue: "Lakeside park", day: 5, from: "09:00", to: "13:00", cap: 60, audience: "members_and_guests", opens: -14, closes: 4, owner: "petrov.irina", status: "published", waitlist: true },
+    { k: "cleanup", name: "Spring clean-up day", descr: "Gloves, bags and lunch provided; we tidy the shoreline and the garden.", venue: "Lakeside park", day: 5, from: "09:00", to: "13:00", cap: 60, audience: "members_and_guests", opens: -14, closes: 4, owner: "petrov.irina", status: "published", waitlist: true,
+      // Lunch is provided in four lunch times, and the RSVP offers a small contribution toward it (cents).
+      lunch: { at: "11:30", minutes: 15, seats: 16, slots: 4 }, commit: { per_person: [500, 1000], lump_sum: [2500, 5000], open: true } },
+    // Tomorrow morning's workday: the family of the community member has an RSVP that waits for "Still coming?" (the question goes out 36 hours before, so it is
+    // open all day today). It is the next event of the community, so it has neighbors coming.
+    { k: "gardenam", name: "Garden work morning", descr: "A morning with the garden crew: weeding, watering and marking out the new raised beds.", venue: "Community garden", day: 1, from: "09:00", to: "12:00", cap: 25,
+      audience: "members_and_guests", opens: -6, closes: null, owner: "nakamura.ken", status: "published", confirmHours: 36 },
     { k: "concert", name: "Summer concert in the park", descr: "An evening of local bands on the lawn.", venue: "Lakeside park", day: 45, from: "18:00", to: "21:00", cap: null, audience: "public", opens: -5, closes: 44, owner: "lindqvist.sofia", status: "published" },
     { k: "bookswap", name: "Book swap", descr: "Bring a book, take a book (being planned).", venue: "Lakeside hall", day: 60, from: "10:00", to: "12:00", cap: 40, audience: "members_only", opens: null, closes: null, owner: "okonkwo.ngozi", status: "draft" },
   ],
   rsvps: [
     ...["alvarez", "brightwater", "okonkwo", "petrov", "lindqvist", "nakamura", "haddad"].map((h) => ["potluck", h, "attended"]),
-    ["potluck", "whitfield", "no_show"],
+    ["potluck", "whitfield", "no_show"], ["potluck", "osei", "attended"],
+    ["gardenam", "moreau", "confirmed"], ["gardenam", "petrov", "confirmed"], ["gardenam", "nakamura", "confirmed"], ["gardenam", "haddad", "rsvpd"], ["gardenam", "okonkwo", "rsvpd"],
+    ["gardenam", "osei", "rsvpd"],
     ["cleanup", "alvarez", "confirmed"], ["cleanup", "petrov", "confirmed"], ["cleanup", "haddad", "confirmed"], ["cleanup", "moreau", "confirmed"],
     ["cleanup", "okonkwo", "rsvpd"], ["cleanup", "osei", "rsvpd"], ["cleanup", "reyes", "rsvpd"], ["cleanup", "whitfield", "cancelled"],
     ["concert", "alvarez", "rsvpd"], ["concert", "lindqvist", "rsvpd"], ["concert", "sullivan", "rsvpd"],
@@ -701,6 +999,10 @@ const club = {
     { k: "garden", inbox: "office", from: "haddad.layla", ago: 1, time: "08:15", subject: "Who has the key to the garden shed?", body: "I would like to start on the raised beds before the clean-up day. Who can open the shed for me?" },
     { k: "carpool", inbox: "zone-north", from: "reyes.mateo", ago: 1, time: "15:00", subject: "Is anyone driving from the north shore to the clean-up day?", body: "I do not have a car. Is there a carpool from the north shore on the morning of the clean-up day?" },
     { k: "gathering", inbox: "zone-north", from: "okonkwo.ngozi", ago: 3, time: "10:20", subject: "Who is hosting this month's north shore get-together?", body: "Nobody has written yet about this month's get-together. Can the zone lead confirm the host and the day?" },
+    // One the front office answered and closed: it shows in the family's own messages, the answer under the question.
+    { k: "kids", inbox: "office", from: "osei.kwame", ago: 4, time: "09:40", subject: "Can the kids come to the next potluck, and what should we bring?",
+      body: "Our son and daughter would like to join us. Are children welcome at the potluck, and is there anything we should not bring?",
+      reply: "Children are very welcome. Bring a dish to share; please label it if it has nuts. Plates, cups and drinks are on us. See you there! (Demo reply.)" },
   ],
   whatsapp: {
     groups: [["north", "North shore neighbors", "Updates for the neighbors of the north shore.", "zone", "north"], ["crew", "Volunteer crews", "Shift reminders for people who volunteer.", "volunteers", null]],
@@ -730,6 +1032,10 @@ const club = {
     ["welcome", "Welcome to the club", "We are neighbors who like to do things together: meals, clean-ups, concerts and the garden.\n\n(Demo content.)", false],
     ["how-to-join", "How to join", "Say hello at any event, then apply for a yearly membership in the app. Two members vouch for you.\n\n(Demo content.)", false],
     ["first-event-checklist", "Your first event", "- Bring a dish if it is a potluck\n- Introduce yourself at the welcome table\n- Ask about the garden crew", true],
+    // The pages the member app's Life tiles open: the times (a | What | When | table that the home card reads too), the links and membership.
+    ["timings", "Times and visiting", "| What | When |\n|---|---|\n| Neighbors potluck | First Saturday of the month, 5:00 PM – 8:00 PM |\n| Garden crew workday | Saturdays 9:00 AM – 12:00 PM |\n| Clean-up days | Spring and fall, 9:00 AM – 1:00 PM |\n| Shop pickup | Wednesdays 11:00 AM – 1:00 PM |\n| Hall office | Weekdays 10:00 AM – 3:00 PM |\n\n(Demo times.)", false],
+    ["links", "Links", "The club's own pages (demo addresses):\n\n- Club website: https://www.example.com/lakeside-neighbors-demo\n- Event photos: https://photos.example.com/lakeside-neighbors-demo\n- Garden crew sign-up: https://www.example.com/lakeside-neighbors-demo/garden\n\n(Demo content.)", false],
+    ["membership", "Membership", "A yearly membership includes your spouse and lets you vote at the annual meeting. Neighbors are always welcome at our events. Apply in the app: two members vouch for you, then the membership team decides.\n\n(Demo text.)", false],
   ],
   store: {
     where: "Lakeside hall office",
@@ -747,6 +1053,9 @@ const club = {
       { ref: "o2", hh: "brightwater", who: "dana", win: "past", status: "picked_up", lines: [["104", 1], ["103", 2]] },
       { ref: "o3", hh: "petrov", who: "irina", win: "next", status: "ready", lines: [["102", 2]] },
       { ref: "o4", hh: "lindqvist", who: "sofia", win: "next", status: "placed", lines: [["104", 1], ["201", 2]] },
+      // The community member's family: a bag and a book they picked up last time and an order waiting for the next pickup (items that are not counted on the shelf).
+      { ref: "o5", hh: "osei", who: "kwame", win: "past", status: "picked_up", lines: [["102", 1], ["104", 1]] },
+      { ref: "o6", hh: "osei", who: "kwame", win: "next", status: "placed", lines: [["103", 2]] },
     ],
   },
   alerts: [
@@ -760,11 +1069,53 @@ const club = {
     // Written by a colleague and waiting for the communications officer's approval; an all-member send needs two different approvers.
     { k: "welcome", kind: "announcement", name: "Welcome, new neighbors", title: "Welcome to Lakeside Neighbors Club", body: "A warm welcome to everyone who joined this season. The clean-up day is next week; bring gloves if you have them. (Demo.)", channels: ["push", "email"], status: "pending_approval", sentDay: null, createdDay: -1, second: true },
   ],
+  // What makes the app of the community member (Kwame Osei, his wife and son) feel lived in.
+  extras: {
+    layers: [["events", "Club events", "events", "#2B6CB0"], ["garden", "Garden crew", "custom", "#3E8E5A"]],
+    entries: [["garden", "Garden workday", 8], ["garden", "Planting day for the new beds", 21], ["garden", "Seed swap", 50]],
+    albums: [["potluck", "Neighbors potluck · photos", "https://photos.example.com/lakeside-potluck-demo", 41, 9], [null, "Garden beds, before and after · photos", "https://photos.example.com/lakeside-garden-demo", 18, 30]],
+    surveys: [
+      { k: "feedback", kind: "event_feedback", ev: "potluck", title: "How was the neighbors potluck?", descr: "Two quick questions about the last potluck. (Demo.)", opens: -9, closes: 11,
+        questions: [{ id: "q1", type: "rating", label: "How was the evening?", required: true }, { id: "q2", type: "text", label: "What should we change?", required: false }],
+        answers: [["alvarez.marisol", { q1: 5, q2: "" }], ["brightwater.dana", { q1: 4, q2: "More tables near the door" }], ["petrov.irina", { q1: 5, q2: "" }]] },
+      { k: "poll", kind: "poll", title: "Which Saturday suits the seed swap?", descr: "We want the most neighbors at the seed swap. (Demo poll.)", opens: -3, closes: 11,
+        questions: [{ id: "q1", type: "single", label: "Which Saturday works best for your family?", options: ["The next Saturday", "The Saturday after", "Either works"], required: true }],
+        answers: [["alvarez.marisol", { q1: "The next Saturday" }], ["haddad.layla", { q1: "Either works" }], ["nakamura.hana", { q1: "The Saturday after" }], ["lindqvist.sofia", { q1: "The next Saturday" }]] },
+    ],
+    specialDays: [
+      ["osei", "osei.abena", "birthday", "Abena's birthday", 11, true], ["osei", "osei.kofi", "birthday", "Kofi's birthday", 47, true],
+      ["osei", null, "anniversary", "Kwame and Abena's anniversary", 95, false],
+    ],
+    roster: [
+      ["executive_committee", "President", "alvarez.marisol", "Marisol Alvarez"], ["executive_committee", "Treasurer", "brightwater.dana", "Dana Brightwater"],
+      ["executive_committee", "Secretary", "lindqvist.sofia", "Sofia Lindqvist"], ["executive_committee", "Membership chair", "okonkwo.ngozi", "Ngozi Okonkwo"],
+      ["garden_crew", "Crew lead", "moreau.jules", "Jules Moreau"], ["garden_crew", "Tool keeper", "osei.kwame", "Kwame Osei"], ["garden_crew", "Seed buyer", "okonkwo.emeka", "Emeka Okonkwo"],
+    ],
+    identifiers: [["osei", null, "0231"], ["osei", "kwame", "0231"], ["osei", "abena", "0232"], ["osei", "kofi", "0233"]],
+    eligibility: [
+      ["osei.kwame", true, [{ label: "Active yearly membership", ok: true }, { label: "A member for more than 60 days", ok: true }, { label: "No pledge is overdue", ok: true }]],
+      ["osei.abena", true, [{ label: "Active yearly membership (shared with your spouse)", ok: true }, { label: "A member for more than 60 days", ok: true }]],
+    ],
+    profiles: [
+      { who: "osei.kwame", dietary: [], anniversary: "2005-06-18", emergency: ["Yaw Osei", "Brother", "+13125550194"] },
+      { who: "osei.abena", dietary: ["vegetarian"], emergency: ["Kwame Osei", "Spouse", "+13125550195"] },
+    ],
+    content: [
+      { k: "join", kind: "faq", slug: "how-to-join-the-club-demo", title: "How do I join the club? (demo)", status: "published", ago: 40, body: "Say hello at any event, then apply for a yearly membership in the app. Two members vouch for you. (Demo.)" },
+      { k: "cleanup", kind: "explainer", slug: "clean-up-day-demo", title: "What to bring to a clean-up day (demo)", status: "published", ago: 30, body: "Gloves and a water bottle are enough; bags, tools and lunch are provided. Wear shoes you do not mind getting muddy. (Demo.)" },
+      // The guide's own text, approved, for the assistant to answer from.
+      { k: "welcome", kind: "niva_source", slug: "niva-welcome-demo", title: "Welcome to the club", status: "approved", ago: 20, body: "We are neighbors who like to do things together: meals, clean-ups, concerts and the garden. (Demo.)" },
+      { k: "howto", kind: "niva_source", slug: "niva-how-to-join-demo", title: "How to join", status: "approved", ago: 20, body: "Say hello at any event, then apply for a yearly membership in the app. Two members vouch for you. (Demo.)" },
+      { k: "times", kind: "niva_source", slug: "niva-times-demo", title: "Times and visiting", status: "approved", ago: 20, body: "Neighbors potluck on the first Saturday of the month, 5:00 PM to 8:00 PM; garden crew workday on Saturdays, 9:00 AM to 12:00 PM; shop pickup on Wednesdays, 11:00 AM to 1:00 PM; hall office open weekdays 10:00 AM to 3:00 PM. (Demo.)" },
+      { k: "membership", kind: "niva_source", slug: "niva-membership-demo", title: "Membership", status: "approved", ago: 20, body: "A yearly membership includes your spouse and lets you vote at the annual meeting. Neighbors are always welcome at our events. (Demo.)" },
+    ],
+  },
 };
 
 // ═══ Checks the script does on its own ═══════════════════════════════════════
 function check(name, content, expect) {
   const defined = new Set(["@center", "@actor"]);
+  const duplicates = [];
   const used = new Map();
   const visit = (v, where) => {
     if (Array.isArray(v)) return v.forEach((x) => visit(x, where));
@@ -775,7 +1126,7 @@ function check(name, content, expect) {
     for (const op of ops) {
       const list = op.rows ?? (op.r ? [op.r] : []);
       for (const r of list) {
-        if (typeof r.id === "string" && r.id.startsWith("@")) defined.add(r.id);
+        if (typeof r.id === "string" && r.id.startsWith("@")) { if (defined.has(r.id)) duplicates.push(`${r.id} (${step}/${op.t})`); defined.add(r.id); }
         for (const [k, v] of Object.entries(r)) if (k !== "id") visit(v, `${step}/${op.t}.${k}`);
       }
       // ops that name ids as bare refs (no "@")
@@ -785,6 +1136,7 @@ function check(name, content, expect) {
     }
   }
   for (const p of content.personas) { used.set(`@p:${p.person}`, "persona"); if (p.scope) used.set(`@${p.scope}`, "persona.scope"); }
+  if (duplicates.length) throw new Error(`${name}: ids used by two rows:\n  ${duplicates.join("\n  ")}`);
   const missing = [...used].filter(([ref]) => !defined.has(ref));
   if (missing.length) throw new Error(`${name}: refs used but never defined:\n  ${missing.map(([r, w]) => `${r} (${w})`).join("\n  ")}`);
   const roles = content.personas.map((p) => p.role);
@@ -792,15 +1144,21 @@ function check(name, content, expect) {
   const emails = new Set();
   for (const op of content.steps.people) if (op.t === "people") for (const r of op.rows) if (r.email) { if (emails.has(r.email)) throw new Error(`${name}: duplicate e-mail ${r.email}`); emails.add(r.email); if (!r.email.endsWith(`@${DOMAIN}`)) throw new Error(`${name}: e-mail off the demo domain ${r.email}`); }
   const count = (table) => Object.values(content.steps).flat().filter((o) => o.t === table).reduce((n, o) => n + (o.rows ? o.rows.length : 1), 0);
-  const got = { households: count("households"), people: count("people"), personas: content.personas.length };
+  const ops = (kind) => Object.values(content.steps).flat().filter((o) => o.op === kind).length;
+  const got = {
+    households: count("households"), people: count("people"), personas: content.personas.length,
+    // The money and the things a family can find in the app (version 6 of the faith pack, 3 of the club).
+    pledges: count("pledges"), payments: ops("pay"), opportunities: count("opportunities"), recurring_gifts: count("recurring_gifts"), orders: ops("order"), rsvps: ops("rsvp"),
+    calendar_entries: count("calendar_entries"), surveys: count("surveys"), special_days: count("special_days"), guide_pages: count("guide_sections"),
+  };
   for (const [k, v] of Object.entries(expect)) if (got[k] !== v) throw new Error(`${name}: expected ${v} ${k}, got ${got[k]}`);
   return got;
 }
 
 const packs = [
-  { key: "demo_faith_jain_v1", spec: faith, title: "Sunrise Worship Center (Demo)", expect: { households: 13, people: 36, personas: 25 }, neutral: true,
+  { key: "demo_faith_jain_v1", spec: faith, title: "Sunrise Worship Center (Demo)", expect: { households: 13, people: 36, personas: 25, pledges: 25, payments: 17, opportunities: 5, recurring_gifts: 1, orders: 6, rsvps: 29, calendar_entries: 8, surveys: 2, special_days: 4, guide_pages: 6 }, neutral: true,
     descr: "A small house of worship of invented people, not any one faith (the platform's Faith community kind): 13 households, 36 people, pledges and test-mode payments, events with RSVPs, a small store, notices, volunteer groups and a Learning Center term. One demo person for every role of that kind, and something waiting for each of them to do (applications, bank lines, a write-off, questions in the inboxes, texts to approve, an event checklist)." },
-  { key: "demo_neutral_club_v1", spec: club, title: "Lakeside Neighbors Club (Demo)", expect: { households: 12, people: 29, personas: 21 },
+  { key: "demo_neutral_club_v1", spec: club, title: "Lakeside Neighbors Club (Demo)", expect: { households: 12, people: 29, personas: 21, pledges: 13, payments: 11, opportunities: 5, recurring_gifts: 1, orders: 6, rsvps: 26, calendar_entries: 7, surveys: 2, special_days: 3, guide_pages: 6 },
     descr: "A neighborhood club that is not faith-based, of invented people: 12 households, 29 people, pledges and test-mode payments, events with RSVPs, a small shop, notices and volunteer groups. One demo person for every role, and something waiting for each of them to do (applications, bank lines, a write-off, questions in the inboxes, texts to approve, an event checklist)." },
 ];
 

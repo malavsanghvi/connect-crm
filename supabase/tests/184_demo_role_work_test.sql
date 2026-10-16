@@ -351,19 +351,21 @@ select pg_temp.as_none();
 
 -- ══ G. The other demo community (a club that is not faith-based, 21 roles) has the same ══════════════════
 -- The questions are the faith community's, minus what a club does not have (the Learning Center). Its event is the spring clean-up day, five days away.
--- A community that is not faith-based has the Store module off until Weaver's team grants it (0594: default_off; 0740: a grant). The club's shop is in
--- the pack, but nobody can see it, and so its store lead, pickup volunteer and kitchen lead have nothing, until the module is granted to the club demo
--- (Platform > Centers > the club demo > Modules). The grant is kept across resets (a clear leaves center_module_grants alone), so it is one step
--- for the owner, once. This test takes it, as the owner will.
+-- A community that is not faith-based has the Store module off until Weaver's team grants it (0594: default_off; 0740: a grant). Until 0879 the club's shop was in
+-- the pack but nobody could see it, and its store lead, pickup volunteer and kitchen lead had nothing until the owner granted the module by hand. Since 0879 the
+-- club's pack names "store" and "niva" (center.modules) and app.demo_align_center grants them (Weaver's grant, no person), at every creation and reset: the
+-- shop is on from the first load and stays on across resets (a clear leaves center_module_grants alone).
 select set_config('t.center', :'nc', false);
-select app.module_enabled(:'nc', 'store') as store_on_before \gset
+select pg_temp.assert(app.module_enabled(:'nc', 'store') and app.module_enabled(:'nc', 'niva')
+                      and (select count(*) = 2 from app.center_module_grants g where g.center_id = :'nc' and g.module_key in ('store', 'niva') and g.granted and g.granted_by is null
+                                and g.reason like 'Demo community:%'),
+  'G · the club''s pack switches on its shop and its assistant (the grant is Weaver''s, written by the pack), so no step is left for the owner');
 select pg_temp.as_role('store_lead');
-select pg_temp.assert((select count(*) = 0 from app.store_orders where center_id = :'nc') and :'store_on_before' = 'f',
-  'G · before the grant the club''s shop is switched off, so its store lead sees no order');
+select pg_temp.assert((select count(*) >= 2 from app.store_orders where center_id = :'nc'),
+  'G · and its store lead sees the orders from the first load');
 select pg_temp.as_none();
 select pg_temp.claims(:admin, true);
-select app.set_module_grant(:'nc', 'store', true, 'The club demo has a shop to show') as grant_store \gset
-select pg_temp.assert(app.module_enabled(:'nc', 'store'), 'G · with the grant the club has its shop');
+select pg_temp.assert(app.module_enabled(:'nc', 'store'), 'G · the club has its shop');
 select app.demo_id(:'nc', 'ev:cleanup') as ev_cu, app.demo_id(:'nc', 'zone:north') as zone_nn \gset
 truncate pg_temp.work;
 insert into pg_temp.work (role_key, what, door, q, min_n)

@@ -143,7 +143,7 @@ a "Jain Way" tab, a derasar, bolis, tapasvis, Pathshala classes). It is now a **
 `faith_other`: the greeting is *Welcome*, the fourth tab and the school are both the *Learning Center*, the place is a *place of worship*), and nothing a
 visitor reads names one tradition.
 
-- **The pack** (`demo_faith_jain_v1`, version 4, migration 0820; the key keeps its old name because it is an internal identifier no screen shows and the demo
+- **The pack** (`demo_faith_jain_v1`, version 6 since migration 0878, which fills the community member's app; made neutral by 0820; the key keeps its old name because it is an internal identifier no screen shows and the demo
   community, the state row and the tests point at it): the events are a weekly gathering, an annual appreciation dinner and a community festival night; the
   fund, campaign, classes, notices, newsletter, inboxes and guide are in generic words; the store sells baked goods, snacks and a vegetarian lunch. Amounts,
   households (13) and the 34 people are the same; the Patni family's children are new (below). The builder (`supabase/scripts/build-demo-packs.mjs`) refuses a pack marked neutral that contains a word of

@@ -157,11 +157,41 @@ requests, a background check, a shift for Mateo to confirm, and the clean-up day
 religious coordinator, so its roles with no portal screen are eight (the same as the faith demo's, which has no boli recorder either). Its kitchen lead has My Store › Orders by
 pickup, as the faith demo's does, once the shop is granted (below).
 
-**One step for the owner: the club's shop is off.** A community that is not faith-based has the Store module off until Weaver's team grants it
-(0594 `default_off`, 0740 grants), so the club's shop, its orders and its low stock are in the pack but nobody can see them, and its store lead,
-pickup volunteer and kitchen lead have nothing until the grant is made. Grant **Store** to the club demo once (Platform › Centers › the club demo
-› Modules); a reset keeps it. The faith demo is a Faith community, where Store is also off until granted: its pack asks for the grant itself (0820, below). `supabase/tests/184_demo_role_work_test.sql` section G
-checks both halves: the store lead sees no order before the grant and finds the work after it.
+**The club's shop is on (0879; it was a step for the owner until then).** A community that is not faith-based has the Store module off until Weaver's team grants it
+(0594 `default_off`, 0740 grants), so until 0879 the club's shop, its orders and its low stock were in the pack but nobody could see them, and its store lead,
+pickup volunteer and kitchen lead had nothing until the owner granted Store by hand. Since 0879 the club's pack names `store` and `niva` (`center.modules`)
+and `app.demo_align_center` grants them, as it does for the faith demo (0820, below): at every creation and reset, so nothing is left for the owner. A reset keeps the grants.
+`supabase/tests/184_demo_role_work_test.sql` section G checks that the shop and the assistant are on from the first load and that the store lead finds the orders.
+
+## The community member's app is full (0878 and 0879, owner request 2026-10-16)
+
+The owner asked that the community member of each demo (Tarun Patni in the faith demo, Kwame Osei in the club) find a full, lived-in member app: "fill up all spots
+that we can fill with test data; where we don't have data, take a few examples from the real community and copy them over so the experience is full". The faith
+pack is at version 6 (0878) and the club pack at version 3 (0879). The examples follow the kinds of things the real community's content holds (a times table, a dinner with
+donation choices, class announcements, an event feedback form, building-fund style giving choices) and their structure, reworded for the demo; nothing is copied
+that names a real person, phone, e-mail, address or link (links are placeholder addresses on example.com). `supabase/tests/878_demo_pack_fill_test.sql` checks it all, including what the member reads with
+row level security on. What each pack now holds for the family:
+
+| Screen | Tarun Patni (faith demo) | Kwame Osei (club) |
+| --- | --- | --- |
+| Give: history and receipts | A paid pledge ($100.00, check) and a part-paid one ($300.00 of $500.00: Zelle, then a test-mode card payment), each payment with a receipt number | A paid pledge ($150.00, test-mode card) and a part-paid one ($150.00 of $300.00: Zelle, then a check) |
+| Give: what stays as it was | The $51.00 general pledge is open with nothing against it (an unmatched $51.00 Zelle line waits); the three Learning Center fee pledges are open | The $125.00 garden pledge is open with nothing against it (an unmatched $125.00 Zelle line waits) |
+| Give: choices and a monthly gift | 5 things to give to (Founding circle, Pillar sponsor, Brick by brick with three choices, Any amount, Sponsor a shared meal); a $25.00 monthly gift that waits for a card | 5 things to give to (Raised garden bed, Tool shed with three choices, Seed and soil kit, Any amount, Sponsor a potluck); a $20.00 monthly gift that waits for a card |
+| Store | 2 orders (one picked up, one for the next pickup) | The shop is on (`store`, `niva`); 2 orders |
+| Events | The dinner has a meal in six lunch times and donation choices; tomorrow's weekly gathering waits for "Still coming?"; the last gathering was attended | The clean-up day has lunch in four times and a contribution to choose; tomorrow's garden morning waits for "Still coming?"; the last potluck was attended |
+| Calendar, photos, surveys | 2 layers (events, Learning Center), 8 entries, 2 photo albums (links), a feedback form and a poll | 2 layers (events, garden crew), 7 entries, 2 photo albums (links), a feedback form and a poll |
+| Guide | Times and visiting (a table the Home card reads), Links, Membership; the committee lists; library texts for the assistant; an answered question | The same three pages, committee lists, library texts and an answered question |
+| Family | 4 special days, a request to add a grandparent, profile details, member numbers, voting answers | 3 special days, profile details, member numbers, voting answers |
+| Learning Center | 4 class days with attendance, 2 published progress reports, 3 class announcements, a learning path of the community's own ("Kindness at home") with the children's progress, an open place to teach | none (the club has no school) |
+
+Two things change for other people. **Tomorrow's gathering is now the community's next event**, so the executive viewer's "At a glance" and the Today lists read it before the
+dinner; the dinner is still five days away with the same 24 people. **The store team has one more order each** (the kitchen lead's prep list counts 3 orders in the faith demo and in the club).
+The money of every other family is unchanged, and so are the open pledges of the two families: the part-paid pledge of each is newer than their oldest open pledge, so the payment
+confirmation that 0877 hangs on that oldest pledge sits where it did.
+
+**Not in the pack, and why** (those screens stay thin): statements (a PDF in storage), photos and videos (files in storage; an album only links to an online album), audio and
+video lessons (media files; a lesson without audio would show "no audio yet"), the day's timings and tithi days (their columns are one tradition's), and the class days are the
+last weeks' dates, not Sundays (a pack's dates are relative to today).
 
 ## Things found on the way
 
