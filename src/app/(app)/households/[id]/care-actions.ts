@@ -21,13 +21,13 @@ import { careCan } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeActionWhere, type CrmSession } from "@/lib/session";
 
-// The Care card's writes (WeCare slice 2, connect-crm 0760-0762). Thin Server Actions: each checks the SHAPE of what came from
+// The Care card's writes (DonorDelight slice 2, connect-crm 0760-0762). Thin Server Actions: each checks the SHAPE of what came from
 // the browser, then calls the database function AS THE SIGNED-IN PERSON, so app.care_household_can / app.care_can (no
 // platform-admin branch) is the real gate; the careCan check here is a convenience. Every one answers { ok, error } in plain
 // words next to what the person did, logs the technical detail on the server (failure()), and never says it worked when it
 // did not. A refusal because of permissions reads "You don't have access to this area".
 //
-// Deliberately not recorded in the activity stream (withActivity): WeCare's actions stay inside the organization (W2).
+// Deliberately not recorded in the activity stream (withActivity): DonorDelight's actions stay inside the organization (W2).
 
 export type CareSave = { ok: true; message: string } | { ok: false; error: string };
 export type CareTouchesLoad = { ok: true; page: CareTouchPage } | { ok: false; error: string };

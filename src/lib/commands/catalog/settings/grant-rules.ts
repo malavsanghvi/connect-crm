@@ -41,7 +41,7 @@ export type GrantPlan = {
 const DOING = "grant the role";
 
 /** The products' catalog names (app.modules.label, 0750), when the kind has no name of its own for them. */
-const PRODUCT_NAMES: Readonly<Record<OrgPrivateProduct, string>> = { care: "WeCare", matching: "CatchTheMatch" };
+const PRODUCT_NAMES: Readonly<Record<OrgPrivateProduct, string>> = { care: "DonorDelight", matching: "CatchTheMatch" };
 
 /** An identical grant that still works (or still waits for a second person): the table allows duplicates; they only confuse. */
 export async function holdsAlready(ctx: CommandContext, userId: string, roleKey: string, kind: GrantScope, scopeId: string | null, doing = DOING): Promise<boolean> {
@@ -65,7 +65,7 @@ export async function planRoleGrant(ctx: CommandContext, req: GrantRequest): Pro
   if (!role) throw new CommandError("Could not grant the role — choose a role.");
   if (role.tier === "platform" && !isPlatformAdmin) throw new CommandError(`Could not grant ${role.name} — platform roles are granted by the platform team only.`);
   if (role.tier === "family") throw new CommandError(`Could not grant ${role.name} — family roles come from household relationships, not grants.`);
-  // The organization's own data (0757, app.role_grants_private_rule says the same): WeCare and CatchTheMatch roles.
+  // The organization's own data (0757, app.role_grants_private_rule says the same): DonorDelight and CatchTheMatch roles.
   const products = rolePrivateProducts(role);
   if (products.length > 0) {
     if (!canGrantRole(ctx.session, role)) {

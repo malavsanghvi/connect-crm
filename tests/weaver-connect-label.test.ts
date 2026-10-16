@@ -34,7 +34,7 @@ describe("Weaver Connect: the label changed, the key did not", () => {
 
   it("the other Marketplace products keep their names", () => {
     const labels = Object.fromEntries(MODULES.filter((m) => isProductModule(m.key)).map((m) => [m.key, m.label]));
-    expect(labels).toEqual({ ai: "iWeaver", website: "WeaverSite", channels: "Weaver Connect", care: "WeCare", matching: "CatchTheMatch", market: "Community Market" });
+    expect(labels).toEqual({ ai: "iWeaver", website: "WeaverSite", channels: "Weaver Connect", care: "DonorDelight", matching: "CatchTheMatch", market: "Community Market" });
   });
 
   it("Settings › Modules (the registry standing in for the catalog) lists it as Weaver Connect under the same key", () => {

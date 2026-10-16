@@ -48,7 +48,7 @@ import {
 import type { CareCardLoad, CareRead } from "@/lib/data/care";
 import { formatCents } from "@/lib/money";
 
-// The Care card on the Family page (WeCare slice 2). Shown only to someone with a WeCare role (the page checks careCan first;
+// The Care card on the Family page (DonorDelight slice 2). Shown only to someone with a DonorDelight role (the page checks careCan first;
 // the database decides). Everything here is the organization's own: Weaver staff cannot see it. Every write says what failed
 // in plain words next to what the person did, keeps what they typed, and offers Try again. Nothing here names a child: the
 // database never returns one.
@@ -113,7 +113,7 @@ function useWrite() {
   return { pending, error, done, run, clear: () => setError(null) };
 }
 
-/** The Care card, or the reason it cannot be shown (no access, WeCare off, a failed read with its retry). */
+/** The Care card, or the reason it cannot be shown (no access, DonorDelight off, a failed read with its retry). */
 export function CareCard({ load, householdId, timeZone, retryHref }: { load: CareCardLoad; householdId: string; timeZone: string; retryHref: string }) {
   const { card } = load;
   if (card.status === "no_access") {

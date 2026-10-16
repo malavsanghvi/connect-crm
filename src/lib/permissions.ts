@@ -16,10 +16,10 @@ export type GrantLike = {
 export type RoleLike = { key: string; permissions: Json; tier?: string };
 
 // ---------------------------------------------------------------------------
-// The organization's own data (migration 0757, docs/WECARE.md section 3 and docs/CATCH_THE_MATCH.md section 6): WeCare
+// The organization's own data (migration 0757, docs/DONORDELIGHT.md section 3 and docs/CATCH_THE_MATCH.md section 6): DonorDelight
 // (module `care`) and CatchTheMatch (module `matching`). Only the owner and the roles the organization grants see it; a
 // platform admin as such never does (app.org_private_can has no platform-admin branch), so `can` below does not let a
-// platform admin through on these keys either. Amounts in WeCare also need giving.view (app.care_amounts_can).
+// platform admin through on these keys either. Amounts in DonorDelight also need giving.view (app.care_amounts_can).
 // ---------------------------------------------------------------------------
 export const ORG_PRIVATE_KEYS = ["care.view", "care.own", "care.manage", "matching.view", "matching.manage"] as const;
 export type OrgPrivateKey = (typeof ORG_PRIVATE_KEYS)[number];
@@ -153,7 +153,7 @@ export function canPrivate(ctx: ScopedContext, key: OrgPrivateKey): boolean {
   return ctx.permissions.includes(key);
 }
 
-/** WeCare levels (app.care_can): view = every care record, own = only my households (view and manage include it), manage. */
+/** DonorDelight levels (app.care_can): view = every care record, own = only my households (view and manage include it), manage. */
 export function careCan(ctx: ScopedContext, level: "view" | "own" | "manage"): boolean {
   if (level === "manage") return canPrivate(ctx, "care.manage");
   if (level === "view") return canPrivate(ctx, "care.view") || canPrivate(ctx, "care.manage");
@@ -167,7 +167,7 @@ export function matchingCan(ctx: ScopedContext, level: "view" | "manage"): boole
 }
 
 /**
- * May this user give the role? For a role that opens WeCare or CatchTheMatch: only the owner, or a holder of each product's
+ * May this user give the role? For a role that opens DonorDelight or CatchTheMatch: only the owner, or a holder of each product's
  * .manage key (app.role_grants_private_rule): roles.manage alone is not enough, and being a platform admin counts for nothing.
  * Any other role: true here (roles.manage and the database's own rules decide).
  */
@@ -396,7 +396,7 @@ export const ACCESS = {
   /** Settings › Data quality (app.data_quality). */
   dataQuality: ["people.view", "people.manage"],
   /**
-   * The organization's own data (0757): WeCare and CatchTheMatch. `can` never lets a platform admin through on these keys;
+   * The organization's own data (0757): DonorDelight and CatchTheMatch. `can` never lets a platform admin through on these keys;
    * screens also check the module (careCan / matchingCan above, which do).
    */
   care: ["care.view", "care.own", "care.manage"],
@@ -645,12 +645,12 @@ export const NAV: NavModule[] = [
     paths: ["/reports"],
   },
   {
-    // WeCare (module `care`, 0760-0763): the organization's own care records. Shown only to roles the organization gives a
+    // DonorDelight (module `care`, 0760-0763): the organization's own care records. Shown only to roles the organization gives a
     // care key (`can` never lets a platform admin through on care.*), and only while Weaver has turned the product on. Named by
     // the kind (Donor care / Member care). Not recorded in the activity stream (W2): see tests/activity-catalog.test.ts.
     key: "care",
     module: "care",
-    label: "WeCare",
+    label: "DonorDelight",
     tabs: [{ href: "/care", label: "Households", access: "care" }],
     paths: ["/care"],
   },

@@ -18,7 +18,7 @@ export type EntitlementGroup = {
   note?: string;
 };
 
-/** What every group of the organization's own data says (WeCare, CatchTheMatch: migration 0757). */
+/** What every group of the organization's own data says (DonorDelight, CatchTheMatch: migration 0757). */
 export const PRIVATE_GROUP_NOTE =
   "Your organization's own data. Only the owner and the people you give one of these roles can see it. Weaver's team cannot. The owner or this product's manager gives the roles.";
 
@@ -124,7 +124,7 @@ export const ENTITLEMENT_GROUPS: EntitlementGroup[] = [
   },
   {
     // Module `care`; named by the kind (Member care / Donor care, 0750). Amounts need a giving role as well.
-    name: "WeCare",
+    name: "DonorDelight",
     note: PRIVATE_GROUP_NOTE,
     items: [
       { key: "care.view", label: "See every care record (amounts only with a giving role)" },
@@ -164,7 +164,7 @@ export const ENTITLEMENT_GROUPS: EntitlementGroup[] = [
   },
   {
     name: "Platform",
-    items: [{ key: "*", label: "Everything, in every center, except each organization's WeCare and CatchTheMatch data (platform owner)" }],
+    items: [{ key: "*", label: "Everything, in every center, except each organization's DonorDelight and CatchTheMatch data (platform owner)" }],
   },
 ];
 
@@ -198,24 +198,24 @@ const GROUP_MODULE: Readonly<Record<string, string>> = {
   Bolis: "bolis",
   Store: "store",
   Pathshala: "pathshala",
-  WeCare: "care",
+  DonorDelight: "care",
   CatchTheMatch: "matching",
   "Community Market": "market",
 };
 
 /** Groups that are a Marketplace product of their own: shown only while the community has that product on. */
-const PRODUCT_GROUPS: ReadonlySet<string> = new Set(["WeCare", "CatchTheMatch", "Community Market"]);
+const PRODUCT_GROUPS: ReadonlySet<string> = new Set(["DonorDelight", "CatchTheMatch", "Community Market"]);
 
 /**
  * The permission groups to show for this organization's kind: no Bolis group where the kind has no bolis, no Pathshala
- * group where it has no school, and the school, the store and WeCare named in the kind's words. WeCare and CatchTheMatch
+ * group where it has no school, and the school, the store and DonorDelight named in the kind's words. DonorDelight and CatchTheMatch
  * show only while the community has them on (`modulesOff`, src/lib/modules.ts). A Jain Center gets the catalogue as is.
  */
 export function entitlementGroupsFor(kind: KindLike, modulesOff: readonly string[] = []): EntitlementGroup[] {
   return ENTITLEMENT_GROUPS.filter((g) => !GROUP_MODULE[g.name] || !moduleNotOffered(kind, GROUP_MODULE[g.name]))
     .filter((g) => !PRODUCT_GROUPS.has(g.name) || !modulesOff.includes(GROUP_MODULE[g.name]))
     .map((g) => {
-      if (g.name === "WeCare") return { ...g, name: kindName(kind, "care", "WeCare") };
+      if (g.name === "DonorDelight") return { ...g, name: kindName(kind, "care", "DonorDelight") };
       if (g.name !== "Pathshala") return g;
       const school = kindName(kind, "pathshala", "Pathshala");
       if (school === "Pathshala") return g;

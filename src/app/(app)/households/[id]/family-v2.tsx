@@ -41,7 +41,7 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
   const { model, problems } = loaded;
   const base = `/households/${id}`;
   const givingOn = isModuleEnabled(session, "giving");
-  // The Care card (WeCare slice 2) only for someone with a care role, and never on a merged household; the database decides
+  // The Care card (DonorDelight slice 2) only for someone with a care role, and never on a merged household; the database decides
   // what it holds (no platform-admin branch) and logs the read.
   const [glance, custom, care] = await Promise.all([
     givingOn ? prepareGlance(session, sp) : null,

@@ -51,7 +51,7 @@ export default async function TeamPage() {
     db.rpc("check_owner_and_second_admin_2fa", { p_center: center.id }),
   ]);
   const roleName = new Map((roles.data ?? []).map((r) => [r.key, r.name]));
-  // WeCare and CatchTheMatch roles (0757): offered only while the product is on, and only to the owner or the product's manager.
+  // DonorDelight and CatchTheMatch roles (0757): offered only while the product is on, and only to the owner or the product's manager.
   const invitable = (r: { permissions: unknown; tier: string }) =>
     canGrantRole(session, r) && !rolePrivateProducts(r).some((p) => session.modulesOff.includes(p));
   // Roles of a part this kind of organization does not have are not offered for a new invitation.

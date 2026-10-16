@@ -140,7 +140,7 @@ example `center-admin.sunrise@demo.weaverams.org` (nobody receives mail there; t
 ## More sample data (not built; say what you want)
 
 The pack covers people, memberships, events, the store, the Learning Center, notices, volunteers, a statement to match and the work waiting for
-each role. If the demo should also show, say, **recurring gifts, matched bank lines, pledges due this month, Gyan Path, WeCare or
+each role. If the demo should also show, say, **recurring gifts, matched bank lines, pledges due this month, Gyan Path, DonorDelight or
 CatchTheMatch**, they are added to the pack builder (`supabase/scripts/build-demo-packs.mjs`, then a new
 migration, the pack version bumped). Two rules to keep it honest and the QuickBooks story simple:
 - History stays history: pack payments are `is_historical` and never post. A demo that wants *posted* entries on first view needs

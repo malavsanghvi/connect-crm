@@ -295,7 +295,7 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 
 ### Insights — `giving_insights` (add-on of Giving)
 
-- **Tables:** none yet (B98's people-and-relationship slices moved to WeCare, [`WECARE.md`](WECARE.md), 2026-10-13)
+- **Tables:** none yet (B98's people-and-relationship slices moved to DonorDelight, [`DONORDELIGHT.md`](DONORDELIGHT.md), 2026-10-13)
 - **Portal:** the Insights tab and the household panel under Giving at a glance (when they are built)
 
 ## Bolis (depends on Giving)
@@ -537,7 +537,7 @@ never reaches production. The card copy is `app.marketplace_products` (0752); re
 | `ai` | iWeaver | nothing | none (Niva's follow through its chain) | Niva's, by dependency; the AI gate (0755) |
 | `website` | WeaverSite | People | sites, site_pages, site_blocks | site_draft_save, site_draft_get, site_page_set_status, site_draft_data |
 | `channels` | Weaver Connect (called CommunityConnect until 0850) | Communications | whatsapp_accounts, whatsapp_template_submissions | save_whatsapp_account, submit_whatsapp_template, send_test_message (WhatsApp), worker_message_to_send (a queued WhatsApp message is not sent) |
-| `care` | WeCare ("Member care" for a faith kind, "Donor care" otherwise) | People | none yet | none yet (not built) |
+| `care` | DonorDelight ("Member care" for a faith kind, "Donor care" otherwise) | People | none yet | none yet (not built) |
 | `market` | Community Market (0830; [`STORE_SECTIONS.md`](STORE_SECTIONS.md), [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md)) | Store | none of its own: its rows are `store_categories` and `store_items` with `section = 'market'` (0821), tied to the module by the restrictive policy `market_section_switch` | none (no functions yet) |
 | `matching` | CatchTheMatch | Giving | person_match_employers (0759), match_program_submissions (0766), person_match_programs (0767); the shared directory match_programs and match_program_names (0765) is core platform (it belongs to no community; its readers need CatchTheMatch on somewhere) | matching_can (0757/0758, no platform-admin branch) in every policy and function: record_match_employer, withdraw_match_employer, submit_match_program, decide_match_submission, match_program_candidates, link_match_program, unlink_match_program, match_employers_queue |
 

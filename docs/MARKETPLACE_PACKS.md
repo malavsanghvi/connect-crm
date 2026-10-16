@@ -4,7 +4,7 @@ Status: plan, 2026-10-13. Slice 1 built (migrations 0750 to 0753: the module row
 Settings › Marketplace and Platform › Communities › Products follow). Backlog **B104**. Owner direction, 2026-10-13: move Niva, AI flyer art and
 every other AI feature (except AI used in onboarding) into an **iWeaver** pack; move the integrated website into
 **WeaverSite** (working name, to be renamed); put Facebook and Instagram for events and WhatsApp for messages into
-**Weaver Connect** (planned on 2026-10-13 as "CommunityConnect"; the owner renamed it on 2026-10-15, migration 0850, label only: the key `channels` did not change, rule P6). With WeCare ([`WECARE.md`](WECARE.md)) and CatchTheMatch ([`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md))
+**Weaver Connect** (planned on 2026-10-13 as "CommunityConnect"; the owner renamed it on 2026-10-15, migration 0850, label only: the key `channels` did not change, rule P6). With DonorDelight ([`DONORDELIGHT.md`](DONORDELIGHT.md)) and CatchTheMatch ([`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md))
 that makes five Marketplace products. Built for every organization Weaver onboards. It extends
 [`MARKETPLACE_PLAN.md`](MARKETPLACE_PLAN.md) and does not replace it.
 
@@ -26,7 +26,7 @@ Proposed keys (labels are data and can change at any time):
 | iWeaver | `ai` | nothing |
 | WeaverSite | `website` | People |
 | Weaver Connect | `channels` | Communications (`comms`); the Facebook and Instagram part also uses Events |
-| WeCare | `care` (was `wecare` in the plan; permissions become `care.view`, `care.own`, `care.manage`) | People |
+| DonorDelight | `care` (was `wecare` in the plan; permissions become `care.view`, `care.own`, `care.manage`) | People |
 | CatchTheMatch | `matching` (was `catch_the_match`) | Giving |
 | Community Market (a sixth product, owner 2026-10-15, 0830; [`STORE_MARKETPLACE.md`](STORE_MARKETPLACE.md)) | `market` | Store |
 
@@ -44,7 +44,7 @@ nothing uses a community's own key):
 | Import column-mapping suggestions (`import.suggest_mapping`) | import permission only | **Stays core**: used in onboarding (Setup step 10) |
 | QuickBooks donor-match suggestions (`qbo.match_suggest_ai`) | `accounting` | **Stays core**: used when QuickBooks history is brought in at onboarding |
 | Provider Test buttons (Platform > Setup) | platform admin | Unchanged: platform only, not a community feature |
-| Every AI feature built from now on (WeCare drafts, Weaver Connect post drafts, event-creation help, the org agent) | | **iWeaver**, plus its own product where there is one (for example WeCare AI needs both `care` and `ai`) |
+| Every AI feature built from now on (DonorDelight drafts, Weaver Connect post drafts, event-creation help, the org agent) | | **iWeaver**, plus its own product where there is one (for example DonorDelight AI needs both `care` and `ai`) |
 
 How the gate works:
 

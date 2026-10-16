@@ -2,7 +2,7 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The Care card and the WeCare area (slice 2), drawn once on the server (the repo has no browser test environment). The
+// The Care card and the DonorDelight area (slice 2), drawn once on the server (the repo has no browser test environment). The
 // writes are Server Actions; here nothing is called, only drawn. The database is stood in for by what its read functions
 // return (0763).
 vi.mock("@/app/(app)/households/[id]/care-actions", () => ({
@@ -29,7 +29,7 @@ const session = {
 };
 vi.mock("@/lib/session", () => ({ getSession: async () => session, loadSession: async () => ({ status: "ok", session }) }));
 const listResult = vi.hoisted(() => ({ value: null as unknown }));
-// The loader module is server-only; its stand-in keeps the same rule for who sees WeCare (careCan) and hands back the list.
+// The loader module is server-only; its stand-in keeps the same rule for who sees DonorDelight (careCan) and hands back the list.
 vi.mock("@/lib/data/care", async () => {
   const { careCan } = await import("@/lib/permissions");
   return {
@@ -134,7 +134,7 @@ describe("the Care card", () => {
   });
 });
 
-describe("the WeCare area", () => {
+describe("the DonorDelight area", () => {
   beforeEach(() => {
     session.kind = church;
     session.permissions = ["care.own"];

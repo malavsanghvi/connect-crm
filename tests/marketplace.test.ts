@@ -84,7 +84,7 @@ describe("Settings › Marketplace", () => {
     product({ key: "store", name: "Digital Store", state: "paused" }),
     product({ key: "website", state: "requested" }),
     product({ key: "ai", name: "iWeaver", state: "available" }),
-    product({ key: "care", name: "WeCare", state: "not_built", catalog_status: "not_built" }),
+    product({ key: "care", name: "DonorDelight", state: "not_built", catalog_status: "not_built" }),
     product({ key: "gala", name: "Gala", module_key: null, state: "notified", catalog_status: "not_built" }),
   ];
   it("the four tabs, as in the prototype", () => {

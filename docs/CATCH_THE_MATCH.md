@@ -6,7 +6,7 @@ never from code written for one community.
 
 **Paused after slice 2 (owner, 2026-10-13).** Slice 2 (the shared employer-program directory) is built; slices 3 to 7 wait for (a) a lawyer's view on the fee (section 5), (b) a secular nonprofit willing to pilot it (many matching programs exclude religious organizations, and today's customers are mostly faith communities), and (c) Marketplace billing, since the fee cannot be charged without it. Weaver's filing is also an ongoing staffed service, not only software.
 
-Related: [`WECARE.md`](WECARE.md) (a WeCare playbook step can prompt a
+Related: [`DONORDELIGHT.md`](DONORDELIGHT.md) (a DonorDelight playbook step can prompt a
 donor whose gift may be matched), [`MARKETPLACE_PLAN.md`](MARKETPLACE_PLAN.md), [`ZELLE_REPORTS.md`](ZELLE_REPORTS.md)
 and the Bank tab (where a match payment is reconciled).
 
@@ -84,10 +84,10 @@ Slices 1 to 4 can be built and used while this is settled; the fee ledger (slice
 - **Employer on file only with the person's consent** (a new People field and a consent kind), adults only, editable
   and removable by the person in the member app.
 - **Organization's data.** Claims, employers on file and match history are the organization's own data, seen only by
-  roles it gives `matching.view` or `matching.manage` (the same own-access-check approach as WeCare W2: no
+  roles it gives `matching.view` or `matching.manage` (the same own-access-check approach as DonorDelight W2: no
   `is_platform_admin()` branch).
 - **Weaver's filing team** needs access to do the work (C3). When an organization takes the product it grants a
-  **Weaver filing** role: CatchTheMatch data only (claims, the gift, the donor's name and employer), never WeCare,
+  **Weaver filing** role: CatchTheMatch data only (claims, the gift, the donor's name and employer), never DonorDelight,
   notes or other giving; time-limited to the subscription; every read and action audited and shown to the
   organization.
 - **The employer-program directory is shared** across organizations: public facts only (company, ratio, minimum and
@@ -168,7 +168,7 @@ community first, then any community that takes CatchTheMatch.
 | 1 | Module `matching` (a neutral key; the label is CatchTheMatch, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md) P6) (default off, grant-only, Marketplace "Request" card), `matching.view` and `matching.manage`, the Weaver filing role, the employer field and consent in People | M | **Yes: permissions/RLS, personal data** |
 | 2 | Shared employer-program directory, member submissions, verification (**built**, 0765 to 0767, test 166) | M | No (it adds RLS policies: the owner OKs the PR) |
 | 3 | Claims: the eligible-gift finder, the pre-filled donor request (message and member-app card), states and deadlines, the Weaver filing queue | L | **Yes: messaging** |
-| 4 | Received: match payment against the claim in the Bank tab, soft credit, the donor's thank-you (a WeCare touch when WeCare is on), statements show the match as the employer's gift | M | **Yes: money (allocation, statements)** |
+| 4 | Received: match payment against the claim in the Bank tab, soft credit, the donor's thank-you (a DonorDelight touch when DonorDelight is on), statements show the match as the employer's gift | M | **Yes: money (allocation, statements)** |
 | 5 | Fee ledger: fee per claim at receipt, monthly invoice to the organization, credits on reversal | M | **Yes: money and pricing; lawyer first; charging needs Marketplace phase 3** |
 | 6 | Member app: "Does your employer match?", add an employer with consent, see one's own match status; mobile release + OTA | S | No |
 | 7 | Portal integrations where a portal offers an interface for charities | M to L | Per portal |

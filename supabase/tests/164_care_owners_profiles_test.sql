@@ -407,13 +407,13 @@ select pg_temp.assert((select count(*) from app.audit_log where center_id = :c1 
 reset role;
 select pg_temp.no_claims();
 select pg_temp.assert_raises(format($$delete from app.households where id = %L$$, :h1),
-  'This household has WeCare records, so it cannot be deleted', 'H · deleting a household with care records is refused in plain words');
+  'This household has DonorDelight records, so it cannot be deleted', 'H · deleting a household with care records is refused in plain words');
 select pg_temp.assert_raises(format($$delete from app.people where id = %L$$, :pb),
-  'This person is named in WeCare records', 'H · so is deleting a person a care record names');
+  'This person is named in DonorDelight records', 'H · so is deleting a person a care record names');
 set role authenticated;
 select pg_temp.claims(:plat);
 select pg_temp.assert_raises(format($$delete from app.households where id = %L$$, :h1),
-  'WeCare records', 'H · a platform admin, who may delete households, cannot delete this one');
+  'DonorDelight records', 'H · a platform admin, who may delete households, cannot delete this one');
 reset role;
 select pg_temp.no_claims();
 insert into app.import_runs (id, center_id, entity, tier, source, status, committed_at, file_name)
@@ -422,7 +422,7 @@ insert into app.import_changes (center_id, run_id, table_name, record_id, op) va
 set role authenticated;
 select pg_temp.claims_up(:owner);
 select pg_temp.assert_raises(format($$select app.import_undo(%L, 'Wrong file')$$, :run),
-  'This household has WeCare records, so undoing the import cannot remove it', 'H · undoing the import that added it says why it cannot');
+  'This household has DonorDelight records, so undoing the import cannot remove it', 'H · undoing the import that added it says why it cannot');
 reset role;
 select pg_temp.no_claims();
 select pg_temp.assert((select status from app.import_runs where id = :run) = 'committed'

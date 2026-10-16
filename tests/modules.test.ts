@@ -28,7 +28,7 @@ describe("module registry", () => {
       "ai=iWeaver:",
       "website=WeaverSite:people",
       "channels=Weaver Connect:comms",
-      "care=WeCare:people",
+      "care=DonorDelight:people",
       "matching=CatchTheMatch:giving",
     ]);
     expect(MODULES.find((m) => m.key === "niva")!.dependsOn).toEqual(["content", "ai"]);

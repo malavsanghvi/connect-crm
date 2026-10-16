@@ -138,7 +138,7 @@ select pg_temp.assert((select array_agg(key || '=' || state order by sort) from 
   'B · a Jain Center: Giving, Events, Communications and the Store included; Accounting on; the six products off until requested or built (the Community Market, 0830, among them)');
 select pg_temp.assert((select source = 'kind_default' and granted and enabled and granted_at is null from app.marketplace_states(:c) where key = 'accounting')
                       and (select source = 'none' and not granted and not enabled from app.marketplace_states(:c) where key = 'website')
-                      and (select module_label = 'Member care' and name = 'WeCare' from app.marketplace_states(:c) where key = 'care')
+                      and (select module_label = 'Member care' and name = 'DonorDelight' from app.marketplace_states(:c) where key = 'care')
                       and (select module_key is null and source = 'none' and not enabled from app.marketplace_states(:c) where key = 'gala'),
   'B · where each grant came from (the kind''s default, none), the kind''s own name beside the product''s');
 select pg_temp.assert((select needs = '[{"module": "comms", "label": "Communications", "on": true, "required": true},
@@ -160,7 +160,7 @@ select pg_temp.claims(:admin);
 select pg_temp.assert_raises(format($$select app.marketplace_request(%L, 'website', '  ')$$, :c),
   'Say what your community will use WeaverSite for. A sentence is enough.', 'C · a request needs a note');
 select pg_temp.assert_raises(format($$select app.marketplace_request(%L, 'care', 'Our donors')$$, :c),
-  'WeCare is not built yet, so it cannot be requested', 'C · a product that is not built yet cannot be requested');
+  'DonorDelight is not built yet, so it cannot be requested', 'C · a product that is not built yet cannot be requested');
 select pg_temp.assert_raises(format($$select app.marketplace_request(%L, 'giving', 'More giving')$$, :c),
   'Giving is already on for your community.', 'C · nor one that is already on');
 select pg_temp.assert_raises(format($$select app.marketplace_request(%L, 'nope', 'x')$$, :c),
@@ -283,7 +283,7 @@ select pg_temp.assert((select count(*) from app.marketplace_audit(:c) where what
 select pg_temp.assert((select why from app.marketplace_audit(:c) where what = 'plat161@platform.test turned on WeaverSite') = 'Reason: Request from Sam K., reviewed'
                       and (select count(*) from app.marketplace_audit(:c) where what = 'Sam K. requested WeaverSite' and why like 'Note: %') = 2
                       and exists (select 1 from app.marketplace_audit(:c) where what = 'Sam K. paused Accounting and QuickBooks')
-                      and exists (select 1 from app.marketplace_audit(:c) where what = 'Sam K. asked to be told when WeCare is ready'),
+                      and exists (select 1 from app.marketplace_audit(:c) where what = 'Sam K. asked to be told when DonorDelight is ready'),
   'E · with the reason or the note, and the pauses and the interest too');
 select pg_temp.no_claims();
 
@@ -297,7 +297,7 @@ update app.marketplace_products set status = 'available' where key = 'care';
 update app.marketplace_products set status = 'available' where key = 'matching';
 select pg_temp.assert((select told_at is not null and told_status = 'queued' from app.marketplace_interest where center_id = :c and product_key = 'care')
                       and (select count(*) from app.messages where template_key = 'marketplace_product_ready' and to_address = 'sam161@temple.test'
-                              and subject = 'WeCare is ready') = 1,
+                              and subject = 'DonorDelight is ready') = 1,
   'F · when a product is marked built, the person who asked to be told is emailed, and the interest row records it');
 select pg_temp.assert((select told_at is not null and told_status like 'no one to email%' from app.marketplace_interest where center_id = :c and product_key = 'matching')
                       and not exists (select 1 from app.messages where template_key = 'marketplace_product_ready' and to_address = 'ravi161@temple.test'),

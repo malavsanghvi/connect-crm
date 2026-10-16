@@ -1,6 +1,6 @@
 import "server-only";
 
-// WeCare slice 2 (connect-crm 0760-0763): the reads, as the signed-in person (their own session, never a service key), so the
+// DonorDelight slice 2 (connect-crm 0760-0763): the reads, as the signed-in person (their own session, never a service key), so the
 // database's rule is the gate: app.care_household_can / app.care_can, with no platform-admin branch. Each read function logs
 // itself in the audit log (app.log_private_read). A refusal because of permissions is "no access" (the screen says "You don't
 // have access to this area", never an empty list); any other failure is an error in words with a retry.
@@ -36,7 +36,7 @@ function refusal<T>(context: string, error: unknown): CareRead<T> {
   return { status: "error", error: explainError(error) };
 }
 
-/** May this person see anything of WeCare here? (Convenience: the database decides.) */
+/** May this person see anything of DonorDelight here? (Convenience: the database decides.) */
 export function seesCare(session: CrmSession): boolean {
   return careCan(session, "own");
 }
@@ -78,7 +78,7 @@ export async function readHolders(session: CrmSession): Promise<CareRead<CareHol
 
 export const CARE_PAGE_SIZE = 50;
 
-/** The WeCare area's list of households. */
+/** The DonorDelight area's list of households. */
 export async function loadCareList(session: CrmSession, filter: CareListFilter, search: string | null, page: number): Promise<CareRead<CareList>> {
   const res = await session.db.rpc("care_households", {
     p_center: session.center.id,
