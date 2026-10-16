@@ -40,6 +40,7 @@ import * as qboPullCustomersHistory from "./qbo.pull_customers_history";
 import * as qboPullLists from "./qbo.pull_lists";
 import * as qboRefreshToken from "./qbo.refresh_token";
 import * as qboTestPost from "./qbo.test_post";
+import * as paymentsProofRetention from "./payments.proof_retention";
 import * as paymentsRefund from "./payments.refund";
 import * as paymentsReleaseChipIns from "./payments.release_chip_ins";
 import * as paymentsReportsSweep from "./payments.reports_sweep";
@@ -97,6 +98,8 @@ export const HANDLERS: HandlerModule[] = [
   paymentsReportsSweep,
   // The optional Chip In (0861): once a day, give back the yearly allowance of reservations that can no longer be paid
   paymentsReleaseChipIns,
+  // Payment proofs (0871): once a day, remove the evidence files whose years have run out, keeping a tombstone for each
+  paymentsProofRetention,
   // o-demo
   demoLoad,
   demoClear,
