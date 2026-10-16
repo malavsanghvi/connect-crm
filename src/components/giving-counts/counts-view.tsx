@@ -4,7 +4,8 @@
 // A table on a computer, cards on a phone. No hooks: drawn on the server, with the rows and the sheets as client parts.
 
 import { StartCountButton } from "@/components/giving-actions/count-acts";
-import { BodyState, ChipRow, ListCard, PagerNav, Problems } from "@/components/giving-lists/list-chrome";
+import { BodyState, ListCard, PagerNav, Problems } from "@/components/giving-lists/list-chrome";
+import { SwitchLinks } from "@/components/list-toolbar/list-toolbar";
 import { ListRows, type RowsContext } from "@/components/giving-lists/list-rows";
 import { GivingTabRow } from "@/components/giving-today/giving-tabs";
 import { buttonClass } from "@/components/ui";
@@ -40,7 +41,7 @@ export function CountsView({ model }: { model: CountsModel }) {
         <>
           {model.summary ? <p className="m-0 mb-2 text-[15px] font-bold text-ink">{model.summary}</p> : null}
           <div className="mb-3">
-            <ChipRow chips={model.chips} label="Counts to show" />
+            <SwitchLinks chips={model.chips} label="Counts to show" />
           </div>
           <ListCard>
             {body.rows.length === 0 ? (

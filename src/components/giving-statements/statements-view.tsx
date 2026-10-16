@@ -6,7 +6,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { FamilyCard } from "@/components/giving-actions/sheet";
-import { ChipRow, ListCard, PagerNav } from "@/components/giving-lists/list-chrome";
+import { ListCard, PagerNav } from "@/components/giving-lists/list-chrome";
+import { FilterMenu } from "@/components/list-toolbar/filter-menu";
+import { SwitchLinks } from "@/components/list-toolbar/list-toolbar";
 import { GivingTabRow } from "@/components/giving-today/giving-tabs";
 import { NoAccess, buttonClass } from "@/components/ui";
 import type { Pager } from "@/lib/giving-lists/model";
@@ -130,16 +132,18 @@ function ReviewSection({ model, exportSlot }: { model: StatementsModel; exportSl
             <span className="text-[13px] text-muted">how the statements would reach them</span>
           </li>
         </ul>
-        <ChipRow
-          label="Show"
-          chips={[
-            chip("all", "All", s.households),
-            chip("fix", "Needs a fix", s.needFix),
-            chip("email", "By email", s.counts.email),
-            chip("post", "By post", s.counts.post),
-            chip("app", "In the app only", s.counts.app),
-          ]}
-        />
+        <div className="mb-3">
+          <SwitchLinks
+            label="Show"
+            chips={[
+              chip("all", "All", s.households),
+              chip("fix", "Needs a fix", s.needFix),
+              chip("email", "By email", s.counts.email),
+              chip("post", "By post", s.counts.post),
+              chip("app", "In the app only", s.counts.app),
+            ]}
+          />
+        </div>
         {slice.length === 0 ? (
           <p className="m-0 py-3 text-[14px] text-muted">Nothing to show here.</p>
         ) : (
@@ -174,7 +178,9 @@ function ReviewSection({ model, exportSlot }: { model: StatementsModel; exportSl
           </div>
         ) : null}
       </div>
-      <ChipRow label="Year" chips={years} />
+      <div className="mb-3">
+        <FilterMenu label="Year" view={{ on: true, value: years.find((y) => y.on)?.label ?? null, options: years }} />
+      </div>
       {body}
     </ListCard>
   );
