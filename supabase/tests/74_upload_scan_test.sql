@@ -191,9 +191,9 @@ select pg_temp.assert((select count(*) from pg_temp.scan_fns()) = 25
   'every security definer function 0589 defines or redefines pins its search path and none is open to PUBLIC');
 select pg_temp.assert(app.upload_scan_gated_buckets() = array['homework', 'recordings', 'photos', 'org-documents', 'content', 'store']
                       and app.upload_scan_enforced_buckets() = array['homework', 'recordings']
-                      and app.connect_storage_buckets() @> array['homework', 'exports', 'statements'] and cardinality(app.connect_storage_buckets()) = 10
+                      and app.connect_storage_buckets() @> array['homework', 'exports', 'statements'] and cardinality(app.connect_storage_buckets()) = 11
                       and 'homework' = any (app.storage_scan_buckets()) and not ('statements' = any (app.storage_scan_buckets())),
-  'the gate names its six buckets in rollout order and enforces only homework and recordings in this release; the audit covers all ten buckets');
+  'the gate names its six buckets in rollout order and enforces only homework and recordings in this release; the audit covers all eleven buckets');
 select pg_temp.assert((select count(*) from app.message_templates where center_id is null and key = 'upload.removed' and language = 'en') = 2
                       and not exists (select 1 from app.message_templates where key = 'upload.removed'
                                        and coalesce(subject, '') || body ~ '\{\{\s*(name|file|path|storage_path|signature)\s*\}\}'),

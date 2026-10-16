@@ -8603,6 +8603,183 @@ export type Database = {
         };
         Relationships: [];
       };
+      payment_proof_events: {
+        Row: {
+          id: string;
+          center_id: string;
+          proof_id: string;
+          kind: string;
+          body: string;
+          actor: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          proof_id: string;
+          kind: string;
+          body: string;
+          actor?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          proof_id?: string;
+          kind?: string;
+          body?: string;
+          actor?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      payment_proof_files: {
+        Row: {
+          id: string;
+          center_id: string;
+          proof_id: string | null;
+          payment_id: string | null;
+          household_id: string | null;
+          storage_path: string;
+          content_type: string;
+          bytes: number;
+          sha256: string | null;
+          member_visible: boolean;
+          uploaded_by: string | null;
+          deleted_at: string | null;
+          deleted_reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          proof_id?: string | null;
+          payment_id?: string | null;
+          household_id?: string | null;
+          storage_path: string;
+          content_type: string;
+          bytes: number;
+          sha256?: string | null;
+          member_visible?: boolean;
+          uploaded_by?: string | null;
+          deleted_at?: string | null;
+          deleted_reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          proof_id?: string | null;
+          payment_id?: string | null;
+          household_id?: string | null;
+          storage_path?: string;
+          content_type?: string;
+          bytes?: number;
+          sha256?: string | null;
+          member_visible?: boolean;
+          uploaded_by?: string | null;
+          deleted_at?: string | null;
+          deleted_reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      payment_proofs: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          submitted_by: string | null;
+          submitted_by_person: string | null;
+          entry: string;
+          entry_ref: string | null;
+          method: Database["app"]["Enums"]["payment_method"];
+          amount_cents: number;
+          paid_on: string;
+          reference: string | null;
+          note: string | null;
+          status: string;
+          idempotency_key: string | null;
+          is_test: boolean;
+          excess_cents: number;
+          question: string | null;
+          question_at: string | null;
+          answered_at: string | null;
+          first_approved_by: string | null;
+          first_approved_at: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_reason: string | null;
+          approved_amount_cents: number | null;
+          payment_id: string | null;
+          bank_transaction_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          submitted_by?: string | null;
+          submitted_by_person?: string | null;
+          entry?: string;
+          entry_ref?: string | null;
+          method: Database["app"]["Enums"]["payment_method"];
+          amount_cents: number;
+          paid_on: string;
+          reference?: string | null;
+          note?: string | null;
+          status?: string;
+          idempotency_key?: string | null;
+          is_test?: boolean;
+          excess_cents?: number;
+          question?: string | null;
+          question_at?: string | null;
+          answered_at?: string | null;
+          first_approved_by?: string | null;
+          first_approved_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          approved_amount_cents?: number | null;
+          payment_id?: string | null;
+          bank_transaction_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          submitted_by?: string | null;
+          submitted_by_person?: string | null;
+          entry?: string;
+          entry_ref?: string | null;
+          method?: Database["app"]["Enums"]["payment_method"];
+          amount_cents?: number;
+          paid_on?: string;
+          reference?: string | null;
+          note?: string | null;
+          status?: string;
+          idempotency_key?: string | null;
+          is_test?: boolean;
+          excess_cents?: number;
+          question?: string | null;
+          question_at?: string | null;
+          answered_at?: string | null;
+          first_approved_by?: string | null;
+          first_approved_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          approved_amount_cents?: number | null;
+          payment_id?: string | null;
+          bank_transaction_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       payment_refunds: {
         Row: {
           id: string;
@@ -8808,6 +8985,7 @@ export type Database = {
           provider_refunded_cents: number;
           application_fee_refunded_cents: number;
           gift_cents: number | null;
+          reconciled_at: string | null;
         };
         Insert: {
           id?: string;
@@ -8851,6 +9029,7 @@ export type Database = {
           provider_refunded_cents?: number;
           application_fee_refunded_cents?: number;
           gift_cents?: number | null;
+          reconciled_at?: string | null;
         };
         Update: {
           id?: string;
@@ -8894,6 +9073,7 @@ export type Database = {
           provider_refunded_cents?: number;
           application_fee_refunded_cents?: number;
           gift_cents?: number | null;
+          reconciled_at?: string | null;
         };
         Relationships: [];
       };
@@ -9620,6 +9800,9 @@ export type Database = {
           custom: Json;
           written_off_by_name: string | null;
           idempotency_key: string | null;
+          soft_credit_cents: number;
+          reconciled_at: string | null;
+          reconciled_kind: string | null;
         };
         Insert: {
           id?: string;
@@ -9653,6 +9836,9 @@ export type Database = {
           custom?: Json;
           written_off_by_name?: string | null;
           idempotency_key?: string | null;
+          soft_credit_cents?: number;
+          reconciled_at?: string | null;
+          reconciled_kind?: string | null;
         };
         Update: {
           id?: string;
@@ -9686,6 +9872,9 @@ export type Database = {
           custom?: Json;
           written_off_by_name?: string | null;
           idempotency_key?: string | null;
+          soft_credit_cents?: number;
+          reconciled_at?: string | null;
+          reconciled_kind?: string | null;
         };
         Relationships: [];
       };
@@ -11633,6 +11822,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      soft_credits: {
+        Row: {
+          id: string;
+          center_id: string;
+          proof_id: string;
+          pledge_id: string;
+          amount_cents: number;
+          position: number;
+          state: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          proof_id: string;
+          pledge_id: string;
+          amount_cents: number;
+          position?: number;
+          state?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          proof_id?: string;
+          pledge_id?: string;
+          amount_cents?: number;
+          position?: number;
+          state?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       special_days: {
         Row: {
           id: string;
@@ -13189,6 +13414,14 @@ export type Database = {
         };
         Returns: boolean;
       };
+      answer_proof_question: {
+        Args: {
+          p_proof: string;
+          p_message: string;
+          p_files?: Json;
+        };
+        Returns: Json;
+      };
       apply_jsh_sandbox_switch: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
@@ -13225,6 +13458,19 @@ export type Database = {
         Args: {
           p_center: string;
           p_note?: string;
+        };
+        Returns: Json;
+      };
+      approve_payment_proof: {
+        Args: {
+          p_proof: string;
+          p_amount_cents?: number;
+          p_paid_on?: string;
+          p_method?: string;
+          p_note?: string;
+          p_merge_payment?: string;
+          p_separate_reason?: string;
+          p_bank_txn?: string;
         };
         Returns: Json;
       };
@@ -13275,6 +13521,13 @@ export type Database = {
           p_reason?: string;
         };
         Returns: undefined;
+      };
+      ask_proof_question: {
+        Args: {
+          p_proof: string;
+          p_question: string;
+        };
+        Returns: Json;
       };
       assert_entitlement: {
         Args: {
@@ -13432,6 +13685,13 @@ export type Database = {
           p_center: string;
         };
         Returns: Json;
+      };
+      bank_window_days: {
+        Args: {
+          p_center: string;
+          p_method: string;
+        };
+        Returns: number;
       };
       begin_payment_connect: {
         Args: {
@@ -15568,6 +15828,13 @@ export type Database = {
         };
         Returns: { key: string; label: string; enabled: boolean; core: boolean }[];
       };
+      my_payment_proofs: {
+        Args: {
+          p_center: string;
+          p_household: string;
+        };
+        Returns: Json;
+      };
       my_payment_reports: {
         Args: {
           p_center: string;
@@ -16058,6 +16325,18 @@ export type Database = {
         };
         Returns: boolean;
       };
+      payment_proof_counts: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      payment_proof_queue: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       payment_readiness: {
         Args: {
           p_center: string;
@@ -16322,6 +16601,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      pledge_evidence: {
+        Args: {
+          p_pledge: string;
+        };
+        Returns: Json;
+      };
       pledge_writeoff_postings: {
         Args: {
           p_pledges: string[];
@@ -16378,6 +16663,23 @@ export type Database = {
           p_center: string;
         };
         Returns: boolean;
+      };
+      proof_lookalikes: {
+        Args: {
+          p_household: string;
+          p_amount_cents: number;
+          p_method: string;
+          p_paid_on: string;
+          p_reference: string;
+          p_exclude?: string;
+        };
+        Returns: Json;
+      };
+      proof_policy: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       public_kpi_catalog: {
         Args: {
@@ -16564,6 +16866,20 @@ export type Database = {
           p_domain: string;
         };
         Returns: number;
+      };
+      reconcile_candidates: {
+        Args: {
+          p_txn: string;
+        };
+        Returns: { rank: number; tier: string; kind: string; ref_id: string; household_id: string; household_name: string; label: string; reasons: Json; consequence: string; blocked: boolean }[];
+      };
+      reconcile_statement: {
+        Args: {
+          p_center: string;
+          p_account?: string;
+          p_limit?: number;
+        };
+        Returns: Json;
       };
       record_activity: {
         Args: {
@@ -16758,6 +17074,13 @@ export type Database = {
           p_note: string;
         };
         Returns: undefined;
+      };
+      reject_payment_proof: {
+        Args: {
+          p_proof: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       reject_payment_report: {
         Args: {
@@ -17827,6 +18150,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_proof_policy: {
+        Args: {
+          p_center: string;
+          p_policy: Json;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
       set_qbo_basis: {
         Args: {
           p_center: string;
@@ -18154,6 +18485,23 @@ export type Database = {
         };
         Returns: Json;
       };
+      submit_payment_proof: {
+        Args: {
+          p_center: string;
+          p_household: string;
+          p_method: string;
+          p_amount_cents: number;
+          p_paid_on: string;
+          p_reference?: string;
+          p_note?: string;
+          p_pledge_ids?: string[];
+          p_entry?: string;
+          p_entry_ref?: string;
+          p_files?: Json;
+          p_key?: string;
+        };
+        Returns: Json;
+      };
       submit_rsvp: {
         Args: {
           p_event: string;
@@ -18280,6 +18628,18 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string;
       };
+      unbanked_counts: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      unbanked_payments_report: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       undo_person_deceased: {
         Args: {
           p_person: string;
@@ -18323,6 +18683,13 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      unreconcile_bank_line: {
+        Args: {
+          p_txn: string;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       unsubscribe_calendar_layer: {
         Args: {
@@ -18386,6 +18753,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: boolean;
+      };
+      withdraw_payment_proof: {
+        Args: {
+          p_proof: string;
+        };
+        Returns: Json;
       };
       withdraw_payment_report: {
         Args: {
@@ -18451,7 +18824,7 @@ export type Database = {
       payment_status: "authorized" | "captured" | "pending_clearing" | "settled" | "refunded" | "partially_refunded" | "failed" | "voided";
       person_role_in_household: "primary" | "spouse" | "child" | "parent" | "sibling" | "other";
       pledge_source: "rsvp_commitment" | "boli" | "sponsorship" | "pujan" | "labh" | "construction" | "membership_fee" | "pathshala_fee" | "general" | "recurring" | "store" | "other" | "manual";
-      pledge_status: "open" | "partially_paid" | "paid" | "written_off" | "cancelled";
+      pledge_status: "open" | "partially_paid" | "paid" | "written_off" | "cancelled" | "soft_credit";
       rsvp_status: "invited" | "rsvpd" | "confirmed" | "cancelled" | "waitlisted" | "no_show" | "attended";
       scope_kind: "platform" | "center" | "zone" | "event" | "campaign" | "class" | "store" | "pathshala";
       tradition: "shvetambar_murtipujak" | "sthanakvasi" | "terapanthi" | "digambar" | "other";

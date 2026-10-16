@@ -39,7 +39,7 @@ describe("module registry", () => {
     expect(moduleForPath("/comms/whatsapp")).toBe("comms");
   });
   it("Giving's add-ons each need Giving only (0741)", () => {
-    const addOns = ["giving_bank", "giving_counts", "giving_insights", "giving_opportunities", "giving_recurring", "giving_statements", "labh"];
+    const addOns = ["giving_bank", "giving_proofs", "giving_counts", "giving_insights", "giving_opportunities", "giving_recurring", "giving_statements", "labh"];
     for (const k of addOns) {
       expect(isModuleKey(k)).toBe(true);
       expect(MODULES.find((m) => m.key === k)!.dependsOn).toEqual(["giving"]);

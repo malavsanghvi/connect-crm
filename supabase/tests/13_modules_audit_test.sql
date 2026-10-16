@@ -46,7 +46,7 @@ select pg_temp.assert(not exists (
       select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
        where n.nspname = 'app' and c.relname = mt.table_name and c.relkind in ('r','p'))),
   'module_tables lists no table that does not exist');
-select pg_temp.assert((select count(*) from app.modules) = 31 and (select array_agg(key order by key) from app.modules where core) = '{people}',
+select pg_temp.assert((select count(*) from app.modules) = 32 and (select array_agg(key order by key) from app.modules where core) = '{people}',
   'the module catalog has the 18 contract modules, Giving''s 7 add-ons (0741), the five Marketplace products (0750) and the Community Market (0830), and only people is core');
 select pg_temp.assert(not exists (
     select mt.table_name from app.module_tables mt join app.modules m on m.key = mt.module_key
@@ -58,8 +58,8 @@ select pg_temp.assert(not exists (
 -- 0594: the category catalogs are core platform tables (covered by the two checks above), and a Jain Center (JSH) has
 -- every module default_on, so the switch rules below are the whole story for it.
 select pg_temp.assert((select count(*) from app.category_modules) = (select count(*) from app.organization_categories) * (select count(*) from app.modules)
-                      and (select bool_and(app.module_availability(:jsh, m.key) = 'default_on') from app.modules m where m.key <> all (array['ai', 'website', 'channels', 'care', 'matching', 'market']))
-                      and (select bool_and(app.module_availability(:jsh, m.key) = 'default_off') from app.modules m where m.key = any (array['ai', 'website', 'channels', 'care', 'matching', 'market'])),
+                      and (select bool_and(app.module_availability(:jsh, m.key) = 'default_on') from app.modules m where m.key <> all (array['ai', 'website', 'channels', 'care', 'matching', 'market', 'giving_proofs']))
+                      and (select bool_and(app.module_availability(:jsh, m.key) = 'default_off') from app.modules m where m.key = any (array['ai', 'website', 'channels', 'care', 'matching', 'market', 'giving_proofs'])),
   'every category has a row for every module, and JSH (a Jain Center) has every module default_on except the five Marketplace products (0750: off for every kind)');
 
 -- ── Header context is captured ───────────────────────────────────────────────
@@ -241,7 +241,7 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000007';
-select pg_temp.assert((select bool_and(enabled) from app.my_modules(:other) where key <> all (array['ai', 'website', 'channels', 'care', 'matching', 'market']) and key <> 'niva'),
+select pg_temp.assert((select bool_and(enabled) from app.my_modules(:other) where key <> all (array['ai', 'website', 'channels', 'care', 'matching', 'market', 'giving_proofs']) and key <> 'niva'),
   'another center keeps every module on (the Marketplace products of 0750 start off for every kind, and Niva needs iWeaver, which test 01''s community never used)');
 commit;
 
@@ -331,5 +331,5 @@ set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000011';
 select app.set_module_enabled(:jsh, 'membership', true, 'Back on after the test');
 commit;
 select pg_temp.assert(not exists (select 1 from app.center_modules where not enabled), 'the test leaves every module on');
-select pg_temp.assert(not exists (select 1 from app.modules m where not app.module_enabled(:jsh, m.key) and m.key <> all (array['ai', 'website', 'channels', 'care', 'matching', 'market']) or (m.key = 'ai' and not app.module_enabled(:jsh, m.key))),
+select pg_temp.assert(not exists (select 1 from app.modules m where not app.module_enabled(:jsh, m.key) and m.key <> all (array['ai', 'website', 'channels', 'care', 'matching', 'market', 'giving_proofs']) or (m.key = 'ai' and not app.module_enabled(:jsh, m.key))),
   'and every module reads as on for JSH again (the category adds nothing for a Jain Center; of the Marketplace products of 0750 JSH holds iWeaver)');
