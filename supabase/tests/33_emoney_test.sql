@@ -66,18 +66,21 @@ insert into app.role_grants (center_id, user_id, role_key) values (:c, :tara, 't
 insert into app.funds (id, center_id, key, name) values ('e3300000-0000-4000-8000-0000000000f1', :c, 'general', 'General fund');
 
 -- ═════════════════════════════════════════════════════════════════════════════
--- #5 Donor covers the fee: not offered
+-- #5 Donor covers the fee: was "not offered"; since 0862 (owner, 2026-10-15) an organization may choose it, for Stripe only
 -- ═════════════════════════════════════════════════════════════════════════════
 select pg_temp.assert(not exists (select 1 from app.center_payment_processors where donor_covers_fee_allowed),
-  '#5 no organization has donor-covers-fee switched on');
+  '#5 no organization has donor-covers-fee switched on until it chooses to');
 select pg_temp.assert_raises($$insert into app.center_payment_processors (center_id, processor, donor_covers_fee_allowed)
-                               values ('00000000-0000-4000-8000-0000000000e3', 'stripe', true)$$,
-  'center_payment_processors_no_donor_fee', '#5 the database refuses switching it on');
+                               values ('00000000-0000-4000-8000-0000000000e3', 'paypal', true)$$,
+  'center_payment_processors_fee_cover_stripe_only', '#5 the database refuses it for PayPal');
 begin;
 set local role authenticated;
 select pg_temp.as_user(:tara);
-select pg_temp.assert_raises($$select app.set_payment_processor('00000000-0000-4000-8000-0000000000e3', 'stripe', array['card'], null, true, 'Let donors cover it')$$,
-  'not offered yet', '#5 set_payment_processor says plainly that it is not offered');
+select pg_temp.assert_raises($$select app.set_payment_processor('00000000-0000-4000-8000-0000000000e3', 'paypal', array['paypal'], null, true, 'Let donors cover it')$$,
+  'not available with paypal', '#5 set_payment_processor says plainly that PayPal cannot cover a card fee');
+select app.set_payment_processor('00000000-0000-4000-8000-0000000000e3', 'stripe', array['card'], null, true, 'Let donors cover it');
+select pg_temp.assert((select donor_covers_fee_allowed from app.center_payment_processors where center_id = '00000000-0000-4000-8000-0000000000e3' and processor = 'stripe'),
+  '#5 the treasurer (giving.manage) switches it on for Stripe, with a reason');
 rollback;
 
 -- ═════════════════════════════════════════════════════════════════════════════

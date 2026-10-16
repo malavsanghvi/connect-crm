@@ -8368,6 +8368,13 @@ export type Database = {
           created_at: string;
           updated_at: string;
           paid_at: string | null;
+          covered_fee_cents: number;
+          chip_in_cents: number;
+          application_fee_cents: number;
+          pay_method: string | null;
+          fee_rate_id: string | null;
+          gift_cents: number | null;
+          total_cents: number | null;
         };
         Insert: {
           id?: string;
@@ -8391,6 +8398,13 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           paid_at?: string | null;
+          covered_fee_cents?: number;
+          chip_in_cents?: number;
+          application_fee_cents?: number;
+          pay_method?: string | null;
+          fee_rate_id?: string | null;
+          gift_cents?: number | null;
+          total_cents?: number | null;
         };
         Update: {
           id?: string;
@@ -8414,6 +8428,52 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           paid_at?: string | null;
+          covered_fee_cents?: number;
+          chip_in_cents?: number;
+          application_fee_cents?: number;
+          pay_method?: string | null;
+          fee_rate_id?: string | null;
+          gift_cents?: number | null;
+          total_cents?: number | null;
+        };
+        Relationships: [];
+      };
+      payment_fee_rates: {
+        Row: {
+          id: string;
+          center_id: string | null;
+          method_class: string;
+          bps: number;
+          fixed_cents: number;
+          cap_cents: number | null;
+          effective_from: string;
+          source_note: string;
+          set_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id?: string | null;
+          method_class: string;
+          bps: number;
+          fixed_cents?: number;
+          cap_cents?: number | null;
+          effective_from?: string;
+          source_note: string;
+          set_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string | null;
+          method_class?: string;
+          bps?: number;
+          fixed_cents?: number;
+          cap_cents?: number | null;
+          effective_from?: string;
+          source_note?: string;
+          set_by?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -8742,6 +8802,12 @@ export type Database = {
           crm_external_id: string | null;
           is_opening_balance: boolean;
           idempotency_key: string | null;
+          chip_in_cents: number;
+          application_fee_cents: number;
+          charged_cents: number | null;
+          provider_refunded_cents: number;
+          application_fee_refunded_cents: number;
+          gift_cents: number | null;
         };
         Insert: {
           id?: string;
@@ -8779,6 +8845,12 @@ export type Database = {
           crm_external_id?: string | null;
           is_opening_balance?: boolean;
           idempotency_key?: string | null;
+          chip_in_cents?: number;
+          application_fee_cents?: number;
+          charged_cents?: number | null;
+          provider_refunded_cents?: number;
+          application_fee_refunded_cents?: number;
+          gift_cents?: number | null;
         };
         Update: {
           id?: string;
@@ -8816,6 +8888,12 @@ export type Database = {
           crm_external_id?: string | null;
           is_opening_balance?: boolean;
           idempotency_key?: string | null;
+          chip_in_cents?: number;
+          application_fee_cents?: number;
+          charged_cents?: number | null;
+          provider_refunded_cents?: number;
+          application_fee_refunded_cents?: number;
+          gift_cents?: number | null;
         };
         Relationships: [];
       };
@@ -13847,6 +13925,10 @@ export type Database = {
           p_processor: string;
           p_context: string;
           p_for_label: string;
+          p_cover_fee?: boolean;
+          p_chip_in_cents?: number;
+          p_pay_method?: string;
+          p_expected_total_cents?: number;
         };
         Returns: Json;
       };
@@ -14358,6 +14440,14 @@ export type Database = {
       feature_access_for_me: {
         Args: {
           p_center: string;
+        };
+        Returns: Json;
+      };
+      fee_estimate: {
+        Args: {
+          p_center: string;
+          p_method: string;
+          p_base_cents: number;
         };
         Returns: Json;
       };
@@ -15904,12 +15994,32 @@ export type Database = {
         };
         Returns: Json;
       };
+      payment_addons_quote: {
+        Args: {
+          p_center: string;
+          p_household: string;
+          p_gift_cents: number;
+          p_pledge_ids: string[];
+          p_context: string;
+          p_method?: string;
+          p_cover_fee?: boolean;
+          p_chip_in_cents?: number;
+          p_processor?: string;
+        };
+        Returns: Json;
+      };
       payment_api_mode: {
         Args: {
           p_center: string;
           p_processor: string;
         };
         Returns: string;
+      };
+      payment_fee_rates_for: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       payment_method_instructions_problem: {
         Args: {
@@ -16148,6 +16258,18 @@ export type Database = {
           p_limit_cents: number;
           p_suggested_cents: number[];
           p_asking: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      platform_set_fee_rate: {
+        Args: {
+          p_center: string;
+          p_method_class: string;
+          p_bps: number;
+          p_fixed_cents: number;
+          p_cap_cents: number;
+          p_source_note: string;
           p_reason: string;
         };
         Returns: Json;

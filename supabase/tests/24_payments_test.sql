@@ -192,9 +192,10 @@ select pg_temp.assert_raises($$select app.set_payment_processor('00000000-0000-4
   'at most 22', 'a statement descriptor over 22 characters is refused');
 select pg_temp.assert_raises($$select app.set_payment_processor('00000000-0000-4000-8000-000000000001', 'stripe', array['card'], 'JSH TEMPLE', false, ' ')$$,
   'say why', 'a reason is required');
--- Owner decision 2026-09-25 #5 (0410): donors covering the fee is not offered; no fee is ever added.
-select pg_temp.assert_raises($$select app.set_payment_processor('00000000-0000-4000-8000-000000000001', 'stripe', array['card'], 'JSH TEMPLE', true, 'x')$$,
-  'not offered yet', 'donor-covers-fee cannot be switched on');
+-- Owner decision 2026-09-25 #5 (0410) was superseded on 2026-10-15 (0862): the organization chooses, for Stripe only, and nothing is
+-- added unless it does. PayPal can never cover a card fee.
+select pg_temp.assert_raises($$select app.set_payment_processor('00000000-0000-4000-8000-000000000001', 'paypal', array['paypal'], 'JSH TEMPLE', true, 'x')$$,
+  'not available with paypal', 'donor-covers-fee cannot be switched on for PayPal');
 select app.set_payment_processor(:jsh, 'stripe', array['card','ach','apple_pay'], 'JSH TEMPLE', false, 'Card, bank and Apple Pay');
 commit;
 select pg_temp.assert((select methods = array['ach','apple_pay','card'] and statement_descriptor = 'JSH TEMPLE' and not donor_covers_fee_allowed

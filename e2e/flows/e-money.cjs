@@ -206,8 +206,9 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     const payText = await p.innerText('main');
     ok(/Not offered yet/.test(payText) && /No fee is ever added to a gift/.test(payText), '1 #5 Settings › Payments says donor-covers-fee is not offered yet');
     ok((await p.getByRole('switch', { name: /cover the processing fee/i }).count()) === 0, '1 #5 there is no switch to turn it on');
-    const feeTry = await rpc(await admin.fresh(), 'set_payment_processor', { p_center: jsh, p_processor: 'stripe', p_methods: ['card'], p_statement_descriptor: null, p_donor_covers_fee_allowed: true, p_reason: 'try' });
-    ok(feeTry.status >= 400 && /not offered yet/.test(JSON.stringify(feeTry.body)), `1 #5 the database refuses it: ${feeTry.body && feeTry.body.message}`);
+    // 0862 (owner, 2026-10-15): an organization may choose it for Stripe; PayPal can never cover a card fee. The portal screen still says "not offered" until the settings slice.
+    const feeTry = await rpc(await admin.fresh(), 'set_payment_processor', { p_center: jsh, p_processor: 'paypal', p_methods: ['paypal'], p_statement_descriptor: null, p_donor_covers_fee_allowed: true, p_reason: 'try' });
+    ok(feeTry.status >= 400 && /not available with PayPal/i.test(JSON.stringify(feeTry.body)), `1 #5 the database refuses it for PayPal: ${feeTry.body && feeTry.body.message}`);
     ok(sql('select count(*) from app.center_payment_processors where donor_covers_fee_allowed') === '0', '1 #5 no organization has it on');
     await shot(p, '1-no-donor-fee');
 
