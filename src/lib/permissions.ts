@@ -458,6 +458,8 @@ export function manageableIdentifierKinds(ctx: PermissionContext): IdentifierKin
 export type NavTab = {
   href: string;
   label: string;
+  /** The heading the left panel lists it under (docs/CRM_NAV_REDESIGN_PLAN.md); tabs of a module without one are listed flat. */
+  group?: string;
   /** Center-wide permissions that open the tab (omit when only `roles` open it). */
   access?: AccessKey;
   /** Also open to holders of these roles in any scope (e.g. a class-scoped Teacher). */
@@ -559,18 +561,18 @@ export const NAV: NavModule[] = [
     module: "pathshala",
     label: "Pathshala",
     tabs: [
-      { href: "/pathshala", label: "Classes", access: "pathshala" },
-      { href: "/pathshala/signoffs", label: "Gyan Path sign-offs", access: "pathshalaSignoffs", roles: ["teacher"], module: "gyan_path" },
+      { href: "/pathshala", group: "Classes", label: "Classes", access: "pathshala" },
+      { href: "/pathshala/signoffs", group: "Teaching", label: "Gyan Path sign-offs", access: "pathshalaSignoffs", roles: ["teacher"], module: "gyan_path" },
       // Homework handed in for Gyan Path levels (0587): with the teacher / decided.
-      { href: "/pathshala/homework", label: "Homework", access: "pathshalaHomework", roles: ["teacher"], module: "gyan_path" },
+      { href: "/pathshala/homework", group: "Teaching", label: "Homework", access: "pathshalaHomework", roles: ["teacher"], module: "gyan_path" },
       // A term's Fees and rules page lives under Terms; the treasurer reaches it to change fees after opening (P9).
-      { href: "/pathshala/terms", label: "Terms", access: "pathshalaFees" },
+      { href: "/pathshala/terms", group: "Admin", label: "Terms", access: "pathshalaFees" },
       // Levels and their age bands (0590, plan §2.1): adult classes and children's levels.
-      { href: "/pathshala/levels", label: "Levels", access: "pathshala" },
-      { href: "/pathshala/enrollments", label: "Enrollments", access: "pathshala" },
-      { href: "/pathshala/teachers", label: "Teacher positions", access: "pathshala" },
-      { href: "/pathshala/committee", label: "Committee", access: "pathshalaCommittee" },
-      { href: "/pathshala/my-classes", label: "My classes", roles: ["teacher"] },
+      { href: "/pathshala/levels", group: "Classes", label: "Levels", access: "pathshala" },
+      { href: "/pathshala/enrollments", group: "Classes", label: "Enrollments", access: "pathshala" },
+      { href: "/pathshala/teachers", group: "Teaching", label: "Teacher positions", access: "pathshala" },
+      { href: "/pathshala/committee", group: "Admin", label: "Committee", access: "pathshalaCommittee" },
+      { href: "/pathshala/my-classes", group: "Classes", label: "My classes", roles: ["teacher"] },
     ],
     paths: ["/pathshala"],
     // A teacher without the principal's view lands on their own classes.
@@ -581,18 +583,18 @@ export const NAV: NavModule[] = [
     module: "content",
     label: "Content",
     tabs: [
-      { href: "/content/queue", label: "Approval queue", access: "content" },
-      { href: "/content/today", label: "Today & darshan", access: "content", neutralLabel: "Live stream" },
-      { href: "/content/practices", label: "Practices & points", access: "content", module: "jain_way" },
+      { href: "/content/queue", group: "Review", label: "Approval queue", access: "content" },
+      { href: "/content/today", group: "Daily life", label: "Today & darshan", access: "content", neutralLabel: "Live stream" },
+      { href: "/content/practices", group: "Daily life", label: "Practices & points", access: "content", module: "jain_way" },
       // A class Teacher opens it too: they add homework for their own class there (0587, src/lib/gyan-homework/access.ts).
-      { href: "/content/gyan-path", label: "Gyan Path", access: "content", roles: ["teacher"], module: "gyan_path" },
-      { href: "/content/library", label: "Library", access: "content" },
+      { href: "/content/gyan-path", group: "Daily life", label: "Gyan Path", access: "content", roles: ["teacher"], module: "gyan_path" },
+      { href: "/content/library", group: "Library and media", label: "Library", access: "content" },
       // Stavans, videos, podcasts and recipes for the member app's 3L (migration 0560).
-      { href: "/content/media", label: "Media library", access: "content" },
-      { href: "/content/photos", label: "Photo albums", access: "content" },
-      { href: "/content/niva", label: "Niva", access: "content", module: "niva" },
-      { href: "/content/guide", label: "Guide & directory", access: "content" },
-      { href: "/content/legal", label: "Legal & waivers", access: "content" },
+      { href: "/content/media", group: "Library and media", label: "Media library", access: "content" },
+      { href: "/content/photos", group: "Library and media", label: "Photo albums", access: "content" },
+      { href: "/content/niva", group: "About us", label: "Niva", access: "content", module: "niva" },
+      { href: "/content/guide", group: "About us", label: "Guide & directory", access: "content" },
+      { href: "/content/legal", group: "About us", label: "Legal & waivers", access: "content" },
     ],
     paths: ["/content"],
   },
@@ -608,13 +610,13 @@ export const NAV: NavModule[] = [
     module: "comms",
     label: "Communications",
     tabs: [
-      { href: "/comms/newsletters", label: "Newsletters", access: "comms" },
+      { href: "/comms/newsletters", group: "Send", label: "Newsletters", access: "comms" },
       // Saved templates (0800): read and written with comms.send, the permission that writes a communication.
-      { href: "/comms/templates", label: "Templates", access: "commsSend" },
-      { href: "/comms/inbox", label: "Inbox", access: "commsInbox" },
-      { href: "/comms/whatsapp", label: "WhatsApp queue", access: "comms" },
-      { href: "/comms/surveys", label: "Surveys", access: "comms", module: "surveys" },
-      { href: "/comms/alerts", label: "Alerts", access: "comms" },
+      { href: "/comms/templates", group: "Send", label: "Templates", access: "commsSend" },
+      { href: "/comms/inbox", group: "Receive", label: "Inbox", access: "commsInbox" },
+      { href: "/comms/whatsapp", group: "Send", label: "WhatsApp queue", access: "comms" },
+      { href: "/comms/surveys", group: "Receive", label: "Surveys", access: "comms", module: "surveys" },
+      { href: "/comms/alerts", group: "Send", label: "Alerts", access: "comms" },
     ],
     paths: ["/comms"],
   },
@@ -657,19 +659,19 @@ export const NAV: NavModule[] = [
     key: "setup",
     label: "Setup",
     tabs: [
-      { href: "/setup", label: "Checklist", access: "setup" },
-      { href: "/setup/organization", label: "Legal identity", access: "setup" },
-      { href: "/setup/profile", label: "Profile & brand", access: "setup" },
+      { href: "/setup", group: "Getting started", label: "Checklist", access: "setup" },
+      { href: "/setup/organization", group: "Your organization", label: "Legal identity", access: "setup" },
+      { href: "/setup/profile", group: "Your organization", label: "Profile & brand", access: "setup" },
       // B92 W2: the organization's current website and sites it likes, and what Weaver finds on them.
-      { href: "/setup/website", label: "Your website", access: "setup" },
-      { href: "/setup/leaders", label: "Leaders", access: "setup" },
+      { href: "/setup/website", group: "Your organization", label: "Your website", access: "setup" },
+      { href: "/setup/leaders", group: "Your organization", label: "Leaders", access: "setup" },
       // Onboarding (o-golive): membership types, funds, inboxes, zones and Pathshala tracks.
-      { href: "/setup/lists", label: "Lists", access: "setupLists" },
-      { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
+      { href: "/setup/lists", group: "Your organization", label: "Lists", access: "setupLists" },
+      { href: "/setup/readiness", group: "Getting started", label: "Go-live readiness", access: "setup" },
       // Onboarding (o-platform): attestations, the go-live request and promotion.
-      { href: "/setup/go-live", label: "Go-live", access: "setup" },
+      { href: "/setup/go-live", group: "Getting started", label: "Go-live", access: "setup" },
       // Onboarding (o-demo): load, reset or clear the demo pack — sandboxes only.
-      { href: "/setup/demo", label: "Demo data", access: "setup", sandboxOnly: true },
+      { href: "/setup/demo", group: "Getting started", label: "Demo data", access: "setup", sandboxOnly: true },
     ],
     paths: ["/setup"],
   },
@@ -677,46 +679,46 @@ export const NAV: NavModule[] = [
     key: "settings",
     label: "Settings",
     tabs: [
-      { href: "/settings/rules", label: "Rules", access: "centerSettings" },
-      { href: "/settings/roles", label: "Roles & entitlements", access: "roles" },
-      { href: "/settings/integrations", label: "Integrations", access: "integrations" },
+      { href: "/settings/rules", group: "Organization", label: "Rules", access: "centerSettings" },
+      { href: "/settings/roles", group: "Roles and access", label: "Roles & entitlements", access: "roles" },
+      { href: "/settings/integrations", group: "Connections", label: "Integrations", access: "integrations" },
       // Onboarding (o-payments): Stripe / PayPal and the offline methods members see.
-      { href: "/settings/payments", label: "Payments", access: "paymentSettings" },
-      { href: "/settings/privacy", label: "Privacy", access: "privacy" },
-      { href: "/settings/onboarding", label: "Onboarding fields", access: "centerSettings" },
-      { href: "/settings/notifications", label: "Notifications", access: "centerSettings" },
-      { href: "/settings/security", label: "Security", access: "security" },
-      { href: "/settings/audit", label: "Audit log", access: "audit" },
+      { href: "/settings/payments", group: "Money", label: "Payments", access: "paymentSettings" },
+      { href: "/settings/privacy", group: "Roles and access", label: "Privacy", access: "privacy" },
+      { href: "/settings/onboarding", group: "Organization", label: "Onboarding fields", access: "centerSettings" },
+      { href: "/settings/notifications", group: "Messaging", label: "Notifications", access: "centerSettings" },
+      { href: "/settings/security", group: "Roles and access", label: "Security", access: "security" },
+      { href: "/settings/audit", group: "Roles and access", label: "Audit log", access: "audit" },
       // Not in the prototype: org-level module switches (WAVE2), after the prototype's eight.
-      { href: "/settings/modules", label: "Modules", access: "centerSettings" },
+      { href: "/settings/modules", group: "Organization", label: "Modules", access: "centerSettings" },
       // The Marketplace (0753): request a product, pause or resume one, "tell me when it is ready".
-      { href: "/settings/marketplace", label: "Marketplace", access: "centerSettings" },
+      { href: "/settings/marketplace", group: "Organization", label: "Marketplace", access: "centerSettings" },
       // Access levels (0586): who can use each member-app area (darshan, puja, listen …), per organization.
-      { href: "/settings/access", label: "Access levels", access: "centerSettings" },
+      { href: "/settings/access", group: "Roles and access", label: "Access levels", access: "centerSettings" },
       // Not in the prototype (onboarding, o-security): staff invitations, 2FA and the owner; the organization's agreements.
-      { href: "/settings/team", label: "Team", access: "roles" },
-      { href: "/settings/agreements", label: "Agreements", access: "centerSettings" },
+      { href: "/settings/team", group: "Roles and access", label: "Team", access: "roles" },
+      { href: "/settings/agreements", group: "Organization", label: "Agreements", access: "centerSettings" },
       // Onboarding (o-tenancy): the member-app join code, and the sandbox / plan limits.
-      { href: "/settings/member-app", label: "Member app", access: "centerSettings" },
-      { href: "/settings/limits", label: "Limits", access: "centerSettings" },
+      { href: "/settings/member-app", group: "Organization", label: "Member app", access: "centerSettings" },
+      { href: "/settings/limits", group: "Money", label: "Limits", access: "centerSettings" },
       // Onboarding (o-golive): number prefixes and the file storage areas (Setup steps data.numbering, svc.storage).
-      { href: "/settings/numbering", label: "Numbering", access: "centerSettings" },
-      { href: "/settings/storage", label: "Storage", access: "centerSettings" },
+      { href: "/settings/numbering", group: "Money", label: "Numbering", access: "centerSettings" },
+      { href: "/settings/storage", group: "Data", label: "Storage", access: "centerSettings" },
       // Onboarding (o-import): loading the organization's data, its custom fields and their quality.
-      { href: "/settings/import", label: "Data import", access: "dataImport" },
-      { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
-      { href: "/settings/data-quality", label: "Data quality", access: "dataQuality" },
+      { href: "/settings/import", group: "Data", label: "Data import", access: "dataImport" },
+      { href: "/settings/custom-fields", group: "Data", label: "Custom fields", access: "centerSettings" },
+      { href: "/settings/data-quality", group: "Data", label: "Data quality", access: "dataQuality" },
       // B91 (record every action, then automate it): the repeated work Weaver found, to accept or set aside. While recording is off the page says so.
-      { href: "/settings/automation", label: "Automation ideas", access: "centerSettings" },
+      { href: "/settings/automation", group: "Connections", label: "Automation ideas", access: "centerSettings" },
       // Onboarding (o-platform): the owner's time-boxed support grants to Weaver.
-      { href: "/settings/support-access", label: "Support access", access: "centerSettings" },
+      { href: "/settings/support-access", group: "Roles and access", label: "Support access", access: "centerSettings" },
       // Onboarding (o-messaging): email domain and senders, texting registration, WhatsApp Business.
-      { href: "/settings/email", label: "Email", access: "messaging" },
+      { href: "/settings/email", group: "Messaging", label: "Email", access: "messaging" },
       // 0770: receipts, pledge confirmations and registration confirmations, with the community's own wording.
-      { href: "/settings/automatic-emails", label: "Automatic emails", access: "automaticEmails" },
-      { href: "/settings/texting", label: "Texting", access: "messaging" },
+      { href: "/settings/automatic-emails", group: "Messaging", label: "Automatic emails", access: "automaticEmails" },
+      { href: "/settings/texting", group: "Messaging", label: "Texting", access: "messaging" },
       // The WhatsApp Business account is Weaver Connect (0751, renamed in 0850); WhatsApp group links (/comms/whatsapp) stay in Communications.
-      { href: "/settings/whatsapp", label: "WhatsApp", access: "messaging", module: "channels" },
+      { href: "/settings/whatsapp", group: "Messaging", label: "WhatsApp", access: "messaging", module: "channels" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },
@@ -750,7 +752,7 @@ export const NAV: NavModule[] = [
   },
 ];
 
-export type VisibleTab = { href: string; label: string };
+export type VisibleTab = { href: string; label: string; group?: string };
 export type VisibleModule = { key: string; label: string; href: string; tabs: VisibleTab[]; paths: string[] };
 
 /** False only when the center switched the module off (same rule as isModuleEnabled in src/lib/modules.ts). */
@@ -776,7 +778,7 @@ export function visibleNav(ctx: ScopedContext): VisibleModule[] {
     if (m.module && !moduleOn(ctx, m.module)) return [];
     const tabs = m.tabs
       .filter((t) => canOpenTab(ctx, t))
-      .map(({ href, label, neutralLabel }) => ({ href, label: neutralLabel && ctx.kind && !kindHas(ctx.kind, "tradition") ? neutralLabel : label }));
+      .map(({ href, label, neutralLabel, group }) => ({ href, group, label: neutralLabel && ctx.kind && !kindHas(ctx.kind, "tradition") ? neutralLabel : label }));
     if (tabs.length === 0) return [];
     const landing = m.landing && m.landing.when(ctx) && tabs.some((t) => t.href === m.landing?.href) ? m.landing.href : tabs[0].href;
     // The kind's own name for a module (Store, Religious school, Dues & payments …); a Jain Center names none, so its labels are unchanged.

@@ -12,7 +12,9 @@ import { useState, type ReactNode } from "react";
 import { ZelleReports } from "@/app/(app)/giving/payments/bank/zelle-reports";
 import { BankResultsProvider } from "@/app/(app)/giving/payments/bank/bank-results";
 import type { ActContext } from "@/components/giving-actions/row-actions";
-import { BodyState, ChipRow, ListCard, Problems } from "@/components/giving-lists/list-chrome";
+import { BodyState, ListCard, Problems } from "@/components/giving-lists/list-chrome";
+import { FilterMenu } from "@/components/list-toolbar/filter-menu";
+import { SwitchLinks } from "@/components/list-toolbar/list-toolbar";
 import { Row } from "@/components/giving-today/today-page";
 import { GivingTabRow } from "@/components/giving-today/giving-tabs";
 import { buttonClass } from "@/components/ui";
@@ -80,22 +82,24 @@ export function BankTab({ model, importer, noAccount, exportSlot }: { model: Ban
         <BodyState body={body} />
       ) : (
         <>
-          {model.accounts.length > 0 ? (
-            <div className="mb-2">
-              <ChipRow label="Bank account" chips={model.accounts.map((a) => ({ key: a.id, label: a.label, href: a.href, count: null, on: a.on }))} />
+          {/* One line (docs/CRM_NAV_REDESIGN_PLAN.md, slice 4): the views as a switch, the bank account as a dropdown, More. */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="min-w-0 max-w-full" data-spotlight="bank-views">
+              <SwitchLinks chips={model.views} label="Bank views" />
             </div>
-          ) : null}
-          <div className="mb-3 flex items-start gap-2">
-            <div className="min-w-0 flex-1" data-spotlight="bank-views">
-              <ChipRow chips={model.views} label="Bank views" />
-            </div>
+            {model.accounts.length > 0 ? (
+              <FilterMenu
+                label="Bank account"
+                view={{ on: model.accounts.some((a) => a.on), value: model.accounts.find((a) => a.on)?.label ?? null, options: model.accounts.map((a) => ({ key: a.id, label: a.label, href: a.href, count: null, on: a.on })) }}
+              />
+            ) : null}
             <MoreMenu model={model} />
           </div>
           <ListCard>
             <p className="m-0 mb-2 text-[13px] text-muted">{INTRO[model.view]}</p>
             {model.view === "history" ? (
               <div className="mb-2">
-                <ChipRow chips={model.historyChips} label="History" />
+                <SwitchLinks chips={model.historyChips} label="History" />
               </div>
             ) : null}
 

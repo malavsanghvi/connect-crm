@@ -117,7 +117,8 @@ describe("the route", () => {
     const el = (await (CountsPage as Route)({ searchParams: Promise.resolve({ view: "waiting" }) })) as ReactElement;
     expect(loads).toEqual(["counts"]);
     const out = html(el);
-    expect(out).toContain('aria-current="page" class="cc-chip');
+    // The counts to show are a switch on the toolbar (cc-seg); the open one is marked.
+    expect(out).toMatch(/class="cc-seg"[\s\S]*aria-current="page"/);
     expect(out).toContain("Waiting for the deposit");
   });
 

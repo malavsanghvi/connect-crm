@@ -90,3 +90,15 @@ No database change in any slice. Option B's facet counts would add read-only RPC
 2. Left panel starts expanded and the choice is remembered per person.
 3. Which workspaces stay pinned in the bar when space is tight (suggested: Today, People, Giving, Events, Messages).
 4. Roll out behind the New look switch first, then make it the only look.
+
+## 10. Shipped 2026-10-16, and what is left
+
+Shipped, each as its own PR: slice 1 (#316) the top bar with More and the left section panel; slice 2 (#317) the one-line toolbar on Giving › Pledges, Giving › Payments and People › Households; slice 3 (#318) a household's own sections in the panel with the way back; slice 4 (#320) headings for Settings, Content, Messages and the school, and Giving › Bank, Counts and Statements on the toolbar pieces.
+
+Left, each its own piece of work:
+
+- **Saved views and the + Filter picker.** Both need somewhere to keep a person's choices (a table with its own access rules) and extra query fields per list. Ask the owner before building.
+- **The other lists' own chip rows and filter forms** (Events, People lists other than Households, Store, Messages, Content). They keep their old controls; move them onto the toolbar pieces (src/components/list-toolbar) one list at a time.
+- **Option B's facet drawer** (a "More filters" panel with counts) on Payments, Bank reconcile and People: one read-only count query per list.
+- **Under 1024px** the pages keep their tab rows; a drawer for the panel is still to do. The collapsed strip shows two-letter marks; icons are still to do. Counts on panel items (Payment confirmations waiting) are still on Giving Today's row only.
+- **Records.** Only the household registers sections with the panel (src/components/shell/record-nav.tsx). A person's own page, and other records, can do the same. The panel shows the workspace list for a moment before a record page registers, because the registration happens after the page loads in the browser.

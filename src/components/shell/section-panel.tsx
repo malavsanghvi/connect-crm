@@ -129,7 +129,7 @@ export function SectionPanel({ workspaces, sections, initial }: { workspaces: Ra
       </div>
       <nav className="v2-panel-nav" aria-label={`${sec.label} sections`}>
         {sec.groups.map((g, gi) => {
-          const id = `${sec.key}:${g.title ?? gi}`;
+          const id = `${sec.key}:${gi}:${g.title ?? ""}`;
           const open = !folded.has(id);
           return (
             <div key={id} className="v2-panel-group">

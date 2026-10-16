@@ -61,6 +61,24 @@ function givingGroups(tabs: readonly GivingTab[], booksViews: { label: string; h
   return GIVING_GROUP_ORDER.flatMap((title) => (byTitle.has(title) ? [{ title, items: byTitle.get(title) ?? [] }] : []));
 }
 
+/**
+ * A module's tabs under their headings, in the order the headings first appear. A tab with no group goes under the module's name when
+ * the workspace holds several modules, and flat otherwise. A module that names no groups is one list, as it always was.
+ */
+function groupTabs(moduleLabel: string, several: boolean, tabs: readonly { href: string; label: string; group?: string }[]): SectionGroup[] {
+  const order: (string | null)[] = [];
+  const by = new Map<string | null, SectionItem[]>();
+  for (const t of tabs) {
+    const title = t.group ?? (several ? moduleLabel : null);
+    if (!by.has(title)) {
+      by.set(title, []);
+      order.push(title);
+    }
+    by.get(title)?.push({ key: t.href, label: t.label, href: t.href, paths: [t.href] });
+  }
+  return order.map((title) => ({ title, items: by.get(title) ?? [] }));
+}
+
 /** The panel's lists for each workspace the person can open. */
 export function sectionsFor(workspaces: readonly VisibleWorkspace[], ctx: TabContext): WorkspaceSections[] {
   return workspaces.map((w) => {
@@ -79,10 +97,7 @@ export function sectionsFor(workspaces: readonly VisibleWorkspace[], ctx: TabCon
       return { key: w.key, label: w.label, groups };
     }
     const several = w.modules.length > 1;
-    const groups = w.modules.map((m) => ({
-      title: several ? m.label : null,
-      items: m.tabs.map((t) => ({ key: t.href, label: t.label, href: t.href, paths: [t.href] })),
-    }));
+    const groups = w.modules.flatMap((m) => groupTabs(m.label, several, m.tabs));
     return { key: w.key, label: w.label, groups };
   });
 }
