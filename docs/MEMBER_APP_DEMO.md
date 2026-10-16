@@ -85,8 +85,8 @@ sign-in; the portal's proxy leaves `/api/demo/*` alone (no session refresh, no r
 - `kind` is `"faith"` or `"neutral"`; faith-based comes first. `id` and `slug` are the community's own, public ones (invented data): open it in
   guest mode with them. Never an address and never an id of a real thing.
 - `people` are the **featured** demo people only (owner decision 2026-10-14), each in one `area`, ordered by area and then in a fixed order:
-  - `"operations"` (**Non-profit operational roles**): the organization's administrator, treasurer, membership coordinator, event lead and teacher;
-  - `"community"` (**Community roles**): the family's main adult, shown as "Community member · Adult".
+  - `"operations"` (**Community Admin Roles**): the organization's administrator, treasurer, membership coordinator, event lead and teacher;
+  - `"community"` (**Community Members**): the family's main adult, shown as "Community member · Adult".
   A community without one of these roles simply lacks it. The list lives in one place in the database (`app.demo_featured_roles()`, migration 0815).
   The other demo people still exist (the pack keeps one per role) but are not offered.
 - When the demo switch is off: `{ "ok": true, "enabled": false, "communities": [], "message": "The demo is switched off right now. Please try again later." }`.

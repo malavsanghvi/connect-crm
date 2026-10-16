@@ -69,22 +69,40 @@ They cannot change the sign-in itself (password, address, phone) or keep a sessi
 ## Who is offered (0815)
 
 The public list of demo people (`app.demo_choices()`, the portal's `/demo` page and `GET /api/demo/choices`) offers only the **featured** people
-(owner decision 2026-10-14), arranged in two areas: **Non-profit operational roles** (the community's administrator, treasurer, membership coordinator,
-event lead and teacher, in that order) and **Community roles** (the family's main adult, shown as "Community member · Adult"). Each person in the list
+(owner decision 2026-10-14), arranged in two areas: **Community Admin Roles** (the community's administrator, treasurer, membership coordinator,
+event lead and teacher, in that order) and **Community Members** (the family's main adult, shown as "Community member · Adult"). Each person in the list
 carries their `area` (`operations` or `community`) and each community its public `id` and `slug`. A community with none of a role lacks it.
 The list is `app.demo_featured_roles()`, the only place to change it (for example to offer the family's other adults instead of the main adult).
 This changes only what the public list offers: the pack still has one demo person per role (`app.demo_missing_roles` requires it), every person keeps
 their sign-in, `app.worker_demo_begin` is unchanged, and the portal banner's "Switch role" opens the same page.
 
-### The community roles open the member app, not the portal (owner decision 2026-10-15)
+### The community members open the member app, not the portal (owner decision 2026-10-15)
 
-On `/demo` the two areas behave differently. The people of the **Non-profit operational roles** area have **Start**, which POSTs to the portal
+On `/demo` the two areas behave differently. The people of the **Community Admin Roles** area have **Start**, which POSTs to the portal
 (`startDemoAction`), signs the visitor out of any real portal account in this browser first, and lands on the portal's Home. The people of the
-**Community roles** area (`MEMBER_APP_AREA` in `src/lib/demo-signin/rules.ts`, the family roles whose work lives in the member app) have an **Open the member app**
+**Community Members** area (`MEMBER_APP_AREA` in `src/lib/demo-signin/rules.ts`, the family roles whose work lives in the member app) have an **Open the member app**
 link instead, to `<member app>/demo?persona=<persona id>` (`memberAppDemoPersonUrl`), which opens in the same tab and starts the demo in the member app as
 exactly that person, on their signed-in Home. That link starts **no portal session** and signs the visitor out of **nothing**, so the "Starting the demo signs you out in this browser first" note on the page is
 worded for the operational roles only. The member app's start is the `POST /api/demo/session` below, with the same guardrails. The contract with the app,
 the second link (`?as=family`, used by the website) and the fallback are in [MEMBER_APP_DEMO.md](MEMBER_APP_DEMO.md) "The one-step path".
+
+On `/demo` the two areas are two **columns** side by side from 1024px wide (admins on the left, members on the right, owner request 2026-10-16), one above the other on a phone.
+
+### The demo shows the newest look (2026-10-16)
+
+Starting a demo from `/demo` sets the portal's "New look" cookie (`weaver_look=v2`) when the visitor has not chosen a look in this browser, as a browser-session cookie (no `maxAge`), so it
+goes with the browser and does not follow them into a real community. A look they chose themselves is left alone (`src/app/demo/actions.ts`, `tests/demo-new-look.test.ts`).
+
+## The demo follows the product by itself (0877, 2026-10-16)
+
+A demo community is cleared and loaded again, and what it shows must keep up with what the product can do without anyone remembering to edit it. Four things do that:
+
+| What | How |
+| --- | --- |
+| Modules | `app.demo_align_center` (run at every load) switches on the pack's own modules and every **add-on of a module the community already has** that its kind offers (Giving: Payment confirmations, Bank reconciliation, Statements, Insights ...). A base module the pack leaves out (the club has no shop until its pack asks for one) stays out. `app.demo_module_exclusions()` lists the few never switched on by themselves: `ai`, `channels`, `website`, and `care`, `matching`, `market`, which each bring a role (`care_lead`/`relationship_owner`, `matching_lead`, `market_lead`) that needs a demo person the packs do not have yet (a demo will not load with a role that has none). Add those people to the packs, then take the module off the list. `supabase/tests/877_demo_follows_the_product_test.sql` creates the faith demo, so a new module that makes the load fail shows up in CI. |
+| What a reset clears | The ways to pay another way (`center_payment_methods`) are not on the keep list, so every reset deleted them. `app.demo_seed_product_extras(center, actor)` (called by `app.demo_populate` after the people are made) puts back check, cash, bank transfer and Zelle, and adds one payment confirmation waiting for the treasury team, from the community member's family, with its soft credit on their oldest open pledge (no photo: a pack cannot load storage files). This function is the one place to add "the demo should show X" for a new feature. |
+| Reloading | `app.demo_recipe_hash(center)` fingerprints the pack, the demo code above and the modules on offer; the load stores it in `center_demo_state.detail.recipe`. The hourly check (`app.worker_demo_reset_due`, job `demo.reset`) loads a demo again, reason "the product changed", when the fingerprint is not today's, unless a visitor is in it (then at 3 a.m. in its time zone). A deploy that changes the pack, `demo_align_center`, `demo_populate`, `demo_seed_product_extras` or the module catalog reaches the demo within the hour. |
+| The look | Starting a demo shows the New look (above), where the newest screens are. |
 
 ## The member app (docs/MEMBER_APP_DEMO.md)
 
