@@ -48,7 +48,7 @@ export function ModuleTabs() {
       <>
         <GivingTabRow tabs={givingTabs} className="mt-4" />
         {inner && views.length >= 2 ? (
-          <nav aria-label={`${inner.key === "accounting" ? "Books" : inner.label} views`} className="cc-tabs mt-2">
+          <nav aria-label={`${inner.key === "accounting" ? "Books" : inner.label} views`} className="cc-tabs mt-2" data-section-tabs="">
             {views.map((t) => (
               <Link key={t.href} href={t.href} aria-current={t.href === current ? "page" : undefined} className="cc-tab">
                 {t.label}
@@ -73,7 +73,7 @@ export function ModuleTabs() {
   return (
     <>
       {areas.length >= 2 ? (
-        <nav aria-label={`${workspaceLabel} areas`} className="v2-areas mt-4">
+        <nav aria-label={`${workspaceLabel} areas`} className="v2-areas mt-4" data-section-tabs="">
           {areas.map((m) => (
             <Link key={m.key} href={m.href} aria-current={m.key === mod.key ? "page" : undefined} className="v2-area">
               {m.label}
@@ -82,7 +82,7 @@ export function ModuleTabs() {
         </nav>
       ) : null}
       {showTabs ? (
-        <nav aria-label={`${mod.label} sections`} className={`cc-tabs ${areas.length >= 2 ? "mt-2" : "mt-4"}`}>
+        <nav aria-label={`${mod.label} sections`} className={`cc-tabs ${areas.length >= 2 ? "mt-2" : "mt-4"}`} data-section-tabs={look === "v2" ? "" : undefined}>
           {mod.tabs.map((t) => (
             <Link key={t.href} href={t.href} aria-current={t.href === active ? "page" : undefined} className="cc-tab">
               {t.label}

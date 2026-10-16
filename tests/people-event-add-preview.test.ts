@@ -67,7 +67,8 @@ describe("the previews", () => {
     expect(html).toContain('data-section="events"');
     expect(words).toContain("Founders' Day lunch");
     expect(words).toContain("3 RSVPs · came to 1");
-    expect(html.match(/aria-expanded="true"/g)).toHaveLength(1);
+    // The shell's section panel has expanders of its own; this counts the page's.
+    expect(html.replace(/<aside class="v2-panel"[\s\S]*?<\/aside>/, "").match(/aria-expanded="true"/g)).toHaveLength(1);
   });
 
   it("leave the section out when the Events module is off, and say 'no access' when the role cannot read events", async () => {
