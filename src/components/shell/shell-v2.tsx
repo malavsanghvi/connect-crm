@@ -9,6 +9,7 @@ import { FindBox } from "@/components/people-v2/find/find-box";
 import { GivingSheetsProvider } from "@/components/giving-actions/provider";
 import { NivaSunButton } from "@/components/shell/niva-sun-button";
 import { PhoneBar } from "@/components/shell/phone-bar";
+import { RecordNavProvider } from "@/components/shell/record-nav";
 import { SectionPanel } from "@/components/shell/section-panel";
 import { TenantMark } from "@/components/shell/tenant-mark";
 import { UserMenuV2 } from "@/components/shell/user-menu-v2";
@@ -134,6 +135,7 @@ export function ShellV2({
         />
       </header>
 
+      <RecordNavProvider>
       <div className="flex flex-1">
         <SectionPanel workspaces={items} sections={sections} initial={panel} />
 
@@ -150,6 +152,7 @@ export function ShellV2({
           <NivaDock />
         </NivaBoundary>
       </div>
+      </RecordNavProvider>
 
       <PhoneBar workspaces={items} todayBadge={todayBadge} todayBadgeLabel={todayBadgeLabel} footer={footer}>
         <NivaBoundary name="bottom bar button">
