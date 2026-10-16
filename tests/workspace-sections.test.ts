@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ROLE_PERMISSIONS } from "@/lib/giving-today/fixtures";
 import type { TabContext } from "@/lib/giving-today/tabs";
 import { NEUTRAL_KIND } from "@/lib/kind";
+import { NAV } from "@/lib/permissions";
 import { visibleWorkspaces } from "@/lib/workspaces";
 import { activeChildHref, activeSectionKey, sectionCount, sectionsFor } from "@/lib/workspace-sections";
 
@@ -31,12 +32,37 @@ describe("the left panel's sections", () => {
     expect(g?.groups.map((x) => x.title)).toEqual([null, "Money in", "Bank and books"]);
   });
 
-  it("lists another workspace's modules, with a heading each only when it has several", () => {
-    const c = ctx(["households.view", "people.view", "applications.review"]);
-    const people = sections(c).find((s) => s.key === "people");
-    if (!people) return; // permission names differ per setup; the shape is what this test checks when the workspace is open
-    const hasSeveral = people.groups.length > 1;
-    for (const g of people.groups) expect(g.title === null).toBe(!hasSeveral);
+  it("lists a workspace of one module that names no groups as one flat list", () => {
+    const c: TabContext = { ...ctx([]), isPlatformAdmin: true };
+    const all = sections(c);
+    // Reports is one module with no groups: one list, no heading.
+    expect(all.find((s) => s.key === "reports")?.groups.map((g) => g.title)).toEqual([null]);
+    expect(all.find((s) => s.key === "people")?.groups.map((g) => g.title)).toEqual([null]);
+  });
+
+  it("puts Settings, Content, Messages and the school under headings the tabs name, in the order they first appear", () => {
+    const c: TabContext = { ...ctx([]), isPlatformAdmin: true };
+    const all = sections(c);
+    const titles = (key: string) => all.find((s) => s.key === key)?.groups.map((g) => g.title);
+    expect(titles("settings")).toEqual(["Getting started", "Your organization", "Organization", "Roles and access", "Connections", "Money", "Messaging", "Data"]);
+    expect(titles("content")).toEqual(["Review", "Daily life", "Library and media", "About us"]);
+    expect(titles("messages")).toEqual(["Send", "Receive"]);
+    expect(titles("learning")).toEqual(["Classes", "Teaching", "Admin"]);
+    // Nothing is lost by grouping: every section the person could open before is still in the list, once.
+    const settings = all.find((s) => s.key === "settings");
+    const hrefs = settings?.groups.flatMap((g) => g.items.map((i) => i.href)) ?? [];
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+    expect(hrefs).toContain("/settings/payments");
+    expect(hrefs).toContain("/setup/go-live");
+  });
+
+  it("every tab of a module that uses headings has one, so a new page cannot land loose at the top of the list", () => {
+    for (const key of ["setup", "settings", "content", "comms", "pathshala"]) {
+      const m = NAV.find((n) => n.key === key);
+      expect(m, key).toBeTruthy();
+      const loose = (m?.tabs ?? []).filter((t) => !t.group).map((t) => t.href);
+      expect(loose, `tabs of "${key}" with no group (add group: "..." in permissions.ts)`).toEqual([]);
+    }
   });
 
   it("lights the section of the page being read, the longest address winning, and Today only on /giving itself", () => {
