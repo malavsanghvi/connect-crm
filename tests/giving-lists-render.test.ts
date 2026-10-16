@@ -81,7 +81,9 @@ describe("Giving › Pledges", () => {
     expect(out).toMatch(/aria-current="page"[^>]*>Pledges</);
     expect(out).toContain('placeholder="Find a pledge by family, pledge number or amount"');
     expect(out).toMatch(/aria-current="page"[^>]*>Open<span[^>]*>6<\/span>/);
-    expect(out).toContain("Over 90 days · $920.00");
+    // The Behind-by buckets are one dropdown on the toolbar; its options are links drawn once it is open (filter-menu).
+    expect(out).toMatch(/<button[^>]*>Behind by</);
+    expect(out).not.toContain("Over 90 days");
     expect(out).toContain("open across 6 pledges");
     expect(out).toContain("PL-0455");
     expect(out).toContain("12 days behind");
@@ -133,7 +135,9 @@ describe("Giving › Payments", () => {
   it("lists every payment with the method and source chips and the views", () => {
     const out = html(h(PaymentsView, { model: samplePaymentsModel("treasurer") }));
     expect(out).toMatch(/aria-current="page"[^>]*>Payments</);
-    for (const t of ["All payments", "Refunds", "Grants to match", "Recurring", "Check", "Zelle", "Recorded by hand"]) expect(out).toContain(`>${t}`);
+    for (const t of ["All payments", "Refunds", "Grants to match", "Recurring"]) expect(out).toContain(`>${t}`);
+    // Method and Source are dropdowns on the one-line toolbar.
+    for (const t of ["Method", "Source", "Year"]) expect(out).toMatch(new RegExp(`<button[^>]*>${t}<`));
     // The counts have their own tab since slice 5: no counts view here, the tab row links to it.
     expect(out).not.toContain("view=counts");
     expect(out).toContain('href="/giving/counts"');
@@ -172,8 +176,7 @@ describe("Giving › Payments", () => {
   it("offers Export and the Year chips to the treasurer; a second approver is told why there is no Export (slice 9)", () => {
     const out = html(h(PaymentsView, { model: samplePaymentsModel("treasurer", { year: "2026" }) }));
     expect(out).toMatch(/<button[^>]*>Export<\/button>/);
-    expect(out).toContain('aria-label="Year"');
-    expect(out).toMatch(/aria-current="page"[^>]*>2026</);
+    expect(out).toMatch(/<button[^>]*data-on="true"[^>]*>Year: 2026</);
     const approver = html(h(PledgesView, { model: samplePledgesModel("approver") }));
     expect(approver).not.toMatch(/<button[^>]*>Export<\/button>/);
     expect(approver).toContain("Exporting needs the data-export permission. Ask your administrator.");
