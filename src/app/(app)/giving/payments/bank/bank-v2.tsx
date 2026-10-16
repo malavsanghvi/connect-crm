@@ -20,7 +20,7 @@ export async function BankV2({ searchParams }: { searchParams: Promise<RawSearch
     <BankTab
       model={model}
       importer={
-        account ? <BankImport bankAccountId={account.id} accountName={account.name} expectedFormat={account.statementFormat} currency={model.currency} /> : null
+        account ? <BankImport bankAccountId={account.id} accountName={account.name} expectedFormat={account.statementFormat} currency={model.currency} testStatement={model.can.testStatement === true} /> : null
       }
       noAccount={<NewAccountForm />}
       exportSlot={model.exportOffer ? <ExportButton offer={model.exportOffer} labels={model.labels} /> : null}

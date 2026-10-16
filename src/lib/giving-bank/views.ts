@@ -367,6 +367,8 @@ export type BankCan = {
   pairPayouts?: boolean;
   /** Undo a bank match, with a reason (giving.manage; 0868). */
   undoMatch?: boolean;
+  /** A sandbox or a demo community whose person may import: the Test Bank Statement is offered (src/lib/test-statement.ts). */
+  testStatement?: boolean;
 };
 export type BankBody = Exclude<ListBody, { state: "ok" }> | { state: "ok" } | { state: "no_account"; canAdd: boolean };
 

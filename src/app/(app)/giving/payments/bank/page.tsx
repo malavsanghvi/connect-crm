@@ -28,6 +28,7 @@ import { BankV2 } from "./bank-v2";
 import { DepositMatcher, type DepositCandidate } from "./deposit-matcher";
 import { GiftLineMatcher, type Suggestion } from "./gift-line-matcher";
 import { ZelleReports } from "./zelle-reports";
+import { isTestCommunity } from "@/lib/test-statement";
 
 export const metadata: Metadata = { title: "Bank reconciliation" };
 
@@ -296,7 +297,7 @@ async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParam
       <BankResultsProvider>
         {canAccess(session, "bankImport") ? (
           <Card title="Import a statement" description="Download the CSV from the bank (Chase: Account activity → Download → CSV). Lines already imported are skipped automatically." className="mb-6">
-            <BankImport bankAccountId={account.id} accountName={account.name} expectedFormat={account.statement_format} currency={center.currency} />
+            <BankImport bankAccountId={account.id} accountName={account.name} expectedFormat={account.statement_format} currency={center.currency} testStatement={isTestCommunity(center, session.demo === true)} />
           </Card>
         ) : null}
 
