@@ -18429,6 +18429,12 @@ export type Database = {
         };
         Returns: string;
       };
+      store_order_pledge: {
+        Args: {
+          p_order: string;
+        };
+        Returns: string;
+      };
       store_sales_summary: {
         Args: {
           p_center: string;

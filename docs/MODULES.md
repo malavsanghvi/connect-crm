@@ -577,3 +577,10 @@ removes every other row of the center, children first in foreign-key order; a ne
 cleared unless it is added to that list. points_ledger stays append-only except inside that clear.
 Portal: /setup/demo (tab shown in sandboxes only) and a card on /setup. The community pack's contents
 per module are in demo_packs.contents; DB test 29 checks a load produces exactly those rows.
+
+### Payment proofs — `giving_proofs` (add-on of Giving, off by default, 0865)
+
+- **Tables:** payment_proofs, payment_proof_files, soft_credits, payment_proof_events; bucket `payment-evidence` (private; the family reads and writes `<center>/<household>/<proof>/…`, staff files live under `<center>/staff/…`).
+- **RPCs:** submit_payment_proof, withdraw_payment_proof, answer_proof_question, my_payment_proofs, payment_proof_queue, payment_proof_counts, approve_payment_proof, reject_payment_proof, ask_proof_question, proof_lookalikes, pledge_evidence, set_proof_policy, store_order_pledge (0870).
+- **Reconciliation (0868, needs `giving_bank`):** reconcile_candidates, reconcile_statement, unbanked_payments_report, unbanked_counts, unreconcile_bank_line.
+- **Who:** the family's adults send; `giving.record_offline` or `giving.manage` verifies (never their own household); `settings.manage` sets the rules.

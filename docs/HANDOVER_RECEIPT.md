@@ -149,3 +149,5 @@ secondary admin actions) are in the build scope of 🖥 / 🗂.
 - Workers not yet built (⚙️ above) are the next build wave: payments (Stripe Connect),
   QuickBooks poster, notification dispatcher (push / SMS / WhatsApp / email + reminders),
   Neon importer, nightly jobs (eligibility, percentiles, retention, kids turning 18).
+
+- **Payment proofs and bank reconciliation (2026-10-16):** plan `docs/PAYMENT_PROOFS_AND_RECONCILIATION_PLAN.md`, prototype `docs/handoff/prototypes/payment-proofs-2026-10/`; database 0864-0871, portal queue/pledge/Bank views, member app (sheet, My payment proofs, Pledge details), retention job. Backlog B115. Camera and file picking in the app wait for the next APK (runtime 5).
