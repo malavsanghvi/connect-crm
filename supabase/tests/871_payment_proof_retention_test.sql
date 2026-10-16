@@ -194,8 +194,8 @@ select pg_temp.assert(position('309' in :'due1') = 0 and position('308' in :'due
 select pg_temp.assert(position('311' in :'due1') = 0, 'A · a proof still waiting for the treasury team is never removed (311)');
 select pg_temp.assert(position('322' in :'due1') = 0 and position('314' in :'due1') = 0 and position('316' in :'due1') = 0,
                       'A · each community uses its own years: 322 (3 years, paid 3 years ago) and 314-316 (7 years) wait');
-select pg_temp.assert(position('301=Kept 7 years after the end of ' || (:yr - 8) in :'reasons') > 0 and position('308=Proof not accepted' in :'reasons') > 0
-                      and position('310=Proof taken back' in :'reasons') > 0 and position('321=Kept 3 years' in :'reasons') > 0,
+select pg_temp.assert(position('301=Kept 7 years after the end of ' || (:yr - 8) in :'reasons') > 0 and position('308=Confirmation not accepted' in :'reasons') > 0
+                      and position('310=Confirmation taken back' in :'reasons') > 0 and position('321=Kept 3 years' in :'reasons') > 0,
                       'A · each file is listed with its plain-English reason');
 
 -- A refund that was recorded no longer holds the evidence (payment 106: refunded)

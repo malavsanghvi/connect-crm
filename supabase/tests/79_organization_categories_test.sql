@@ -164,7 +164,7 @@ select pg_temp.assert_raises($$insert into app.organization_categories (key, lab
 select pg_temp.assert((select count(*) from app.category_modules) = 224
                       and not exists (select 1 from app.organization_categories k cross join app.modules m
                                        where not exists (select 1 from app.category_modules cm where cm.category_key = k.key and cm.module_key = m.key)),
-  'A · every category has a row for every module (7 x 32: 0865 adds Payment proofs, 0741 adds Giving''s 7 add-ons, 0750 the five Marketplace products, 0830 the Community Market)');
+  'A · every category has a row for every module (7 x 32: 0865 adds Payment confirmations, 0741 adds Giving''s 7 add-ons, 0750 the five Marketplace products, 0830 the Community Market)');
 select pg_temp.assert((select count(*) from app.category_modules where category_key = 'jain_center' and availability = 'default_on' and label is null and description is null) = 23
                       and (select array_agg(module_key || '=' || label order by module_key) from app.category_modules where category_key = 'jain_center' and label is not null)
                             = array['care=Member care', 'giving_counts=Bhandar counts', 'labh=Labh']

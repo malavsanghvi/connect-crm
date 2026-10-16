@@ -119,7 +119,7 @@ export function ProofQueue({ cards, can, fmt, timeZone, labels }: QueueProps) {
       <section aria-labelledby="proofs-list" className="flex min-w-0 flex-[1_1_520px] flex-col gap-3">
         <div>
           <h2 id="proofs-list" className="m-0 text-[18px] font-bold text-ink">
-            Proofs to verify <span className="font-semibold text-muted">({cards.length})</span>
+            Payment confirmations to review <span className="font-semibold text-muted">({cards.length})</span>
           </h2>
           <p className="m-0 mt-1 text-[13.5px] text-ink-2">Members paid another way and sent a photo. Their pledges show Soft credit until you decide. Oldest first.</p>
         </div>
@@ -242,7 +242,7 @@ function ProofReview({
     <>
       <div className="flex flex-wrap items-start justify-between gap-2.5">
         <h2 id="proof-review" className="m-0 font-display text-[24px] font-semibold text-navy">
-          Review proof
+          Review payment confirmation
         </h2>
         <span className="rounded-full bg-navy-50 px-3 py-[3px] text-[13px] font-bold text-navy">
           {card.status === "needs_info" ? "Waiting for the family's answer" : "Soft credit until you decide"}
@@ -253,7 +253,7 @@ function ProofReview({
         <HouseholdCard card={card.household} labels={labels} timeZone={timeZone} currency={fmt.currency} />
       ) : (
         <p role="alert" className="m-0 rounded-field border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
-          This household could not be shown. Do not decide this proof until you can see who it is from. Reload the page to try again.
+          This household could not be shown. Do not decide this confirmation until you can see who it is from. Reload the page to try again.
         </p>
       )}
       <p className="m-0 -mt-2 text-[12.5px] text-muted">Shown with its household card, never by name alone.</p>
@@ -300,11 +300,11 @@ function ProofReview({
       <div className="flex flex-col gap-1.5">
         <p className="m-0 text-[14px] font-bold">If you approve, the payment goes to these pledges, oldest first</p>
         {covered.length === 0 ? (
-          <p className="m-0 text-[13.5px] text-ink-2">No pledge is reserved by this proof now. It will be applied to the oldest open pledges.</p>
+          <p className="m-0 text-[13.5px] text-ink-2">No pledge is reserved by this confirmation now. It will be applied to the oldest open pledges.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[360px] border-collapse text-[14px]">
-              <caption className="sr-only">Pledges this proof would pay</caption>
+              <caption className="sr-only">Pledges this confirmation would pay</caption>
               <tbody>
                 {covered.map((p) => (
                   <tr key={p.pledgeId} className="border-t border-line">
@@ -337,7 +337,7 @@ function ProofReview({
 
       {card.events.length > 0 ? (
         <details className="text-[13px] text-ink-2">
-          <summary className="cursor-pointer font-bold text-navy">History of this proof</summary>
+          <summary className="cursor-pointer font-bold text-navy">History of this confirmation</summary>
           <ul className="m-0 mt-1.5 flex list-none flex-col gap-1 p-0">
             {card.events.map((e, i) => (
               <li key={`${e.createdAt}-${i}`}>

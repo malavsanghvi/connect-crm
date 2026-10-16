@@ -75,7 +75,7 @@ describe("payments.proof_retention", () => {
       due(2, `${C}/h1/stuck.jpg`),
       due(3, `${C}/h1/gone.jpg`),
       due(4, `${C}/h1/../other/x.jpg`),
-      due(5, `${C}/h1/b.pdf`, "Proof not accepted: kept 13 months, then removed"),
+      due(5, `${C}/h1/b.pdf`, "Confirmation not accepted: kept 13 months, then removed"),
       due(6, `${C}/h1/record-fails.jpg`),
     ];
     let round = 0;
@@ -106,7 +106,7 @@ describe("payments.proof_retention", () => {
     expect(recorded).toEqual([
       [files[0]!.file_id, files[0]!.reason],
       [files[2]!.file_id, files[2]!.reason],
-      [files[4]!.file_id, "Proof not accepted: kept 13 months, then removed"],
+      [files[4]!.file_id, "Confirmation not accepted: kept 13 months, then removed"],
       [files[5]!.file_id, files[5]!.reason],
     ]);
     expect(out).toMatchObject({ removed: 3, failed: 3 });
@@ -125,7 +125,7 @@ describe("payments.proof_retention", () => {
     let round = 0;
     const { db, calls } = fakeDb({ query: (t) => (t.includes("proof_files_due") && round++ === 0 ? [due(1, `${C}/h1/a.jpg`)] : []) });
     await expect(retention.run(job({ kind: "payments.proof_retention" }), ctxFor(db, { SUPABASE_URL: base, SUPABASE_SECRET_KEY: "k" }))).rejects.toThrow(
-      /Could not remove 1 expired payment proof file.*Storage API answered 500/,
+      /Could not remove 1 expired payment confirmation file.*Storage API answered 500/,
     );
     expect(calls.some((c) => c.fn === "query" && String(c.args[0]).includes("proof_file_removed"))).toBe(false);
     deleteStatus = 200;

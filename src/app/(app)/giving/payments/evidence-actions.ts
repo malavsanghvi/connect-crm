@@ -71,7 +71,7 @@ export async function prepareEvidenceUploadAction(input: { paymentId: string; fi
     console.error(`[giving/payments] could not sign an upload to ${EVIDENCE_BUCKET}/${path}:`, signed.error);
     if (/bucket not found/i.test(message)) return { ok: false, error: `Could not ${doing} — the payment evidence storage area is not set up on this server yet. Ask Weaver to create it.` };
     if (/row-level security|unauthorized|permission/i.test(message)) {
-      return { ok: false, error: `Could not ${doing} — storage refused it: attaching needs giving.record_offline or giving.manage, and Payment proofs must be switched on.` };
+      return { ok: false, error: `Could not ${doing} — storage refused it: attaching needs giving.record_offline or giving.manage, and Payment confirmations must be switched on.` };
     }
     return failure(`Could not ${doing}`, signed.error ?? "storage did not answer");
   }

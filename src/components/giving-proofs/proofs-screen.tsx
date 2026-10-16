@@ -9,15 +9,15 @@ import type { ProofsPage } from "@/lib/data/payment-proofs";
 export function ProofsScreen({ page }: { page: ProofsPage }) {
   const header = (
     <PageHeader
-      title="Payment proofs"
-      description="Photos and files members sent when they paid another way. Their pledges show Soft credit until you verify the proof."
+      title="Payment confirmations"
+      description="Photos and files members sent when they paid another way. Their pledges show Soft credit until you approve the confirmation."
     />
   );
   if (page.state === "no_access") {
     return (
       <>
         {header}
-        <NoAccess area="Payment proofs" access="payments" />
+        <NoAccess area="Payment confirmations" access="payments" />
       </>
     );
   }
@@ -25,7 +25,7 @@ export function ProofsScreen({ page }: { page: ProofsPage }) {
     return (
       <>
         {header}
-        <Alert tone="info" title="Payment proofs are switched off for this community.">
+        <Alert tone="info" title="Payment confirmations are switched off for this community.">
           A community administrator can switch them on in Settings › Modules.
         </Alert>
       </>
@@ -37,7 +37,7 @@ export function ProofsScreen({ page }: { page: ProofsPage }) {
         {header}
         <Alert
           tone="danger"
-          title="Could not load the payment proofs"
+          title="Could not load the payment confirmations"
           action={
             <a href="/giving/proofs" className="cc-btn cc-btn-bad cc-btn-xs">
               Try again
@@ -61,13 +61,13 @@ export function ProofsScreen({ page }: { page: ProofsPage }) {
       ))}
       {!page.can.decide ? (
         <div className="mb-3">
-          <Alert tone="info" title="You can look at these proofs, but not decide them.">
-            Verifying a proof needs the permission to record payments.
+          <Alert tone="info" title="You can look at these confirmations, but not decide them.">
+            Reviewing a payment confirmation needs the permission to record payments.
           </Alert>
         </div>
       ) : null}
       {page.cards.length === 0 ? (
-        <EmptyState title="No payment proofs are waiting.">
+        <EmptyState title="No payment confirmations are waiting.">
           When a member sends a photo or file for a payment made another way, it appears here and its pledges show Soft credit until you decide.
         </EmptyState>
       ) : (

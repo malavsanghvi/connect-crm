@@ -141,7 +141,7 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
           {proofPolicy.ok ? (
             <ProofRules policy={proofPolicy.policy} canEdit={canAccess(session, "centerSettings")} currency={communityFormat(center).currency} />
           ) : (
-            <Alert tone="danger" title="Could not load the payment proof rules">
+            <Alert tone="danger" title="Could not load the payment confirmation rules">
               {proofPolicy.error}
             </Alert>
           )}

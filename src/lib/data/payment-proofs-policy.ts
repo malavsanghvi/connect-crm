@@ -15,7 +15,7 @@ export async function readProofPolicy(session: CrmSession): Promise<PolicyRead> 
   const res = await session.db.rpc("proof_policy", { p_center: session.center.id });
   if (res.error) {
     if (res.error.code === "42501") return { ok: false, error: "You don't have access to this area.", noAccess: true };
-    return { ok: false, error: failure("Could not load the payment proof rules", res.error).error };
+    return { ok: false, error: failure("Could not load the payment confirmation rules", res.error).error };
   }
   return { ok: true, policy: parseProofPolicy(res.data) };
 }

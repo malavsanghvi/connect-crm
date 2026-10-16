@@ -27,7 +27,7 @@ import { IgnoreLineAct } from "./line-acts";
 const INTRO: Record<BankModel["view"], string> = {
   match: "Gift lines from the bank (bank transfers, fund grants) with the family they most likely came from.",
   reconcile:
-    "A preview of the whole statement: each line tried against payments already recorded, waiting proofs and Zelle reports first, then open pledges. Nothing is written until you apply a row.",
+    "A preview of the whole statement: each line tried against payments already recorded, waiting payment confirmations and Zelle reports first, then open pledges. Nothing is written until you apply a row.",
   deposits: "Deposits of paper payments and cash: tick the recorded payments in each one. They must add up to the cent.",
   zelle: "What members reported sending, against the bank statement. Nothing is credited until you confirm it.",
   payouts:

@@ -39,7 +39,7 @@ export function UnbankedView({
   return (
     <div className="flex flex-col gap-3" data-testid="unbanked-view">
       <div className="rounded-field border border-line bg-ground px-3 py-2 text-[14px] text-ink">
-        <strong>Paid, not on the bank.</strong> Payments from verified proofs (or recorded by hand) that no bank line has banked. Those past the usual window for their method are
+        <strong>Paid, not on the bank.</strong> Payments from approved confirmations (or recorded by hand) that no bank line has banked. Those past the usual window for their method are
         flagged: this is the safety net behind &ldquo;closed by soft credit with no bank reconciliation&rdquo;.{" "}
         {model.rows.length > 0 ? (
           <strong>
@@ -54,7 +54,7 @@ export function UnbankedView({
         </p>
       ))}
       {model.rows.length === 0 ? (
-        <p className="m-0 rounded-field bg-ground px-3 py-4 text-center text-[14px] text-muted">Every verified payment is on the bank. Nothing to chase.</p>
+        <p className="m-0 rounded-field bg-ground px-3 py-4 text-center text-[14px] text-muted">Every approved payment is on the bank. Nothing to chase.</p>
       ) : (
         <div className="overflow-x-auto rounded-field border border-line bg-white">
           <table className="crm-table min-w-[56rem]">
@@ -66,7 +66,7 @@ export function UnbankedView({
                 <th scope="col" className="num">
                   Amount
                 </th>
-                <th scope="col">Verified</th>
+                <th scope="col">Approved</th>
                 <th scope="col">Came from</th>
                 <th scope="col">Days / usual</th>
                 <th scope="col">Next step</th>

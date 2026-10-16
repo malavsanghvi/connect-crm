@@ -1,5 +1,7 @@
 # Offline payment proofs, soft credit, and smart bank reconciliation
 
+**Wording (2026-10-16):** Called "payment confirmation" on screen; "proof" is the internal name.
+
 **Status (2026-10-15): the owner accepted the plan and every recommended answer (Q1-Q20), and added one rule: the outstanding open
 balance never includes soft credit or reconciled money (section 3.1). Nothing is built. The prototype screens are drawn
 (docs/handoff/prototypes/payment-proofs-2026-10/, live canvas https://claude.ai/artifact/FU2zQgj6rsvnAGM4obYm69); each build slice

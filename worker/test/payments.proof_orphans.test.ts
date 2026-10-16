@@ -96,7 +96,7 @@ describe("payments.proof_orphans", () => {
     let round = 0;
     const { db } = fakeDb({ query: (t) => (t.includes("proof_orphan_objects") && round++ === 0 ? names(`${C}/h1/p1/a.jpg`) : []) });
     await expect(orphans.run(job({ kind: "payments.proof_orphans" }), ctxFor(db, { SUPABASE_URL: base, SUPABASE_SECRET_KEY: "k" }))).rejects.toThrow(
-      /Could not remove 1 unused payment proof upload.*Storage API answered 500/,
+      /Could not remove 1 unused payment confirmation upload.*Storage API answered 500/,
     );
     deleteStatus = 200;
   });

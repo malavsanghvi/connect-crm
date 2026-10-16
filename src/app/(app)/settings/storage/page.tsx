@@ -69,7 +69,7 @@ export default async function StoragePage() {
     const due = await db.rpc("proof_files_due_soon", { p_center: center.id, p_days: EXPIRING_WINDOW_DAYS });
     if (due.error) {
       if (due.error.code !== "PGRST202" && due.error.code !== "42883") {
-        proofExpiringError = failure("Could not check which payment proofs are about to be removed", due.error).error;
+        proofExpiringError = failure("Could not check which payment confirmations are about to be removed", due.error).error;
       }
     } else {
       proofExpiring = expiringNotice(parseExpiringCounts(due.data), (v) => formatDate(v, center.time_zone));
@@ -151,7 +151,7 @@ export default async function StoragePage() {
       </Card>
       <div className="mt-4">
         {proofPolicy && !proofPolicy.ok ? (
-          <Alert tone="danger" title="Could not load how long payment proofs are kept">
+          <Alert tone="danger" title="Could not load how long payment confirmations are kept">
             {proofPolicy.error}
           </Alert>
         ) : (

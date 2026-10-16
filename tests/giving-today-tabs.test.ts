@@ -17,7 +17,7 @@ describe("Giving's one tab row", () => {
     expect(activeGivingTab(tabs, "/giving/counts")).toBe("counts");
     expect(tabs.find((t) => t.key === "campaigns")).toMatchObject({ label: "Campaigns & opportunities", href: "/giving/campaigns" });
     expect(tabs.find((t) => t.key === "books")?.href).toBe("/accounting/close");
-    expect(tabs.find((t) => t.key === "proofs")).toMatchObject({ label: "Payment proofs", href: "/giving/proofs", paths: ["/giving/proofs"] });
+    expect(tabs.find((t) => t.key === "proofs")).toMatchObject({ label: "Payment confirmations", href: "/giving/proofs", paths: ["/giving/proofs"] });
     expect(activeGivingTab(tabs, "/giving/proofs")).toBe("proofs");
     expect(givingTabs(ctx(treasurer)).find((t) => t.key === "insights")).toMatchObject({ label: "Insights", href: "/giving/insights" });
   });

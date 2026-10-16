@@ -89,7 +89,7 @@ export function ProofDecision({
   function approve(extra: { mergePaymentId?: string; separateReason?: string }) {
     const ch = changes();
     if (!ch.ok) {
-      setError(`Could not approve the proof — ${ch.error}`);
+      setError(`Could not approve the payment confirmation — ${ch.error}`);
       return;
     }
     // The bank line was found for the amount the family claimed: only offered while that amount stands.
@@ -116,7 +116,7 @@ export function ProofDecision({
     }
     if (mode === "reject") {
       const bad = reasonProblem(text, "reject");
-      if (bad) return setError(`Could not reject the proof — ${bad}`);
+      if (bad) return setError(`Could not reject the payment confirmation — ${bad}`);
       return run(() => rejectProofAction(card.id, text));
     }
     approve({});
@@ -162,7 +162,7 @@ export function ProofDecision({
           <div className="flex flex-wrap gap-2.5">
             <div className="flex min-w-[110px] flex-[1_1_110px] flex-col gap-1">
               <label htmlFor={`amt-${card.id}`} className="text-[13px] font-bold">
-                Amount seen on the proof
+                Amount seen on the confirmation
               </label>
               <input id={`amt-${card.id}`} value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" autoComplete="off" className="crm-input min-h-[44px] tabular-nums" />
             </div>
@@ -201,7 +201,7 @@ export function ProofDecision({
             What do you need? (the family sees this)
           </label>
           <textarea id={`ask-${card.id}`} value={text} onChange={(e) => setText(e.target.value)} rows={3} maxLength={500} className="crm-input min-h-[88px]" placeholder="For example: could you send a clearer photo of the front of the check?" />
-          <p className="m-0 text-[13.5px] text-ink-2">The pledges stay Soft credit. If the family does not answer within the days your organization set, the proof comes back here marked stale. It is never rejected on its own.</p>
+          <p className="m-0 text-[13.5px] text-ink-2">The pledges stay Soft credit. If the family does not answer within the days your organization set, the confirmation comes back here marked stale. It is never rejected on its own.</p>
         </div>
       ) : null}
 

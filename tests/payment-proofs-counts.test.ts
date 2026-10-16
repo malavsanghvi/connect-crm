@@ -20,10 +20,10 @@ describe("payment proof counts", () => {
 
   it("counts waiting proofs and the ones a member never answered", () => {
     const one = proofsTaskCopy({ waiting: 1, needsInfo: 0, stale: 0, oldestDays: 0 });
-    expect(one).toEqual({ count: 1, title: "1 payment proof to verify", meta: "Sent by members as soft credit" });
+    expect(one).toEqual({ count: 1, title: "1 payment confirmation to review", meta: "Sent by members as soft credit" });
     const many = proofsTaskCopy({ waiting: 4, needsInfo: 3, stale: 2, oldestDays: 12 });
     expect(many?.count).toBe(6);
-    expect(many?.title).toBe("6 payment proofs to verify");
+    expect(many?.title).toBe("6 payment confirmations to review");
     expect(many?.meta).toContain("oldest waiting 12 days");
     expect(many?.meta).toContain("2 replies overdue from members");
     expect(proofsTaskCopy({ waiting: 0, needsInfo: 1, stale: 1, oldestDays: 0 })?.meta).toContain("1 reply overdue from members");
@@ -56,11 +56,11 @@ describe("payment proof counts", () => {
     expect(expiringTaskCopy({ count: 5, soonestOn: "2027-01-01", legalHold: true, days: 30 }, date)).toBeNull();
     expect(expiringTaskCopy({ count: 1, soonestOn: "2027-01-01", legalHold: false, days: 30 }, date)).toEqual({
       count: 1,
-      title: "1 proof file about to be removed",
+      title: "1 confirmation file about to be removed",
       meta: "The first is due on 2027-01-01 · keep a copy of anything you still need · Settings › Storage",
     });
     const many = expiringTaskCopy({ count: 12, soonestOn: null, legalHold: false, days: 30 }, date);
-    expect(many?.title).toBe("12 proof files about to be removed");
+    expect(many?.title).toBe("12 confirmation files about to be removed");
     expect(many?.meta).toBe("keep a copy of anything you still need · Settings › Storage");
   });
 

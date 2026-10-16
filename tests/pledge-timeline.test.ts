@@ -40,7 +40,7 @@ describe("the timeline of a pledge", () => {
     const t = parseTimeline(answer)!;
     expect(t.map((e) => timelineText(e, "USD", "en-US"))).toEqual([
       "Pledged $200.00.",
-      "Proof for $200.00. Sent by Mina. Your pledges show Soft credit while the treasury team checks it.",
+      "Payment confirmation for $200.00. Sent by Mina. Your pledges show Soft credit while the treasury team checks it.",
       "The treasury team asks: Which bank is the check from?",
       "Checked and recorded. Receipt R-2026-0007.",
       "Receipt R-2026-0007, check: $200.00 applied.",

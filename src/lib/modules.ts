@@ -64,7 +64,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "events", label: "Events & RSVP", core: false, dependsOn: ["people"], description: "Events, templates, RSVPs, tickets, check-in, lunch slots, event volunteers and feedback." },
   { key: "giving", label: "Pledges & donations", core: false, dependsOn: ["people"], description: "Funds, campaigns, pledges, payments, allocations, refunds, receipts and the ways to pay. Its add-ons follow." },
   { key: "giving_bank", label: "Bank reconciliation", core: false, dependsOn: ["giving"], description: "Bank accounts, statement imports and lines, known payers, and member Zelle reports matched to the bank statement." },
-  { key: "giving_proofs", label: "Payment proofs", core: false, dependsOn: ["giving"], description: "Members send a photo or file when they paid another way. The pledges it covers show Soft credit until the treasury team verifies it." },
+  { key: "giving_proofs", label: "Payment confirmations", core: false, dependsOn: ["giving"], description: "Members send a photo or file when they paid another way. The pledges it covers show Soft credit until the treasury team approves it." },
   { key: "giving_counts", label: "Offering counts", core: false, dependsOn: ["giving"], description: "Counting sessions for cash and checks collected in person, and the valuables register." },
   { key: "giving_insights", label: "Insights", core: false, dependsOn: ["giving"], description: "Giving insights for the treasurer and the household panel under Giving at a glance." },
   { key: "giving_opportunities", label: "Opportunities", core: false, dependsOn: ["giving"], description: "Sponsorships and other opportunities inside campaigns that members choose from." },

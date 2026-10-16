@@ -12,17 +12,17 @@ export function ProofRules({ policy, canEdit, currency }: { policy: ProofPolicy;
   const off = !canEdit;
   return (
     <Card
-      title="Payment proofs"
-      description="Families can send a photo or file when they paid another way. These rules are per organization. Under Giving, Payment proofs is an add-on switch."
+      title="Payment confirmations"
+      description="Families can send a photo or file when they paid another way. These rules are per organization. Under Giving, Payment confirmations is an add-on switch."
     >
-      <ActionForm action={saveProofRulesAction} submitLabel="Save the proof rules" pendingLabel="Saving…" hideSubmit={off} className="flex flex-col gap-5">
+      <ActionForm action={saveProofRulesAction} submitLabel="Save the confirmation rules" pendingLabel="Saving…" hideSubmit={off} className="flex flex-col gap-5">
         <div data-proof-rules>
           <TableWrap>
-            <table className="crm-table min-w-[640px]" aria-label="Payment proof rules by way of paying">
+            <table className="crm-table min-w-[640px]" aria-label="Payment confirmation rules by way of paying">
               <thead>
                 <tr>
                   <th>Way of paying</th>
-                  <th>Proof needed?</th>
+                  <th>Confirmation needed?</th>
                   <th>Usual days to reach the bank</th>
                 </tr>
               </thead>
@@ -67,10 +67,10 @@ export function ProofRules({ policy, canEdit, currency }: { policy: ProofPolicy;
         <div className="grid gap-5 lg:grid-cols-2">
           <div className="flex flex-col gap-3">
             <strong className="text-[14px]">Who checks, and when two people are needed</strong>
-            <p className="m-0 text-[13.5px] text-ink-2">Anyone who can record payments (treasurer, finance volunteer) may verify a proof, except a proof from their own household.</p>
+            <p className="m-0 text-[13.5px] text-ink-2">Anyone who can record payments (treasurer, finance volunteer) may review a payment confirmation, except one from their own household.</p>
             <div className="flex flex-col gap-1">
               <label htmlFor="second_approver" className="text-[13px] font-bold">
-                A proof above this amount needs a second person with approval rights ({currency})
+                A payment confirmation above this amount needs a second person with approval rights ({currency})
               </label>
               <input
                 id="second_approver"
@@ -86,7 +86,7 @@ export function ProofRules({ policy, canEdit, currency }: { policy: ProofPolicy;
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="reply_wait_days" className="text-[13px] font-bold">
-                Days to wait for a family&apos;s reply before the proof returns to the queue
+                Days to wait for a family&apos;s reply before the confirmation returns to the queue
               </label>
               <input
                 id="reply_wait_days"
@@ -98,13 +98,13 @@ export function ProofRules({ policy, canEdit, currency }: { policy: ProofPolicy;
                 className="crm-input min-h-[44px] max-w-[120px] tabular-nums"
               />
               <span className="text-[12.5px] text-muted">
-                {REPLY_WAIT_MIN} to {REPLY_WAIT_MAX} days. A proof nobody answered is never rejected on its own.
+                {REPLY_WAIT_MIN} to {REPLY_WAIT_MAX} days. A confirmation nobody answered is never rejected on its own.
               </span>
             </div>
           </div>
 
           <div className="flex flex-col gap-3">
-            <strong className="text-[14px]">While a proof is waiting (Soft credit)</strong>
+            <strong className="text-[14px]">While a confirmation is waiting (Soft credit)</strong>
             <label className="flex items-start gap-2.5 text-[13.5px] text-ink">
               <input type="checkbox" name="honour_event_entry" defaultChecked={policy.honourEventEntry} disabled={off} className="mt-1 h-4 w-4" />
               <span>Admit people to an event whose pledge is in Soft credit</span>
@@ -113,7 +113,7 @@ export function ProofRules({ policy, canEdit, currency }: { policy: ProofPolicy;
               <input type="checkbox" name="release_store_orders" defaultChecked={policy.releaseStoreOrders} disabled={off} className="mt-1 h-4 w-4" />
               <span>Release a store order for pickup while its pledge is in Soft credit</span>
             </label>
-            <p className="m-0 text-[13px] text-muted">Reminders for a pledge in Soft credit are always paused. Soft credit never counts as given until a proof is verified.</p>
+            <p className="m-0 text-[13px] text-muted">Reminders for a pledge in Soft credit are always paused. Soft credit never counts as given until the payment confirmation is approved.</p>
           </div>
         </div>
         {off ? <p className="m-0 text-[12.5px] text-muted">Changing these rules needs the permission to manage settings.</p> : null}

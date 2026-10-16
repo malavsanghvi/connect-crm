@@ -70,10 +70,10 @@ describe("month-end close: warning lines that never block", () => {
 
   it("says how many proofs wait and how many paid pledges are not on the bank, proofs first", () => {
     expect(warn({ ok: true, value: 3 }, { ok: true, value: 12 })).toEqual([
-      { key: "proofs_waiting", label: "Payment proofs still waiting to be verified: 3", href: "/giving/proofs" },
+      { key: "proofs_waiting", label: "Payment confirmations still waiting to be reviewed: 3", href: "/giving/proofs" },
       { key: "unbanked", label: "Paid pledges not yet bank reconciled: 12", href: "/giving/payments/bank?view=unbanked" },
     ]);
-    expect(warn({ ok: true, value: 1_204 }, null).map((w) => w.label)).toEqual(["Payment proofs still waiting to be verified: 1,204"]);
+    expect(warn({ ok: true, value: 1_204 }, null).map((w) => w.label)).toEqual(["Payment confirmations still waiting to be reviewed: 1,204"]);
   });
 
   it("draws nothing when the module is off or the reader cannot see the count, and nothing when nothing waits", () => {
@@ -85,7 +85,7 @@ describe("month-end close: warning lines that never block", () => {
 
   it("a count that could not be read is said in words, never drawn as zero", () => {
     expect(warn({ ok: false, why: "error" }, { ok: true, value: 2 }).map((w) => w.label)).toEqual([
-      "Could not count the payment proofs still waiting to be verified",
+      "Could not count the payment confirmations still waiting to be reviewed",
       "Paid pledges not yet bank reconciled: 2",
     ]);
   });
@@ -99,7 +99,7 @@ describe("month-end close: warning lines that never block", () => {
 
   it("the preview data shows both lines on the waiting sample and none on the clear one", () => {
     expect(sampleBooks("waiting").state.warnings.map((w) => w.label)).toEqual([
-      "Payment proofs still waiting to be verified: 2",
+      "Payment confirmations still waiting to be reviewed: 2",
       "Paid pledges not yet bank reconciled: 5",
     ]);
     expect(sampleBooks("clear").state.warnings).toEqual([]);

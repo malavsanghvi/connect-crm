@@ -112,7 +112,7 @@ select pg_temp.assert((select count(*) from app.payment_proof_files where paymen
 reset role;
 update app.center_module_grants set granted = false where center_id = :c and module_key = 'giving_proofs';
 select pg_temp.as_user(:tara);
-select pg_temp.assert_raises(format($q$select app.attach_payment_evidence(%L, %L, 'image/jpeg', 100)$q$, :'pay1', :c::text || '/staff/' || :'pay1' || '/off.jpg'), 'Payment proofs', 'A · with Payment proofs off nothing can be attached');
+select pg_temp.assert_raises(format($q$select app.attach_payment_evidence(%L, %L, 'image/jpeg', 100)$q$, :'pay1', :c::text || '/staff/' || :'pay1' || '/off.jpg'), 'Payment confirmations', 'A · with Payment confirmations off nothing can be attached');
 reset role;
 update app.center_module_grants set granted = true where center_id = :c and module_key = 'giving_proofs';
 

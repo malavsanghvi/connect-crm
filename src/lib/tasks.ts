@@ -63,9 +63,9 @@ export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "credit", tag: "Credit", color: "brown", anyOf: ["giving.manage"], href: "/giving/payments" },
   { key: "deposits", tag: "Deposits", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/bank", module: "giving_bank" },
   // Payment proofs members sent (0866): the treasury team verifies them under Giving > Payment proofs.
-  { key: "proofs", tag: "Proofs", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/proofs", module: "giving_proofs" },
+  { key: "proofs", tag: "Confirmations", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/proofs", module: "giving_proofs" },
   // Proof files that become due for removal in the next 30 days (0873): the warning before the daily job deletes them, in Settings > Storage.
-  { key: "proofs_expiring", tag: "Proofs ending", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/settings/storage", module: "giving_proofs" },
+  { key: "proofs_expiring", tag: "Confirmations ending", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/settings/storage", module: "giving_proofs" },
   // Payments recorded as paid but not yet on a bank statement (0868): Bank > Paid, not on the bank.
   { key: "unbanked", tag: "Not banked", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/payments/bank?view=unbanked", module: "giving_bank" },
   { key: "membership", tag: "Membership", color: "navy", anyOf: ["people.approve"], href: "/memberships/applications" },

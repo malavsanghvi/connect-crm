@@ -173,7 +173,7 @@ export function ReconcileBody({
         <strong>
           {model.lines.length} incoming {model.lines.length === 1 ? "line" : "lines"} on this account.
         </strong>{" "}
-        <strong>Nothing has been written.</strong> Each line was first tried against payments already recorded, waiting proofs and Zelle reports, and only then against open
+        <strong>Nothing has been written.</strong> Each line was first tried against payments already recorded, waiting payment confirmations and Zelle reports, and only then against open
         pledges. Review each row and apply what is right.
         {model.lines.length >= model.limit ? ` The preview shows the newest ${model.limit} lines; apply some and refresh to see the rest.` : ""}
         <span className="ml-2 inline-block">{refresh}</span>
@@ -361,7 +361,7 @@ function LineCard({
       ) : null}
       {line.candidates.length === 0 ? (
         <p className="m-0 mt-2 text-[14px] text-muted">
-          No family, payment or proof explains this line.{" "}
+          No family, payment or confirmation explains this line.{" "}
           <Link href="/giving/payments/bank" className="crm-link font-semibold">
             Match it by hand in Gifts to match
           </Link>
@@ -531,7 +531,7 @@ function CandidateRow({
           labels={labels}
           what={
             needsReason
-              ? "The bank is the truth: the proof is approved at the amount the bank shows, the rest of the pledge stays open, and the family is told. Say why the amount differs."
+              ? "The bank is the truth: the payment confirmation is approved at the amount the bank shows, the rest of the pledge stays open, and the family is told. Say why the amount differs."
               : "A payment is created only because you say this is a different gift from the one already recorded. The reason is kept in the audit log."
           }
           error={error}
@@ -631,13 +631,13 @@ function LookalikeSheet({
       title={`${money(line.amountCents)} looks like money already counted`}
       family={family}
       labels={labels}
-      what="Attach the bank line to the payment it matches, or approve the waiting proof with it. No second payment is created and no pledge changes."
+      what="Attach the bank line to the payment it matches, or approve the waiting payment confirmation with it. No second payment is created and no pledge changes."
       error={error}
       pending={pending}
       cancelLabel="Close"
       onClose={onClose}
     >
-      {state.s === "loading" ? <p className="m-0 text-[14px] text-muted">Looking up this family&apos;s payments and proofs of {money(line.amountCents)}…</p> : null}
+      {state.s === "loading" ? <p className="m-0 text-[14px] text-muted">Looking up this family&apos;s payments and confirmations of {money(line.amountCents)}…</p> : null}
       {state.s === "error" ? (
         <p role="alert" className="m-0 text-[14px] text-danger">
           {state.error}
@@ -662,11 +662,11 @@ function LookalikeSheet({
           {state.proofs.map((p) => (
             <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-field border border-line px-3 py-2 text-[14px]">
               <span>
-                Proof sent for {p.paidOn ? formatDate(p.paidOn, timeZone) : "an unknown day"} · {PAYMENT_METHOD_LABEL[p.method] ?? p.method}
+                Confirmation sent for {p.paidOn ? formatDate(p.paidOn, timeZone) : "an unknown day"} · {PAYMENT_METHOD_LABEL[p.method] ?? p.method}
                 {p.reference ? ` ${p.reference}` : ""} · {formatCents(p.amountCents, currency, locale)}, waiting
               </span>
               <button type="button" className={`${buttonClass("primary", "sm")} min-h-[44px]`} disabled={pending} onClick={() => go({ type: "approve", proofId: p.id, label: "Approve" })}>
-                Approve this proof with the line
+                Approve this confirmation with the line
               </button>
             </li>
           ))}

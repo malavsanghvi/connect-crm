@@ -50,9 +50,9 @@ const statement = parseStatement([
         ref_id: REF,
         household_id: H1,
         household_name: "Okafor household",
-        label: "Proof sent for Oct 10, check 1048",
+        label: "Payment confirmation sent for Oct 10, check 1048",
         reasons: ["Amount matches", "Reference matches"],
-        consequence: "The proof is approved and banked in one step: its pledges become Paid, then Bank reconciled.",
+        consequence: "The payment confirmation is approved and banked in one step: its pledges become Paid, then Bank reconciled.",
         blocked: false,
       },
     ],
@@ -113,7 +113,7 @@ describe("Reconcile preview", () => {
     expect(html).toContain("A different gift (say why)");
   });
   it("sends a line nothing explains to Gifts to match", () => {
-    expect(html).toContain("No family, payment or proof explains this line");
+    expect(html).toContain("No family, payment or confirmation explains this line");
   });
   it("shows no buttons to someone who may only look", () => {
     const view = renderToStaticMarkup(createElement(ReconcileBody, { model, canConfirm: false, ...props }));
@@ -141,12 +141,12 @@ describe("Unbanked report", () => {
     expect(html).toContain("7 / 7 · due today");
     expect(html).toContain("1 past the window");
     expect(html).toContain("Ask the family whether the check was sent");
-    expect(html).toContain("Member proof");
+    expect(html).toContain("Member confirmation");
     expect(html).toContain("Recorded by hand");
     expect(html).toContain("Okafor household H-1042");
   });
   it("says when nothing is unbanked, when the report is unreadable, and when the person may not see it", () => {
-    expect(renderToStaticMarkup(createElement(UnbankedView, { model: { ...ok, rows: [] }, ...common }))).toContain("Every verified payment is on the bank");
+    expect(renderToStaticMarkup(createElement(UnbankedView, { model: { ...ok, rows: [] }, ...common }))).toContain("Every approved payment is on the bank");
     expect(renderToStaticMarkup(createElement(UnbankedView, { model: { state: "error", error: "Could not read the payments not yet on the bank — boom." }, ...common }))).toContain("boom");
     expect(renderToStaticMarkup(createElement(UnbankedView, { model: { state: "no_access" }, ...common }))).toContain("have access to this area");
   });

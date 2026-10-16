@@ -84,7 +84,7 @@ export function timelineState(e: Pick<TimelineEntry, "kind" | "event">): { label
         case "pledge_cancelled":
           return { label: "Cancelled", tone: "muted" };
         default:
-          return { label: "Proof", tone: "muted" };
+          return { label: "Confirmation", tone: "muted" };
       }
   }
 }
@@ -110,8 +110,8 @@ export function timelineText(e: TimelineEntry, currency: string, locale?: string
         ? "Marked reconciled: every payment on it is imported history."
         : "Every payment on it is matched to a bank line.";
     default: {
-      const share = money && e.event === "submitted" ? `Proof for ${money}. ` : "";
-      return `${share}${e.text ?? "Something happened to the proof."}`;
+      const share = money && e.event === "submitted" ? `Payment confirmation for ${money}. ` : "";
+      return `${share}${e.text ?? "Something happened to the payment confirmation."}`;
     }
   }
 }

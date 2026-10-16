@@ -52,7 +52,7 @@ export async function loadReconcile(session: CrmSession, accountId: string | nul
   const families: Record<string, Family> = {};
   for (const [id, card] of cards.map) families[id] = familyFrom(card);
   const refKinds: Record<string, "proof" | "payment"> = {};
-  if (proofs?.error) problems.push(failure("Could not tell which amount conflicts are proofs", proofs.error).error);
+  if (proofs?.error) problems.push(failure("Could not tell which amount conflicts are payment confirmations", proofs.error).error);
   for (const p of proofs?.data ?? []) refKinds[p.id] = "proof";
   if (payments?.error) problems.push(failure("Could not tell which amount conflicts are payments", payments.error).error);
   for (const p of payments?.data ?? []) refKinds[p.id] ??= "payment";

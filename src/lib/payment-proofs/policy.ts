@@ -146,9 +146,9 @@ export function rulesPatchFromForm(fd: FormData): { ok: true; patch: RulesPatch 
 export type RetentionPatch = { retention_years: number; legal_hold: boolean };
 
 export function retentionYearsProblem(raw: string): string | null {
-  if (!/^\d{1,2}$/.test(raw.trim())) return `Keep proofs for a whole number of years, from ${RETENTION_MIN_YEARS} to ${RETENTION_MAX_YEARS}.`;
+  if (!/^\d{1,2}$/.test(raw.trim())) return `Keep confirmations for a whole number of years, from ${RETENTION_MIN_YEARS} to ${RETENTION_MAX_YEARS}.`;
   const n = Number(raw);
-  return n < RETENTION_MIN_YEARS || n > RETENTION_MAX_YEARS ? `Keep proofs for ${RETENTION_MIN_YEARS} to ${RETENTION_MAX_YEARS} years.` : null;
+  return n < RETENTION_MIN_YEARS || n > RETENTION_MAX_YEARS ? `Keep confirmations for ${RETENTION_MIN_YEARS} to ${RETENTION_MAX_YEARS} years.` : null;
 }
 
 /** Reads the Settings > Storage "Payment proofs" row: years kept and the legal hold. */
@@ -170,7 +170,7 @@ export function retentionNote(current: ProofPolicy, years: number): string {
     return `Shortening to ${years} years needs a reason and your sign-in code. Families lose access to a file at the same moment staff do.`;
   }
   if (years > current.retentionYears) return "Raising the years never removes anything.";
-  return current.legalHold ? "A legal hold is on: no proof is removed whatever the years say." : "Kept from the end of the accounting year of the payment, and only once its pledges are final.";
+  return current.legalHold ? "A legal hold is on: no confirmation is removed whatever the years say." : "Kept from the end of the accounting year of the payment, and only once its pledges are final.";
 }
 
 // ---------------------------------------------------------------------------------------------------- the shortening preview

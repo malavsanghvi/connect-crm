@@ -8,7 +8,7 @@ import { StepUpProvider } from "@/components/step-up";
 import { devPreviewAllowed } from "@/lib/dev-preview";
 import { sampleProofCards } from "@/lib/payment-proofs/fixtures";
 
-export const metadata: Metadata = { title: "Payment proofs · Dev preview" };
+export const metadata: Metadata = { title: "Payment confirmations · Dev preview" };
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -31,7 +31,7 @@ export default async function GivingProofsPreview({ searchParams }: { searchPara
   };
   const page =
     as === "error"
-      ? ({ state: "error", error: "Could not load the payment proofs — the database could not be reached — check the connection and try again." } as const)
+      ? ({ state: "error", error: "Could not load the payment confirmations — the database could not be reached — check the connection and try again." } as const)
       : ({ state: "ok", cards: as === "empty" ? [] : sampleProofCards(), ...base } as const);
   return (
     <PreviewShell community="Riverbend Community Center" workspaces={[]}>

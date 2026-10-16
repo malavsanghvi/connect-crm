@@ -240,7 +240,7 @@ export type FlagContext = {
 export function proofFlags(c: ProofCard, f: FlagContext): ProofFlag[] {
   const out: ProofFlag[] = [];
   if (c.ownHousehold) {
-    out.push({ key: "own", tone: "bad", tag: "Your household:", text: "this proof is from your own household, so another member of the treasury team must verify it." });
+    out.push({ key: "own", tone: "bad", tag: "Your household:", text: "this payment confirmation is from your own household, so another member of the treasury team must review it." });
   }
   for (const l of c.lookalikes) {
     if (l.kind === "payment") {
@@ -248,14 +248,14 @@ export function proofFlags(c: ProofCard, f: FlagContext): ProofFlag[] {
         key: `look:${l.id}`,
         tone: "bad",
         tag: "Possible duplicate:",
-        text: l.certain ? `${l.label} has the same check number or reference as this proof.` : `${l.label} is already recorded for this family with the same amount.`,
+        text: l.certain ? `${l.label} has the same check number or reference as this confirmation.` : `${l.label} is already recorded for this family with the same amount.`,
       });
     } else {
       out.push({ key: `look:${l.id}`, tone: "bad", tag: "Possible duplicate:", text: `${l.label} is for the same amount from this family.` });
     }
   }
-  if (c.sameFile) out.push({ key: "same_file", tone: "bad", tag: "Same file:", text: "a file in this proof was already used in another proof." });
-  if (c.stale) out.push({ key: "stale", tone: "warn", tag: "Stale:", text: "the member has not answered the question, so the proof is back in your queue. It is never rejected on its own." });
+  if (c.sameFile) out.push({ key: "same_file", tone: "bad", tag: "Same file:", text: "a file in this confirmation was already used in another one." });
+  if (c.stale) out.push({ key: "stale", tone: "warn", tag: "Stale:", text: "the member has not answered the question, so the confirmation is back in your queue. It is never rejected on its own." });
   if (c.needsSecond) {
     const text = c.firstApproved
       ? c.firstApprovedByMe
@@ -273,7 +273,7 @@ export function proofFlags(c: ProofCard, f: FlagContext): ProofFlag[] {
     });
   }
   if (c.covered.length === 0) {
-    out.push({ key: "no_pledge", tone: "info", tag: "Note:", text: "no pledge is reserved by this proof now. Approving records the payment and applies it to the oldest open pledges." });
+    out.push({ key: "no_pledge", tone: "info", tag: "Note:", text: "no pledge is reserved by this confirmation now. Approving records the payment and applies it to the oldest open pledges." });
   }
   if (c.excessCents > 0) {
     out.push({ key: "excess", tone: "info", tag: "Note:", text: `the member sent ${f.money(c.excessCents)} more than their open pledges. The extra is not credited to a pledge; change the amount if it should not be recorded.` });
@@ -303,8 +303,8 @@ export type Primary = { label: string; disabled: boolean; reason: string | null;
 /** What the main Approve button says, and why it is off when it is. */
 export function approvePrimary(c: ProofCard, can: CardCan): Primary {
   const reconcile = can.bank && c.bankLines.length > 0;
-  if (!can.decide) return { label: "Approve", disabled: true, reason: "Verifying a proof needs the permission to record payments.", reconcile };
-  if (c.ownHousehold) return { label: "Approve", disabled: true, reason: "This is your own household's proof. Another member of the treasury team must verify it.", reconcile };
+  if (!can.decide) return { label: "Approve", disabled: true, reason: "Reviewing a payment confirmation needs the permission to record payments.", reconcile };
+  if (c.ownHousehold) return { label: "Approve", disabled: true, reason: "This is your own household's payment confirmation. Another member of the treasury team must review it.", reconcile };
   if (c.needsSecond) {
     if (!c.firstApproved) return { label: "Approve (first of two)", disabled: false, reason: "Above your organization's limit: the payment is recorded when a second person approves.", reconcile: false };
     if (c.firstApprovedByMe) return { label: "Approve (first of two)", disabled: true, reason: "You gave the first approval. A different person must give the second.", reconcile };
@@ -316,8 +316,8 @@ export function approvePrimary(c: ProofCard, can: CardCan): Primary {
 
 /** Why the other decisions are off (own household, no permission), or null. */
 export function decisionBlock(c: ProofCard, can: CardCan): string | null {
-  if (!can.decide) return "Verifying a proof needs the permission to record payments.";
-  if (c.ownHousehold) return "This is your own household's proof. Another member of the treasury team must verify it.";
+  if (!can.decide) return "Reviewing a payment confirmation needs the permission to record payments.";
+  if (c.ownHousehold) return "This is your own household's payment confirmation. Another member of the treasury team must review it.";
   return null;
 }
 

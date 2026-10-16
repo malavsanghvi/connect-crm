@@ -250,7 +250,7 @@ export function PaymentEvidence({
           </p>
         ) : null}
         <p className="m-0 text-xs text-muted">
-          Photos open for the household&apos;s adults (their own proofs) and for staff who record or view payments. Every staff view is logged. Nothing here is in an
+          Photos open for the household&apos;s adults (their own confirmations) and for staff who record or view payments. Every staff view is logged. Nothing here is in an
           export, a search, an e-mail or a push.
         </p>
       </div>

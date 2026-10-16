@@ -22,7 +22,7 @@ export const kind = "payments.proof_retention";
 export const every = 24 * 3600;
 export const BUCKET = "payment-evidence";
 
-export const configured = (env: Env) => requireEnv(env, ["SUPABASE_URL", "SUPABASE_SECRET_KEY"], "Payment proof retention");
+export const configured = (env: Env) => requireEnv(env, ["SUPABASE_URL", "SUPABASE_SECRET_KEY"], "Payment confirmation retention");
 
 type Due = { file_id: string; center_id: string; storage_path: string; reason: string };
 type Failure = { file_id: string; reason: string };
@@ -106,7 +106,7 @@ export async function run(job: Job, ctx: JobContext): Promise<RetentionResult> {
 
   ctx.log.info("payment proof retention pass finished", { removed, failed: failures.length });
   if (failures.length > 0 && removed === 0) {
-    throw new Error(`Could not remove ${failures.length} expired payment proof file(s): ${failures[0]!.reason}. They will be tried again.`);
+    throw new Error(`Could not remove ${failures.length} expired payment confirmation file(s): ${failures[0]!.reason}. They will be tried again.`);
   }
   return { removed, failed: failures.length, failures: failures.slice(0, 20) };
 }

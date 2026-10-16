@@ -20,7 +20,7 @@ export function ProofFiles({
   relinkError?: string | null;
   relinking?: boolean;
 }) {
-  if (files.length === 0) return <p className="m-0 text-[13px] text-muted">No files were sent with this proof.</p>;
+  if (files.length === 0) return <p className="m-0 text-[13px] text-muted">No files were sent with this confirmation.</p>;
   const dim = size === "lg" ? "h-24 w-24" : "h-14 w-14";
   const missing = files.some((f) => !f.removed && !f.url);
   return (

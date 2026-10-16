@@ -42,7 +42,7 @@ export async function signEvidencePaths(db: AppSupabase, paths: readonly string[
   const unique = [...new Set(paths)];
   if (unique.length === 0) return { urls, error: null };
   const res = await db.storage.from(EVIDENCE_BUCKET).createSignedUrls(unique, SIGNED_URL_SECONDS);
-  if (res.error) return { urls, error: failure("Could not make the links to the proof files", res.error).error };
+  if (res.error) return { urls, error: failure("Could not make the links to the confirmation files", res.error).error };
   let missing = 0;
   for (const row of res.data ?? []) {
     if (row.path && row.signedUrl && !row.error) urls.set(row.path, row.signedUrl);
@@ -56,7 +56,7 @@ export async function logProofViews(db: AppSupabase, fileIds: readonly string[])
   await Promise.all(
     [...new Set(fileIds)].map(async (id) => {
       const res = await db.rpc("log_proof_view", { p_file: id });
-      if (res.error) failure("Could not write the proof view to the audit log", res.error);
+      if (res.error) failure("Could not write the confirmation view to the audit log", res.error);
     }),
   );
 }
@@ -69,12 +69,12 @@ export async function loadProofsPage(session: CrmSession): Promise<ProofsPage> {
   if (res.error) {
     // The database is the rule: a refusal for permission is said as "no access", never as an empty queue.
     if (res.error.code === "42501") return { state: "no_access" };
-    return { state: "error", error: failure("Could not load the payment proofs", res.error).error };
+    return { state: "error", error: failure("Could not load the payment confirmations", res.error).error };
   }
   const cards = parseProofQueue(res.data);
   if (!cards) {
     console.error("[giving/proofs] unexpected answer from payment_proof_queue:", res.data);
-    return { state: "error", error: "Could not load the payment proofs — the answer was not in the expected shape." };
+    return { state: "error", error: "Could not load the payment confirmations — the answer was not in the expected shape." };
   }
 
   const notices: string[] = [];

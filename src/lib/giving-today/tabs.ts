@@ -72,7 +72,7 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
   // Payment proofs (0866): the treasury team verifies what members sent when they paid another way. Whoever may record an offline
   // payment (giving.record_offline or giving.manage) can decide; the screen itself is read by anyone who sees Payments.
   if (giving && canAccess(ctx, "payments") && on(GIVING_ADDONS.proofs)) {
-    out.push({ key: "proofs", label: "Payment proofs", href: "/giving/proofs", paths: ["/giving/proofs"] });
+    out.push({ key: "proofs", label: "Payment confirmations", href: "/giving/proofs", paths: ["/giving/proofs"] });
   }
   // Campaigns & opportunities holds the Campaigns list, Opportunities, Bolis and Labh as views (slice 6): shown when any of
   // them is open to the person, opening on the first; Bolis and Labh keep their screens, which light this tab.
