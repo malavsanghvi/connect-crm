@@ -507,10 +507,10 @@ select pg_temp.assert(app.module_enabled(:jsh, 'test_module79') and not app.modu
 insert into app.organization_categories (key, label, faith_based, terms) values
   ('test_cat79', 'Test category', false,
    '{"greeting":"Welcome","practice_tab":null,"give_tab":"Give","family_tab":"Family","store":"Store","school":null,"learning":null,"place":"office","assistant_context":"a test"}');
-select pg_temp.assert((select count(*) from app.category_modules where category_key = 'test_cat79') = 33
+select pg_temp.assert((select count(*) from app.category_modules where category_key = 'test_cat79') = 34
                       and (select count(*) from app.category_modules where category_key = 'test_cat79' and availability = 'default_on') = 2
                       and (select availability from app.category_modules where category_key = 'test_cat79' and module_key = 'people') = 'default_on',
-  'A · a category added later gets a row for every module (33 with the two test modules): only the core modules on');
+  'A · a category added later gets a row for every module (34 with the two test modules): only the core modules on');
 rollback to savepoint a_new_module_and_a_new_category;
 select pg_temp.assert((select count(*) from app.modules) = 32 and (select count(*) from app.category_modules) = 224
                       and (select count(*) from app.organization_categories) = 7,
