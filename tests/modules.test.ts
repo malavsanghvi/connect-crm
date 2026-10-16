@@ -19,7 +19,7 @@ const admin = { permissions: [] as string[], isPlatformAdmin: true };
 describe("module registry", () => {
   it("lists the contract's 18 keys, Giving's 7 add-ons and the six Marketplace products (the Community Market, 0830, is the sixth) once each, with only people core", () => {
     expect(MODULES.map((m) => m.key)).toEqual([...MODULE_KEYS]);
-    expect(new Set(MODULE_KEYS).size).toBe(31);
+    expect(new Set(MODULE_KEYS).size).toBe(32);
     expect(MODULES.filter((m) => m.core).map((m) => m.key)).toEqual(["people"]);
     for (const m of MODULES) for (const d of m.dependsOn) expect(isModuleKey(d)).toBe(true);
   });
@@ -39,7 +39,7 @@ describe("module registry", () => {
     expect(moduleForPath("/comms/whatsapp")).toBe("comms");
   });
   it("Giving's add-ons each need Giving only (0741)", () => {
-    const addOns = ["giving_bank", "giving_counts", "giving_insights", "giving_opportunities", "giving_recurring", "giving_statements", "labh"];
+    const addOns = ["giving_bank", "giving_proofs", "giving_counts", "giving_insights", "giving_opportunities", "giving_recurring", "giving_statements", "labh"];
     for (const k of addOns) {
       expect(isModuleKey(k)).toBe(true);
       expect(MODULES.find((m) => m.key === k)!.dependsOn).toEqual(["giving"]);
@@ -223,7 +223,7 @@ describe("Settings › Modules rows", () => {
     expect(switchBlocker("people", false, rows)).toBe("Members & families is a core module and is always on.");
     expect(switchBlocker("giving", false, rows)).toBeNull();
     expect(switchWarning("giving", false, rows)).toBe(
-      "Bank reconciliation, Offering counts, Insights, Opportunities, Recurring gifts, Statements, Special-day offerings, Bolis, Accounting & QuickBooks and CatchTheMatch go off with it and come back when Pledges & donations is switched on again.",
+      "Bank reconciliation, Payment proofs, Offering counts, Insights, Opportunities, Recurring gifts, Statements, Special-day offerings, Bolis, Accounting & QuickBooks and CatchTheMatch go off with it and come back when Pledges & donations is switched on again.",
     );
     expect(switchBlocker("bolis", false, rows)).toBeNull();
     expect(switchWarning("bolis", false, rows)).toBeNull();

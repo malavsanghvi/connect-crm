@@ -339,7 +339,7 @@ export type PledgeRowDb = {
   campaign_id: string | null;
   amount_cents: number;
   paid_cents: number;
-  status: "open" | "partially_paid" | "paid" | "written_off" | "cancelled";
+  status: "open" | "partially_paid" | "soft_credit" | "paid" | "written_off" | "cancelled";
   pledged_at: string;
   due_on: string | null;
   written_off_by: string | null;

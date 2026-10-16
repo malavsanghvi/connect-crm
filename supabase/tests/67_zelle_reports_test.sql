@@ -323,7 +323,7 @@ begin
 exception when others then
   if sqlerrm like 'FAIL:%' then raise; end if;
   get stacked diagnostics v_msg = message_text, v_detail = pg_exception_detail;
-  if v_msg not like 'This family already has a Zelle of $75.00 recorded by hand on % (receipt %). Attach this bank line to that payment so the gift is not counted twice, or say why this is a separate gift.'
+  if v_msg not like 'This family already has a payment (receipt %) from % for $75.00 that is not on the bank yet. Attach this bank line to that payment so the gift is not counted twice, or say why this is a separate gift.'
      or v_detail <> pg_temp.v('hp1') then
     raise exception 'FAIL: G6 message or detail (got "%" / "%")', v_msg, v_detail;
   end if;

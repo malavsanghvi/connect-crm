@@ -23,6 +23,7 @@ export const APPLICATION_STATUS_LABEL: Record<string, string> = {
 export const PLEDGE_STATUS_TONE = {
   open: "warning",
   partially_paid: "navy",
+  soft_credit: "navy",
   paid: "success",
   written_off: "neutral",
   cancelled: "neutral",
@@ -31,6 +32,7 @@ export const PLEDGE_STATUS_TONE = {
 export const PLEDGE_STATUS_LABEL: Record<string, string> = {
   open: "Open",
   partially_paid: "Partly paid",
+  soft_credit: "Soft credit",
   paid: "Paid",
   written_off: "Written off",
   cancelled: "Cancelled",
