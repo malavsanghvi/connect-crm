@@ -53,7 +53,7 @@ Six read-only reviewers read every page, its components and its Server Actions. 
 | **Marketplace and Settings** | settings (24 tabs), setup | 37 | Products in the Marketplace, each product's settings with the product; four organization groups left (Team and roles, Security, Brand, Data and privacy); Niva runs setup |
 | **Platform console** | platform (Weaver team only) | 14 | One page per community; an inbox of who is waiting and what is missing |
 
-Phone: the same eleven collapse into a bottom tab bar (Today, People, Giving, Events, More) and the Niva button, as in the member app. The rail is 88 px wide on desktop; the top bar is 64 px.
+Phone: the same eleven collapse into a bottom tab bar (Today, People, Giving, Events, More) and the Niva button, as in the member app. The rail is 88 px wide on desktop; the top bar is 64 px. **Superseded 2026-10-16 (docs/CRM_NAV_REDESIGN_PLAN.md, Option A):** the New look now has a 48 px top bar holding the workspaces (with a More menu) and a collapsible left panel of the open workspace's sections; the rail is no longer drawn (WorkspaceRail stays for the dev previews).
 
 **What stays visual** (a conversation is the wrong tool): pipeline boards, bank reconciliation side by side, attendance grids and rosters, calendars, block editors, the media library, duplicate-compare views, the pledge and RSVP charts, and dense tables. These gain a natural-language filter and an "Ask Niva" on every row, not a chat replacement.
 

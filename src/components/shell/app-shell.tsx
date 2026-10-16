@@ -25,6 +25,7 @@ import { navEntries } from "@/lib/assistant/palette";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { readPublicEnv } from "@/lib/env";
 import type { Look } from "@/lib/look";
+import type { PanelPref } from "@/lib/panel-pref";
 import type { TaskCount } from "@/lib/data/home-tasks";
 import { canAccess, visibleNav } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
@@ -47,7 +48,20 @@ function homeBadge(tasks: TaskCount): { badge: string | null; label?: string } {
  * (ShellV2: 64px top bar, 88px rail of workspaces, a bottom bar on phones). Both sit inside the same providers and show the
  * same pages to the same people.
  */
-export function AppShell({ session, tasks, look = "classic", children }: { session: CrmSession; tasks: TaskCount; look?: Look; children: ReactNode }) {
+export function AppShell({
+  session,
+  tasks,
+  look = "classic",
+  panel = "auto",
+  children,
+}: {
+  session: CrmSession;
+  tasks: TaskCount;
+  look?: Look;
+  /** The New look's left panel: kept open, kept collapsed, or not chosen yet. */
+  panel?: PanelPref;
+  children: ReactNode;
+}) {
   const modules = visibleNav(session);
   const center = session.center;
   const env = readPublicEnv();
@@ -84,6 +98,7 @@ export function AppShell({ session, tasks, look = "classic", children }: { sessi
             footer={footer}
             todayBadge={home.badge}
             todayBadgeLabel={home.label}
+            panel={panel}
           >
             {children}
           </ShellV2>

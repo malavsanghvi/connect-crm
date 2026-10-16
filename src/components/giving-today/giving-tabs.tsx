@@ -36,7 +36,8 @@ export function GivingTabRow({
   const current = active === undefined ? activeGivingTab(tabs, pathname) : active;
   if (tabs.length < 2) return null;
   return (
-    <nav aria-label="Giving sections" className={`max-w-full overflow-x-auto border-b border-line ${className}`}>
+    // From 1024px wide the left panel lists these (data-section-tabs, globals.css); Today keeps its row because it carries the counts.
+    <nav aria-label="Giving sections" className={`max-w-full overflow-x-auto border-b border-line ${className}`} data-section-tabs={counts ? undefined : ""}>
       <ul className="m-0 flex list-none gap-0.5 p-0">
         {tabs.map((t) => {
           const n = counts?.[t.key];
