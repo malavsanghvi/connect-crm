@@ -64,8 +64,9 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
     ? (wanted as DemoKind)
     : (available[0] ?? null);
   const community: DemoCommunity | undefined = choices?.communities.find((c) => c.kind === kind);
-  // The people whose work lives in the member app (the community roles) open it straight at them; nothing is started here for them.
+  // The people whose work lives in the member app (the community members) open it straight at them; nothing is started here for them.
   const hasMemberAppPeople = !!community?.people.some(worksInMemberApp);
+  const groups = community ? peopleByArea(community) : [];
 
   return (
     <main className="min-h-screen bg-canvas">
@@ -105,7 +106,7 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
         {signedInAs ? (
           <Alert tone="warning" title={`You are signed in as ${signedInAs}`}>
             {hasMemberAppPeople
-              ? "Starting the demo in a non-profit operational role signs you out in this browser first. Afterwards, sign in again with your own email. The community roles open the member app instead and leave your sign-in here alone."
+              ? "Starting the demo as a community admin signs you out in this browser first. Afterwards, sign in again with your own email. The community members open the member app instead and leave your sign-in here alone."
               : "Starting the demo signs you out in this browser first. Afterwards, sign in again with your own email."}
           </Alert>
         ) : null}
@@ -168,25 +169,28 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
                     {" "}
                     Just want to see it as a family would?{" "}
                     <a href={`#demo-area-${MEMBER_APP_AREA}`} className="crm-link font-semibold" data-testid="demo-jump-community">
-                      Go to the community roles
+                      Go to the community members
                     </a>
                     : one press opens the member app.
                   </>
                 ) : null}
               </p>
-              {peopleByArea(community).map((group) => (
-                <div key={group.area} className="mt-5" role="group" aria-labelledby={`demo-area-${group.area}`} data-testid={`demo-area-${group.area}`}>
-                  <h3 id={`demo-area-${group.area}`} className="font-display text-[18px] font-semibold text-ink">
-                    {group.label}
-                  </h3>
-                  <p className="mt-0.5 text-[13px] text-muted">{group.blurb}</p>
-                  <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {group.people.map((p) =>
-                      worksInMemberApp(p) ? <MemberAppPersonaCard key={p.id} person={p} href={memberAppDemoPersonUrl(p.id)} /> : <PersonaCard key={p.id} person={p} />,
-                    )}
-                  </ul>
-                </div>
-              ))}
+              {/* Two columns side by side from 1024px wide (admins on the left, members on the right); one above the other on a phone. */}
+              <div className={`mt-5 grid grid-cols-1 gap-x-8 gap-y-8 ${groups.length > 1 ? "lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : ""}`} data-testid="demo-areas">
+                {groups.map((group) => (
+                  <div key={group.area} role="group" aria-labelledby={`demo-area-${group.area}`} data-testid={`demo-area-${group.area}`}>
+                    <h3 id={`demo-area-${group.area}`} className="font-display text-[20px] font-semibold text-ink">
+                      {group.label}
+                    </h3>
+                    <p className="mt-0.5 text-[13px] text-muted">{group.blurb}</p>
+                    <ul className={`mt-3 grid grid-cols-1 gap-3 ${group.area === "operations" ? "sm:grid-cols-2" : ""}`}>
+                      {group.people.map((p) =>
+                        worksInMemberApp(p) ? <MemberAppPersonaCard key={p.id} person={p} href={memberAppDemoPersonUrl(p.id)} /> : <PersonaCard key={p.id} person={p} />,
+                      )}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </section>
           </>
         )}

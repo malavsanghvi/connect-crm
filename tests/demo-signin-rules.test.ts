@@ -151,8 +151,8 @@ describe("the list of demo people (app.demo_choices)", () => {
     const mk = (id: string, name: string, area: "operations" | "community") => ({ id, role: "R", name, story: "s", area });
     const groups = peopleByArea({ people: [mk(ID1, "A", "community"), mk(ID2, "B", "operations"), mk(ID1, "C", "operations")] });
     expect(groups.map((g) => [g.area, g.label, g.people.map((p) => p.name)])).toEqual([
-      ["operations", "Non-profit operational roles", ["B", "C"]],
-      ["community", "Community roles", ["A"]],
+      ["operations", "Community Admin Roles", ["B", "C"]],
+      ["community", "Community Members", ["A"]],
     ]);
     expect(peopleByArea({ people: [mk(ID1, "A", "community")] }).map((g) => g.area)).toEqual(["community"]);
     expect(peopleByArea({ people: [] })).toEqual([]);

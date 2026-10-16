@@ -96,7 +96,7 @@ beforeEach(() => {
   server.loadDemoBanner.mockResolvedValue(null);
 });
 
-describe("/demo: the community roles open the member app, every other role keeps Start", () => {
+describe("/demo: the community members open the member app, every admin role keeps Start", () => {
   it("gives each person of the community area a link to the member app's demo for exactly that person, and a Start form to every other", async () => {
     const html = await page();
     const links = [...html.matchAll(/<a href="([^"]+)"[^>]*data-testid="demo-open-member-app"/g)].map((m) => m[1]);
@@ -177,8 +177,8 @@ describe("/demo: the community roles open the member app, every other role keeps
     auth.claims = { email: "ada@example.org" };
     const html = await page();
     expect(html).toContain("You are signed in as ada@example.org");
-    expect(html).toContain("Starting the demo in a non-profit operational role signs you out in this browser first.");
-    expect(html).toContain("The community roles open the member app instead and leave your sign-in here alone.");
+    expect(html).toContain("Starting the demo as a community admin signs you out in this browser first.");
+    expect(html).toContain("The community members open the member app instead and leave your sign-in here alone.");
   });
 
   it("keeps the plain sentence, and no jump link, for a community with nobody in the community area", async () => {
@@ -195,8 +195,8 @@ describe("/demo: the community roles open the member app, every other role keeps
   it("keeps the layout: both areas under their headings, the community area after the operational one", async () => {
     const html = await page();
     expect(html.indexOf('data-testid="demo-area-operations"')).toBeLessThan(html.indexOf('data-testid="demo-area-community"'));
-    expect(html).toContain("Non-profit operational roles");
-    expect(html).toContain("Community roles");
+    expect(html).toContain("Community Admin Roles");
+    expect(html).toContain("Community Members");
     expect(html.match(/data-testid="demo-person"/g)).toHaveLength(4);
   });
 });

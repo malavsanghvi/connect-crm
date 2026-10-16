@@ -69,10 +69,10 @@ export const KIND_BLURB: Record<DemoKind, string> = {
  */
 export type DemoArea = "operations" | "community";
 export const DEMO_AREAS: readonly DemoArea[] = ["operations", "community"];
-export const AREA_LABEL: Record<DemoArea, string> = { operations: "Non-profit operational roles", community: "Community roles" };
+export const AREA_LABEL: Record<DemoArea, string> = { operations: "Community Admin Roles", community: "Community Members" };
 export const AREA_BLURB: Record<DemoArea, string> = {
-  operations: "The people who run the organization. Each one sees only what their role allows.",
-  community: "A member of the community, as a family member would use it: one press opens the member app, already signed in.",
+  operations: "The people who run the community. Each one sees only what their role allows.",
+  community: "Members and families, as they use the member app on their phone: one press opens it, already signed in.",
 };
 
 /**

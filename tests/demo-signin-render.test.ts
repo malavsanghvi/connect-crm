@@ -98,9 +98,9 @@ describe("the demo page", () => {
 
   it("arranges the chosen community's people in two areas, operational roles first, each under a plain heading", async () => {
     const html = await page();
-    expect(html).toContain("Non-profit operational roles");
-    expect(html).toContain("Community roles");
-    expect(html.indexOf("Non-profit operational roles")).toBeLessThan(html.indexOf("Community roles"));
+    expect(html).toContain("Community Admin Roles");
+    expect(html).toContain("Community Members");
+    expect(html.indexOf("Community Admin Roles")).toBeLessThan(html.indexOf("Community Members"));
     const ops = html.slice(html.indexOf('data-testid="demo-area-operations"'), html.indexOf('data-testid="demo-area-community"'));
     const community = html.slice(html.indexOf('data-testid="demo-area-community"'));
     // The cards sit under their own heading, in the database's order, with the same card (role, name, sentence, Start).
@@ -118,8 +118,8 @@ describe("the demo page", () => {
 
   it("shows only the area a community has people in", async () => {
     const html = await page({ kind: "neutral" });
-    expect(html).toContain("Non-profit operational roles");
-    expect(html).not.toContain("Community roles");
+    expect(html).toContain("Community Admin Roles");
+    expect(html).not.toContain("Community Members");
     expect(html.match(/<h3[^>]*>/g)).toHaveLength(1);
   });
 
