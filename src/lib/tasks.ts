@@ -23,6 +23,7 @@ export type TaskSourceKey =
   | "proofs"
   | "proofs_expiring"
   | "unbanked"
+  | "care_thanks"
   | "membership"
   | "newsletter"
   | "inbox"
@@ -68,6 +69,8 @@ export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "proofs_expiring", tag: "Confirmations ending", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/settings/storage", module: "giving_proofs" },
   // Payments recorded as paid but not yet on a bank statement (0868): Bank > Paid, not on the bank.
   { key: "unbanked", tag: "Not banked", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/payments/bank?view=unbanked", module: "giving_bank" },
+  // DonorDelight (slice 3): gifts waiting for a thank-you. The organization's own keys: `can` never lets a platform admin through on care.*.
+  { key: "care_thanks", tag: "Thank-yous", color: "navy", anyOf: ["care.own", "care.view", "care.manage"], href: "/care/thanks", module: "care" },
   { key: "membership", tag: "Membership", color: "navy", anyOf: ["people.approve"], href: "/memberships/applications" },
   { key: "override", tag: "Voting", color: "navy", anyOf: ["people.approve"], href: "/people/voting" },
   { key: "newsletter", tag: "Newsletter", color: "navy", anyOf: ["comms.approve"], alsoNeeds: ["comms.view", "comms.send"], href: "/comms" },

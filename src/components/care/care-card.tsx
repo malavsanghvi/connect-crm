@@ -15,6 +15,7 @@ import {
   type ProfileCall,
   type TouchCall,
 } from "@/app/(app)/households/[id]/care-actions";
+import { ThankActions } from "@/components/care/thank-actions";
 import { buttonClass } from "@/components/ui";
 import {
   CHANNEL_LABEL,
@@ -45,6 +46,7 @@ import {
   type CareTouchPage,
   type CareTouchRow,
 } from "@/lib/care/model";
+import { dueLine, giftLine, personalLine, type HouseholdThanks } from "@/lib/care/thanks";
 import type { CareCardLoad, CareRead } from "@/lib/data/care";
 import { formatCents } from "@/lib/money";
 
@@ -142,19 +144,21 @@ export function CareCard({ load, householdId, timeZone, retryHref }: { load: Car
       </Shell>
     );
   }
-  return <CareCardBody data={card.data} touches={load.touches} holders={load.holders} householdId={householdId} timeZone={timeZone} />;
+  return <CareCardBody data={card.data} touches={load.touches} holders={load.holders} thanks={load.thanks ?? null} householdId={householdId} timeZone={timeZone} />;
 }
 
 function CareCardBody({
   data,
   touches,
   holders,
+  thanks,
   householdId,
   timeZone,
 }: {
   data: CardData;
   touches: CareRead<CareTouchPage>;
   holders: CareRead<CareHolder[]> | null;
+  thanks: CareRead<HouseholdThanks> | null;
   householdId: string;
   timeZone: string;
 }) {
@@ -175,11 +179,44 @@ function CareCardBody({
       ) : null}
       <Owners data={data} holders={holders} householdId={householdId} />
       <Profile data={data} householdId={householdId} />
+      <Thanks thanks={thanks} householdId={householdId} />
       <Touches data={data} first={touches} householdId={householdId} timeZone={timeZone} />
       <Notes notes={data.notes} total={data.notesTotal} canManage={data.access.manage} adults={data.household.adults} householdId={householdId} timeZone={timeZone} />
       <PeopleFields data={data} />
       <p className="m-0 mt-4 border-t border-line pt-3 text-[12.5px] text-muted">{accessLine(data.label, data.access)}</p>
     </Shell>
+  );
+}
+
+// ── Thank-yous waiting (slice 3) ────────────────────────────────────────────
+// The household's open thank-you steps, each with the one-tap ways to close it. Nothing shows when nothing is waiting, or before the
+// community has chosen its thank-you rules (the Thank-yous page says so). A failed read is said in words, never an empty box.
+function Thanks({ thanks, householdId }: { thanks: CareRead<HouseholdThanks> | null; householdId: string }) {
+  if (!thanks) return null;
+  if (thanks.status === "error") {
+    return (
+      <div className="mb-3">
+        <Failure message={`Could not load this household's thank-yous — ${thanks.error.replace(/\.?$/, ".")} Reload the page to try again.`} />
+      </div>
+    );
+  }
+  if (thanks.status !== "ok" || thanks.data.state !== "ok" || thanks.data.open.length === 0) return null;
+  return (
+    <div className="mb-3 rounded-field border border-warning-200 bg-warning-50 px-3 py-2.5">
+      <h3 className={H3}>Thank-yous waiting</h3>
+      <ul className="m-0 flex list-none flex-col gap-3 p-0">
+        {thanks.data.open.map((t) => (
+          <li key={t.id} className="flex flex-col gap-1.5">
+            <div className="text-[14px] text-ink">
+              {giftLine(t, (c) => formatCents(c))}
+              <span className={`ml-2 text-[13px] ${t.overdue ? "font-semibold text-danger" : "text-muted"}`}>{dueLine({ overdue: t.overdue, daysOverdue: null, dueOn: t.dueOn })}</span>
+            </div>
+            <div className="text-[12.5px] text-muted">{personalLine(t.needsPersonal)}</div>
+            <ThankActions stepId={t.id} householdId={householdId} needsPersonal={t.needsPersonal} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

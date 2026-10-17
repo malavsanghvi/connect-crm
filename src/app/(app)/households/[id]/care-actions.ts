@@ -62,6 +62,7 @@ function dbFailure(doing: string, error: unknown): Refused {
 function done(householdId: string, message: string): CareSave {
   revalidatePath(`/households/${householdId}`);
   revalidatePath("/care");
+  revalidatePath("/care/thanks");
   return { ok: true, message };
 }
 
