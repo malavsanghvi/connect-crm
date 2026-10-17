@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import type { Json } from "@/lib/database.types";
 import { failure, type ActionResult } from "@/lib/errors";
+import { CLAIM_STATE_LABEL, isClaimState } from "@/lib/matching/catch";
 import { decisionFromForm, decisionMessage } from "@/lib/matching/decision";
 import { programFromForm } from "@/lib/matching/directory";
 import { matchingCan } from "@/lib/permissions";
@@ -88,4 +89,79 @@ export async function unlinkProgramAction(_prev: ActionResult | null, fd: FormDa
   revalidatePath(`/people/${personId}`);
   if (data !== true) return { ok: false, error: "Could not remove the link — there was none any more. Reload the page." };
   return { ok: true, message: "Link removed. The employer on file stays as it is." };
+}
+
+// ── Phase 1 (0886-0888): claims ──────────────────────────────────────────────
+
+function revalidateClaims() {
+  revalidatePath("/giving/matching/catch");
+  revalidatePath("/giving/matching/claims");
+  revalidatePath("/giving/matching/employers");
+}
+
+/** Records "asked" for every gift of a member that can still be claimed (app.ask_match_claims). */
+export async function askClaimsAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const personId = String(fd.get("person_id") ?? "");
+  const programId = String(fd.get("program_id") ?? "");
+  const firstName = String(fd.get("first_name") ?? "").trim().slice(0, 80) || "this member";
+  if (!isUuid(personId) || !isUuid(programId)) return { ok: false, error: "Could not record the request — the member or the program was not found. Reload the page and try again." };
+  const note = String(fd.get("note") ?? "").trim();
+  if (note.length > 500) return { ok: false, error: "Could not record the request — the note can be at most 500 characters." };
+  const auth = await authorizeActionWhere((s) => matchingCan(s, "manage"), "record the request", "matching.manage");
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, "Asked a member to claim a gift match");
+  const { data, error } = await db.rpc("ask_match_claims", { p_center: auth.session.center.id, p_person: personId, p_program: programId, p_note: note || undefined });
+  if (error) return failure("Could not record the request", error);
+  revalidateClaims();
+  const asked = typeof (data as { asked?: unknown } | null)?.asked === "number" ? (data as { asked: number }).asked : 1;
+  return { ok: true, message: `Recorded. ${firstName}'s ${asked === 1 ? "gift is" : `${asked} gifts are`} now under Claims as asked.` };
+}
+
+/** Moves a claim on, closes it, or opens it again (app.set_match_claim_state). */
+export async function setClaimStateAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const claimId = String(fd.get("claim_id") ?? "");
+  const state = String(fd.get("state") ?? "");
+  if (!isUuid(claimId)) return { ok: false, error: "Could not update the claim — it was not found. Reload the page and try again." };
+  if (!isClaimState(state)) return { ok: false, error: "Could not update the claim — choose where it stands." };
+  const note = String(fd.get("note") ?? "").trim();
+  if (note.length > 500) return { ok: false, error: "Could not update the claim — the note can be at most 500 characters." };
+  const auth = await authorizeActionWhere((s) => matchingCan(s, "manage"), "update the claim", "matching.manage");
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, `Gift match claim: ${CLAIM_STATE_LABEL[state]}`);
+  const { error } = await db.rpc("set_match_claim_state", { p_center: auth.session.center.id, p_claim: claimId, p_state: state, p_note: note || undefined });
+  if (error) return failure("Could not update the claim", error);
+  revalidateClaims();
+  return { ok: true, message: `Updated: ${CLAIM_STATE_LABEL[state].toLowerCase()}.` };
+}
+
+/** Records a claim the office already knows about, such as the first match an employer paid (app.record_match_claim). */
+export async function recordClaimAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const personId = String(fd.get("person_id") ?? "");
+  const paymentId = String(fd.get("payment_id") ?? "");
+  const state = String(fd.get("state") ?? "received");
+  if (!isUuid(personId)) return { ok: false, error: "Could not record the claim — the person was not found. Reload the page and try again." };
+  if (!isUuid(paymentId)) return { ok: false, error: "Could not record the claim — choose the gift." };
+  if (!["asked", "requested", "verified", "received"].includes(state)) return { ok: false, error: "Could not record the claim — choose where it stands." };
+  const day = String(fd.get("received_on") ?? "").trim();
+  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return { ok: false, error: "Could not record the claim — the day must look like 2026-10-17." };
+  const note = String(fd.get("note") ?? "").trim();
+  if (note.length > 500) return { ok: false, error: "Could not record the claim — the note can be at most 500 characters." };
+  const auth = await authorizeActionWhere((s) => matchingCan(s, "manage"), "record the claim", "matching.manage");
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, "Recorded a gift match claim");
+  const { error } = await db.rpc("record_match_claim", {
+    p_center: auth.session.center.id,
+    p_person: personId,
+    p_payment: paymentId,
+    p_state: state,
+    p_received_on: state === "received" && day ? day : undefined,
+    p_note: note || undefined,
+  });
+  if (error) return failure("Could not record the claim", error);
+  revalidateClaims();
+  revalidatePath("/giving/matching/claims/record");
+  return {
+    ok: true,
+    message: state === "received" ? "Recorded. This employer now counts as having paid here, so its other members show under To catch." : "Recorded under Claims.",
+  };
 }
