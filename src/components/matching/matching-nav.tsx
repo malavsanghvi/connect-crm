@@ -7,6 +7,7 @@ const VIEWS = [
   { key: "library", label: "How to claim", href: "/giving/matching/library" },
   { key: "submissions", label: "Submissions", href: "/giving/matching/submissions" },
   { key: "employers", label: "Employers on file", href: "/giving/matching/employers" },
+  { key: "ask", label: "Ask for employers", href: "/giving/matching/ask" },
 ] as const;
 
 /** Gift matching's views: the members to catch, the claims, the shared directory, how to claim from each employer, what members told the community, and the employers on file. */

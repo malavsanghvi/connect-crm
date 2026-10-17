@@ -53,7 +53,8 @@ insert into app.notification_topics (key, name, default_on, marketing, has_sende
 ('store', 'My Store', false, true, true),
 ('newsletter', 'Newsletters', true, true, false),
 ('alerts', 'Important alerts', true, false, false),
-('account', 'Account and security', true, false, false)
+('account', 'Account and security', true, false, false),
+('matching', 'Employer gift matching', true, true, true)
 on conflict (key) do nothing;
 
 -- ---------------------------------------------------------------------------

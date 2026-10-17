@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import type { Json } from "@/lib/database.types";
 import { failure, type ActionResult } from "@/lib/errors";
+import { askOutcome, parseAskResult } from "@/lib/matching/ask";
 import { CLAIM_STATE_LABEL, isClaimState } from "@/lib/matching/catch";
 import { decisionFromForm, decisionMessage } from "@/lib/matching/decision";
 import { programFromForm } from "@/lib/matching/directory";
+import { emailReadiness } from "@/lib/matching/send-ready";
 import { matchingCan } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeActionWhere, dbWithReason } from "@/lib/session";
@@ -164,4 +166,26 @@ export async function recordClaimAction(_prev: ActionResult | null, fd: FormData
     ok: true,
     message: state === "received" ? "Recorded. This employer now counts as having paid here, so its other members show under To catch." : "Recorded under Claims.",
   };
+}
+
+// ── Piece 0 (0920): ask families for their employer ──────────────────────────
+
+/**
+ * Asks the adults of donor families who have no employer on file to give it (app.ask_match_employers): one person, or everyone listed
+ * (up to 300 at a time). The message goes through the existing messaging queue. Refused before anything is queued when this server cannot
+ * send email; "queued" is never reported as "sent".
+ */
+export async function askEmployersAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const ids = fd.getAll("person_id").map(String).filter(Boolean);
+  if (ids.some((id) => !isUuid(id))) return { ok: false, error: "Could not ask — the person was not found. Reload the page and try again." };
+  const auth = await authorizeActionWhere((s) => matchingCan(s, "manage"), "ask the families", "matching.manage");
+  if (!auth.ok) return auth;
+  const ready = await emailReadiness({ memberAppLink: true });
+  if (!ready.ok) return { ok: false, error: `Could not ask — ${ready.error}` };
+  const db = await dbWithReason(auth.session, "Asked members for their employer for gift matching");
+  const { data, error } = await db.rpc("ask_match_employers", { p_center: auth.session.center.id, p_people: ids.length > 0 ? ids : undefined, p_limit: 300 });
+  if (error) return failure("Could not ask the families", error);
+  revalidatePath("/giving/matching/ask");
+  const outcome = askOutcome(parseAskResult(data));
+  return outcome.ok ? { ok: true, message: outcome.message } : { ok: false, error: outcome.error };
 }
