@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
+import { LibraryFiles } from "@/components/matching/library-files";
 import { ProcessCard } from "@/components/matching/process-card";
 import { ProcessFields } from "@/components/matching/process-fields";
 import { ProgramFacts } from "@/components/matching/program-facts";
@@ -128,7 +129,7 @@ export default async function PlatformMatchingEntryPage({ params }: { params: Pr
         <Card
           title="How to claim"
           className="mt-4"
-          description="The steps that got a match paid. Every community that uses gift matching reads them. Public facts only: no person, no community, no amount. Text only for now."
+          description="The steps that got a match paid. Every community that uses gift matching reads them. Public facts only: no person, no community, no amount."
         >
           {process.ok ? (
             <>
@@ -165,6 +166,16 @@ export default async function PlatformMatchingEntryPage({ params }: { params: Pr
               {process.error} Reload the page to try again.
             </Alert>
           )}
+        </Card>
+      ) : null}
+
+      {process && process.ok ? (
+        <Card
+          title="Forms and screens"
+          className="mt-4"
+          description="A form or a screenshot that shows the way. Up to six per entry; every community that uses gift matching can open them. Public facts only: nothing that names a person or a community."
+        >
+          <LibraryFiles programId={g.id} files={process.data.files} filesNotice={process.data.filesNotice} />
         </Card>
       ) : null}
 

@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import type { Json } from "@/lib/database.types";
+import { readPublicEnv } from "@/lib/env";
 import { failure, type ActionResult } from "@/lib/errors";
 import { processFromForm } from "@/lib/matching/catch";
 import { decisionFromForm, decisionMessage } from "@/lib/matching/decision";
 import { programFromForm } from "@/lib/matching/directory";
+import { LIBRARY_BUCKET, checkLibraryFile, libraryFileFromForm, libraryObjectPath } from "@/lib/matching/files";
 import { isUuid } from "@/lib/search-params";
 import { dbWithReason, loadSession, type CrmSession } from "@/lib/session";
 
@@ -178,4 +180,105 @@ export async function removeProcessAction(_prev: ActionResult | null, fd: FormDa
   if (error) return failure("Could not remove the steps", error);
   revalidateLibrary(id);
   return { ok: true, message: "Removed from the library." };
+}
+
+// ── Piece 4 (0928): a file or screenshot for a library entry ─────────────────
+// A file is never sent through a Server Action: the browser uploads it straight to a signed address made here (a form can be 10 MB), then the
+// file is registered. The bucket's policy lets only Weaver's team write, under an existing entry's own folder; the database registers and removes.
+
+export type LibraryUploadTicket = { path: string; signedUrl: string; contentType: string; apiKey: string | null };
+
+/** A signed address for one file of one entry. The file is checked here too (type, size, the six-file limit) before any bytes move. */
+export async function prepareLibraryUploadAction(input: { programId: string; fileName: string; type: string; size: number }): Promise<ActionResult<LibraryUploadTicket>> {
+  const doing = "start the upload";
+  const auth = await weaverSession(doing);
+  if (!auth.ok) return auth;
+  const programId = String(input?.programId ?? "");
+  if (!isUuid(programId)) return { ok: false, error: `Could not ${doing} — the entry was not found. Reload the page and try again.` };
+  const { session } = auth;
+  const live = await session.db.from("match_process_files").select("id", { count: "exact", head: true }).eq("program_id", programId).is("removed_at", null);
+  if (live.error) return failure(`Could not ${doing}`, live.error);
+  const check = checkLibraryFile({ name: String(input?.fileName ?? "").slice(0, 300), type: String(input?.type ?? ""), size: Number(input?.size) }, live.count ?? 0);
+  if (!check.ok) return { ok: false, error: `Could not ${doing} — ${check.error}` };
+  const path = libraryObjectPath(programId, crypto.randomUUID(), check.contentType);
+  const signed = await session.db.storage.from(LIBRARY_BUCKET).createSignedUploadUrl(path);
+  if (signed.error || !signed.data) {
+    const message = signed.error?.message ?? "";
+    console.error(`[platform/matching] could not sign an upload to ${LIBRARY_BUCKET}/${path}:`, signed.error);
+    if (/bucket not found/i.test(message)) return { ok: false, error: `Could not ${doing} — the library's storage area is not set up on this server yet. Ask whoever deploys Weaver to run the latest migrations.` };
+    if (/row-level security|unauthorized|permission/i.test(message)) return { ok: false, error: `Could not ${doing} — storage refused it: only Weaver's team adds files, under an existing entry.` };
+    return failure(`Could not ${doing}`, signed.error ?? "storage did not answer");
+  }
+  const env = readPublicEnv();
+  return { ok: true, data: { path: signed.data.path, signedUrl: signed.data.signedUrl, contentType: check.contentType, apiKey: env.ok ? env.env.supabaseAnonKey : null } };
+}
+
+/** Keeps an uploaded file with the entry. When the database refuses, the uploaded bytes are deleted straight away and the refusal is shown in words. */
+export async function addLibraryFileAction(input: {
+  programId: string;
+  path: string;
+  contentType: string;
+  bytes: number;
+  sha256: string | null;
+  kind: string;
+  caption: string;
+  reason: string;
+}): Promise<ActionResult> {
+  const doing = "add the file";
+  const auth = await weaverSession(doing);
+  if (!auth.ok) return auth;
+  const programId = String(input?.programId ?? "");
+  const path = String(input?.path ?? "");
+  if (!isUuid(programId) || !path) return { ok: false, error: `Could not ${doing} — the upload was not complete. Start again.` };
+  const form = libraryFileFromForm({ kind: input.kind, caption: input.caption, reason: input.reason });
+  const db = await dbWithReason(auth.session, form.ok ? form.reason : "Added a file to the how-to-claim library");
+  if (!form.ok) {
+    await db.storage.from(LIBRARY_BUCKET).remove([path]);
+    return { ok: false, error: `Could not ${doing} — ${form.error[0]!.toLowerCase()}${form.error.slice(1)}` };
+  }
+  const { error } = await db.rpc("add_match_process_file", {
+    p_program: programId,
+    p_path: path,
+    p_content_type: String(input.contentType ?? ""),
+    p_bytes: Number(input.bytes),
+    // No fingerprint (the browser could not make one): null (the generated type has no null for an argument without a default).
+    p_sha256: input.sha256 ?? (null as unknown as string),
+    p_kind: form.kind,
+    p_caption: form.caption,
+    p_reason: form.reason,
+  });
+  if (error) {
+    const removed = await db.storage.from(LIBRARY_BUCKET).remove([path]);
+    if (removed.error) console.error(`[platform/matching] could not delete the unregistered upload ${path}:`, removed.error);
+    return failure(`Could not ${doing}`, error);
+  }
+  revalidateLibrary(programId);
+  return { ok: true, message: "File added. Every community that uses gift matching sees it now." };
+}
+
+/** Takes a file back, with a reason. The row stays as a record that it existed; the stored copy is deleted. */
+export async function removeLibraryFileAction(input: { fileId: string; programId: string; reason: string }): Promise<ActionResult> {
+  const doing = "remove the file";
+  const fileId = String(input?.fileId ?? "");
+  const programId = String(input?.programId ?? "");
+  if (!isUuid(fileId)) return { ok: false, error: `Could not ${doing} — the file was not found. Reload the page and try again.` };
+  const reason = String(input?.reason ?? "").trim().slice(0, 500);
+  if (!reason) return { ok: false, error: `Could not ${doing} — say why. It goes in the library's history.` };
+  const auth = await weaverSession(doing);
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, reason);
+  const { data, error } = await db.rpc("remove_match_process_file", { p_file: fileId, p_reason: reason });
+  if (error) return failure(`Could not ${doing}`, error);
+  if (isUuid(programId)) revalidateLibrary(programId);
+  const path = (data as { storage_path?: unknown } | null)?.storage_path;
+  if (typeof path !== "string" || !path) {
+    console.error("[platform/matching] remove_match_process_file gave no path:", data);
+    return { ok: true, message: "File removed from the library. Its stored copy could not be found to delete." };
+  }
+  const gone = await db.storage.from(LIBRARY_BUCKET).remove([path]);
+  if (gone.error) {
+    console.error(`[platform/matching] removed the record but could not delete ${path}:`, gone.error);
+    return { ok: true, message: "File removed from the library, but its stored copy could not be deleted just now. Tell the developer: the path is in the server log." };
+  }
+  return { ok: true, message: "File removed from the library." };
 }

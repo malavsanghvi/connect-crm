@@ -4,6 +4,8 @@
 
 import { formatDay, householdLine, parseHousehold, type CareHousehold } from "@/lib/care/model";
 
+import { isFileKind, type ProcessFile } from "./files";
+
 type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (v && typeof v === "object" && !Array.isArray(v) ? (v as Obj) : {});
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
@@ -245,6 +247,10 @@ export type ProcessAnswer = {
   process: Process | null;
   workedCommunities: number;
   here: { received: number; lastOn: string | null } | null;
+  /** The entry's live files (0928); each `url` is made by the loader. */
+  files: ProcessFile[];
+  /** Why the files' links could not be made, in words; null when they could (or there are none). */
+  filesNotice: string | null;
 };
 
 const strings = (v: unknown): string[] => arr(v).filter((x): x is string => typeof x === "string" && x !== "");
@@ -283,6 +289,14 @@ export function parseProcessAnswer(v: unknown): ProcessAnswer {
     process: parseProcess(o.process),
     workedCommunities: num(o.worked_communities),
     here: h ? { received: num(h.received), lastOn: str(h.last_on) } : null,
+    files: arr(o.files).flatMap((x) => {
+      const f = obj(x);
+      const id = str(f.id);
+      const path = str(f.path);
+      if (!id || !path || !isFileKind(f.kind)) return [];
+      return [{ id, kind: f.kind, caption: str(f.caption) ?? "", contentType: str(f.content_type) ?? "", bytes: num(f.bytes), path, addedAt: str(f.added_at), url: null }];
+    }),
+    filesNotice: null,
   };
 }
 
