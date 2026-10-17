@@ -141,6 +141,11 @@ export default async function EmployersOnFilePage({ searchParams }: { searchPara
                                   <input type="hidden" name="first_name" value={first} />
                                 </ActionForm>
                               ) : null}
+                              {entry && entry.status === "active" ? (
+                                <Link href={`/giving/matching/claims/record?person=${r.person_id}`} className="crm-link text-[13px]">
+                                  Record a match
+                                </Link>
+                              ) : null}
                               <Link href={hrefWith("/giving/matching", {}, { person: r.person_id })} className="crm-link text-[13px]">
                                 {entry ? "Choose another" : r.best ? "Choose another" : "Search the directory"}
                               </Link>

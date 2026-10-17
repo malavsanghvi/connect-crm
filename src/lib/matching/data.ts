@@ -3,6 +3,7 @@ import "server-only";
 import { explainError } from "@/lib/errors";
 import type { AppSupabase } from "@/lib/supabase/server";
 
+import { parseCatchList, parseClaimsList, parsePersonGifts, parseProcessAnswer, parseProcessList, type CatchList, type ClaimsList, type PersonGifts, type ProcessAnswer, type ProcessListRow } from "./catch";
 import { PROGRAM_COLUMNS, parseSearch, type ProgramRow, type SearchRow } from "./directory";
 
 // Reads for CatchTheMatch's directory screens (migrations 0765-0767). Each runs as the signed-in person: the database decides
@@ -289,4 +290,56 @@ export async function loadProgramVersions(db: AppSupabase, id: string): Promise<
   const { data, error } = await db.rpc("platform_match_program_versions", { p_id: id });
   if (error) return failed("this entry's versions", error);
   return { ok: true, data: Array.isArray(data) ? (data as unknown as ProgramVersion[]) : [] };
+}
+
+// ── Phase 1 (0886-0888): the members to catch, the claims and the library ────
+
+export const CATCH_PAGE = 50;
+
+/** The members whose gift may be matched and who have not asked, because the program has paid this community. */
+export async function loadCatchList(db: AppSupabase, centerId: string, filter: "catchable" | "missed", page: number): Promise<Loaded<CatchList>> {
+  const { data, error } = await db.rpc("match_catch_list", {
+    p_center: centerId,
+    p_filter: filter,
+    p_limit: CATCH_PAGE,
+    p_offset: (Math.max(1, page) - 1) * CATCH_PAGE,
+  });
+  if (error) return failed("the members to catch", error);
+  return { ok: true, data: parseCatchList(data) };
+}
+
+export async function loadClaimsList(db: AppSupabase, centerId: string, filter: "open" | "ended", page: number): Promise<Loaded<ClaimsList>> {
+  const { data, error } = await db.rpc("match_claims_list", {
+    p_center: centerId,
+    p_filter: filter,
+    p_limit: CATCH_PAGE,
+    p_offset: (Math.max(1, page) - 1) * CATCH_PAGE,
+  });
+  if (error) return failed("the claims", error);
+  return { ok: true, data: parseClaimsList(data) };
+}
+
+export async function loadPersonGifts(db: AppSupabase, centerId: string, personId: string): Promise<Loaded<PersonGifts>> {
+  const { data, error } = await db.rpc("match_person_gifts", { p_center: centerId, p_person: personId });
+  if (error) return failed("this person's gifts", error);
+  return { ok: true, data: parsePersonGifts(data) };
+}
+
+/** How to claim from one employer's program (the library), with how many communities were paid through it and how many matches this one received. */
+export async function loadProcess(db: AppSupabase, programId: string, centerId: string | null): Promise<Loaded<ProcessAnswer>> {
+  const { data, error } = await db.rpc("match_process_get", { p_program: programId, p_center: centerId ?? undefined });
+  if (error) return failed("how to claim from this employer", error);
+  return { ok: true, data: parseProcessAnswer(data) };
+}
+
+export const LIBRARY_PAGE = 50;
+
+export async function loadProcessList(db: AppSupabase, query: string, page: number): Promise<Loaded<{ total: number; rows: ProcessListRow[] }>> {
+  const { data, error } = await db.rpc("match_process_list", {
+    p_query: query || undefined,
+    p_limit: LIBRARY_PAGE,
+    p_offset: (Math.max(1, page) - 1) * LIBRARY_PAGE,
+  });
+  if (error) return failed("the how-to-claim library", error);
+  return { ok: true, data: parseProcessList(data) };
 }
