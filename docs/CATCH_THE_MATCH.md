@@ -214,3 +214,27 @@ received, claims lost to deadlines. For Weaver: fee revenue per organization aga
 - **Portal:** Giving › Gift matching now has To catch (`/giving/matching/catch`: the members, the proof line, the gifts and the time left, a copyable message built from the library and the organization's registered name, "Mark as asked"), Claims (`/giving/matching/claims`: where each claim stands and a control to move it), Record a match (`/giving/matching/claims/record?person=`, from Employers on file), How to claim (`/giving/matching/library`), and a "How to claim" card on each directory entry; Platform › Gift matching directory has the editor for the steps.
 
 **Not in Phase 1:** sending the message (it needs the owner's approval for messaging and an email provider, B116), the member app card (a mobile release), files in the library, the match payment in Giving and the donor's thank-you (slice 4, money), Weaver's filing queue and the fee (Phase 2).
+
+## 13. Finishing Phase 1 (owner direction, 2026-10-17: "finish what is pending of CatchTheMatch")
+
+Phase 2 (Weaver files as the organization's agent, the fee ledger, the lawyer's view, a secular pilot, Marketplace billing) stays paused. Everything pending of Phase 1 is built in pieces, one pull request each, migrations 0920 to 0939 (DonorDelight uses 0890 to 0919). Each piece that sends a message, touches personal data, permissions, money or storage waits for the owner's OK before it is merged.
+
+| Piece | What | Migration | Owner OK |
+|---|---|---|---|
+| 0 | Ask the adults of donor families for their employer | 0920 | Yes: messaging, personal data |
+| 1 | "Send to the member" for a claim, through the messaging queue | 0921 | Yes: messaging |
+| 2 | The member app card "Does your employer match?" and the member's own claims | 0922 to 0924 | Yes: RLS, personal data |
+| 3 | Slice 4: the match arrives in Giving (soft credit, thank-you, statements) | 0925 to 0927 | Yes: money |
+| 4 | An optional file or screenshot per library entry | 0928, 0929 | Yes: storage, RLS |
+| 5 | The Marketplace card | 0930 | Yes: it emails communities that asked to be told |
+
+### 13.1 Ask for employers (piece 0, migration 0920)
+
+**The wording** is the owner's, kept as he wrote it and hedged as it is: "You may be eligible to double the donation from your employer if you provide your employer information." It carries no amount and no gift, only a link to the member app screen where the person adds their employer with their consent (section 6). The message only asks; nothing is put on file by it.
+
+**Built (migration 0920, test 920):**
+- **The audience** (`app._match_ask_base`, `app.match_employer_ask_list`): the adults (never under 18, never deceased or merged) of every household with a gift that went through in the last 24 months (`app._match_gifts`: completed, less refunds, no opening balance, no history import, no fee) who have **no employer record at all**. A person with an employer on file is not asked; a person who **withdrew** theirs is never asked again (the withdrawn row stays); a person asked in the last 90 days is not asked again. Each person is told apart by how they can be reached today: an email on file that is not suppressed, not unsubscribed, not opted out at that address and whose `marketing_email` consent was not withdrawn; or a login with the member app on a phone and the topic switched on. Counts and the list are for `matching.manage` only (the organization's own, never Weaver's team, never the filing grant); the household shows as its card; no address, no amount, no gift is returned; the read is logged (`app.log_private_read`).
+- **The ask** (`app.ask_match_employers`): through the **existing** messaging queue (`app.enqueue_notice`), so the sandbox's verified-recipient rule (`messaging.recipients`), suppressions and bounces, opt-outs, newsletter unsubscribes, the member's own topic switch, quiet hours for the push, the deceased rule and the delivery webhook all apply unchanged. A new notification topic `matching` ("Employer gift matching", on by default, a marketing topic) lets a member switch it off in the app; templates `match_employer_ask` (email and push, a community may override them). At most 300 people per call; a per-community lock makes two clicks at once ask each person once.
+- **What was asked** (`app.match_employer_asks`): one row per person and channel: who asked, when, the message, queued or not, and why not in plain words without the address. The organization's own data under 0757's contract (module `matching`, adults only, no platform-admin read, restrictive `module_switch`, private audit).
+- **Portal:** Giving › Gift matching › **Ask for employers** (`/giving/matching/ask`): the counts (to ask, by email, in the member app, no way to reach; left out because an employer is on file, withdrawn, or asked recently), the people with their household card, "Ask" for one person or for everyone reachable. **It refuses before queueing anything when this server cannot send email** (no provider key, or no member app address) and says what is missing (backlog B116); a sandbox says it messages only verified test recipients. The result says "queued" (handed to the sending service), never "sent", names what could not be queued, and points to Settings › Email › Recent emails for what actually arrived.
+- **Member side:** the link opens the member app's **Does your employer match?** screen (piece 2). Until that app version is out, the push opens the app and the email link opens the member web app; do not use the ask before piece 2 ships.

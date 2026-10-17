@@ -3,6 +3,7 @@ import "server-only";
 import { explainError } from "@/lib/errors";
 import type { AppSupabase } from "@/lib/supabase/server";
 
+import { parseAskList, type AskList } from "./ask";
 import { parseCatchList, parseClaimsList, parsePersonGifts, parseProcessAnswer, parseProcessList, type CatchList, type ClaimsList, type PersonGifts, type ProcessAnswer, type ProcessListRow } from "./catch";
 import { PROGRAM_COLUMNS, parseSearch, type ProgramRow, type SearchRow } from "./directory";
 
@@ -342,4 +343,18 @@ export async function loadProcessList(db: AppSupabase, query: string, page: numb
   });
   if (error) return failed("the how-to-claim library", error);
   return { ok: true, data: parseProcessList(data) };
+}
+
+// ── Piece 0 (0920): asking families for their employer ───────────────────────
+
+export const ASK_PAGE = 50;
+
+export async function loadAskList(db: AppSupabase, centerId: string, page: number): Promise<Loaded<AskList>> {
+  const { data, error } = await db.rpc("match_employer_ask_list", {
+    p_center: centerId,
+    p_limit: ASK_PAGE,
+    p_offset: (Math.max(1, page) - 1) * ASK_PAGE,
+  });
+  if (error) return failed("the families to ask", error);
+  return { ok: true, data: parseAskList(data) };
 }

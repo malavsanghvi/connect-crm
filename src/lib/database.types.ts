@@ -6083,6 +6083,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      match_employer_asks: {
+        Row: {
+          id: string;
+          center_id: string;
+          person_id: string;
+          channel: string;
+          asked_at: string;
+          asked_by: string | null;
+          message_id: string | null;
+          queued: boolean;
+          reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          person_id: string;
+          channel: string;
+          asked_at?: string;
+          asked_by?: string | null;
+          message_id?: string | null;
+          queued: boolean;
+          reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          person_id?: string;
+          channel?: string;
+          asked_at?: string;
+          asked_by?: string | null;
+          message_id?: string | null;
+          queued?: boolean;
+          reason?: string | null;
+        };
+        Relationships: [];
+      };
       match_processes: {
         Row: {
           program_id: string;
@@ -13699,6 +13735,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      ask_match_employers: {
+        Args: {
+          p_center: string;
+          p_people?: string[];
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
       ask_proof_question: {
         Args: {
           p_proof: string;
@@ -15784,6 +15828,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      match_ask_readable: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
       match_catch_list: {
         Args: {
           p_center: string;
@@ -15830,6 +15881,14 @@ export type Database = {
           p_person: string;
         };
         Returns: boolean;
+      };
+      match_employer_ask_list: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
       };
       match_employers_queue: {
         Args: {
