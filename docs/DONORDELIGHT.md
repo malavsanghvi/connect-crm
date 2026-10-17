@@ -10,7 +10,7 @@ Status: plan, 2026-10-13. Slices 1 (0750, 0757-0758) and 2 (0760-0763, in review
 onboards (temple, church, mosque, chamber, club, food bank, school; any faith or none; any language): behaviour comes
 from the organization's kind, its own settings and its own records, never from code written for one community.
 
-**Status 2026-10-17:** slices 1 to 6 are built (see section 12); slices 7 to 9 follow, slice 10 (price and billing) stays in the backlog.
+**Status 2026-10-17:** slices 1 to 7 are built (see section 12); slices 8 and 9 follow, slice 10 (price and billing) stays in the backlog.
 
 **Priority (owner, 2026-10-13):** build slices 2 to 4 (care basics, thank-you tracker, engagement signs), the usable core; then Marketplace billing (MARKETPLACE_PLAN phases 2 and 3) before any further paid slice. Slices 5 to 10 wait.
 
@@ -325,6 +325,22 @@ library; the audit holds who and when and which columns, never the words. Portal
 and **Ideas for this household** on the Care card: the gestures that suit it, best first (how they like to be thanked, a special day or an expertise on file, recognition only if they chose it; none
 of the thank-you kind for a household that asked for no thanks), each with why, a draft filled with the adult to reach and the organization (Copy), and one tap "I did this" that records the touch
 with no ask. Nothing is sent. Not built: tying a gesture to a playbook step, and gesture ideas in Your week.
+
+**Built (slice 7, who to approach, 2026-10-17, migration 0895, test 895; the doc's B98 slices 3 to 7 folded into DonorDelight's own keys, so the proposed `giving.approach` permission is not needed):**
+a ranked list of the households an organization could ask, each with its reasons, **held behind the touch balance**. It is **off until a care manager has read what it uses and never uses** and turns it on
+(`app.care_approach_settings.enabled`; the screen lists both). A household is READY only when nothing holds it; otherwise it is HELD, with the reason in words, in this order: **pledge** (behind by more than 60
+days: remind, do not ask), **thank** (a gift not thanked yet: thank first), **rest** (asked within the rest period, default 60 days, editable, 0 = none: **ask fatigue**), **balance** (fewer touches with no ask than the
+touch balance since the last ask, default 3, editable 1 to 10; never asked: the no-ask touches of the last 12 months) and **quiet** (inside a quiet period). A household with **do-not-ask** (with or without a
+rest-until date, from the Care profile) is **counted, never named or explained** ("N households are not shown"); a household that never gave is invited, not asked, so it is not a candidate. The score is additive
+and visible: the same function returns the score and its signals, so the explanation cannot disagree with the number (years of the last five with a gift, how recent the last gift is, taking part in the last 12
+months, all gifts thanked; the points are the organization's to change, 0 to 50, years up to 100). A **range** is the median and the highest of the household's OWN gifts of the last five years (to the chosen fund,
+when one is chosen), only with three or more gifts and only for someone who also holds `giving.view`/`giving.manage` (`care_amounts_can`); rounded outwards ($10 steps, $50 above $1,000), never one number. Quiet
+periods (`app.care_quiet_periods`) are data: a name, from and to, optionally every year (it may cross the new year); archived, never deleted. A relationship owner (care.own) sees only the households they own; care.view
+and care.manage see every household; platform admins and everyone else see nothing; every read is logged without names. No religion, tradition, caste, ethnicity, language, gender, age, health, income, property or
+occupation, no photo, nothing about anyone under 18 (the cards list adults only and a minor payer's gift never counts), and **no outside wealth screening** (a test pins that there is no such weight). Nothing is sent
+or asked: it orders a list for a person to read. Portal: **Who to approach** (`/care/approach`, a tab): Ready and Held with the reasons, a fund filter, the settings (touch balance, rest, weights), the quiet periods and
+the plain page on what it uses and never uses; and an **Asking** block on the Care card (ready, "Not yet" with every reason, or "Do not ask"). Not built (still in B98): per-fund "can be asked for" switches, saved lists,
+an export, the next-best-ask category card, upgrade and recurring-gift lists, peer networks and milestone prompts; a draft appeal goes through slice 8's note drafting once that is on.
 
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt
