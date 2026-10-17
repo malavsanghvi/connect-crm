@@ -140,6 +140,16 @@ export type Command<I = never, O = unknown> = {
   permission: AccessKey;
   /** Hidden when this module is switched off for the community. */
   module?: ModuleKey;
+  /**
+   * Further modules that must all be on, each with its own sentence when it is not. DonorDelight's commands (care.*) need iWeaver (`ai`) as well as
+   * `care`, because what they hand over is read by an AI model: with `ai` off they are not offered to anyone, by any door.
+   */
+  alsoModules?: readonly ModuleKey[];
+  /**
+   * Only Niva (the model, with the asking person's own rights) runs it. The screens and the palette have their own pages for the same work and do not
+   * list it. Used for work whose point is to hand a model the facts to write with (DonorDelight's briefs and drafts).
+   */
+  assistantOnly?: boolean;
   /** Only the Weaver team (platform admins) may use it. It is never offered to anyone else, whatever their roles or permissions are. */
   platformOnly?: boolean;
   input: ObjectSchema<I>;

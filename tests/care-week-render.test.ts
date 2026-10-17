@@ -16,7 +16,7 @@ const session = {
   center: { id: "c1", name: "Grace Church", time_zone: "America/Chicago", currency: "USD" },
 };
 vi.mock("@/lib/session", () => ({ getSession: async () => session, loadSession: async () => ({ status: "ok", session }) }));
-const answers = vi.hoisted(() => ({ week: null as unknown, playbooks: null as unknown, settings: null as unknown }));
+const answers = vi.hoisted(() => ({ week: null as unknown, playbooks: null as unknown, settings: null as unknown, niva: { status: "ok", data: { enabled: false, ai: true, canManage: false, enabledAt: null } } as unknown }));
 vi.mock("@/lib/data/care", async () => {
   const { careCan } = await import("@/lib/permissions");
   return {
@@ -24,6 +24,7 @@ vi.mock("@/lib/data/care", async () => {
     loadWeek: async () => answers.week,
     loadPlaybooks: async () => answers.playbooks,
     loadWeekSettings: async () => answers.settings,
+    loadNivaSetting: async () => answers.niva,
   };
 });
 

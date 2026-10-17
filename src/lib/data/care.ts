@@ -23,6 +23,7 @@ import {
 } from "@/lib/care/model";
 import { classifyHealth, parseCareDashboard, parseHealthFacts, type CareDashboard, type Health } from "@/lib/care/health";
 import { parseSignsWatch, weakSigns, type CareTodayIn } from "@/lib/care/watch";
+import { parsePlan, parsePlanContext, type CarePlan, type PlanContext } from "@/lib/care/plan";
 import { parseApproach, parseApproachHousehold, parseApproachSettings, type ApproachHousehold, type ApproachList, type ApproachSettings } from "@/lib/care/approach";
 import { parseGestures, type GestureList } from "@/lib/care/gestures";
 import { parsePlaybooks, type PlaybookList } from "@/lib/care/playbooks";
@@ -273,4 +274,29 @@ export async function loadHouseholdApproach(session: CrmSession, householdId: st
   const res = await session.db.rpc("care_approach_household", { p_household: householdId });
   if (res.error) return refusal("could not read whether to ask this household", res.error);
   return { status: "ok", data: parseApproachHousehold(res.data) };
+}
+
+// ── Niva and the care plan (slice 8, 0896) ───────────────────────────────────
+
+/** Whether the organization has ticked "Niva may help with relationship care", and whether iWeaver is on. */
+export type NivaSetting = { enabled: boolean; ai: boolean; canManage: boolean; enabledAt: string | null };
+export async function loadNivaSetting(session: CrmSession): Promise<CareRead<NivaSetting>> {
+  const res = await session.db.rpc("care_niva_get", { p_center: session.center.id });
+  if (res.error) return refusal("could not read whether Niva may help", res.error);
+  const o = (res.data && typeof res.data === "object" ? res.data : {}) as Record<string, unknown>;
+  return { status: "ok", data: { enabled: o.enabled === true, ai: o.ai !== false, canManage: o.can_manage === true, enabledAt: typeof o.enabled_at === "string" ? o.enabled_at : null } };
+}
+
+/** The care plan of one year (draft, approved, or none yet). */
+export async function loadCarePlan(session: CrmSession, year: number): Promise<CareRead<CarePlan>> {
+  const res = await session.db.rpc("care_plan_get", { p_center: session.center.id, p_year: year });
+  if (res.error) return refusal("could not read the care plan", res.error);
+  return { status: "ok", data: parsePlan(res.data) };
+}
+
+/** What a draft of the plan is made from (counts for the groups, never a household). Logged. */
+export async function loadPlanContext(session: CrmSession, year: number): Promise<CareRead<PlanContext>> {
+  const res = await session.db.rpc("care_plan_context", { p_center: session.center.id, p_year: year });
+  if (res.error) return refusal("could not read what the plan is made from", res.error);
+  return { status: "ok", data: parsePlanContext(res.data) };
 }

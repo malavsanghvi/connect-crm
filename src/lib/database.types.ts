@@ -1649,6 +1649,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      care_niva_settings: {
+        Row: {
+          center_id: string;
+          enabled: boolean;
+          enabled_at: string | null;
+          enabled_by: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          enabled?: boolean;
+          enabled_at?: string | null;
+          enabled_by?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          enabled?: boolean;
+          enabled_at?: string | null;
+          enabled_by?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       care_notes: {
         Row: {
           id: string;
@@ -1715,6 +1742,51 @@ export type Database = {
           assigned_by?: string | null;
           assigned_at?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      care_plans: {
+        Row: {
+          id: string;
+          center_id: string;
+          year: number;
+          status: string;
+          summary: string | null;
+          items: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+          approved_by: string | null;
+          approved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          year: number;
+          status?: string;
+          summary?: string | null;
+          items?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          year?: number;
+          status?: string;
+          summary?: string | null;
+          items?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
         };
         Relationships: [];
       };
@@ -14087,6 +14159,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      approve_care_plan: {
+        Args: {
+          p_center: string;
+          p_year: number;
+        };
+        Returns: Json;
+      };
       approve_email_schedule: {
         Args: {
           p_center: string;
@@ -14584,6 +14663,26 @@ export type Database = {
       care_my_households: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      care_niva_get: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      care_plan_context: {
+        Args: {
+          p_center: string;
+          p_year: number;
+        };
+        Returns: Json;
+      };
+      care_plan_get: {
+        Args: {
+          p_center: string;
+          p_year: number;
+        };
+        Returns: Json;
       };
       care_playbooks_list: {
         Args: {
@@ -18604,6 +18703,21 @@ export type Database = {
           p_gesture: Json;
         };
         Returns: string;
+      };
+      save_care_niva: {
+        Args: {
+          p_center: string;
+          p_enabled: boolean;
+        };
+        Returns: Json;
+      };
+      save_care_plan: {
+        Args: {
+          p_center: string;
+          p_year: number;
+          p_plan: Json;
+        };
+        Returns: Json;
       };
       save_care_playbook: {
         Args: {

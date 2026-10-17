@@ -8,6 +8,7 @@
 import { defaultRegistry } from "../registry";
 import type { AnyCommand } from "../types";
 
+import { CARE_COMMANDS } from "./care";
 import { CONTENT_COMMANDS } from "./content";
 import { EVENT_COMMANDS } from "./events";
 import { bankLinesUnmatched } from "./giving-bank-lines";
@@ -53,6 +54,8 @@ export const CATALOG: readonly AnyCommand[] = [
   ...PEOPLE_COMMANDS,
   // Messages (docs/ADMIN_REDESIGN.md phase 4): the inbox, drafts, audience, approvals and replies
   ...MESSAGES_COMMANDS,
+  // DonorDelight (slice 8): relationship care for Niva's chat only, with iWeaver, DonorDelight and the organization's own tick; not recorded in the activity stream
+  ...CARE_COMMANDS,
   // Settings and Setup: the setup concierge and the roles helper (reads, one draft, and what only the person can do)
   ...SETTINGS_COMMANDS,
   // Content (approval queue, Niva's sources, media counts, drafts) and Store (orders, stock, sales): reads, a draft, and confirm ones that are off for Niva by default

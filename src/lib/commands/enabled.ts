@@ -1,5 +1,6 @@
 // Who may use a command right now: the permission, the module, and (for the assistant) the community's own switch.
 
+import { AI_OFF, AI_MODULE } from "@/lib/ai-gate";
 import type { Json } from "@/lib/database.types";
 import { isModuleEnabled, moduleDef, moduleOffMessage, type ModuleContext } from "@/lib/modules";
 import { canAccess, ACCESS, type PermissionContext } from "@/lib/permissions";
@@ -57,6 +58,14 @@ export function commandAvailability(command: AnyCommand, session: AvailabilitySe
   }
   if (command.module && !isModuleEnabled(session, command.module)) {
     return { ok: false, code: "module_off", error: moduleOffMessage(command.module, session.center.name, moduleDef(command.module).label) };
+  }
+  for (const extra of command.alsoModules ?? []) {
+    if (!isModuleEnabled(session, extra)) {
+      return { ok: false, code: "module_off", error: extra === AI_MODULE ? AI_OFF : moduleOffMessage(extra, session.center.name, moduleDef(extra).label) };
+    }
+  }
+  if (command.assistantOnly && via !== "assistant") {
+    return { ok: false, code: "screen_only", error: `Could not ${doing} — that is part of Niva. It is asked in the Niva chat; the screens have their own pages for the same work.` };
   }
   if (command.screenOnly && via !== "screen") {
     return { ok: false, code: "screen_only", error: `Niva does not ${doing}. That is done on the screen, by a person.` };
