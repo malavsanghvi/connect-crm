@@ -24,6 +24,7 @@ export type TaskSourceKey =
   | "proofs_expiring"
   | "unbanked"
   | "care_thanks"
+  | "care_week"
   | "membership"
   | "newsletter"
   | "inbox"
@@ -71,6 +72,8 @@ export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "unbanked", tag: "Not banked", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/payments/bank?view=unbanked", module: "giving_bank" },
   // DonorDelight (slice 3): gifts waiting for a thank-you. The organization's own keys: `can` never lets a platform admin through on care.*.
   { key: "care_thanks", tag: "Thank-yous", color: "navy", anyOf: ["care.own", "care.view", "care.manage"], href: "/care/thanks", module: "care" },
+  // DonorDelight (slice 5): the care tasks of the week for the households a person owns or backs up. Counts only: the tasks are on /care/week.
+  { key: "care_week", tag: "Your week", color: "navy", anyOf: ["care.own", "care.view", "care.manage"], href: "/care/week", module: "care" },
   { key: "membership", tag: "Membership", color: "navy", anyOf: ["people.approve"], href: "/memberships/applications" },
   { key: "override", tag: "Voting", color: "navy", anyOf: ["people.approve"], href: "/people/voting" },
   { key: "newsletter", tag: "Newsletter", color: "navy", anyOf: ["comms.approve"], alsoNeeds: ["comms.view", "comms.send"], href: "/comms" },

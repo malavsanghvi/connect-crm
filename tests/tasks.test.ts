@@ -79,10 +79,11 @@ describe("task sources", () => {
   });
 
   it("gives platform admins every source but the organization's own, and people with no role none", () => {
-    // The thank-yous are DonorDelight's: a platform admin sees them only through a role the organization granted (0757).
+    // The thank-yous and the week are DonorDelight's: a platform admin sees them only through a role the organization granted (0757).
     const visible = visibleTaskSources(ctx([], true)).map((x) => x.key);
-    expect(visible).toHaveLength(TASK_SOURCES.length - 1);
+    expect(visible).toHaveLength(TASK_SOURCES.length - 2);
     expect(visible).not.toContain("care_thanks");
+    expect(visible).not.toContain("care_week");
     expect(visibleTaskSources(ctx([]))).toHaveLength(0);
   });
 

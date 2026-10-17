@@ -1469,6 +1469,189 @@ export type Database = {
         };
         Relationships: [];
       };
+      care_approach_settings: {
+        Row: {
+          center_id: string;
+          enabled: boolean;
+          touch_balance: number;
+          rest_days: number;
+          weights: Json;
+          enabled_at: string | null;
+          enabled_by: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          enabled?: boolean;
+          touch_balance?: number;
+          rest_days?: number;
+          weights?: Json;
+          enabled_at?: string | null;
+          enabled_by?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          enabled?: boolean;
+          touch_balance?: number;
+          rest_days?: number;
+          weights?: Json;
+          enabled_at?: string | null;
+          enabled_by?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      care_gesture_starters: {
+        Row: {
+          key: string;
+          audience: string;
+          name: string;
+          description: string;
+          cost: string;
+          effort: string;
+          who: string;
+          suits_thanks: string[];
+          suits_recognition: string[];
+          needs: string[];
+          suggest: boolean;
+          kind: string;
+          channel: string | null;
+          draft: string | null;
+          sort: number;
+        };
+        Insert: {
+          key: string;
+          audience: string;
+          name: string;
+          description: string;
+          cost: string;
+          effort: string;
+          who: string;
+          suits_thanks?: string[];
+          suits_recognition?: string[];
+          needs?: string[];
+          suggest?: boolean;
+          kind: string;
+          channel?: string | null;
+          draft?: string | null;
+          sort?: number;
+        };
+        Update: {
+          key?: string;
+          audience?: string;
+          name?: string;
+          description?: string;
+          cost?: string;
+          effort?: string;
+          who?: string;
+          suits_thanks?: string[];
+          suits_recognition?: string[];
+          needs?: string[];
+          suggest?: boolean;
+          kind?: string;
+          channel?: string | null;
+          draft?: string | null;
+          sort?: number;
+        };
+        Relationships: [];
+      };
+      care_gestures: {
+        Row: {
+          id: string;
+          center_id: string;
+          key: string;
+          name: string;
+          description: string;
+          cost: string;
+          effort: string;
+          who: string;
+          suits_thanks: string[];
+          suits_recognition: string[];
+          needs: string[];
+          suggest: boolean;
+          kind: string;
+          channel: string | null;
+          draft: string | null;
+          enabled: boolean;
+          starter_key: string | null;
+          sort: number;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          key: string;
+          name: string;
+          description: string;
+          cost: string;
+          effort: string;
+          who: string;
+          suits_thanks?: string[];
+          suits_recognition?: string[];
+          needs?: string[];
+          suggest?: boolean;
+          kind: string;
+          channel?: string | null;
+          draft?: string | null;
+          enabled?: boolean;
+          starter_key?: string | null;
+          sort?: number;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          key?: string;
+          name?: string;
+          description?: string;
+          cost?: string;
+          effort?: string;
+          who?: string;
+          suits_thanks?: string[];
+          suits_recognition?: string[];
+          needs?: string[];
+          suggest?: boolean;
+          kind?: string;
+          channel?: string | null;
+          draft?: string | null;
+          enabled?: boolean;
+          starter_key?: string | null;
+          sort?: number;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      care_member_settings: {
+        Row: {
+          center_id: string;
+          enabled: boolean;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          enabled?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          enabled?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       care_message_kinds: {
         Row: {
           source: string;
@@ -1484,6 +1667,33 @@ export type Database = {
           source?: string;
           key?: string;
           counts?: boolean;
+        };
+        Relationships: [];
+      };
+      care_niva_settings: {
+        Row: {
+          center_id: string;
+          enabled: boolean;
+          enabled_at: string | null;
+          enabled_by: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          enabled?: boolean;
+          enabled_at?: string | null;
+          enabled_by?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          enabled?: boolean;
+          enabled_at?: string | null;
+          enabled_by?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -1556,6 +1766,150 @@ export type Database = {
         };
         Relationships: [];
       };
+      care_plans: {
+        Row: {
+          id: string;
+          center_id: string;
+          year: number;
+          status: string;
+          summary: string | null;
+          items: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+          approved_by: string | null;
+          approved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          year: number;
+          status?: string;
+          summary?: string | null;
+          items?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          year?: number;
+          status?: string;
+          summary?: string | null;
+          items?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
+        };
+        Relationships: [];
+      };
+      care_playbook_steps: {
+        Row: {
+          id: string;
+          playbook_id: string;
+          center_id: string;
+          position: number;
+          after_days: number;
+          title: string;
+          why: string;
+          kind: string;
+          channel: string | null;
+          draft: string | null;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          playbook_id: string;
+          center_id: string;
+          position: number;
+          after_days: number;
+          title: string;
+          why: string;
+          kind: string;
+          channel?: string | null;
+          draft?: string | null;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          playbook_id?: string;
+          center_id?: string;
+          position?: number;
+          after_days?: number;
+          title?: string;
+          why?: string;
+          kind?: string;
+          channel?: string | null;
+          draft?: string | null;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      care_playbooks: {
+        Row: {
+          id: string;
+          center_id: string;
+          key: string;
+          name: string;
+          summary: string | null;
+          trigger_key: string;
+          window_days: number;
+          cooldown_days: number;
+          enabled: boolean;
+          starter_key: string | null;
+          sort: number;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          key: string;
+          name: string;
+          summary?: string | null;
+          trigger_key: string;
+          window_days?: number;
+          cooldown_days?: number;
+          enabled?: boolean;
+          starter_key?: string | null;
+          sort?: number;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          key?: string;
+          name?: string;
+          summary?: string | null;
+          trigger_key?: string;
+          window_days?: number;
+          cooldown_days?: number;
+          enabled?: boolean;
+          starter_key?: string | null;
+          sort?: number;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       care_profiles: {
         Row: {
           household_id: string;
@@ -1601,6 +1955,81 @@ export type Database = {
         };
         Relationships: [];
       };
+      care_quiet_periods: {
+        Row: {
+          id: string;
+          center_id: string;
+          name: string;
+          starts_on: string;
+          ends_on: string;
+          yearly: boolean;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          name: string;
+          starts_on: string;
+          ends_on: string;
+          yearly?: boolean;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          name?: string;
+          starts_on?: string;
+          ends_on?: string;
+          yearly?: boolean;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      care_runs: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          playbook_id: string;
+          anchor_on: string;
+          status: string;
+          stopped_reason: string | null;
+          created_at: string;
+          ended_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          playbook_id: string;
+          anchor_on: string;
+          status?: string;
+          stopped_reason?: string | null;
+          created_at?: string;
+          ended_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          playbook_id?: string;
+          anchor_on?: string;
+          status?: string;
+          stopped_reason?: string | null;
+          created_at?: string;
+          ended_at?: string | null;
+        };
+        Relationships: [];
+      };
       care_settings: {
         Row: {
           center_id: string;
@@ -1634,6 +2063,99 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      care_starters: {
+        Row: {
+          key: string;
+          audience: string;
+          name: string;
+          summary: string;
+          trigger_key: string;
+          window_days: number;
+          cooldown_days: number;
+          sort: number;
+          steps: Json;
+        };
+        Insert: {
+          key: string;
+          audience: string;
+          name: string;
+          summary: string;
+          trigger_key: string;
+          window_days?: number;
+          cooldown_days?: number;
+          sort?: number;
+          steps: Json;
+        };
+        Update: {
+          key?: string;
+          audience?: string;
+          name?: string;
+          summary?: string;
+          trigger_key?: string;
+          window_days?: number;
+          cooldown_days?: number;
+          sort?: number;
+          steps?: Json;
+        };
+        Relationships: [];
+      };
+      care_sync_state: {
+        Row: {
+          center_id: string;
+          synced_on: string;
+          synced_at: string;
+        };
+        Insert: {
+          center_id: string;
+          synced_on: string;
+          synced_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          synced_on?: string;
+          synced_at?: string;
+        };
+        Relationships: [];
+      };
+      care_task_marks: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          run_id: string;
+          step_id: string;
+          status: string;
+          touch_id: string | null;
+          note: string | null;
+          by_user_id: string | null;
+          marked_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          run_id: string;
+          step_id: string;
+          status: string;
+          touch_id?: string | null;
+          note?: string | null;
+          by_user_id?: string | null;
+          marked_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          run_id?: string;
+          step_id?: string;
+          status?: string;
+          touch_id?: string | null;
+          note?: string | null;
+          by_user_id?: string | null;
+          marked_at?: string;
         };
         Relationships: [];
       };
@@ -1727,6 +2249,63 @@ export type Database = {
           voided_at?: string | null;
           voided_by?: string | null;
           void_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      care_week_log: {
+        Row: {
+          center_id: string;
+          user_id: string;
+          week_start: string;
+          tasks: number;
+          outcome: string;
+          reason: string | null;
+          message_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          center_id: string;
+          user_id: string;
+          week_start: string;
+          tasks: number;
+          outcome: string;
+          reason?: string | null;
+          message_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          user_id?: string;
+          week_start?: string;
+          tasks?: number;
+          outcome?: string;
+          reason?: string | null;
+          message_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      care_week_settings: {
+        Row: {
+          center_id: string;
+          notify: boolean;
+          notify_dow: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          notify?: boolean;
+          notify_dow?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          notify?: boolean;
+          notify_dow?: number;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -13637,6 +14216,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      approve_care_plan: {
+        Args: {
+          p_center: string;
+          p_year: number;
+        };
+        Returns: Json;
+      };
       approve_email_schedule: {
         Args: {
           p_center: string;
@@ -14050,6 +14636,26 @@ export type Database = {
         };
         Returns: boolean;
       };
+      care_approach: {
+        Args: {
+          p_center: string;
+          p_fund?: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      care_approach_household: {
+        Args: {
+          p_household: string;
+        };
+        Returns: Json;
+      };
+      care_approach_settings_get: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       care_can: {
         Args: {
           p_center: string;
@@ -14058,6 +14664,12 @@ export type Database = {
         Returns: boolean;
       };
       care_dashboard: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      care_gestures_list: {
         Args: {
           p_center: string;
         };
@@ -14113,9 +14725,41 @@ export type Database = {
         };
         Returns: Json;
       };
+      care_member_settings_get: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       care_my_households: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      care_niva_get: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      care_plan_context: {
+        Args: {
+          p_center: string;
+          p_year: number;
+        };
+        Returns: Json;
+      };
+      care_plan_get: {
+        Args: {
+          p_center: string;
+          p_year: number;
+        };
+        Returns: Json;
+      };
+      care_playbooks_list: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       care_settings_can: {
         Args: {
@@ -14161,6 +14805,24 @@ export type Database = {
       care_view_centers: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      care_week: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      care_week_counts: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      care_week_settings_get: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       catalog_shows: {
         Args: {
@@ -14362,6 +15024,15 @@ export type Database = {
           p_id: string;
         };
         Returns: { id: string; slug: string; name: string; short_name: string; state_region: string; time_zone: string; currency: string; tradition: Database["app"]["Enums"]["tradition"]; environment: string; status: string; category_key: string; branding: Json; feature_flags: Json; rules: Json; linked: boolean }[];
+      };
+      complete_care_task: {
+        Args: {
+          p_run: string;
+          p_step: string;
+          p_channel?: string;
+          p_note?: string;
+        };
+        Returns: Json;
       };
       complete_platform_setup_step: {
         Args: {
@@ -15521,6 +16192,18 @@ export type Database = {
         };
         Returns: boolean;
       };
+      install_care_gestures: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      install_care_starters: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
       invitation_preview: {
         Args: {
           p_token: string;
@@ -16020,6 +16703,12 @@ export type Database = {
           p_center: string;
         };
         Returns: { item_id: string; like_count: number; playlist_count: number }[];
+      };
+      member_care_preferences: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       member_experience: {
         Args: {
@@ -18093,6 +18782,49 @@ export type Database = {
         };
         Returns: string;
       };
+      save_care_approach_settings: {
+        Args: {
+          p_center: string;
+          p_settings: Json;
+        };
+        Returns: Json;
+      };
+      save_care_gesture: {
+        Args: {
+          p_center: string;
+          p_gesture: Json;
+        };
+        Returns: string;
+      };
+      save_care_member_settings: {
+        Args: {
+          p_center: string;
+          p_enabled: boolean;
+        };
+        Returns: Json;
+      };
+      save_care_niva: {
+        Args: {
+          p_center: string;
+          p_enabled: boolean;
+        };
+        Returns: Json;
+      };
+      save_care_plan: {
+        Args: {
+          p_center: string;
+          p_year: number;
+          p_plan: Json;
+        };
+        Returns: Json;
+      };
+      save_care_playbook: {
+        Args: {
+          p_center: string;
+          p_playbook: Json;
+        };
+        Returns: string;
+      };
       save_care_profile: {
         Args: {
           p_household: string;
@@ -18101,11 +18833,26 @@ export type Database = {
         };
         Returns: Json;
       };
+      save_care_quiet_period: {
+        Args: {
+          p_center: string;
+          p_period: Json;
+        };
+        Returns: string;
+      };
       save_care_settings: {
         Args: {
           p_center: string;
           p_settings: Json;
           p_last_30?: boolean;
+        };
+        Returns: Json;
+      };
+      save_care_week_settings: {
+        Args: {
+          p_center: string;
+          p_notify: boolean;
+          p_dow: number;
         };
         Returns: Json;
       };
@@ -18188,6 +18935,13 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      save_member_care_preferences: {
+        Args: {
+          p_center: string;
+          p_prefs: Json;
+        };
+        Returns: Json;
       };
       save_numbering: {
         Args: {
@@ -18332,6 +19086,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      set_care_gesture_enabled: {
+        Args: {
+          p_gesture: string;
+          p_enabled: boolean;
+        };
+        Returns: undefined;
+      };
       set_care_owner: {
         Args: {
           p_household: string;
@@ -18340,6 +19101,13 @@ export type Database = {
           p_reason?: string;
         };
         Returns: Json;
+      };
+      set_care_playbook_enabled: {
+        Args: {
+          p_playbook: string;
+          p_enabled: boolean;
+        };
+        Returns: undefined;
       };
       set_center_branding: {
         Args: {
@@ -18731,6 +19499,14 @@ export type Database = {
           p_status: string;
         };
         Returns: Json;
+      };
+      skip_care_task: {
+        Args: {
+          p_run: string;
+          p_step: string;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       sms_segments: {
         Args: {

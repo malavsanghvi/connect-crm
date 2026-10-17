@@ -15,6 +15,8 @@ import {
   type ProfileCall,
   type TouchCall,
 } from "@/app/(app)/households/[id]/care-actions";
+import { GestureIdeas } from "@/components/care/gesture-ideas";
+import { holdLine, rangeLine, signalLines, stateLine, type ApproachHousehold } from "@/lib/care/approach";
 import { HealthChip } from "@/components/care/health-chip";
 import { ThankActions } from "@/components/care/thank-actions";
 import { buttonClass } from "@/components/ui";
@@ -47,9 +49,11 @@ import {
   type CareTouchPage,
   type CareTouchRow,
 } from "@/lib/care/model";
+import type { GestureList } from "@/lib/care/gestures";
 import type { Health } from "@/lib/care/health";
 import { dueLine, giftLine, personalLine, type HouseholdThanks } from "@/lib/care/thanks";
 import type { CareCardLoad, CareRead } from "@/lib/data/care";
+import { moneyExample } from "@/lib/community-format";
 import { formatCents } from "@/lib/money";
 
 // The Care card on the Family page (DonorDelight slice 2). Shown only to someone with a DonorDelight role (the page checks careCan first;
@@ -153,6 +157,9 @@ export function CareCard({ load, householdId, timeZone, retryHref }: { load: Car
       holders={load.holders}
       thanks={load.thanks ?? null}
       health={load.health ?? null}
+      gestures={load.gestures ?? null}
+      approach={load.approach ?? null}
+      org={load.org ?? null}
       householdId={householdId}
       timeZone={timeZone}
     />
@@ -165,6 +172,9 @@ function CareCardBody({
   holders,
   thanks,
   health,
+  gestures,
+  approach,
+  org,
   householdId,
   timeZone,
 }: {
@@ -173,6 +183,9 @@ function CareCardBody({
   holders: CareRead<CareHolder[]> | null;
   thanks: CareRead<HouseholdThanks> | null;
   health: CareRead<Health | null> | null;
+  gestures: CareRead<GestureList> | null;
+  approach: CareRead<ApproachHousehold> | null;
+  org: string | null;
   householdId: string;
   timeZone: string;
 }) {
@@ -193,8 +206,10 @@ function CareCardBody({
       ) : null}
       <Owners data={data} holders={holders} householdId={householdId} />
       <HealthBox health={health} />
+      <ApproachBox approach={approach} />
       <Profile data={data} householdId={householdId} />
       <Thanks thanks={thanks} householdId={householdId} />
+      <GestureIdeas gestures={gestures} card={data} org={org} householdId={householdId} />
       <Touches data={data} first={touches} householdId={householdId} timeZone={timeZone} />
       <Notes notes={data.notes} total={data.notesTotal} canManage={data.access.manage} adults={data.household.adults} householdId={householdId} timeZone={timeZone} />
       <PeopleFields data={data} />
@@ -229,6 +244,42 @@ function HealthBox({ health }: { health: CareRead<Health | null> | null }) {
         ))}
       </ul>
       <p className="m-0 mt-1 text-[12px] text-faint">Worked out from the counts and dates in Weaver&apos;s records: no score, no amounts. A prompt to reach out, not a verdict.</p>
+    </div>
+  );
+}
+
+// ── Whether to ask (slice 7) ────────────────────────────────────────────────
+// Shown only once a care manager has turned on "Who to approach". Ready, or held with every reason ("Not yet: 2 of 3 touches with no ask since the last
+// ask"), or "Do not ask". A range is the household's own gifts and appears only for someone who may see amounts. It asks nobody; it is a prompt for a
+// person. A failed read is said in words, never an empty box.
+function ApproachBox({ approach }: { approach: CareRead<ApproachHousehold> | null }) {
+  if (!approach) return null;
+  if (approach.status === "error") {
+    return (
+      <div className="mb-3">
+        <Failure message={`Could not load whether to ask this household — ${approach.error.replace(/\.?$/, ".")} Reload the page to try again.`} />
+      </div>
+    );
+  }
+  if (approach.status !== "ok") return null;
+  const a = approach.data;
+  const head = stateLine(a);
+  if (!head || !("holds" in a)) return null;
+  const range = rangeLine(a.range, (c) => moneyExample(c, { currency: "USD", locale: "en-US" }));
+  const reasons = a.state === "ready" ? signalLines(a.signals) : a.state === "held" ? a.holds.map(holdLine) : [];
+  return (
+    <div className="mb-3 border-t border-line pt-3" data-testid="care-approach">
+      <h3 className={H3}>Asking</h3>
+      <p className="m-0 text-[15px] font-semibold text-ink">{head}</p>
+      {reasons.length > 0 ? (
+        <ul className="m-0 mt-1 list-disc pl-5 text-[13.5px] text-muted">
+          {reasons.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      ) : null}
+      {a.state === "ready" && range ? <p className="m-0 mt-1 text-[13px] text-ink">If you do ask: {range}</p> : null}
+      <p className="m-0 mt-1 text-[12px] text-faint">From the organization&apos;s own records, with the touch balance first. Nothing is asked or sent for you.</p>
     </div>
   );
 }

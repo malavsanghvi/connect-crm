@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 
 import { CATALOG } from "@/lib/commands/catalog";
 import type { MinorNameEntry } from "@/lib/commands/child-filter";
+import { CARE_COMMANDS } from "@/lib/commands/catalog/care";
 import { CONTENT_COMMANDS } from "@/lib/commands/catalog/content";
 import { LEARNING_COMMANDS } from "@/lib/commands/catalog/learning";
 import { MESSAGES_COMMANDS } from "@/lib/commands/catalog/messages";
@@ -142,8 +143,8 @@ describe("the first commands", () => {
   it("are all visible to a person with every permission, and none to a person with none", () => {
     const { session } = setup();
     // The Platform commands are for the Weaver team only, and the three money commands are hidden until an owner switches them on
-    // (tests/commands/platform-commands.test.ts, tests/commands/giving-money.test.ts).
-    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.filter((c) => !c.platformOnly && !c.requiresOwnerSwitch).length);
+    // (tests/commands/platform-commands.test.ts, tests/commands/giving-money.test.ts). DonorDelight's are Niva's chat only (tests/commands/care-commands.test.ts).
+    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.filter((c) => !c.platformOnly && !c.requiresOwnerSwitch && !c.assistantOnly).length);
     const none = fakeSession({ permissions: [] });
     // tasks.mine is open to everyone signed in; every other command needs a permission.
     expect(catalogRegistry().list(none).map((c) => c.key)).toEqual(["tasks.mine"]);
@@ -628,8 +629,9 @@ describe("no command result reaches a model with a child in it", () => {
    * run against theirs (tests/commands/content-store-world.ts): content-commands.test.ts and store-commands.test.ts check every one of them for children.
    * The Learning commands run against a Pathshala full of children, with the learner tables filled: tests/commands/learning-d2.test.ts.
    */
+  // DonorDelight: tests/commands/care-commands.test.ts checks every one of them for children, amounts and notes too.
   // Reports and Platform: tests/commands/reports-commands.test.ts and platform-commands.test.ts, which check every one of them for children too.
-  const OWN_WORLD = new Set([...PEOPLE_COMMANDS, ...SETTINGS_COMMANDS, ...MESSAGES_COMMANDS, ...REPORTS_COMMANDS, ...PLATFORM_COMMANDS, ...CONTENT_COMMANDS, ...STORE_COMMANDS, ...LEARNING_COMMANDS].map((c) => c.key));
+  const OWN_WORLD = new Set([...PEOPLE_COMMANDS, ...SETTINGS_COMMANDS, ...MESSAGES_COMMANDS, ...REPORTS_COMMANDS, ...PLATFORM_COMMANDS, ...CONTENT_COMMANDS, ...STORE_COMMANDS, ...LEARNING_COMMANDS, ...CARE_COMMANDS].map((c) => c.key));
 
   /** A plausible input for every command in the catalog. A new command must be added here, or this file fails. */
   const SAMPLE_INPUT: Record<string, unknown> = {

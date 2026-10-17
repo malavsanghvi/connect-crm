@@ -10,6 +10,7 @@ import { formatCents } from "@/lib/money";
 import { parsePayeeQueue, waitingRequests } from "@/lib/payments/change-control";
 import { EXPIRING_WINDOW_DAYS, expiringTaskCopy, parseExpiringCounts, parseProofCounts, parseUnbankedCounts, proofsTaskCopy, unbankedTaskCopy } from "@/lib/payment-proofs/counts";
 import { parseThanksCounts, thanksTaskCopy } from "@/lib/care/thanks";
+import { parseWeekCounts, weekTaskCopy } from "@/lib/care/week";
 import { untypedRpc } from "@/lib/payments/rpc";
 import { zelleWindowDays } from "@/lib/payments/zelle";
 import { can } from "@/lib/permissions";
@@ -123,6 +124,19 @@ const loaders: Record<TaskSourceKey, Loader> = {
     const copy = thanksTaskCopy(parseThanksCounts(res.data));
     if (!copy) return [];
     return [makeTask("care_thanks", "all", copy.title, copy.meta, [{ label: "Open", href: "/care/thanks", primary: true }])];
+  },
+
+  // The care tasks of the week (DonorDelight 0892): a count for the households this person owns or backs up, no names.
+  async care_week(session) {
+    const res = await session.db.rpc("care_week_counts", { p_center: session.center.id });
+    if (res.error) {
+      // Only a database without the function yet is skipped silently; anything else is this source's failure.
+      if (res.error.code === "PGRST202" || res.error.code === "42883") return [];
+      throw new SourceError(res.error);
+    }
+    const copy = weekTaskCopy(parseWeekCounts(res.data));
+    if (!copy) return [];
+    return [makeTask("care_week", "all", copy.title, copy.meta, [{ label: "Open", href: "/care/week", primary: true }])];
   },
 
   // Requests to change where gifts go that someone else asked for and this person (giving.approve) may confirm or turn down.

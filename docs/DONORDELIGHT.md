@@ -10,6 +10,8 @@ Status: plan, 2026-10-13. Slices 1 (0750, 0757-0758) and 2 (0760-0763, in review
 onboards (temple, church, mosque, chamber, club, food bank, school; any faith or none; any language): behaviour comes
 from the organization's kind, its own settings and its own records, never from code written for one community.
 
+**Status 2026-10-17:** slices 1 to 9 are built (see section 12); slice 10 (price and billing) stays in the backlog (owner), slice 10 (price and billing) stays in the backlog.
+
 **Priority (owner, 2026-10-13):** build slices 2 to 4 (care basics, thank-you tracker, engagement signs), the usable core; then Marketplace billing (MARKETPLACE_PLAN phases 2 and 3) before any further paid slice. Slices 5 to 10 wait.
 
 ## 1. In short
@@ -286,6 +288,92 @@ household card (adults only) with its relationship owner, every read is logged, 
 Member care), drawn only for whoever holds a care key (relationship owners see only their own households): a row "N gifts to thank" (the three numbers of `care_thanks_counts`), then up to five
 households with their sign and every reason, then one "more" row pointing at `/care`. Each button opens the Care card or the list; nothing asks anyone for money. A read that fails
 shows as a problem next to the group, never an empty group. Home keeps its thank-you task row; the weak signs are on Today only (reading them costs a facts call per load).
+
+**Built (slice 5, playbooks and "Your 5 this week", 2026-10-17, migrations 0891-0893, tests 891-893, worker job `care.week_sweep`):**
+`app.care_playbooks` / `care_playbook_steps` (a trigger, a window, a cooldown, 1 to 12 steps: days after entering, title, why, kind, channel, a draft with `{{name}}`, `{{me}}`
+and `{{org}}`) edited only by care.manage; a step is a touch to record and **has no ask** (a step cannot carry one; a care moment is never planned; the pledge reminder
+reminds and never asks for more); a removed step is archived, never deleted. `app.care_starters` holds the starter playbooks as data per kind of organization (faith: "Member
+care" wording, civic: "Donor care" wording; ten each: first gift, new household, steady, cooling, at risk, lapsed, volunteer who does not give, giver who does not take part,
+pledge falling due, monthly giver; no starter names a community, a religion or a language), picked from the category's `faith_based` and copied once into the community's own
+playbooks by `app.install_care_starters` (idempotent). `app.care_runs` is a household's time in a playbook, opened by `app._care_runs_sync` (at most once a day per community and
+when a playbook changes; no trigger on payments or households); `app._care_trigger_rows` decides who is in which trigger with the SAME arithmetic as `care_health_facts` and
+`health.ts` (the test pins the same worked cases; nothing before about a year of records), adults only; a sign-based run **stops when the sign stops** (the household gave
+again), so nobody calls to say "we miss you" after a gift. `app.care_week` gives the caller's own list (the households they own or back up): open thank-yous first, then steps overdue
+(a step more than 21 days late is not offered again), then what falls due in 7 days; the top five with the true total; a household that asked for no thanks gets no thank-you task;
+a manager also hears of households with a task and no owner. `app.complete_care_task` is the one tap: it records the step's touch (no ask) through `log_care_touch` and marks the task;
+`skip_care_task` needs a reason (kept). Reads are logged. Portal: **Your week** (`/care/week`, a tab; a task per card with why, the filled draft and a Copy button, "Done · <how>",
+"Add a note or change how", "Set aside"; a thank-you task shows the tracker's own ways to thank), **Playbooks** (`/care/playbooks`, a tab; everyone with a care key reads, care.manage adds the
+starters, edits in a form that checks the database's own rules in its own words, pauses and resumes), a Home task row "Your week: N care tasks" and the same row in the Care group on Giving > Today.
+**The weekly reminder** (migration 0893): care.manage switches it on (off by default) and picks the weekday; the worker job `care.week_sweep` (hourly) calls `app.worker_care_week_sweep`: from that
+weekday at 08:00 local time (and for two days after, in case the service was down) each person with at least one task gets ONE email through `app.enqueue_message` (template `care_week`, purpose
+`notification`): a number and the section's name, never a household, a name or a step. A sandbox that may message only verified recipients is refused WITH the reason in `app.care_week_log`
+(shown, never hidden); a person with no email address is logged as such; nobody is told twice in a week. **The email provider is not configured yet (backlog B116), so nothing can actually be
+sent today**; the path is built and tested to the queue, and it goes out when the provider is connected. Owner decisions to confirm: who may be told (every owner or backup with a task), the
+wording of the starters, the weekday default (Monday), and that the reminder holds a number only.
+
+**Built (slice 6, the gesture library, 2026-10-17, migration 0894, test 894):** `app.care_gestures` is the community's own library of things to do FOR a supporter, each with a cost
+(free or low), an effort (a few minutes, under an hour, half a day or more), who should do it (a leader, staff, a volunteer, anyone), the care profiles it suits (how they like to be
+thanked, how they like to be recognised; empty = any), what the household's own records must hold (a special day, an anniversary, expertise, interests: read from People, never copied, and
+never anything from outside the organization), whether it is offered on its own (a care moment never is: a person chooses it, and only when the family shared it and agreed), the touch it
+records and a draft. **A gesture is never paired with an ask:** there is no ask field (an unknown field is refused with that sentence), the touch it records is always "no ask", and a
+gesture whose name, description or draft asks for a gift, a donation or a pledge cannot be saved (`app._care_words_ask` in the database and `wordsAsk` in the portal use the same list; a
+plain check on words that cannot catch every phrasing, which is why the touch is always no ask). `app.care_gesture_starters` holds the starter set per kind of organization as data (thirteen
+each, faith and civic wording: a thank-you call with no ask, a handwritten card, a short video from a leader, a photo of what their gift built, ask for their advice, a greeting on their special
+day, an anniversary greeting, a quiet behind-the-scenes visit, a welcome visit, a small token tied to the mission, share something about their interest, recognition only if they chose it, a care
+moment); `install_care_gestures` copies the ones a community lacks (idempotent), `save_care_gesture` and `set_care_gesture_enabled` are care.manage only; everyone with a care key reads the
+library; the audit holds who and when and which columns, never the words. Portal: **Gestures** (`/care/gestures`, a tab; filter by who should do it; a manager adds the starters, edits, pauses),
+and **Ideas for this household** on the Care card: the gestures that suit it, best first (how they like to be thanked, a special day or an expertise on file, recognition only if they chose it; none
+of the thank-you kind for a household that asked for no thanks), each with why, a draft filled with the adult to reach and the organization (Copy), and one tap "I did this" that records the touch
+with no ask. Nothing is sent. Not built: tying a gesture to a playbook step, and gesture ideas in Your week.
+
+**Built (slice 7, who to approach, 2026-10-17, migration 0895, test 895; the doc's B98 slices 3 to 7 folded into DonorDelight's own keys, so the proposed `giving.approach` permission is not needed):**
+a ranked list of the households an organization could ask, each with its reasons, **held behind the touch balance**. It is **off until a care manager has read what it uses and never uses** and turns it on
+(`app.care_approach_settings.enabled`; the screen lists both). A household is READY only when nothing holds it; otherwise it is HELD, with the reason in words, in this order: **pledge** (behind by more than 60
+days: remind, do not ask), **thank** (a gift not thanked yet: thank first), **rest** (asked within the rest period, default 60 days, editable, 0 = none: **ask fatigue**), **balance** (fewer touches with no ask than the
+touch balance since the last ask, default 3, editable 1 to 10; never asked: the no-ask touches of the last 12 months) and **quiet** (inside a quiet period). A household with **do-not-ask** (with or without a
+rest-until date, from the Care profile) is **counted, never named or explained** ("N households are not shown"); a household that never gave is invited, not asked, so it is not a candidate. The score is additive
+and visible: the same function returns the score and its signals, so the explanation cannot disagree with the number (years of the last five with a gift, how recent the last gift is, taking part in the last 12
+months, all gifts thanked; the points are the organization's to change, 0 to 50, years up to 100). A **range** is the median and the highest of the household's OWN gifts of the last five years (to the chosen fund,
+when one is chosen), only with three or more gifts and only for someone who also holds `giving.view`/`giving.manage` (`care_amounts_can`); rounded outwards ($10 steps, $50 above $1,000), never one number. Quiet
+periods (`app.care_quiet_periods`) are data: a name, from and to, optionally every year (it may cross the new year); archived, never deleted. A relationship owner (care.own) sees only the households they own; care.view
+and care.manage see every household; platform admins and everyone else see nothing; every read is logged without names. No religion, tradition, caste, ethnicity, language, gender, age, health, income, property or
+occupation, no photo, nothing about anyone under 18 (the cards list adults only and a minor payer's gift never counts), and **no outside wealth screening** (a test pins that there is no such weight). Nothing is sent
+or asked: it orders a list for a person to read. Portal: **Who to approach** (`/care/approach`, a tab): Ready and Held with the reasons, a fund filter, the settings (touch balance, rest, weights), the quiet periods and
+the plain page on what it uses and never uses; and an **Asking** block on the Care card (ready, "Not yet" with every reason, or "Do not ask"). Not built (still in B98): per-fund "can be asked for" switches, saved lists,
+an export, the next-best-ask category card, upgrade and recurring-gift lists, peer networks and milestone prompts; a draft appeal goes through slice 8's note drafting once that is on.
+
+**Built (slice 8, Niva and the care plan, 2026-10-17, migration 0896, test 896, tests/commands/care-commands.test.ts):**
+**Niva.** Five commands in the existing command layer (`src/lib/commands/catalog/care`), all for **Niva's chat only** (`assistantOnly`: the screens and the palette have their own pages), all needing **iWeaver (module `ai`) AND DonorDelight (module `care`)
+AND the organization's own tick** (`app.care_niva_settings`, off by default, set by care.manage on the Playbooks page; the commands also check it when they run and say in words which of the three is missing). They run with the
+asking person's own rights: they call the same database functions as the screens, as the signed-in person, so a platform admin or a role without a care key is refused exactly as on a screen (W2); a relationship owner (care.own) gets the
+reads and drafts about their own households. `care.my_week` (read: the person's own week, up to five tasks, each with why and a draft with the names filled), `care.household_brief` (read: what to know before you call: the card, owner,
+preferences, interests and expertise on file, the sign and its reasons, thank-yous waiting, whether it is time to ask, the last touches), `care.draft_note` (draft: the material for one personal note: who to write to, the way and
+language, the mission in a line, starting drafts from the gesture library and playbooks, and the rules for this note), `care.log_touch` (confirm: a dictated note becomes a touch, a person confirms the card first, off for Niva until
+the platform ticks it like every confirm command; a care moment is never an ask) and `care.draft_care_plan` (draft; care.manage: the material for the plan and a first draft). **What a model is given:** at most ten households, no amount, no
+free-text note (only the count of notes), never the reason a household is not to be asked ("Do not ask", nothing more), nothing about anyone under 18 (the cards list adults only and the child filter checks the answer again). **They draft;
+a person sends:** nothing is sent or saved. DonorDelight's commands are **not recorded in the activity stream at all** (`commandActivityKey` returns nothing for `care.*`): the community's agreement to share that stream with Weaver is one
+switch for every key and cannot leave these out. Two additive fields on the command type: `alsoModules` (further modules that must be on, with iWeaver's one sentence) and `assistantOnly`.
+**The care plan from the mission.** `app.care_plans`: one plan per community and year, status draft or approved, a summary and up to 60 moments (a day, a title, a group of households, a kind of touch, a note). `src/lib/care/plan.ts`
+drafts it from what the organization has (plain arithmetic and wording, no model): its mission, its own calendar entries (a greeting a few days before each), its fiscal year (thank every household before it closes, share what
+the year made possible), its quiet periods (named, and a moment inside one says asks wait), and its groups of households (a group with no households is left out); a civic organization gets the day of giving, which
+thanks before it asks. A care manager saves the draft, edits every moment and approves it; **an edit returns an approved plan to draft; nothing in a plan runs by itself**; no moment asks for money (the same word check as a
+gesture, in the database and the portal). Portal: **Care plan** (`/care/plan`, a tab: year chips, the status, what is coming up in 30 days, the moments by month; managers draft, edit and approve) and the **Niva** card on Playbooks.
+Not built: tasks created from an approved plan's moments (the plan is a calendar for the team to follow today), and the Niva command for saving the plan (a care manager does it on the screen).
+
+**Built (slice 9, "How would you like to be thanked?" in the member app, 2026-10-17, migration 0897, test 897; connect-mobile 1.30.0):**
+an adult of the household sees and sets ONLY three choices, for the household: how they would like to be thanked (in person, a call, a card, a message, or no thanks), how they would like to be recognised (by name,
+personally and never in public, or anonymously) and how to reach them. `app.member_care_preferences(center)` and `app.save_member_care_preferences(center, prefs)` are definers that find the household from the
+signed-in member's own `center_users` row (never `is_member_of`, so a platform admin who is not a member has no household and is told nothing), refuse anyone under 18, refuse any key but those three (a member cannot
+change do-not-ask or a rest-until day), keep every other column of the care profile, and record who changed it (the audit holds the columns, never the words). A member reads **no** care row and can call **no** other
+care function (W2). **The organization decides whether to ask:** `app.care_member_settings` is off until a care manager turns it on (Playbooks page, "Ask members") and DonorDelight must be on; until then the question is
+"not available" and the app shows no link. The member app (connect-mobile) has Family > How would you like to be thanked? (a link that appears only when the database says the question is asked), three sets of cards and
+Save; a refusal is shown in plain words with the choices kept. Rollout order: this migration is deployed first, then the mobile OTA to the preview channel (the app calls the new functions; without them the link just does
+not appear).
+
+**Prepared, not merged (the Marketplace card, 2026-10-17, migration 0898):** the card says "Not built yet" today. `0898_donordelight_card.sql` (PR stacked on slice 9) sets the product to `available` with words written
+against what is built (slices 1 to 9; no price, no date, no claim about slice 10). Flipping the status fires 0753's trigger, which **emails every community that pressed "Tell me when it is ready"**
+("DonorDelight is ready"), so it is merged only on the owner's word, after PRs 332 to 336 are deployed. Test 161 puts the card back to not-built inside its own rolled-back transaction so it still exercises the
+notify path. Until the email provider is configured (B116) those emails queue and are not delivered.
 
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt
