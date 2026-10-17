@@ -16,7 +16,7 @@ const session = {
   center: { id: "c1", name: "Grace Church", time_zone: "America/Chicago", currency: "USD" },
 };
 vi.mock("@/lib/session", () => ({ getSession: async () => session, loadSession: async () => ({ status: "ok", session }) }));
-const answers = vi.hoisted(() => ({ week: null as unknown, playbooks: null as unknown, settings: null as unknown, niva: { status: "ok", data: { enabled: false, ai: true, canManage: false, enabledAt: null } } as unknown }));
+const answers = vi.hoisted(() => ({ week: null as unknown, playbooks: null as unknown, settings: null as unknown, niva: { status: "ok", data: { enabled: false, ai: true, canManage: false, enabledAt: null } } as unknown, ask: { status: "ok", data: { enabled: false, canManage: false } } as unknown }));
 vi.mock("@/lib/data/care", async () => {
   const { careCan } = await import("@/lib/permissions");
   return {
@@ -25,6 +25,7 @@ vi.mock("@/lib/data/care", async () => {
     loadPlaybooks: async () => answers.playbooks,
     loadWeekSettings: async () => answers.settings,
     loadNivaSetting: async () => answers.niva,
+    loadMemberAsk: async () => answers.ask,
   };
 });
 
@@ -142,6 +143,24 @@ describe("the playbooks page", () => {
     expect(out).toContain("Remind relationship owners once a week");
     expect(out).toContain("no names, no notes");
     session.permissions = ["care.own"];
+  });
+  it("the Ask members and Niva cards say what is switched on and what a member sees; a manager can change both", async () => {
+    answers.playbooks = playbooks(true);
+    answers.settings = { status: "ok", data: parseWeekSettings({ notify: false, notify_dow: 1, can_manage: true }) };
+    answers.ask = { status: "ok", data: { enabled: false, canManage: true } };
+    answers.niva = { status: "ok", data: { enabled: false, ai: true, canManage: true, enabledAt: null } };
+    session.permissions = ["care.manage"];
+    let out = await html(PlaybooksPage({ searchParams: Promise.resolve({}) }));
+    expect(out).toContain("Ask members how they would like to be thanked");
+    expect(out).toContain("never notes, signs or who looks after them");
+    expect(out).toContain("Children are never asked.");
+    expect(out).toContain("Niva may help with relationship care");
+    answers.ask = { status: "ok", data: { enabled: true, canManage: false } };
+    session.permissions = ["care.own"];
+    answers.playbooks = playbooks(false);
+    out = await html(PlaybooksPage({ searchParams: Promise.resolve({}) }));
+    expect(out).toContain("Members are asked in the app. Someone who manages this area can change that.");
+    answers.ask = { status: "ok", data: { enabled: false, canManage: false } };
   });
   it("editing shows the playbook's steps in a form that says a step never asks; a stranger cannot open it", async () => {
     answers.playbooks = playbooks(true);

@@ -300,3 +300,14 @@ export async function loadPlanContext(session: CrmSession, year: number): Promis
   if (res.error) return refusal("could not read what the plan is made from", res.error);
   return { status: "ok", data: parsePlanContext(res.data) };
 }
+
+// ── Asking members how they would like to be thanked (slice 9, 0897) ──────────
+
+/** Whether the member app asks members how they would like to be thanked (off until a care manager turns it on). */
+export type MemberAsk = { enabled: boolean; canManage: boolean };
+export async function loadMemberAsk(session: CrmSession): Promise<CareRead<MemberAsk>> {
+  const res = await session.db.rpc("care_member_settings_get", { p_center: session.center.id });
+  if (res.error) return refusal("could not read whether members are asked how they would like to be thanked", res.error);
+  const o = (res.data && typeof res.data === "object" ? res.data : {}) as Record<string, unknown>;
+  return { status: "ok", data: { enabled: o.enabled === true, canManage: o.can_manage === true } };
+}
