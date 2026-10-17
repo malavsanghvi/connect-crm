@@ -17,6 +17,9 @@ const COMMAND_KEY = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
 /** The activity key of a command, or null for a call that is not one (the "(confirm)" and "(reject)" placeholders). */
 export function commandActivityKey(commandKey: string): string | null {
   if (!COMMAND_KEY.test(commandKey)) return null;
+  // DonorDelight is the organization's own data (W2): its commands are not recorded in the activity stream at all, not even as an action key, because the
+  // community's agreement to share the stream with Weaver is one switch for every key and cannot leave these out.
+  if (commandKey.startsWith("care.")) return null;
   return `assistant.${commandKey.replace(/\./g, "_")}`;
 }
 

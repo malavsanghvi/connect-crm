@@ -10,7 +10,7 @@ Status: plan, 2026-10-13. Slices 1 (0750, 0757-0758) and 2 (0760-0763, in review
 onboards (temple, church, mosque, chamber, club, food bank, school; any faith or none; any language): behaviour comes
 from the organization's kind, its own settings and its own records, never from code written for one community.
 
-**Status 2026-10-17:** slices 1 to 7 are built (see section 12); slices 8 and 9 follow, slice 10 (price and billing) stays in the backlog.
+**Status 2026-10-17:** slices 1 to 8 are built (see section 12); slice 9 follows, slice 10 (price and billing) stays in the backlog.
 
 **Priority (owner, 2026-10-13):** build slices 2 to 4 (care basics, thank-you tracker, engagement signs), the usable core; then Marketplace billing (MARKETPLACE_PLAN phases 2 and 3) before any further paid slice. Slices 5 to 10 wait.
 
@@ -341,6 +341,24 @@ occupation, no photo, nothing about anyone under 18 (the cards list adults only 
 or asked: it orders a list for a person to read. Portal: **Who to approach** (`/care/approach`, a tab): Ready and Held with the reasons, a fund filter, the settings (touch balance, rest, weights), the quiet periods and
 the plain page on what it uses and never uses; and an **Asking** block on the Care card (ready, "Not yet" with every reason, or "Do not ask"). Not built (still in B98): per-fund "can be asked for" switches, saved lists,
 an export, the next-best-ask category card, upgrade and recurring-gift lists, peer networks and milestone prompts; a draft appeal goes through slice 8's note drafting once that is on.
+
+**Built (slice 8, Niva and the care plan, 2026-10-17, migration 0896, test 896, tests/commands/care-commands.test.ts):**
+**Niva.** Five commands in the existing command layer (`src/lib/commands/catalog/care`), all for **Niva's chat only** (`assistantOnly`: the screens and the palette have their own pages), all needing **iWeaver (module `ai`) AND DonorDelight (module `care`)
+AND the organization's own tick** (`app.care_niva_settings`, off by default, set by care.manage on the Playbooks page; the commands also check it when they run and say in words which of the three is missing). They run with the
+asking person's own rights: they call the same database functions as the screens, as the signed-in person, so a platform admin or a role without a care key is refused exactly as on a screen (W2); a relationship owner (care.own) gets the
+reads and drafts about their own households. `care.my_week` (read: the person's own week, up to five tasks, each with why and a draft with the names filled), `care.household_brief` (read: what to know before you call: the card, owner,
+preferences, interests and expertise on file, the sign and its reasons, thank-yous waiting, whether it is time to ask, the last touches), `care.draft_note` (draft: the material for one personal note: who to write to, the way and
+language, the mission in a line, starting drafts from the gesture library and playbooks, and the rules for this note), `care.log_touch` (confirm: a dictated note becomes a touch, a person confirms the card first, off for Niva until
+the platform ticks it like every confirm command; a care moment is never an ask) and `care.draft_care_plan` (draft; care.manage: the material for the plan and a first draft). **What a model is given:** at most ten households, no amount, no
+free-text note (only the count of notes), never the reason a household is not to be asked ("Do not ask", nothing more), nothing about anyone under 18 (the cards list adults only and the child filter checks the answer again). **They draft;
+a person sends:** nothing is sent or saved. DonorDelight's commands are **not recorded in the activity stream at all** (`commandActivityKey` returns nothing for `care.*`): the community's agreement to share that stream with Weaver is one
+switch for every key and cannot leave these out. Two additive fields on the command type: `alsoModules` (further modules that must be on, with iWeaver's one sentence) and `assistantOnly`.
+**The care plan from the mission.** `app.care_plans`: one plan per community and year, status draft or approved, a summary and up to 60 moments (a day, a title, a group of households, a kind of touch, a note). `src/lib/care/plan.ts`
+drafts it from what the organization has (plain arithmetic and wording, no model): its mission, its own calendar entries (a greeting a few days before each), its fiscal year (thank every household before it closes, share what
+the year made possible), its quiet periods (named, and a moment inside one says asks wait), and its groups of households (a group with no households is left out); a civic organization gets the day of giving, which
+thanks before it asks. A care manager saves the draft, edits every moment and approves it; **an edit returns an approved plan to draft; nothing in a plan runs by itself**; no moment asks for money (the same word check as a
+gesture, in the database and the portal). Portal: **Care plan** (`/care/plan`, a tab: year chips, the status, what is coming up in 30 days, the moments by month; managers draft, edit and approve) and the **Niva** card on Playbooks.
+Not built: tasks created from an approved plan's moments (the plan is a calendar for the team to follow today), and the Niva command for saving the plan (a care manager does it on the screen).
 
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt

@@ -37,6 +37,12 @@ describe("the activity key of a command", () => {
     expect(commandActivityKey("people.search")).toBe("assistant.people_search");
     expect(commandActivityKey("accounting.month_close_blockers")).toBe("assistant.accounting_month_close_blockers");
   });
+  it("is nothing for DonorDelight's commands: the organization's own data is never in the activity stream (W2)", () => {
+    for (const k of ["care.my_week", "care.household_brief", "care.draft_note", "care.log_touch", "care.draft_care_plan"]) expect(commandActivityKey(k), k).toBeNull();
+    expect(commandEventToActivity(event({ key: "care.my_week" }))).toBeNull();
+    expect(commandEventToActivity(event({ key: "care.log_touch", level: "confirm", outcome: "confirmed" }))).toBeNull();
+    expect(CATALOG.filter((c) => c.key.startsWith("care.")).map((c) => c.key)).toHaveLength(5);
+  });
   it("is nothing for the placeholders of a confirmation or a refusal", () => {
     expect(commandActivityKey("(confirm)")).toBeNull();
     expect(commandActivityKey("(reject)")).toBeNull();
@@ -46,7 +52,7 @@ describe("the activity key of a command", () => {
   it("fits the shape the database and the portal accept for an action key", () => {
     const db = /^[a-z][a-z0-9_]{1,40}(\.[a-z][a-z0-9_]{1,40}){0,2}$/;
     const portal = /^[a-z][a-z0-9_]{0,31}(\.[a-z][a-z0-9_]{0,47}){1,2}$/;
-    for (const c of CATALOG) {
+    for (const c of CATALOG.filter((x) => !x.key.startsWith("care."))) {
       const key = commandActivityKey(c.key);
       expect(key, c.key).not.toBeNull();
       expect(db.test(key as string), key as string).toBe(true);
@@ -125,7 +131,8 @@ describe("the command keys the database lists (migration 0625, and the later one
     expect(registered.length).toBeGreaterThanOrEqual(8);
   });
   it("lists every command of the command layer, with commandable_key set to the command", () => {
-    for (const c of CATALOG) {
+    // DonorDelight's commands (care.*) are deliberately not in the stream (W2): see the test below.
+    for (const c of CATALOG.filter((x) => !x.key.startsWith("care."))) {
       const row = registered.find((r) => r.command === c.key);
       expect(row, `${c.key} is not registered in 0625 or a later migration (add it with app.activity_register)`).toBeDefined();
       expect(row?.key).toBe(commandActivityKey(c.key));
