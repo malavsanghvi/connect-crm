@@ -2,18 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
+import { ProcessCard } from "@/components/matching/process-card";
+import { ProcessFields } from "@/components/matching/process-fields";
 import { ProgramFacts } from "@/components/matching/program-facts";
 import { ProgramFields } from "@/components/matching/program-fields";
 import { HistoryButton } from "@/components/record-history";
 import { Alert, Card, EmptyState, Field, PageHeader, StatusText } from "@/components/ui";
 import { formatDate, todayInTz } from "@/lib/dates";
-import { loadPlatformSubmissions, loadProgram, loadProgramVersions, programNames, searchDirectory } from "@/lib/matching/data";
+import { loadPlatformSubmissions, loadProcess, loadProgram, loadProgramVersions, programNames, searchDirectory } from "@/lib/matching/data";
 import { factsAsRow, statusText, submissionStatusText, verifiedText } from "@/lib/matching/directory";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
 import { PlatformNoAccess } from "../../platform-no-access";
-import { mergeProgramsAction, retireProgramAction, revertProgramAction, saveProgramAction } from "../actions";
+import { mergeProgramsAction, removeProcessAction, retireProgramAction, revertProgramAction, saveProcessAction, saveProgramAction } from "../actions";
 
 export const metadata: Metadata = { title: "Directory entry · Platform" };
 
@@ -68,11 +70,12 @@ export default async function PlatformMatchingEntryPage({ params }: { params: Pr
   const { program: g, names } = res.data;
   const others = names.filter((n) => !n.is_primary).map((n) => n.name);
   const tz = session.center.time_zone;
-  const [subs, lookalikes, merged, versions] = await Promise.all([
+  const [subs, lookalikes, merged, versions, process] = await Promise.all([
     loadPlatformSubmissions(session.db, "all", g.id),
     g.status === "active" ? searchDirectory(session.db, g.company_name, "all", 1) : Promise.resolve(null),
     g.merged_into ? programNames(session.db, [g.merged_into]) : Promise.resolve(null),
     loadProgramVersions(session.db, g.id),
+    g.status === "merged" ? Promise.resolve(null) : loadProcess(session.db, g.id, null),
   ]);
   const duplicates = lookalikes && lookalikes.ok ? lookalikes.data.rows.filter((r) => r.id !== g.id) : [];
   const mergedName = merged && merged.ok && g.merged_into ? merged.data.get(g.merged_into)?.company_name : null;
@@ -118,6 +121,50 @@ export default async function PlatformMatchingEntryPage({ params }: { params: Pr
               </Field>
             </ActionForm>
           </details>
+        </Card>
+      ) : null}
+
+      {process ? (
+        <Card
+          title="How to claim"
+          className="mt-4"
+          description="The steps that got a match paid. Every community that uses gift matching reads them. Public facts only: no person, no community, no amount. Text only for now."
+        >
+          {process.ok ? (
+            <>
+              <ProcessCard answer={process.data} />
+              <details className="mt-3">
+                <summary className="cursor-pointer text-[13.5px] font-bold text-[var(--v2-blue)]">{process.data.process ? "Edit the steps" : "Write the steps"}</summary>
+                <ActionForm action={saveProcessAction} submitLabel="Save the steps" pendingLabel="Saving" size="sm" className="mt-3 flex flex-col gap-3">
+                  <input type="hidden" name="program_id" value={g.id} />
+                  <ProcessFields idPrefix={`process-${g.id}`} initial={process.data.process} today={todayInTz(tz)} />
+                  <Field label="What changed and why" htmlFor={`process-${g.id}-reason`} hint="It goes in the library's history.">
+                    <input id={`process-${g.id}-reason`} name="reason" className="crm-input w-full" maxLength={500} required />
+                  </Field>
+                </ActionForm>
+                {process.data.process ? (
+                  <ActionForm
+                    action={removeProcessAction}
+                    submitLabel="Remove the steps"
+                    pendingLabel="Removing"
+                    size="sm"
+                    variant="danger"
+                    className="mt-3 flex flex-col gap-2"
+                    confirmMessage={`Remove the steps for ${g.company_name}? Every community stops seeing them.`}
+                  >
+                    <input type="hidden" name="program_id" value={g.id} />
+                    <Field label="Why" htmlFor={`process-remove-${g.id}`}>
+                      <input id={`process-remove-${g.id}`} name="reason" className="crm-input w-full" maxLength={500} required />
+                    </Field>
+                  </ActionForm>
+                ) : null}
+              </details>
+            </>
+          ) : (
+            <Alert tone="danger" title="The steps could not be loaded">
+              {process.error} Reload the page to try again.
+            </Alert>
+          )}
         </Card>
       ) : null}
 

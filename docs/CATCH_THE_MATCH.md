@@ -4,6 +4,8 @@ Status: plan, 2026-10-13; slice 1 built (0757 to 0759), slice 2 built (0765 to 0
 flow) as backlog **B103**. A Marketplace product for every organization Weaver onboards; behaviour comes from data,
 never from code written for one community.
 
+**Phase 1 built (owner direction 2026-10-17, section 12): guide the member first, Weaver files as the organization's agent later.** Nothing in Phase 1 needs the lawyer's view or Marketplace billing.
+
 **Paused after slice 2 (owner, 2026-10-13).** Slice 2 (the shared employer-program directory) is built; slices 3 to 7 wait for (a) a lawyer's view on the fee (section 5), (b) a secular nonprofit willing to pilot it (many matching programs exclude religious organizations, and today's customers are mostly faith communities), and (c) Marketplace billing, since the fee cannot be charged without it. Weaver's filing is also an ongoing staffed service, not only software.
 
 Related: [`DONORDELIGHT.md`](DONORDELIGHT.md) (a DonorDelight playbook step can prompt a
@@ -190,3 +192,25 @@ received, claims lost to deadlines. For Weaver: fee revenue per organization aga
 5. **The Weaver filing role** (section 6): the organization grants Weaver's team access to CatchTheMatch data only.
    **Approved** (C8); the filing in C3 cannot happen without it.
 6. **Legal review before any fee is live** (section 5). **Approved** (C9), building slices 1 to 4 meanwhile.
+
+## 12. Phase 1: guide the member, then (Phase 2) file as the organization's agent (owner direction, 2026-10-17)
+
+**The direction.** The owner asked: "first restrict to engage the member by sending them the process internal to their employer on how to seek matching funds; becoming agent of the organization would be the next step", and then: "catch members who donated but did not get the match where another person with the same employer was able to do the paperwork to get the match", with "a library that collects and maintains processes per employer that successfully got the match for the non-profit", uploaded by Weaver's team.
+
+| | Phase 1 (built, this section) | Phase 2 (paused, sections 4, 5 and 9) |
+|---|---|---|
+| Who acts | The organization's staff and the member. Weaver is software, and its team writes the library. | Weaver's team files as the organization's agent. |
+| What Weaver sends | Nothing to members. Staff copy a message and send it their own way. | The donor's pre-filled request and reminders. |
+| Fee | None. Pricing is the owner's, once Marketplace billing exists (B120). | 10% of each match, capped at $500 (C5), after the lawyer's view (C9). |
+| Legal view | Not needed to start: the organization tells its own members how to claim. A short check of the library's disclaimers and the consent wording is still wise. | Required (section 5). |
+| Billing | Not needed. | Needed (slice 5). |
+
+**Decisions recorded (2026-10-17).** C10: Phase 1 is member guidance only, with no fee and no Weaver filing. C11: a program is PROVEN HERE when a claim of this community for it is received; nothing is guessed from a company name. C12: the library is text and links only; a file (a form, a screenshot) needs a storage bucket and is a later change.
+
+**Built (Phase 1, migrations 0886 to 0888, test 886):**
+- **Claims** (`app.match_claims`, 0886): one row per gift and employer program, the organization's own data under 0757's contract (module `matching`, its own readers, adults only, no platform-admin read, private audit). States: asked, requested, verified, received; or closed as declined, expired, withdrawn. **No match amount is stored and no payment is touched**: putting the match into Giving and thanking the donor is slice 4. `app.record_match_claim` (a claim the office already knows about, such as the first match a program ever paid), `app.ask_match_claims` (asked, for every gift of a member that can still be claimed), `app.set_match_claim_state` (move on, close, or open again a claim that ended by mistake); all `matching.manage`.
+- **The match a member missed** (`app._match_catch`, `app.match_catch_list`, 0886 and 0888): a program that has paid this community at least once (a received claim) makes its other members visible: adults whose employer on file (0759) is linked to that program (0767, confirmed by staff) and who gave in the last two years (completed gifts, less refunds and fees, never an opening balance or a history import, at or above the program's minimum) with no claim. Gifts past the program's deadline are kept apart as **missed**. Filters: To catch, Missed; counts of open and ended claims; the organization's name, legal name and tax ID for the message. The household shows as its card (never a name alone); amounts only for a role that also sees giving (`app.match_amounts_can`); every read is logged without names.
+- **The library** (`app.match_processes`, 0887): at most one entry per directory program, written by Weaver's team only (`app.save_match_process`, `app.remove_match_process`, a reason each, the shared audit): who submits (member, organization, either), the steps in order, what to have ready, links, about how many days, tips, and the day and a note when Weaver's team saw it work. Readers: Weaver's team and every community that has CatchTheMatch on, like the directory. **Public facts only**: no person, no community, no amount; a reader gets how many communities have been paid through the program (a count) and how many matches their own community received.
+- **Portal:** Giving › Gift matching now has To catch (`/giving/matching/catch`: the members, the proof line, the gifts and the time left, a copyable message built from the library and the organization's registered name, "Mark as asked"), Claims (`/giving/matching/claims`: where each claim stands and a control to move it), Record a match (`/giving/matching/claims/record?person=`, from Employers on file), How to claim (`/giving/matching/library`), and a "How to claim" card on each directory entry; Platform › Gift matching directory has the editor for the steps.
+
+**Not in Phase 1:** sending the message (it needs the owner's approval for messaging and an email provider, B116), the member app card (a mobile release), files in the library, the match payment in Giving and the donor's thank-you (slice 4, money), Weaver's filing queue and the fee (Phase 2).

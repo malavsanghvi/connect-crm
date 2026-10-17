@@ -6323,6 +6323,99 @@ export type Database = {
         };
         Relationships: [];
       };
+      match_claims: {
+        Row: {
+          id: string;
+          center_id: string;
+          person_id: string;
+          program_id: string;
+          payment_id: string;
+          state: string;
+          state_at: string;
+          state_by: string | null;
+          received_on: string | null;
+          note: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          person_id: string;
+          program_id: string;
+          payment_id: string;
+          state?: string;
+          state_at?: string;
+          state_by?: string | null;
+          received_on?: string | null;
+          note?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          person_id?: string;
+          program_id?: string;
+          payment_id?: string;
+          state?: string;
+          state_at?: string;
+          state_by?: string | null;
+          received_on?: string | null;
+          note?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
+      match_processes: {
+        Row: {
+          program_id: string;
+          summary: string;
+          who_submits: string;
+          steps: string[];
+          documents: string[];
+          links: Json;
+          typical_days: number | null;
+          tips: string | null;
+          worked_on: string | null;
+          worked_note: string | null;
+          version: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          program_id: string;
+          summary: string;
+          who_submits: string;
+          steps: string[];
+          documents?: string[];
+          links?: Json;
+          typical_days?: number | null;
+          tips?: string | null;
+          worked_on?: string | null;
+          worked_note?: string | null;
+          version?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          program_id?: string;
+          summary?: string;
+          who_submits?: string;
+          steps?: string[];
+          documents?: string[];
+          links?: Json;
+          typical_days?: number | null;
+          tips?: string | null;
+          worked_on?: string | null;
+          worked_note?: string | null;
+          version?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       match_program_names: {
         Row: {
           id: string;
@@ -13882,6 +13975,15 @@ export type Database = {
         };
         Returns: undefined;
       };
+      ask_match_claims: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_program: string;
+          p_note?: string;
+        };
+        Returns: Json;
+      };
       ask_proof_question: {
         Args: {
           p_proof: string;
@@ -16000,6 +16102,37 @@ export type Database = {
         };
         Returns: string;
       };
+      match_amounts_can: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      match_catch_list: {
+        Args: {
+          p_center: string;
+          p_filter?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
+      match_claim_readable: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
+      match_claims_list: {
+        Args: {
+          p_center: string;
+          p_filter?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
       match_deadline_kinds: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
@@ -16046,9 +16179,31 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
+      match_person_gifts: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: Json;
+      };
       match_portals: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      match_process_get: {
+        Args: {
+          p_program: string;
+          p_center?: string;
+        };
+        Returns: Json;
+      };
+      match_process_list: {
+        Args: {
+          p_query?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: Json;
       };
       match_program_candidates: {
         Args: {
@@ -17448,6 +17603,17 @@ export type Database = {
         };
         Returns: Json;
       };
+      record_match_claim: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_payment: string;
+          p_state?: string;
+          p_received_on?: string;
+          p_note?: string;
+        };
+        Returns: Json;
+      };
       record_match_employer: {
         Args: {
           p_center: string;
@@ -17608,6 +17774,13 @@ export type Database = {
         Args: {
           p_item: string;
           p_center?: string;
+        };
+        Returns: undefined;
+      };
+      remove_match_process: {
+        Args: {
+          p_program: string;
+          p_reason: string;
         };
         Returns: undefined;
       };
@@ -18280,6 +18453,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      save_match_process: {
+        Args: {
+          p_program: string;
+          p_process: Json;
+          p_reason: string;
+        };
+        Returns: number;
+      };
       save_match_program: {
         Args: {
           p_id: string;
@@ -18542,6 +18723,15 @@ export type Database = {
           p_name: string;
           p_value: string;
           p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_match_claim_state: {
+        Args: {
+          p_center: string;
+          p_claim: string;
+          p_state: string;
+          p_note?: string;
         };
         Returns: Json;
       };
