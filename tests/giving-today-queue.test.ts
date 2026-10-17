@@ -80,7 +80,8 @@ describe("the treasurer's queue", () => {
   it("comes in the plan's order: approvals, bank, pledges, counts, books", () => {
     const order = rows.map((r) => GROUP_ORDER.indexOf(r.group));
     expect(order).toEqual([...order].sort((a, b) => a - b));
-    expect(new Set(rows.map((r) => r.group))).toEqual(new Set(GROUP_ORDER));
+    // DonorDelight's Care group (tests/care-today.test.ts) is for care holders only, so the treasurer's queue has none.
+    expect(new Set(rows.map((r) => r.group))).toEqual(new Set(GROUP_ORDER.filter((g) => g !== "care")));
   });
 
   it("acts on what is theirs and counts what waits for someone else", () => {

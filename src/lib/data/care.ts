@@ -22,8 +22,10 @@ import {
   type CareTouchPage,
 } from "@/lib/care/model";
 import { classifyHealth, parseCareDashboard, parseHealthFacts, type CareDashboard, type Health } from "@/lib/care/health";
+import { parseSignsWatch, weakSigns, type CareTodayIn } from "@/lib/care/watch";
 import {
   parseHouseholdThanks,
+  parseThanksCounts,
   parseThanksQueue,
   parseThanksSettings,
   parseThanksSummary,
@@ -175,4 +177,31 @@ export async function loadThanksSettings(session: CrmSession): Promise<CareRead<
   const res = await session.db.rpc("care_settings_get", { p_center: session.center.id });
   if (res.error) return refusal("could not read the thank-you rules", res.error);
   return { status: "ok", data: parseThanksSettings(res.data) };
+}
+
+// ── Today (Giving > Today, 0890) ─────────────────────────────────────────────
+
+/** How many shortlisted households are classified for Today (the shortlist is longest-quiet first; the facts call takes up to 100). */
+export const TODAY_SHORTLIST = 50;
+
+/**
+ * What DonorDelight adds to Giving > Today: gifts waiting for a thank-you and the households that are Cooling or At risk. Counts and sentences
+ * only, no amount. Only whoever holds a care key gets anything; for everyone else the status is "no_access" and the group is not drawn.
+ */
+export async function loadCareToday(session: CrmSession): Promise<CareRead<CareTodayIn>> {
+  const [counts, watch] = await Promise.all([
+    session.db.rpc("care_thanks_counts", { p_center: session.center.id }),
+    session.db.rpc("care_signs_watch", { p_center: session.center.id, p_limit: TODAY_SHORTLIST }),
+  ]);
+  if (counts.error) return refusal("could not read the thank-yous", counts.error);
+  if (watch.error) return refusal("could not read the households that may be cooling", watch.error);
+  const w = parseSignsWatch(watch.data);
+  let signs: CareTodayIn["signs"] = [];
+  if (w.state === "ok" && w.rows.length > 0) {
+    const facts = await session.db.rpc("care_health_facts", { p_center: session.center.id, p_households: w.rows.map((r) => r.household.id) });
+    if (facts.error) return refusal("could not read the engagement signs", facts.error);
+    const a = parseHealthFacts(facts.data);
+    signs = weakSigns(w, a.rows, { today: a.today, historyMonths: a.historyMonths, giving: a.giving });
+  }
+  return { status: "ok", data: { thanks: parseThanksCounts(counts.data), signs, more: w.total > w.rows.length } };
 }

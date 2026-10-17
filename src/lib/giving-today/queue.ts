@@ -9,13 +9,15 @@
 
 import type { CardLabels } from "@/components/household-card";
 import { formatDate } from "@/lib/dates";
+import { thanksTaskCopy } from "@/lib/care/thanks";
+import { weakSignsLine, type CareTodayIn, type WeakSign } from "@/lib/care/watch";
 import { MATCH_WHAT } from "@/lib/giving-counts/model";
 import type { Part } from "@/lib/giving-workspace/view";
 import { formatCents } from "@/lib/money";
 import type { GivingTaskDetail, HomeTask } from "@/lib/tasks";
 
-export type GroupKey = "approvals" | "bank" | "pledges" | "counts" | "books";
-export const GROUP_ORDER: readonly GroupKey[] = ["approvals", "bank", "pledges", "counts", "books"];
+export type GroupKey = "approvals" | "bank" | "pledges" | "counts" | "books" | "care";
+export const GROUP_ORDER: readonly GroupKey[] = ["approvals", "bank", "pledges", "counts", "books", "care"];
 
 /** A family as Today shows it: enough to tell two families with the same name apart. */
 export type Family = { id: string; name: string; number: string | null; orgId: string | null; primary: string | null; city: string | null };
@@ -146,6 +148,8 @@ export type TodayInput = {
   statements?: Part<StatementsDueIn> | null;
   /** QuickBooks donor matches (Books); left out when the accounting module is off or the person cannot see them. */
   donors?: Part<DonorMatchesIn> | null;
+  /** DonorDelight (module `care`): left out, or null, for whoever holds no care key. */
+  care?: Part<CareTodayIn> | null;
 };
 
 /** What the person may do (UI convenience: the database refuses the rest anyway). */
@@ -174,7 +178,9 @@ export type TodayContext = {
   /** PayPal is connected by its Business email only: an approved PayPal refund is made in PayPal and recorded by hand. */
   paypalEmailOnly?: boolean;
   /** Which groups this person sees at all (a tile per group, even when nothing waits). */
-  visible: Record<GroupKey, boolean>;
+  visible: Record<Exclude<GroupKey, "care">, boolean> & { care?: boolean };
+  /** The kind's word for DonorDelight ("Donor care", "Member care"); "Care" when left out. */
+  careWord?: string;
 };
 
 // ---------------------------------------------------------------------------- What the page draws
@@ -235,7 +241,7 @@ export type Act =
     };
 
 export type RowTone = "blue" | "sun" | "green" | "indigo" | "plain";
-export type RowIcon = "approve" | "refund" | "bank" | "deposit" | "pledge" | "count" | "book" | "info";
+export type RowIcon = "approve" | "refund" | "bank" | "deposit" | "pledge" | "count" | "book" | "info" | "care";
 
 export type QueueRow = {
   id: string;
@@ -1078,6 +1084,68 @@ function donorRows(d: DonorMatchesIn): QueueRow[] {
   return rows;
 }
 
+// ---------------------------------------------------------------------------- DonorDelight
+
+/** Signs shown one by one; the rest are one "more" row pointing at DonorDelight. */
+export const CARE_SIGN_ROWS = 5;
+
+function careFamily(h: WeakSign["household"]): Family {
+  return { id: h.id, name: h.name, number: h.number, orgId: h.orgHouseholdId, primary: h.primaryMember, city: h.city };
+}
+
+/**
+ * The Care group (DonorDelight): gifts waiting for a thank-you, then the households that are Cooling or At risk with every reason. A family is
+ * shown by its household card, never by name alone, and only adults appear. Nothing here asks anyone for money: each row opens the Care card.
+ */
+export function careRows(c: CareTodayIn): QueueRow[] {
+  const rows: QueueRow[] = [];
+  const thanks = thanksTaskCopy(c.thanks);
+  if (thanks && c.thanks) {
+    rows.push({
+      id: "care:thanks",
+      group: "care",
+      tone: "sun",
+      icon: "care",
+      title: thanks.title,
+      lines: [thanks.meta],
+      family: null,
+      since: null,
+      acts: [{ kind: "link", href: "/care/thanks", label: "Open the thank-yous", primary: true }],
+      count: c.thanks.open,
+    });
+  }
+  for (const s of c.signs.slice(0, CARE_SIGN_ROWS)) {
+    rows.push({
+      id: `care:sign:${s.household.id}`,
+      group: "care",
+      tone: s.level === "at_risk" ? "sun" : "plain",
+      icon: "care",
+      title: s.label,
+      lines: [...s.reasons.slice(0, 3), s.owner ? `Relationship owner: ${s.owner}` : "Needs a relationship owner"],
+      family: careFamily(s.household),
+      since: null,
+      acts: [{ kind: "link", href: `/households/${s.household.id}`, label: "Open the Care card", primary: true }],
+      count: 1,
+    });
+  }
+  const rest = c.signs.length - CARE_SIGN_ROWS;
+  if (rest > 0 || (c.more && c.signs.length > 0)) {
+    rows.push({
+      id: "care:signs-more",
+      group: "care",
+      tone: "plain",
+      icon: "care",
+      title: rest > 0 ? `${plural(rest, "more household")} to look at` : "More households may be cooling",
+      lines: [`${weakSignsLine(c.signs.length)}. The longest quiet are shown first; every household and its sign is in the DonorDelight list.`],
+      family: null,
+      since: null,
+      acts: [{ kind: "link", href: "/care", label: "Open the list", primary: true }],
+      count: Math.max(rest, 0),
+    });
+  }
+  return rows;
+}
+
 // ---------------------------------------------------------------------------- The queue
 
 const SOURCE_GROUP: Record<string, GroupKey> = {
@@ -1102,8 +1170,8 @@ function partRows<T>(part: Part<T> | null, group: GroupKey, problems: Problem[],
   return rows(part.data);
 }
 
-export function groupLabel(g: GroupKey, ctx: Pick<TodayContext, "countsWord">): string {
-  return { approvals: "Approvals", bank: "Bank", pledges: "Pledges", counts: ctx.countsWord, books: "Books" }[g];
+export function groupLabel(g: GroupKey, ctx: Pick<TodayContext, "countsWord" | "careWord">): string {
+  return { approvals: "Approvals", bank: "Bank", pledges: "Pledges", counts: ctx.countsWord, books: "Books", care: ctx.careWord ?? "Care" }[g];
 }
 
 /** The rows in the plan's order, the problems next to their group, and the tiles with what each holds for this person. */
@@ -1127,6 +1195,7 @@ export function buildQueue(input: TodayInput, ctx: TodayContext): TodayQueue {
     ...partRows(input.statements ?? null, "books", problems, statementRows),
     ...partRows(input.donors ?? null, "books", problems, donorRows),
     ...bookTaskRows(input.tasks),
+    ...partRows(input.care ?? null, "care", problems, careRows),
   ];
   problems.sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group));
   const tiles = queueTiles(rows, ctx, new Set());
@@ -1134,7 +1203,7 @@ export function buildQueue(input: TodayInput, ctx: TodayContext): TodayQueue {
 }
 
 /** Tile numbers: what the person can act on, by group; a row marked done no longer counts. */
-export function queueTiles(rows: readonly QueueRow[], ctx: Pick<TodayContext, "countsWord" | "visible">, done: ReadonlySet<string>): Tile[] {
+export function queueTiles(rows: readonly QueueRow[], ctx: Pick<TodayContext, "countsWord" | "visible" | "careWord">, done: ReadonlySet<string>): Tile[] {
   const n = (g: GroupKey | "all") => rows.filter((r) => !r.info && !done.has(r.id) && (g === "all" || r.group === g)).reduce((a, r) => a + r.count, 0);
   const groups = GROUP_ORDER.filter((g) => ctx.visible[g] || rows.some((r) => r.group === g));
   return [{ key: "all", label: "Everything", count: n("all") }, ...groups.map((g) => ({ key: g, label: groupLabel(g, ctx), count: n(g) }))];

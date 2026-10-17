@@ -221,6 +221,7 @@ export function sampleTodayModel(role: TodayRole = "treasurer", opts: { kind?: K
       countStart: input.counts !== null && can.countRecord,
     },
     countsWord,
+    careWord: "Care",
     roleNote:
       role === "approver"
         ? "You are the second approver. You can approve what someone else asked for; never your own request."
