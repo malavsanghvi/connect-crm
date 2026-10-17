@@ -83,11 +83,11 @@ grant all on app.care_approach_settings, app.care_quiet_periods to service_role;
 
 -- ── The weights ───────────────────────────────────────────────────────────────
 create or replace function app._care_approach_default_weights() returns jsonb
-language sql immutable as $$
+language sql immutable security definer set search_path = app, public, extensions as $$
   select jsonb_build_object('years_per', 8, 'years_max', 40, 'recent_12', 15, 'recent_24', 10, 'recent_36', 5, 'took_part', 8, 'well_thanked', 4)
 $$;
 create or replace function app._care_approach_weights(p_saved jsonb) returns jsonb
-language sql immutable as $$
+language sql immutable security definer set search_path = app, public, extensions as $$
   select app._care_approach_default_weights() || coalesce(p_saved, '{}'::jsonb)
 $$;
 revoke execute on function app._care_approach_default_weights(), app._care_approach_weights(jsonb) from public, anon, authenticated;
@@ -95,7 +95,7 @@ revoke execute on function app._care_approach_default_weights(), app._care_appro
 -- ── Quiet periods ─────────────────────────────────────────────────────────────
 -- Is this day inside the period (a yearly one repeats every year, and may cross the new year)? And the day the period it is in ends.
 create or replace function app._care_quiet_covers(p_day date, p_from date, p_to date, p_yearly boolean) returns date
-language plpgsql immutable as $$
+language plpgsql immutable security definer set search_path = app, public, extensions as $$
 declare v_md integer := extract(month from p_day)::int * 100 + extract(day from p_day)::int;
   v_s integer := extract(month from p_from)::int * 100 + extract(day from p_from)::int;
   v_e integer := extract(month from p_to)::int * 100 + extract(day from p_to)::int;
