@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { CopyMessage } from "@/components/matching/copy-message";
 import { MATCHING_DESCRIPTION, MATCHING_TITLE, MatchingNav } from "@/components/matching/matching-nav";
-import { Alert, Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination } from "@/components/ui";
+import { Alert, Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination, buttonClass } from "@/components/ui";
 import { formatDay } from "@/lib/care/model";
 import { formatCents } from "@/lib/money";
 import {
@@ -99,8 +99,8 @@ export default async function CatchPage({ searchParams }: { searchParams: Promis
       {header}
       <MatchingNav active="catch" />
       <p className="crm-hint m-0 mb-3 max-w-3xl">
-        When an employer&apos;s program has paid {data.org.name} a match, its other members who gave and have not asked show here, with the steps that worked. You copy the
-        message and send it your own way, then mark the member as asked.
+        When an employer&apos;s program has paid {data.org.name} a match, its other members who gave and have not asked show here, with the steps that worked. Send the
+        message from here, or copy it, send it your own way and mark the member as asked.
       </p>
       <ChipLinks label="Show" items={chips} active={filter} />
       {processError ? (
@@ -195,11 +195,16 @@ export default async function CatchPage({ searchParams }: { searchParams: Promis
                           <CopyMessage text={message} />
                         </div>
                         {data.canManage ? (
-                          <ActionForm action={askClaimsAction} submitLabel="Mark as asked" pendingLabel="Saving" size="sm" className="flex flex-col gap-1">
-                            <input type="hidden" name="person_id" value={r.person.id} />
-                            <input type="hidden" name="program_id" value={r.program.id} />
-                            <input type="hidden" name="first_name" value={first} />
-                          </ActionForm>
+                          <div className="flex flex-col items-start gap-2">
+                            <Link href={`/giving/matching/send?person=${r.person.id}&program=${r.program.id}`} className={buttonClass("primary", "sm")}>
+                              Send to the member
+                            </Link>
+                            <ActionForm action={askClaimsAction} submitLabel="Mark as asked" pendingLabel="Saving" size="sm" variant="secondary" className="flex flex-col gap-1">
+                              <input type="hidden" name="person_id" value={r.person.id} />
+                              <input type="hidden" name="program_id" value={r.program.id} />
+                              <input type="hidden" name="first_name" value={first} />
+                            </ActionForm>
+                          </div>
                         ) : null}
                       </div>
                     ) : null}

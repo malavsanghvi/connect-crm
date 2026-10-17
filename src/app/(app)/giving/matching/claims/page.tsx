@@ -153,11 +153,17 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Promi
                         <p className="m-0 text-[12px] text-muted">
                           {c.state === "received" && c.receivedOn ? `Received ${formatDay(c.receivedOn)}` : `Since ${formatDay(c.stateAt.slice(0, 10))}`}
                         </p>
+                        {c.askedByMessageAt ? <p className="m-0 text-[12px] text-muted">Asked by message on {formatDay(c.askedByMessageAt.slice(0, 10))}</p> : null}
                         {c.note ? <p className="m-0 text-[12px] text-ink">{c.note}</p> : null}
                       </td>
                       {data.canManage ? (
                         <td>
                           <Mover claim={c} />
+                          {c.state === "asked" ? (
+                            <Link href={`/giving/matching/send?person=${c.person.id}&program=${c.program.id}`} className="crm-link mt-1 inline-block text-[13px]">
+                              {c.askedByMessageAt ? "Send a reminder" : "Send to the member"}
+                            </Link>
+                          ) : null}
                         </td>
                       ) : null}
                     </tr>

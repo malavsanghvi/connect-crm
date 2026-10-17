@@ -6631,6 +6631,8 @@ export type Database = {
           note: string | null;
           created_at: string;
           created_by: string | null;
+          asked_by_message_at: string | null;
+          asked_message_id: string | null;
         };
         Insert: {
           id?: string;
@@ -6645,6 +6647,8 @@ export type Database = {
           note?: string | null;
           created_at?: string;
           created_by?: string | null;
+          asked_by_message_at?: string | null;
+          asked_message_id?: string | null;
         };
         Update: {
           id?: string;
@@ -6659,6 +6663,8 @@ export type Database = {
           note?: string | null;
           created_at?: string;
           created_by?: string | null;
+          asked_by_message_at?: string | null;
+          asked_message_id?: string | null;
         };
         Relationships: [];
       };
@@ -16527,6 +16533,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      match_claim_message_preview: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_program: string;
+        };
+        Returns: Json;
+      };
       match_claim_readable: {
         Args: {
           p_center: string;
@@ -19015,6 +19029,14 @@ export type Database = {
           p_vars: Json;
         };
         Returns: string;
+      };
+      send_match_claim_message: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_program: string;
+        };
+        Returns: Json;
       };
       send_pledge_email: {
         Args: {
