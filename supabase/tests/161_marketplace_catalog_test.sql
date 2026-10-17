@@ -72,18 +72,19 @@ select pg_temp.assert((select relrowsecurity from pg_class where oid = 'app.mark
   'A · the catalog is read by every signed-in person and written by no one through the API; it is core platform data');
 select pg_temp.assert((select array_agg(key || '=' || coalesce(module_key, '-') || ':' || status order by sort) from app.marketplace_products)
                         = array['giving=giving:available', 'events=events:available', 'comms=comms:available', 'accounting=accounting:available',
-                                'ai=ai:available', 'store=store:available', 'market=market:available', 'care=care:not_built', 'matching=matching:not_built',
+                                'ai=ai:available', 'store=store:available', 'market=market:available', 'care=care:not_built', 'matching=matching:available',
                                 'website=website:available', 'channels=channels:available', 'gala=-:not_built'],
-  'A · twelve products, each keyed by its module (Gala has none yet); WeCare, CatchTheMatch and Gala are not built yet (the Community Market, 0830, is available)');
+  'A · twelve products, each keyed by its module (Gala has none yet); WeCare and Gala are not built yet (the Community Market, 0830, and CatchTheMatch, 0930, are available)');
 select pg_temp.assert((select array_agg(key order by sort) from app.marketplace_products where included) = array['giving', 'events', 'comms', 'store']
-                      and not exists (select 1 from app.marketplace_products where not included and key <> 'matching' and price_text <> 'Price not set yet')
-                      and (select price_text from app.marketplace_products where key = 'matching')
-                          = '10% of each match you receive, never more than $500 a match. Nothing if no match arrives.'
+                      and not exists (select 1 from app.marketplace_products where not included and price_text <> 'Price not set yet')
+                      and (select price_text from app.marketplace_products where key = 'matching') = 'Price not set yet'
+                      and not exists (select 1 from app.marketplace_products
+                                       where key = 'matching' and concat_ws(' ', line, array_to_string(gets, ' '), members_line, data_line, on_note, off_note) ~* '(\$|%|files the claims|filed by)')
                       and not exists (select 1 from app.marketplace_products
                                        where concat_ws(' ', name, line, array_to_string(gets, ' '), members_line, data_line, price_text,
                                                        price_short, on_note, off_note) ~ '\[|\]')
                       and not exists (select 1 from app.marketplace_products where target_quarter is not null),
-  'A · no price is set except CatchTheMatch''s; no placeholder anywhere; no target quarter until the owner sets one');
+  'A · no price is set (CatchTheMatch says no fee is charged and its old fee text is gone); no placeholder anywhere; no target quarter until the owner sets one');
 select pg_temp.assert_raises($$insert into app.marketplace_products (key, module_key, name, mark, line, status) values ('bad161', null, 'Bad', 'B', 'x', 'available')$$,
   'check', 'A · a product with no module can only be "not built yet"');
 select pg_temp.assert((select bool_and(relrowsecurity) from pg_class where oid in ('app.marketplace_requests'::regclass, 'app.marketplace_interest'::regclass))
@@ -138,7 +139,7 @@ values (:chm, 'chm161-sandbox', 'Chamber 161', 'sandbox', 'chamber_of_commerce',
 select pg_temp.claims(:admin);
 select pg_temp.assert((select array_agg(key || '=' || state order by sort) from app.marketplace_states(:c))
                         = array['giving=included', 'events=included', 'comms=included', 'accounting=on', 'ai=available', 'store=included', 'market=available',
-                                'care=not_built', 'matching=not_built', 'website=available', 'channels=available', 'gala=not_built'],
+                                'care=not_built', 'matching=available', 'website=available', 'channels=available', 'gala=not_built'],
   'B · a Jain Center: Giving, Events, Communications and the Store included; Accounting on; the six products off until requested or built (the Community Market, 0830, among them)');
 select pg_temp.assert((select source = 'kind_default' and granted and enabled and granted_at is null from app.marketplace_states(:c) where key = 'accounting')
                       and (select source = 'none' and not granted and not enabled from app.marketplace_states(:c) where key = 'website')
@@ -148,7 +149,7 @@ select pg_temp.assert((select source = 'kind_default' and granted and enabled an
 select pg_temp.assert((select needs = '[{"module": "comms", "label": "Communications", "on": true, "required": true},
                                         {"module": "events", "label": "Events & RSVP (for Facebook and Instagram)", "on": true, "required": false}]'::jsonb
                          from app.marketplace_states(:c) where key = 'channels')
-                      and (select price_short from app.marketplace_states(:c) where key = 'matching') = '10%, max $500 a match'
+                      and (select price_short from app.marketplace_states(:c) where key = 'matching') = 'Price not set yet'
                       and (select price_short from app.marketplace_states(:c) where key = 'website') = 'Price not set yet',
   'B · what a product needs, on or off for the community, and whether it must be on first; the short price on the card');
 select pg_temp.no_claims();
@@ -293,6 +294,8 @@ select pg_temp.no_claims();
 
 -- "We will tell your admins when it is ready": a migration marks a product built, and whoever asked is emailed while they
 -- still manage the community's settings. Ravi asks about CatchTheMatch, then stops being an administrator.
+-- (CatchTheMatch was marked built by 0930; the test puts it back for this scenario.)
+update app.marketplace_products set status = 'not_built' where key = 'matching';
 select pg_temp.claims(:admin2);
 select app.marketplace_notify_me(:c, 'matching');
 select pg_temp.no_claims();
