@@ -13983,6 +13983,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      care_signs_watch: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
       care_thanks_counts: {
         Args: {
           p_center: string;

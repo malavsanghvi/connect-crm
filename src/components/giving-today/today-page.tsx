@@ -43,6 +43,7 @@ const ICON: Record<RowIcon | "done", IconName> = {
   count: "count",
   book: "book",
   info: "info",
+  care: "heart",
   done: "check",
 };
 
@@ -124,7 +125,7 @@ export function TodayPage({ model }: { model: GivingTodayModel }) {
   const [tile, setTile] = useState<GroupKey | "all">(model.initialTile);
   const [done, setDone] = useState<Record<string, string>>({});
   const doneIds = new Set(Object.keys(done));
-  const tiles = queueTiles(model.queue.rows, { countsWord: model.countsWord, visible: Object.fromEntries(model.queue.tiles.map((t) => [t.key, true])) as Record<GroupKey, boolean> }, doneIds);
+  const tiles = queueTiles(model.queue.rows, { countsWord: model.countsWord, careWord: model.careWord, visible: Object.fromEntries(model.queue.tiles.map((t) => [t.key, true])) as Record<GroupKey, boolean> }, doneIds);
   const waiting = tiles[0].count;
   const rows = model.queue.rows.filter((r) => tile === "all" || r.group === tile);
   const problems = model.queue.problems.filter((p) => tile === "all" || p.group === tile);

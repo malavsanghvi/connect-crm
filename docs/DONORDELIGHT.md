@@ -276,7 +276,16 @@ care.view and care.manage; a relationship owner sees households, not the totals)
 18 months; At risk = gave the year before, not in the last 12 months; Cooling = fewer gifts than the year before, or no gift for 6 months; Thriving = as many
 gifts as the year before, took part, and 3 or more no-ask touches for every ask; Steady = the rest; No activity yet = nothing on record. Under about 11 months of
 records every household reads "Not enough history yet", and the dashboard shows "Not enough yet" for any number that compares two years until Weaver holds
-about 23 months. Without Giving the gift rules are left out. Not built: a Today group for the weakest signs.
+about 23 months. Without Giving the gift rules are left out. The Today group for the weakest signs is below (Today groups).
+
+**Built (Today groups, 2026-10-17, migration 0890, test 890):** `app.care_signs_watch(center, limit)` is the shortlist (at most 100, the portal asks for 50) of
+households the caller may see that gave in the last 24 months and either gave nothing in the last 12, gave fewer times than the year before, or have not given for six months;
+at risk first, then the longest quiet. It is deliberately a little wider than the sign rules, because `src/lib/care/health.ts` is the one place that decides a level and its
+reasons: the portal asks `care_health_facts` for the shortlist and `src/lib/care/watch.ts` keeps only Cooling and At risk. No amount is read, each household comes as its
+household card (adults only) with its relationship owner, every read is logged, and Giving off answers `giving_off`. Portal: a **Care group** on Giving > Today (the kind's word, Donor care or
+Member care), drawn only for whoever holds a care key (relationship owners see only their own households): a row "N gifts to thank" (the three numbers of `care_thanks_counts`), then up to five
+households with their sign and every reason, then one "more" row pointing at `/care`. Each button opens the Care card or the list; nothing asks anyone for money. A read that fails
+shows as a problem next to the group, never an empty group. Home keeps its thank-you task row; the weak signs are on Today only (reading them costs a facts call per load).
 
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt

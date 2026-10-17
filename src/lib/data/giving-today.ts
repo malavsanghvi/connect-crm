@@ -8,11 +8,14 @@ import "server-only";
 
 import type { CardLabels } from "@/components/household-card";
 import { identifierRules } from "@/lib/center-rules";
+import { kindName } from "@/lib/kind";
 import type { PledgesBehindData } from "@/lib/commands/catalog/pledges-behind";
 import type { CloseBlockersData } from "@/lib/commands/catalog/month-close-blockers";
 import { runScreenCommand } from "@/lib/commands/screen";
 import { communityFormat } from "@/lib/community-format";
 import { loadDonorMatches, seesDonorMatches } from "@/lib/data/books-donors";
+import { loadCareToday, seesCare, type CareRead } from "@/lib/data/care";
+import type { CareTodayIn } from "@/lib/care/watch";
 import { readPaypalEmailOnly } from "@/lib/data/giving-lists";
 import { loadStatementsDue } from "@/lib/data/giving-statements";
 import { canFindGiving } from "@/lib/giving-actions/context";
@@ -90,6 +93,8 @@ export type GivingTodayModel = {
   can: TodayCan & { record: boolean; find: boolean; countStart: boolean };
   /** The kind's word for the counts tile and tab. */
   countsWord: string;
+  /** The kind's word for DonorDelight ("Donor care", "Member care"): the Care group's tile. */
+  careWord: string;
   /** A note for a limited role (a finance volunteer, a second approver only), or null. */
   roleNote: string | null;
   month: MonthNumbers;
@@ -394,6 +399,19 @@ async function loadRecent(session: CrmSession): Promise<Part<Family[]>> {
   return ok(ids.flatMap((id) => (cards.map.has(id) ? [familyFrom(cards.map.get(id)!)] : [])));
 }
 
+// ---------------------------------------------------------------------------- DonorDelight
+
+/**
+ * The Care group's part: a read that was refused (no care key, or DonorDelight off) is no group at all; a failed read is a problem next to the
+ * group (in plain words), never an empty group.
+ */
+function carePart(read: CareRead<CareTodayIn> | null): Part<CareTodayIn> | null {
+  if (!read) return null;
+  if (read.status === "ok") return ok(read.data);
+  if (read.status === "error") return { state: "error", error: `Could not load DonorDelight: ${read.error.replace(/\.?$/, ".")}` };
+  return null;
+}
+
 // ---------------------------------------------------------------------------- Everything
 
 export function todayCan(session: CrmSession): TodayCan {
@@ -434,6 +452,9 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
   const seesCounts = canAccess(session, "counting") && isModuleEnabled(session, GIVING_ADDONS.counts);
   const seesClose = canAccess(session, "close") && isModuleEnabled(session, "accounting");
   const seesDonors = seesDonorMatches(session);
+  // DonorDelight (module `care`): only whoever holds a care key. The database decides; a person who cannot read it gets no group.
+  const seesCareGroup = seesCare(session);
+  const careWord = kindName(session.kind, "care", "DonorDelight");
   const countsWord = countsWordFor(session.kind);
   const zelleWord = pluginName("zelle");
 
@@ -449,13 +470,14 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
       ? loadStatementsDue(session, season)
       : Promise.resolve(null);
 
-  const [bank, behind, apply, counts, close, donors, recorded, open, matched, recent] = await Promise.all([
+  const [bank, behind, apply, counts, close, donors, careRead, recorded, open, matched, recent] = await Promise.all([
     seesBank ? loadBank(session, bankTotalsFromTasks(tasks), zelleOn, can.bankConfirm) : Promise.resolve(null),
     seesPledges ? loadBehind() : Promise.resolve(null),
     seesApply ? loadToApply(session, today) : Promise.resolve(null),
     seesCounts ? loadCounts(session) : Promise.resolve(null),
     seesClose ? loadClose(today) : Promise.resolve(null),
     seesDonors ? loadDonorMatches(session, DONOR_ROWS) : Promise.resolve(null),
+    seesCareGroup ? loadCareToday(session) : Promise.resolve(null),
     seesPayments ? loadRecorded(session, monthStart) : Promise.resolve<MonthNumbers["recorded"]>({ state: "no_access" }),
     seesPledges ? loadPledgeTotals(session) : Promise.resolve<Part<PledgeTotals>>({ state: "no_access" }),
     seesBank ? loadMatched(session, monthStart) : Promise.resolve<MonthNumbers["matched"]>({ state: "no_access" }),
@@ -473,7 +495,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
   // An approved card refund is recorded in place (slice 3); a PayPal connected by email only is refunded in PayPal, then recorded.
   const paypalEmailOnly = can.manage ? await readPaypalEmailOnly(session) : false;
   const queue = buildQueue(
-    { tasks, taskFailures, families, bank, behind, apply, counts, close, donors, statements: await statementsP },
+    { tasks, taskFailures, families, bank, behind, apply, counts, close, donors, statements: await statementsP, care: carePart(careRead) },
     {
       can,
       currency: fmt.currency,
@@ -482,6 +504,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
       today,
       labels,
       countsWord,
+      careWord,
       zelleWord,
       paypalEmailOnly,
       visible: {
@@ -490,6 +513,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
         pledges: seesPledges,
         counts: seesCounts,
         books: seesClose || seesDonors,
+        care: seesCareGroup,
       },
     },
   );
@@ -508,6 +532,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
     queue,
     can: { ...can, record: canAccess(session, "recordPayment"), find: canAccess(session, "households") || canFindGiving(session), countStart: seesCounts && can.countRecord },
     countsWord,
+    careWord,
     roleNote: roleNote(session, can),
     month: { label: longMonth(monthStart), recorded, open, matched },
     recent,
