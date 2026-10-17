@@ -95,7 +95,7 @@ insert into app.households (id, center_id, display_name) values
   (:h1, :c1, 'Mensah881, Ama'), (:h2, :c1, 'Lee881, Jo'), (:h3, :c1, 'Okafor881, Chidi');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
   (:pa, :c1, 'Ama', 'Mensah881', date '1981-01-01'), (:pb, :c1, 'Kofi', 'Mensah881', date '1978-02-02'),
-  (:pk, :c1, 'Esi', 'Mensah881', (current_date - interval '8 years')::date), (:pc, :c1, 'Jo', 'Lee881', date '1970-03-03'),
+  (:pk, :c1, 'Esi', 'Mensah881', ((now() at time zone 'America/Chicago')::date - interval '8 years')::date), (:pc, :c1, 'Jo', 'Lee881', date '1970-03-03'),
   (:pd, :c1, 'Chidi', 'Okafor881', date '1975-04-04');
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
   (:h1, :pa, :c1, 'primary', true), (:h1, :pb, :c1, 'spouse', false), (:h1, :pk, :c1, 'child', false),
@@ -104,30 +104,30 @@ insert into app.care_owners (household_id, center_id, owner_user_id, assigned_by
 
 -- The gifts. created_at says when each was recorded: five days ago for the oldest, so its thank-you is overdue.
 insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, method, status, provider, received_on, created_at, receipt_number) values
-  (:g1,   :c1, :h1, :pa, 12000, 'check', 'captured', 'offline', current_date - 5, now() - interval '5 days', 'R-881-1'),
-  (:g3,   :c1, :h2, :pc, 5000,  'check', 'captured', 'offline', current_date - 1, now() - interval '1 day',  'R-881-3'),
-  (:gbig, :c1, :h2, :pc, 90000, 'check', 'captured', 'offline', current_date - 1, now() - interval '1 day' + interval '1 minute', 'R-881-14'),
-  (:r1,   :c1, :h3, :pd, 2000,  'card',  'captured', 'offline', current_date - 20, now() - interval '20 days', 'R-881-12'),
-  (:r2,   :c1, :h3, :pd, 2000,  'card',  'captured', 'offline', current_date - 1, now() - interval '1 day', 'R-881-13');
+  (:g1,   :c1, :h1, :pa, 12000, 'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - 5, now() - interval '5 days', 'R-881-1'),
+  (:g3,   :c1, :h2, :pc, 5000,  'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - 1, now() - interval '1 day',  'R-881-3'),
+  (:gbig, :c1, :h2, :pc, 90000, 'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - 1, now() - interval '1 day' + interval '1 minute', 'R-881-14'),
+  (:r1,   :c1, :h3, :pd, 2000,  'card',  'captured', 'offline', (now() at time zone 'America/Chicago')::date - 20, now() - interval '20 days', 'R-881-12'),
+  (:r2,   :c1, :h3, :pd, 2000,  'card',  'captured', 'offline', (now() at time zone 'America/Chicago')::date - 1, now() - interval '1 day', 'R-881-13');
 insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, method, status, provider, received_on, created_at, receipt_number, receipt_sent_at) values
-  (:g2,   :c1, :h1, :pb, 3000,  'check', 'captured', 'offline', current_date - 2, now() - interval '2 days', 'R-881-2', now() - interval '2 days' + interval '1 hour');
+  (:g2,   :c1, :h1, :pb, 3000,  'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - 2, now() - interval '2 days', 'R-881-2', now() - interval '2 days' + interval '1 hour');
 -- Never a step: a membership fee, an opening balance, a history import, a child's payment, a failed one, one still clearing,
 -- one refunded in full, one from before the rules began.
 insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, method, status, provider, received_on, created_at, receipt_number, is_opening_balance, is_historical, refunded_cents) values
-  (:gfee,  :c1, :h2, :pc, 4000, 'check', 'captured', 'offline', current_date - 3, now() - interval '3 days', 'R-881-4', false, false, 0),
-  (:gopen, :c1, :h2, :pc, 4100, 'check', 'captured', 'offline', current_date - 3, now() - interval '3 days', 'R-881-5', true, true, 0),
-  (:ghist, :c1, :h2, :pc, 4200, 'check', 'captured', 'offline', current_date - 3, now() - interval '3 days', 'R-881-6', false, true, 0),
-  (:gkid,  :c1, :h1, :pk, 300,  'check', 'captured', 'offline', current_date - 3, now() - interval '3 days', 'R-881-7', false, false, 0),
-  (:gfail, :c1, :h2, :pc, 4400, 'check', 'failed',   'offline', current_date - 3, now() - interval '3 days', 'R-881-8', false, false, 0),
-  (:gclear,:c1, :h2, :pc, 4500, 'check', 'pending_clearing', 'offline', current_date - 3, now() - interval '3 days', 'R-881-9', false, false, 0),
-  (:gref,  :c1, :h2, :pc, 4600, 'check', 'partially_refunded', 'offline', current_date - 3, now() - interval '3 days', 'R-881-10', false, false, 4600),
-  (:gold,  :c1, :h2, :pc, 4700, 'check', 'captured', 'offline', current_date - 90, now() - interval '90 days', 'R-881-11', false, false, 0);
+  (:gfee,  :c1, :h2, :pc, 4000, 'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - 3, now() - interval '3 days', 'R-881-4', false, false, 0),
+  (:gopen, :c1, :h2, :pc, 4100, 'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - 3, now() - interval '3 days', 'R-881-5', true, true, 0),
+  (:ghist, :c1, :h2, :pc, 4200, 'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - 3, now() - interval '3 days', 'R-881-6', false, true, 0),
+  (:gkid,  :c1, :h1, :pk, 300,  'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - 3, now() - interval '3 days', 'R-881-7', false, false, 0),
+  (:gfail, :c1, :h2, :pc, 4400, 'check', 'failed',   'offline', (now() at time zone 'America/Chicago')::date - 3, now() - interval '3 days', 'R-881-8', false, false, 0),
+  (:gclear,:c1, :h2, :pc, 4500, 'check', 'pending_clearing', 'offline', (now() at time zone 'America/Chicago')::date - 3, now() - interval '3 days', 'R-881-9', false, false, 0),
+  (:gref,  :c1, :h2, :pc, 4600, 'check', 'partially_refunded', 'offline', (now() at time zone 'America/Chicago')::date - 3, now() - interval '3 days', 'R-881-10', false, false, 4600),
+  (:gold,  :c1, :h2, :pc, 4700, 'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - 90, now() - interval '90 days', 'R-881-11', false, false, 0);
 insert into app.pledges (id, center_id, household_id, source, amount_cents) values (:pl, :c1, :h2, 'membership_fee', 4000);
 insert into app.payment_allocations (center_id, payment_id, pledge_id, amount_cents) values (:c1, :gfee, :pl, 4000);
 -- Ordinary households with a recurring gift: the second gift of the same amount is a repeat.
 insert into app.recurring_gifts (center_id, household_id, person_id, amount_cents, frequency, method, status) values
   (:c1, :h3, :pd, 2000, 'monthly', 'card', 'active');
-select pg_temp.assert(app.module_enabled(:c1, 'care') and app.module_enabled(:c1, 'giving') and app._care_today(:c1) = current_date,
+select pg_temp.assert(app.module_enabled(:c1, 'care') and app.module_enabled(:c1, 'giving') and app._care_today(:c1) = (now() at time zone 'America/Chicago')::date,
   'Fixtures · DonorDelight and Giving are on, and the community''s day is today');
 
 -- ══ A. The rules ═════════════════════════════════════════════════════════════
@@ -150,13 +150,13 @@ select pg_temp.assert_raises($$select app.save_care_settings('88100000-0000-4000
   'whole number of cents', 'A · a fractional amount is refused');
 select pg_temp.assert_raises($$select app.save_care_settings('88100000-0000-4000-8000-0000000000c1', '{"personal_from_cents": 0}')$$,
   'more than zero', 'A · a zero amount is refused');
-select pg_temp.assert((app.save_care_settings(:c1, '{"personal_from_cents": 50000}', true) ->> 'thanks_from')::date = current_date - 30
+select pg_temp.assert((app.save_care_settings(:c1, '{"personal_from_cents": 50000}', true) ->> 'thanks_from')::date = (now() at time zone 'America/Chicago')::date - 30
                       and (app.care_settings_get(:c1) ->> 'saved')::boolean and (app.care_settings_get(:c1) ->> 'personal_from_cents')::bigint = 50000
                       and (app.care_settings_get(:c1) ->> 'thank_window_days')::int = 2,
   'A · the first save with the last 30 days starts 30 days back; what was left out keeps its default');
 select pg_temp.assert_raises($$select app.save_care_settings('88100000-0000-4000-8000-0000000000c1', '{}', true)$$,
   'only when the rules are first saved', 'A · including the last 30 days is for the first save only');
-select pg_temp.assert((app.save_care_settings(:c1, '{"thank_window_days": 3}') ->> 'thanks_from')::date = current_date - 30
+select pg_temp.assert((app.save_care_settings(:c1, '{"thank_window_days": 3}') ->> 'thanks_from')::date = (now() at time zone 'America/Chicago')::date - 30
                       and (app.care_settings_get(:c1) ->> 'thank_window_days')::int = 3
                       and (app.care_settings_get(:c1) ->> 'personal_from_cents')::bigint = 50000,
   'A · a later save changes only what it names and keeps the first day');
@@ -191,8 +191,8 @@ select pg_temp.assert(not pg_temp.has_step(:gfee) and not pg_temp.has_step(:gope
                       and not pg_temp.has_step(:gfail) and not pg_temp.has_step(:gclear) and not pg_temp.has_step(:gref) and not pg_temp.has_step(:gold),
   'B · never a fee, an opening balance, a history import, a child''s payment, a failed, clearing or fully refunded one, or one from before the rules');
 select pg_temp.assert(not pg_temp.has_step(:r2), 'B · a repeat of a standing recurring gift is not thanked again');
-select pg_temp.assert((select due_on from app.care_thanks where payment_id = :g1) = current_date - 5 + 2
-                      and (select due_on from app.care_thanks where payment_id = :g3) = current_date - 1 + 2,
+select pg_temp.assert((select due_on from app.care_thanks where payment_id = :g1) = (now() at time zone 'America/Chicago')::date - 5 + 2
+                      and (select due_on from app.care_thanks where payment_id = :g3) = (now() at time zone 'America/Chicago')::date - 1 + 2,
   'B · each step is due the window after the gift (recorded late: after the day it was recorded)');
 select pg_temp.assert((select needs_personal from app.care_thanks where payment_id = :g1)
                       and not (select needs_personal from app.care_thanks where payment_id = :g2)
