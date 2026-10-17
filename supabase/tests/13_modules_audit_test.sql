@@ -30,9 +30,9 @@ select pg_temp.assert(not exists (
      where n.nspname = 'app' and c.relkind in ('r','p') and c.relname not in ('audit_log', 'activity_events', 'activity_optouts', 'activity_salts', 'import_staged_records', 'import_record_links', 'import_clusters', 'import_exceptions', 'import_exception_items', 'import_decision_rules', 'people_saved', 'rsvp_contact_handles', 'rsvp_contact_attempts')
        and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'audit_' || c.relname
                          and t.tgfoid = case when c.relname in ('person_match_employers', 'care_owners', 'care_profiles', 'care_notes', 'care_touches', 'care_settings', 'care_thanks',
-                                                              'match_program_submissions', 'person_match_programs')
+                                                              'match_program_submissions', 'person_match_programs', 'match_claims')
                                                   then 'app.audit_private_row'::regproc
-                                             when c.relname in ('match_programs', 'match_program_names', 'match_program_versions') then 'app.audit_shared_row'::regproc
+                                             when c.relname in ('match_programs', 'match_program_names', 'match_program_versions', 'match_processes') then 'app.audit_shared_row'::regproc
                                              else 'app.audit_row'::regproc end
                          and not t.tgisinternal)),
   'every app base table except audit_log (and the three activity stream tables of 0620, left out on purpose: test 99, and the six matching tables of 0630 that hold uploaded rows or what was made from them: test 110, and people_saved of 0722, one person''s list names and pins that no audit reader may see: test 143, and the two tables of RSVP without signing in that hold only keyed hashes and counters of anonymous traffic, rsvp_contact_handles and rsvp_contact_attempts of 0822: test 822) has an audit_<table> trigger on app.audit_row, or on app.audit_private_row for the care and matching tables that hold words about a person (0758: who, when and which columns, never the values; tests 163, 164 and 166), or on app.audit_shared_row for the shared gift matching directory (0765: Weaver''s team named, a community''s manager never; test 166)');
