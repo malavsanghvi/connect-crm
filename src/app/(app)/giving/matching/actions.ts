@@ -10,7 +10,9 @@ import { decisionFromForm, decisionMessage } from "@/lib/matching/decision";
 import { programFromForm } from "@/lib/matching/directory";
 import { claimSendOutcome, parseClaimSendResult } from "@/lib/matching/send";
 import { emailReadiness } from "@/lib/matching/send-ready";
-import { matchingCan } from "@/lib/permissions";
+import { formatCents } from "@/lib/money";
+import { matchPaymentFromForm, matchRecordedMessage } from "@/lib/matching/pay";
+import { can, matchingCan } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeActionWhere, dbWithReason } from "@/lib/session";
 
@@ -214,4 +216,38 @@ export async function sendClaimMessageAction(_prev: ActionResult | null, fd: For
   revalidatePath("/giving/matching/send");
   const outcome = claimSendOutcome(parseClaimSendResult(data), firstName);
   return outcome.ok ? { ok: true, message: outcome.message } : { ok: false, error: outcome.error };
+}
+
+// ── Piece 3 (0925): record the employer's match in Giving ────────────────────
+
+/**
+ * Records the employer's match against a claim (app.record_match_payment): one offline matching_gift payment for the donor's household, the
+ * claim received. Needs matching.manage and a giving permission; the database checks both again, the amount (whole cents, never above ten times
+ * the gift) and the day. The payment is not applied to a pledge and no receipt goes to the donor.
+ */
+export async function recordMatchPaymentAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const claimId = String(fd.get("claim_id") ?? "");
+  const donorFirst = String(fd.get("donor_first_name") ?? "").trim().slice(0, 80) || "the donor";
+  if (!isUuid(claimId)) return { ok: false, error: "Could not record the match — the claim was not found. Reload the page and try again." };
+  const parsed = matchPaymentFromForm(fd);
+  if (!parsed.ok) return { ok: false, error: `Could not record the match — ${parsed.error[0].toLowerCase()}${parsed.error.slice(1)}` };
+  const auth = await authorizeActionWhere(
+    (s) => matchingCan(s, "manage") && can(s, ["giving.record_offline", "giving.manage"]),
+    "record the match",
+    "matching.manage and giving.record_offline",
+  );
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, "Recorded an employer's match in Giving");
+  const { error } = await db.rpc("record_match_payment", {
+    p_center: auth.session.center.id,
+    p_claim: claimId,
+    p_amount_cents: parsed.input.amountCents,
+    p_received_on: parsed.input.receivedOn ?? undefined,
+    p_note: parsed.input.note ?? undefined,
+  });
+  if (error) return failure("Could not record the match", error);
+  revalidateClaims();
+  revalidatePath("/giving/matching/claims/pay");
+  revalidatePath("/giving");
+  return { ok: true, message: matchRecordedMessage(donorFirst, formatCents(parsed.input.amountCents, auth.session.center.currency)) };
 }

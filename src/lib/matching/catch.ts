@@ -134,9 +134,46 @@ export type ClaimRow = {
   household: Household | null;
   program: { id: string; companyName: string; portal: string | null; portalUrl: string | null };
   gift: { paymentId: string; receivedOn: string; amountCents: number | null };
+  /** The employer's match recorded in Giving for this claim (0925); the payment and the amount only for a role that also sees giving. */
+  match: { recorded: boolean; paymentId: string | null; amountCents: number | null };
   deadlineOn: string | null;
 };
-export type ClaimsList = { filter: "open" | "ended"; total: number; rows: ClaimRow[]; amounts: boolean; today: string; canManage: boolean };
+export type ClaimsList = {
+  filter: "open" | "ended";
+  total: number;
+  rows: ClaimRow[];
+  amounts: boolean;
+  today: string;
+  canManage: boolean;
+  /** Matching.manage with a giving permission: the match can be recorded in Giving from here (0925). */
+  canRecord: boolean;
+};
+
+/** One claim as the list and the single read both return it; null when it has no id or an unknown state. */
+export function parseClaimRow(x: unknown): ClaimRow | null {
+  const r = obj(x);
+  const state = r.state;
+  const id = str(r.id);
+  if (!id || !isClaimState(state)) return null;
+  const p = obj(r.program);
+  const g = obj(r.gift);
+  const m = obj(r.match);
+  return {
+    id,
+    state,
+    stateAt: str(r.state_at) ?? "",
+    askedByMessageAt: str(r.asked_by_message_at),
+    requestedByMemberAt: str(r.requested_by_member_at),
+    receivedOn: str(r.received_on),
+    note: str(r.note),
+    person: { id: str(obj(r.person).id) ?? "", name: str(obj(r.person).name) ?? "A member" },
+    household: household(r.household),
+    program: { id: str(p.id) ?? "", companyName: str(p.company_name) ?? "", portal: str(p.portal), portalUrl: str(p.portal_url) },
+    gift: { paymentId: str(g.payment_id) ?? "", receivedOn: str(g.received_on) ?? "", amountCents: numOrNull(g.amount_cents) },
+    match: { recorded: bool(m.recorded), paymentId: str(m.payment_id), amountCents: numOrNull(m.amount_cents) },
+    deadlineOn: str(r.deadline_on),
+  };
+}
 
 export function parseClaimsList(v: unknown): ClaimsList {
   const o = obj(v);
@@ -144,32 +181,13 @@ export function parseClaimsList(v: unknown): ClaimsList {
     filter: o.filter === "ended" ? "ended" : "open",
     total: num(o.total),
     rows: arr(o.rows).flatMap((x) => {
-      const r = obj(x);
-      const state = r.state;
-      const id = str(r.id);
-      if (!id || !isClaimState(state)) return [];
-      const p = obj(r.program);
-      const g = obj(r.gift);
-      return [
-        {
-          id,
-          state,
-          stateAt: str(r.state_at) ?? "",
-          askedByMessageAt: str(r.asked_by_message_at),
-          requestedByMemberAt: str(r.requested_by_member_at),
-          receivedOn: str(r.received_on),
-          note: str(r.note),
-          person: { id: str(obj(r.person).id) ?? "", name: str(obj(r.person).name) ?? "A member" },
-          household: household(r.household),
-          program: { id: str(p.id) ?? "", companyName: str(p.company_name) ?? "", portal: str(p.portal), portalUrl: str(p.portal_url) },
-          gift: { paymentId: str(g.payment_id) ?? "", receivedOn: str(g.received_on) ?? "", amountCents: numOrNull(g.amount_cents) },
-          deadlineOn: str(r.deadline_on),
-        },
-      ];
+      const row = parseClaimRow(x);
+      return row ? [row] : [];
     }),
     amounts: bool(o.amounts),
     today: str(o.today) ?? "",
     canManage: bool(o.can_manage),
+    canRecord: bool(o.can_record),
   };
 }
 

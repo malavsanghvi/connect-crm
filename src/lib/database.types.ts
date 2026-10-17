@@ -6707,6 +6707,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      match_payments: {
+        Row: {
+          payment_id: string;
+          center_id: string;
+          claim_id: string;
+          person_id: string;
+          household_id: string;
+          employer_name: string;
+          recorded_by: string | null;
+          recorded_at: string;
+        };
+        Insert: {
+          payment_id: string;
+          center_id: string;
+          claim_id: string;
+          person_id: string;
+          household_id: string;
+          employer_name: string;
+          recorded_by?: string | null;
+          recorded_at?: string;
+        };
+        Update: {
+          payment_id?: string;
+          center_id?: string;
+          claim_id?: string;
+          person_id?: string;
+          household_id?: string;
+          employer_name?: string;
+          recorded_by?: string | null;
+          recorded_at?: string;
+        };
+        Relationships: [];
+      };
       match_processes: {
         Row: {
           program_id: string;
@@ -16536,6 +16569,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      match_claim_get: {
+        Args: {
+          p_center: string;
+          p_claim: string;
+        };
+        Returns: Json;
+      };
       match_claim_message_preview: {
         Args: {
           p_center: string;
@@ -18066,6 +18106,16 @@ export type Database = {
           p_center: string;
           p_person: string;
           p_employer: string;
+        };
+        Returns: Json;
+      };
+      record_match_payment: {
+        Args: {
+          p_center: string;
+          p_claim: string;
+          p_amount_cents: number;
+          p_received_on?: string;
+          p_note?: string;
         };
         Returns: Json;
       };

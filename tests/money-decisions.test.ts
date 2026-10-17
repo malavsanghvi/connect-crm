@@ -10,7 +10,7 @@ describe("year-end statements and opening balances", () => {
         tax_year: 2025, gift_count: 2, total_cents: 15000, lines: [],
         left_out: { opening_balance_count: 1, opening_balance_cents: "50000", reason: "Opening-balance lines are left out: …" },
       }),
-    ).toEqual({ tax_year: 2025, gift_count: 2, total_cents: 15000, left_out: { opening_balance_count: 1, opening_balance_cents: 50000, reason: "Opening-balance lines are left out: …" } });
+    ).toEqual({ tax_year: 2025, gift_count: 2, total_cents: 15000, employer_match_cents: 0, employer_match_count: 0, left_out: { opening_balance_count: 1, opening_balance_cents: 50000, reason: "Opening-balance lines are left out: …" } });
     expect(parseYearEndStatement({ tax_year: 2025, gift_count: 0, total_cents: 0, left_out: { opening_balance_count: 0, opening_balance_cents: 0, reason: null } })?.left_out.reason).toBeNull();
   });
   it("refuses an answer of the wrong shape rather than showing zero", () => {
