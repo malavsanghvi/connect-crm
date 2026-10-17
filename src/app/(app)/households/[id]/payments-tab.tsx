@@ -47,6 +47,18 @@ export async function PaymentsTab({ session, householdId, period }: { session: C
     }
     allocations.push(...(r.data ?? []));
   }
+  // The payments that are an employer's match (0925): read through the CatchTheMatch readers' own policy, so only they see which ones. For everyone
+  // else the method says "Matching gift" and the statements already leave the match out.
+  const matchIds = new Set<string>();
+  let matchError: unknown = null;
+  for (const part of chunk(payments.filter((p) => p.method === "matching_gift").map((p) => p.id))) {
+    const r = await db.from("match_payments").select("payment_id").in("payment_id", part);
+    if (r.error) {
+      matchError = r.error;
+      break;
+    }
+    for (const m of r.data ?? []) matchIds.add(m.payment_id);
+  }
   const pledgeNumbers = new Map<string, string | null>();
   for (const part of chunk([...new Set(allocations.map((a) => a.pledge_id))])) {
     const r = await db.from("pledges").select("id, pledge_number").in("id", part);
@@ -100,6 +112,11 @@ export async function PaymentsTab({ session, householdId, period }: { session: C
           <Alert tone="info">With the finance volunteer role you see only the payments you recorded yourself.</Alert>
         </div>
       ) : null}
+      {matchError ? (
+        <div className="p-4">
+          <QueryError what="which payments are an employer's match" error={matchError} retryHref={retry} />
+        </div>
+      ) : null}
       {allocError ? (
         <div className="p-4">
           <QueryError what="allocations" error={allocError} retryHref={retry} />
@@ -121,6 +138,12 @@ export async function PaymentsTab({ session, householdId, period }: { session: C
                   <span className="text-muted">
                     {" "}
                     · {formatCents(st.left_out.opening_balance_cents, center.currency)} opening balance left out
+                  </span>
+                ) : null}
+                {st.employer_match_count > 0 ? (
+                  <span className="text-muted" data-testid="employer-match-line">
+                    {" "}
+                    · {formatCents(st.employer_match_cents, center.currency)} employer matching gift, listed apart: not in the total, not deductible by the donor
                   </span>
                 ) : null}
               </li>
@@ -165,6 +188,12 @@ export async function PaymentsTab({ session, householdId, period }: { session: C
                       {proofsOn ? (
                         <div className="font-sans">
                           <PaymentEvidence paymentId={p.id} reference={p.receipt_number ?? "the payment"} timeZone={tz} canAttach={canAttachEvidence} canRemove={editCustom} />
+                        </div>
+                      ) : null}
+                      {matchIds.has(p.id) ? (
+                        <div className="font-sans" data-testid="employer-match-flag">
+                          <Badge tone="navy">Employer match</Badge>
+                          <div className="text-xs text-muted">The employer&apos;s gift, credited to this household · no receipt · left out of year-end statements</div>
                         </div>
                       ) : null}
                       {p.is_opening_balance ? (

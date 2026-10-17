@@ -8,6 +8,7 @@ import { formatDay } from "@/lib/care/model";
 import { formatCents } from "@/lib/money";
 import { CLAIM_MOVE_LABEL, CLAIM_STATE_LABEL, claimMoves, householdLine, type ClaimRow } from "@/lib/matching/catch";
 import { CATCH_PAGE, loadCatchList, loadClaimsList } from "@/lib/matching/data";
+import { isModuleEnabled } from "@/lib/modules";
 import { matchingCan } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -79,6 +80,8 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Promi
   }
   const data = res.data;
   const money = data.amounts ? (c: number) => formatCents(c, session.center.currency) : null;
+  // The donor's thank-you is DonorDelight's: the link is offered only where it is on.
+  const careOn = isModuleEnabled(session, "care");
   const n = counts.ok ? counts.data.counts : null;
   const chips = FILTERS.map((f) => ({
     key: f.key,
@@ -158,12 +161,27 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Promi
                             The member says they asked their employer ({formatDay(c.requestedByMemberAt.slice(0, 10))})
                           </p>
                         ) : null}
+                        {c.match.recorded ? (
+                          <p className="m-0 text-[12px] font-semibold text-ink" data-testid="match-recorded">
+                            Match recorded in Giving{money && c.match.amountCents !== null ? `: ${money(c.match.amountCents)}` : ""}
+                          </p>
+                        ) : null}
                         {c.askedByMessageAt ? <p className="m-0 text-[12px] text-muted">Asked by message on {formatDay(c.askedByMessageAt.slice(0, 10))}</p> : null}
                         {c.note ? <p className="m-0 text-[12px] text-ink">{c.note}</p> : null}
                       </td>
                       {data.canManage ? (
                         <td>
-                          <Mover claim={c} />
+                          {c.match.recorded ? null : <Mover claim={c} />}
+                          {data.canRecord && !c.match.recorded && c.state !== "declined" && c.state !== "expired" && c.state !== "withdrawn" ? (
+                            <Link href={`/giving/matching/claims/pay?claim=${c.id}`} className="crm-link mt-1 block text-[13px]">
+                              Record the match
+                            </Link>
+                          ) : null}
+                          {c.match.recorded && careOn && c.household ? (
+                            <Link href={`/households/${c.household.id}`} className="crm-link mt-1 block text-[13px]">
+                              Thank the donor
+                            </Link>
+                          ) : null}
                           {c.state === "asked" ? (
                             <Link href={`/giving/matching/send?person=${c.person.id}&program=${c.program.id}`} className="crm-link mt-1 inline-block text-[13px]">
                               {c.askedByMessageAt ? "Send a reminder" : "Send to the member"}

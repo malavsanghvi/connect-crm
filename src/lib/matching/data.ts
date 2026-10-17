@@ -4,6 +4,7 @@ import { explainError } from "@/lib/errors";
 import type { AppSupabase } from "@/lib/supabase/server";
 
 import { parseAskList, type AskList } from "./ask";
+import { parseClaimDetail, type ClaimDetail } from "./pay";
 import { parseCatchList, parseClaimsList, parsePersonGifts, parseProcessAnswer, parseProcessList, type CatchList, type ClaimsList, type PersonGifts, type ProcessAnswer, type ProcessListRow } from "./catch";
 import { parseClaimMessagePreview, type ClaimMessagePreview } from "./send";
 import { PROGRAM_COLUMNS, parseSearch, type ProgramRow, type SearchRow } from "./directory";
@@ -366,4 +367,14 @@ export async function loadClaimMessage(db: AppSupabase, centerId: string, person
   const { data, error } = await db.rpc("match_claim_message_preview", { p_center: centerId, p_person: personId, p_program: programId });
   if (error) return failed("the message to send", error);
   return { ok: true, data: parseClaimMessagePreview(data) };
+}
+
+// ── Piece 3 (0925): recording the match in Giving ────────────────────────────
+
+export async function loadMatchClaim(db: AppSupabase, centerId: string, claimId: string): Promise<Loaded<ClaimDetail>> {
+  const { data, error } = await db.rpc("match_claim_get", { p_center: centerId, p_claim: claimId });
+  if (error) return failed("this claim", error);
+  const detail = parseClaimDetail(data);
+  if (!detail) return { ok: false, error: "Could not load this claim: the answer was not what was expected. Reload the page." };
+  return { ok: true, data: detail };
 }

@@ -384,6 +384,9 @@ export type YearEndStatement = {
   gift_count: number;
   total_cents: number;
   left_out: { opening_balance_count: number; opening_balance_cents: number; reason: string | null };
+  /** The employer's matching gifts of the year (0925): listed apart, not in total_cents and not a gift the donor can deduct. */
+  employer_match_cents: number;
+  employer_match_count: number;
 };
 
 /** Reads app.year_end_statement's answer; null when it is not the expected shape. */
@@ -398,6 +401,8 @@ export function parseYearEndStatement(v: unknown): YearEndStatement | null {
     tax_year: year,
     gift_count: count,
     total_cents: total,
+    employer_match_cents: n(o.employer_match_cents) ?? 0,
+    employer_match_count: Array.isArray(o.employer_matches) ? o.employer_matches.length : 0,
     left_out: {
       opening_balance_count: n(lo.opening_balance_count) ?? 0,
       opening_balance_cents: n(lo.opening_balance_cents) ?? 0,
