@@ -58,6 +58,10 @@ $$;
 \set admin2 '''16100000-0000-4000-8000-000000000006'''
 \set chm '''16100000-0000-4000-8000-0000000000c3'''
 
+-- 0898 marks DonorDelight built. This test is about the not-built path ("Tell me when it is ready"), so inside this rolled-back transaction the card
+-- goes back to the state 0752 gave it. (Moving a product to not_built sends nothing: the ready notice fires only from not_built to available.)
+update app.marketplace_products set status = 'not_built' where key = 'care';
+
 -- ══ A. The shape ═════════════════════════════════════════════════════════════
 select pg_temp.assert((select relrowsecurity from pg_class where oid = 'app.marketplace_products'::regclass)
                       and has_table_privilege('authenticated', 'app.marketplace_products', 'select')
