@@ -11,6 +11,7 @@ import type { CardLabels } from "@/components/household-card";
 import { formatDate } from "@/lib/dates";
 import { thanksTaskCopy } from "@/lib/care/thanks";
 import { weakSignsLine, type CareTodayIn, type WeakSign } from "@/lib/care/watch";
+import { weekTaskCopy } from "@/lib/care/week";
 import { MATCH_WHAT } from "@/lib/giving-counts/model";
 import type { Part } from "@/lib/giving-workspace/view";
 import { formatCents } from "@/lib/money";
@@ -1099,6 +1100,21 @@ function careFamily(h: WeakSign["household"]): Family {
  */
 export function careRows(c: CareTodayIn): QueueRow[] {
   const rows: QueueRow[] = [];
+  const week = weekTaskCopy(c.week ?? null);
+  if (week && c.week) {
+    rows.push({
+      id: "care:week",
+      group: "care",
+      tone: "blue",
+      icon: "care",
+      title: week.title,
+      lines: [week.meta],
+      family: null,
+      since: null,
+      acts: [{ kind: "link", href: "/care/week", label: "Open your week", primary: true }],
+      count: c.week.tasks,
+    });
+  }
   const thanks = thanksTaskCopy(c.thanks);
   if (thanks && c.thanks) {
     rows.push({

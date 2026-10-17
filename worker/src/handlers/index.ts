@@ -8,6 +8,7 @@ import type { HandlerModule } from "../types";
 import * as activityMine from "./activity.mine";
 import * as calendarImportFeed from "./calendar.import_feed";
 import * as calendarRefreshFeeds from "./calendar.refresh_feeds";
+import * as careWeekSweep from "./care.week_sweep";
 import * as demoClear from "./demo.clear";
 import * as demoLoad from "./demo.load";
 import * as demoPing from "./demo.ping";
@@ -135,6 +136,8 @@ export const HANDLERS: HandlerModule[] = [
   pathshalaAnnouncementNotify,
   // Member notices (0598): every 5 minutes, the RSVP confirmation, the boli notice before it closes and a special day's labh prompt
   noticesSweep,
+  // DonorDelight (0893): every hour, the weekly "N care tasks" reminder to each relationship owner, a number and never a name
+  careWeekSweep,
   // Activity stream (0622, 0623): once a day, find repeated sequences of actions (automation ideas) and delete activity older than 400 days
   activityMine,
   // Event creator (0700): every 5 minutes, publish the draft events whose scheduled time has come, each checked again first

@@ -205,6 +205,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "photos.import_album": "Google Photos album import",
   "homework.publish_notify": "Tell learners and their parents about new homework",
   "homework.reminders_sweep": "Remind learners of homework that is due soon",
+  "care.week_sweep": "Tell each relationship owner how many care tasks wait this week",
   "pathshala.announcement_notify": "Tell families about a published class announcement",
   "import.suggest_mapping": "Suggest column matches for an import",
   "messaging.send": "Send a message",

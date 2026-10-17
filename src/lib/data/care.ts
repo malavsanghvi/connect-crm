@@ -23,6 +23,8 @@ import {
 } from "@/lib/care/model";
 import { classifyHealth, parseCareDashboard, parseHealthFacts, type CareDashboard, type Health } from "@/lib/care/health";
 import { parseSignsWatch, weakSigns, type CareTodayIn } from "@/lib/care/watch";
+import { parsePlaybooks, type PlaybookList } from "@/lib/care/playbooks";
+import { parseWeek, parseWeekCounts, parseWeekSettings, type Week, type WeekSettings } from "@/lib/care/week";
 import {
   parseHouseholdThanks,
   parseThanksCounts,
@@ -189,11 +191,13 @@ export const TODAY_SHORTLIST = 50;
  * only, no amount. Only whoever holds a care key gets anything; for everyone else the status is "no_access" and the group is not drawn.
  */
 export async function loadCareToday(session: CrmSession): Promise<CareRead<CareTodayIn>> {
-  const [counts, watch] = await Promise.all([
+  const [counts, watch, week] = await Promise.all([
     session.db.rpc("care_thanks_counts", { p_center: session.center.id }),
     session.db.rpc("care_signs_watch", { p_center: session.center.id, p_limit: TODAY_SHORTLIST }),
+    session.db.rpc("care_week_counts", { p_center: session.center.id }),
   ]);
   if (counts.error) return refusal("could not read the thank-yous", counts.error);
+  if (week.error) return refusal("could not read your week", week.error);
   if (watch.error) return refusal("could not read the households that may be cooling", watch.error);
   const w = parseSignsWatch(watch.data);
   let signs: CareTodayIn["signs"] = [];
@@ -203,5 +207,28 @@ export async function loadCareToday(session: CrmSession): Promise<CareRead<CareT
     const a = parseHealthFacts(facts.data);
     signs = weakSigns(w, a.rows, { today: a.today, historyMonths: a.historyMonths, giving: a.giving });
   }
-  return { status: "ok", data: { thanks: parseThanksCounts(counts.data), signs, more: w.total > w.rows.length } };
+  return { status: "ok", data: { thanks: parseThanksCounts(counts.data), signs, more: w.total > w.rows.length, week: parseWeekCounts(week.data) } };
+}
+
+// ── Playbooks and the week (slice 5, 0891-0893) ──────────────────────────────
+
+/** The community's playbooks with their steps (anyone with a care key reads; a manager changes them). */
+export async function loadPlaybooks(session: CrmSession): Promise<CareRead<PlaybookList>> {
+  const res = await session.db.rpc("care_playbooks_list", { p_center: session.center.id });
+  if (res.error) return refusal("could not read the playbooks", res.error);
+  return { status: "ok", data: parsePlaybooks(res.data) };
+}
+
+/** The caller's own week: up to five tasks and the true total. The database opens the runs that are due and logs the read. */
+export async function loadWeek(session: CrmSession): Promise<CareRead<Week>> {
+  const res = await session.db.rpc("care_week", { p_center: session.center.id });
+  if (res.error) return refusal("could not read your week", res.error);
+  return { status: "ok", data: parseWeek(res.data) };
+}
+
+/** Whether relationship owners get the weekly reminder, and on which weekday. */
+export async function loadWeekSettings(session: CrmSession): Promise<CareRead<WeekSettings>> {
+  const res = await session.db.rpc("care_week_settings_get", { p_center: session.center.id });
+  if (res.error) return refusal("could not read the weekly reminder", res.error);
+  return { status: "ok", data: parseWeekSettings(res.data) };
 }
