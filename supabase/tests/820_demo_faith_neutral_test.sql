@@ -44,7 +44,11 @@ begin
       from app.demo_packs p, jsonb_each(p.content->'steps') s, jsonb_array_elements(s.value) o
      where p.key = p_pack and o ? 't' group by 1 order by 1
   loop
-    execute format('select count(*) from app.%I where center_id = $1', r.t) into n using p_center;
+    -- gyan_levels and gyan_steps carry no center_id (they belong to a goal of the community): counted through the goal, as app.demo_counts_raw does
+    execute format('select count(*) from app.%I x where %s', r.t,
+                   case r.t when 'gyan_levels' then 'x.goal_id in (select g.id from app.gyan_goals g where g.center_id = $1)'
+                            when 'gyan_steps' then 'x.level_id in (select l.id from app.gyan_levels l join app.gyan_goals g on g.id = l.goal_id where g.center_id = $1)'
+                            else 'x.center_id = $1' end) into n using p_center;
     if n <> r.want then bad := bad || r.t || ' (' || n || ' instead of ' || r.want || ') '; end if;
   end loop;
   return bad;
@@ -79,13 +83,16 @@ begin
                      select unnest(array['payments', 'payment_allocations', 'rsvps', 'attendees', 'store_orders', 'store_order_lines'])) q
      order by q.x
   loop
-    if exists (select 1 from information_schema.columns c where c.table_schema = 'app' and c.table_name = t and c.column_name = 'center_id') then
+    if exists (select 1 from information_schema.columns c where c.table_schema = 'app' and c.table_name = t and c.column_name = 'center_id') or t in ('gyan_levels', 'gyan_steps') then
       execute format($f$select coalesce(string_agg(distinct lower(m[1]), ', '), '')
                           from (select regexp_matches(s #>> '{}', %L, 'gi') as m
                                   from app.%I x, jsonb_path_query(to_jsonb(x), 'strict $.**') s
-                                 where x.center_id = $1 and jsonb_typeof(s) = 'string' and (s #>> '{}') !~ '^[-a-z0-9_@.+:]+$'
+                                 where %s and jsonb_typeof(s) = 'string' and (s #>> '{}') !~ '^[-a-z0-9_@.+:]+$'
                                    and (s #>> '{}') !~ '^Introduction to Jainism( · Room [A-Z])?$') q$f$,
-                     pg_temp.banned(), t) into v using p_center;
+                     pg_temp.banned(), t,
+                     case t when 'gyan_levels' then 'x.goal_id in (select g.id from app.gyan_goals g where g.center_id = $1)'
+                            when 'gyan_steps' then 'x.level_id in (select l.id from app.gyan_levels l join app.gyan_goals g on g.id = l.goal_id where g.center_id = $1)'
+                            else 'x.center_id = $1' end) into v using p_center;
       if v <> '' then r := r || t || ': ' || v || '; '; end if;
     end if;
   end loop;
@@ -101,8 +108,8 @@ insert into auth.users (id, email) values (:admin, 'admin820@platform.test');
 insert into app.accounts (user_id, is_platform_admin) values (:admin, true) on conflict (user_id) do update set is_platform_admin = true;
 
 -- ── A. The pack ──────────────────────────────────────────────────────────────
-select pg_temp.assert((select version = 5 and not active and content is not null from app.demo_packs where key = 'demo_faith_jain_v1'),
-  'A · the faith pack is at version 5 (4 in 0820, 5 in 0840), and still not offered on Setup > Demo (its key keeps its old name: an internal identifier no screen shows)');
+select pg_temp.assert((select version = 6 and not active and content is not null from app.demo_packs where key = 'demo_faith_jain_v1'),
+  'A · the faith pack is at version 6 (4 in 0820, 5 in 0840, 6 in 0878), and still not offered on Setup > Demo (its key keeps its old name: an internal identifier no screen shows)');
 select pg_temp.assert((select content->'center'->>'kind' = 'faith' and content->'center'->>'category_key' = 'faith_other'
                               and content->'center'->>'name' = 'Sunrise Worship Center (Demo)'
                               and content->'center'->'modules' = '["pathshala","store","gyan_path","niva"]'::jsonb
@@ -173,10 +180,14 @@ select pg_temp.assert((select count(*) = 13 from app.households where center_id 
                       and pg_temp.pack_vs_rows(:'fc', 'demo_faith_jain_v1') = ''
                       and (select count(*) = 0 from app.bolis where center_id = :'fc') and (select count(*) = 0 from app.boli_entries where center_id = :'fc'),
   'B · the same 13 households and 36 people (34 and the two Patni children added by 0820), every table holding exactly the rows the pack says, and no boli');
-select pg_temp.assert((select count(*) = 23 and sum(amount_cents) = 1061700 from app.pledges where center_id = :'fc')
-                      and (select count(*) = 14 and sum(amount_cents) = 701200 from app.payments where center_id = :'fc')
+select pg_temp.assert((select count(*) = 23 and sum(amount_cents) = 1061700 from app.pledges
+                           where center_id = :'fc' and id not in (app.demo_id(:'fc', 'pledge:p1'), app.demo_id(:'fc', 'pledge:p2')))
+                      and (select count(*) = 14 and sum(amount_cents) = 701200 from app.payments
+                            where center_id = :'fc' and crm_external_id not in ('demo:p1', 'demo:p2a', 'demo:p2b'))
+                      and (select count(*) = 25 and sum(amount_cents) = 1121700 from app.pledges where center_id = :'fc')
+                      and (select count(*) = 17 and sum(amount_cents) = 741200 from app.payments where center_id = :'fc')
                       and (select sum(fee_cents) = 0 + 15100 + 110100 from app.membership_types where center_id = :'fc'),
-  'B · the money is what it was, in whole cents: 14 test-mode payments of $7,012.00, the same membership fees and 23 pledges of $10,617.00 (the 20 of $10,217.00 and the three Patni fee pledges, $150.00, $135.00 and $115.00)');
+  'B · the money is what it was, in whole cents, plus the Patni family''s history (0878): the earlier 14 test-mode payments of $7,012.00 and 23 pledges of $10,617.00 are untouched (the 20 of $10,217.00 and the three Patni fee pledges, $150.00, $135.00 and $115.00), the same membership fees, and the family''s two new pledges ($100.00 and $500.00) and three payments ($400.00) bring the totals to 25 pledges of $11,217.00 and 17 payments of $7,412.00');
 
 -- The school is a "Learning Center" in a Faith community, a word of that category (platform-wide for it: there is no per-community override of a
 -- kind's words). Jain Center keeps Pathshala; the experiences that started from the faith community keep the words they were given.
@@ -359,10 +370,11 @@ select pg_temp.assert(not has_function_privilege('authenticated', 'app.demo_alig
 select pg_temp.assert_raises(format('select app.demo_align_center(%L)', :jsh), 'not a demo community', 'E · a community that is not a demo is refused: JSH is never aligned');
 select pg_temp.assert_raises($$select app.demo_align_center('82000000-0000-4000-8000-0000000000ff')$$, 'not a demo community', 'E · and so is one that does not exist');
 select pg_temp.assert((select category_key = 'nonprofit_secular' from app.centers where id = :'nc')
-                      and not exists (select 1 from app.center_module_grants g where g.center_id = :'nc' and g.reason like 'Demo community: its pack%')
-                      and not exists (select 1 from app.center_module_grants g where g.center_id = :'nc' and g.module_key in ('store', 'pathshala', 'gyan_path'))
+                      and (select count(*) = 2 from app.center_module_grants g where g.center_id = :'nc' and g.reason like 'Demo community: its pack%' and g.module_key in ('store', 'niva'))
+                      and not exists (select 1 from app.center_module_grants g where g.center_id = :'nc' and g.module_key in ('pathshala', 'gyan_path'))
+                      and app.module_enabled(:'nc', 'store') and not app.module_enabled(:'nc', 'pathshala') and not app.module_enabled(:'nc', 'gyan_path')
                       and pg_temp.pack_vs_rows(:'nc', 'demo_neutral_club_v1') = '' and (select count(*) = 21 from app.demo_personas where center_id = :'nc'),
-  'E · the club demo (not faith-based) is as it was: its kind, no modules granted by a pack, no shop or school (0877 adds only add-ons of modules it has), its 21 demo people');
+  'E · the club demo (not faith-based) is the same kind, with its 21 demo people, and its pack (version 3, 0879) switches on its shop and its assistant (the two modules it names, Weaver''s grant); it has no school: no Learning Center and no learning path (0877 adds only add-ons of modules it has)');
 select pg_temp.assert((select category_key = 'jain_center' from app.centers where id = :jsh) and not app.is_demo_center(:jsh)
                       and not exists (select 1 from app.center_module_grants g where g.center_id = :jsh and g.reason like 'Demo community:%'),
   'E · and JSH is still a Jain Center, untouched');

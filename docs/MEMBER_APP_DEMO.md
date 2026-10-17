@@ -53,6 +53,10 @@ chosen community); store the returned session like a normal sign-in; go to the s
 known (`unknown_person`) or the start fails, show the endpoint's `error` as it is and fall back to the app's own chooser. **Until that change is live
 the app ignores the parameters**, so these links land on the app's own "Try the demo" chooser, exactly like the link without parameters.
 
+**What the family finds there.** Since 2026-10-16 (migrations 0878 and 0879) the family's main adult finds a full app in both demo communities: a money history with receipts, things to give to,
+a store order, a calendar, photo albums, surveys, the guide's pages, the Family screen's special days and member numbers and, in the faith demo, the Learning Center's class days, reports and
+announcements and a learning path. The inventory and what stays thin is in [DEMO_ROLE_WORK.md](DEMO_ROLE_WORK.md) "The community member's app is full".
+
 Nothing changes in the endpoints, the CORS list, the guardrails or the database for this path: it is a link, and the start is the same
 `startDemoSession` core described below and in [DEMO_SIGNIN.md](DEMO_SIGNIN.md).
 

@@ -32,7 +32,11 @@ begin
       from app.demo_packs p, jsonb_each(p.content->'steps') s, jsonb_array_elements(s.value) o
      where p.key = p_pack and o ? 't' group by 1 order by 1
   loop
-    execute format('select count(*) from app.%I where center_id = $1', r.t) into n using p_center;
+    -- gyan_levels and gyan_steps carry no center_id (they belong to a goal of the community): counted through the goal, as app.demo_counts_raw does
+    execute format('select count(*) from app.%I x where %s', r.t,
+                   case r.t when 'gyan_levels' then 'x.goal_id in (select g.id from app.gyan_goals g where g.center_id = $1)'
+                            when 'gyan_steps' then 'x.level_id in (select l.id from app.gyan_levels l join app.gyan_goals g on g.id = l.goal_id where g.center_id = $1)'
+                            else 'x.center_id = $1' end) into n using p_center;
     if n <> r.want then bad := bad || r.t || ' (' || n || ' instead of ' || r.want || ') '; end if;
   end loop;
   return bad;
