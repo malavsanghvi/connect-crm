@@ -4,6 +4,7 @@ import { explainError } from "@/lib/errors";
 import type { AppSupabase } from "@/lib/supabase/server";
 
 import { parseAskList, type AskList } from "./ask";
+import { LIBRARY_BUCKET } from "./files";
 import { parseClaimDetail, type ClaimDetail } from "./pay";
 import { parseCatchList, parseClaimsList, parsePersonGifts, parseProcessAnswer, parseProcessList, type CatchList, type ClaimsList, type PersonGifts, type ProcessAnswer, type ProcessListRow } from "./catch";
 import { parseClaimMessagePreview, type ClaimMessagePreview } from "./send";
@@ -332,7 +333,18 @@ export async function loadPersonGifts(db: AppSupabase, centerId: string, personI
 export async function loadProcess(db: AppSupabase, programId: string, centerId: string | null): Promise<Loaded<ProcessAnswer>> {
   const { data, error } = await db.rpc("match_process_get", { p_program: programId, p_center: centerId ?? undefined });
   if (error) return failed("how to claim from this employer", error);
-  return { ok: true, data: parseProcessAnswer(data) };
+  const answer = parseProcessAnswer(data);
+  // The files open through links made now, as the reader (the bucket's policy decides), good for an hour. A link that cannot be made never hides the steps.
+  if (answer.files.length > 0) {
+    const signed = await db.storage.from(LIBRARY_BUCKET).createSignedUrls(answer.files.map((f) => f.path), 3600);
+    if (signed.error || !signed.data) {
+      console.error("[matching] could not make links for the library's files:", signed.error);
+      return { ok: true, data: { ...answer, filesNotice: `The files could not be opened just now (${explainError(signed.error)}). Reload the page to try again.` } };
+    }
+    const urls = new Map(signed.data.flatMap((s) => (s.path && s.signedUrl ? [[s.path, s.signedUrl] as const] : [])));
+    return { ok: true, data: { ...answer, files: answer.files.map((f) => ({ ...f, url: urls.get(f.path) ?? null })) } };
+  }
+  return { ok: true, data: answer };
 }
 
 export const LIBRARY_PAGE = 50;

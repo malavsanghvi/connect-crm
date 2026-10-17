@@ -1,5 +1,6 @@
-import { WHO_SUBMITS_LABEL, type ProcessAnswer } from "@/lib/matching/catch";
 import { formatDay } from "@/lib/care/model";
+import { WHO_SUBMITS_LABEL, type ProcessAnswer } from "@/lib/matching/catch";
+import { fileLine } from "@/lib/matching/files";
 
 /**
  * How to claim from one employer: who submits, the steps in order, what to have ready, the links, how long it takes, tips, and
@@ -9,10 +10,13 @@ export function ProcessCard({ answer }: { answer: ProcessAnswer }) {
   const p = answer.process;
   if (!p) {
     return (
-      <p className="crm-hint m-0" data-testid="no-process">
-        Weaver&apos;s team has not written the steps for {answer.program.companyName} yet. Until it does, ask the member to find the matching program through their
-        employer&apos;s human resources or giving portal.
-      </p>
+      <>
+        <p className="crm-hint m-0" data-testid="no-process">
+          Weaver&apos;s team has not written the steps for {answer.program.companyName} yet. Until it does, ask the member to find the matching program through their
+          employer&apos;s human resources or giving portal.
+        </p>
+        <ProcessFiles answer={answer} />
+      </>
     );
   }
   return (
@@ -41,6 +45,7 @@ export function ProcessCard({ answer }: { answer: ProcessAnswer }) {
           ))}
         </ul>
       ) : null}
+      <ProcessFiles answer={answer} />
       {p.typicalDays !== null ? <p className="m-0 text-[13.5px] text-muted">It usually takes about {p.typicalDays} {p.typicalDays === 1 ? "day" : "days"}.</p> : null}
       {p.tips ? <p className="m-0 whitespace-pre-wrap text-[13.5px] text-ink">{p.tips}</p> : null}
       <p className="m-0 text-[12.5px] text-muted" data-testid="process-worked">
@@ -52,6 +57,35 @@ export function ProcessCard({ answer }: { answer: ProcessAnswer }) {
           ? ` Here: ${answer.here.received} ${answer.here.received === 1 ? "match" : "matches"}${answer.here.lastOn ? `, the last on ${formatDay(answer.here.lastOn)}` : ""}.`
           : ""}
       </p>
+    </div>
+  );
+}
+
+/** The forms and screens that show the way (0928): each opens in a new tab through a link that lasts an hour. */
+export function ProcessFiles({ answer }: { answer: ProcessAnswer }) {
+  if (answer.files.length === 0) return null;
+  return (
+    <div data-testid="process-files">
+      <p className="m-0 mb-1 text-[13.5px] font-semibold text-ink">Forms and screens</p>
+      {answer.filesNotice ? (
+        <p role="alert" className="m-0 mb-1 text-[13px] text-danger">
+          {answer.filesNotice}
+        </p>
+      ) : null}
+      <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[13.5px]">
+        {answer.files.map((f) => (
+          <li key={f.id}>
+            {f.url ? (
+              <a href={f.url} target="_blank" rel="noopener noreferrer" className="crm-link">
+                {f.caption}
+              </a>
+            ) : (
+              <span className="text-ink">{f.caption}</span>
+            )}{" "}
+            <span className="text-muted">({fileLine(f)})</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
