@@ -6,6 +6,7 @@
 import { classifyHealth, type Health, type HealthFacts } from "@/lib/care/health";
 import { parseHousehold, type CareHousehold } from "@/lib/care/model";
 import type { ThanksCounts3 } from "@/lib/care/thanks";
+import type { WeekCounts } from "@/lib/care/week";
 
 type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (v && typeof v === "object" && !Array.isArray(v) ? (v as Obj) : {});
@@ -66,4 +67,4 @@ export function weakSignsLine(n: number): string {
  * DonorDelight on Giving > Today (care holders only; the database decides who): the gifts waiting for a thank-you (three numbers, no names) and
  * the households whose sign is Cooling or At risk, each with its reasons. No amount. `more`: shortlisted households beyond those classified.
  */
-export type CareTodayIn = { thanks: ThanksCounts3 | null; signs: WeakSign[]; more: boolean };
+export type CareTodayIn = { thanks: ThanksCounts3 | null; signs: WeakSign[]; more: boolean; /** The caller's own week: two numbers, no names (slice 5). */ week?: WeekCounts | null };

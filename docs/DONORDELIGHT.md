@@ -10,6 +10,8 @@ Status: plan, 2026-10-13. Slices 1 (0750, 0757-0758) and 2 (0760-0763, in review
 onboards (temple, church, mosque, chamber, club, food bank, school; any faith or none; any language): behaviour comes
 from the organization's kind, its own settings and its own records, never from code written for one community.
 
+**Status 2026-10-17:** slices 1 to 5 are built (see section 12); slices 6 to 9 follow, slice 10 (price and billing) stays in the backlog.
+
 **Priority (owner, 2026-10-13):** build slices 2 to 4 (care basics, thank-you tracker, engagement signs), the usable core; then Marketplace billing (MARKETPLACE_PLAN phases 2 and 3) before any further paid slice. Slices 5 to 10 wait.
 
 ## 1. In short
@@ -286,6 +288,28 @@ household card (adults only) with its relationship owner, every read is logged, 
 Member care), drawn only for whoever holds a care key (relationship owners see only their own households): a row "N gifts to thank" (the three numbers of `care_thanks_counts`), then up to five
 households with their sign and every reason, then one "more" row pointing at `/care`. Each button opens the Care card or the list; nothing asks anyone for money. A read that fails
 shows as a problem next to the group, never an empty group. Home keeps its thank-you task row; the weak signs are on Today only (reading them costs a facts call per load).
+
+**Built (slice 5, playbooks and "Your 5 this week", 2026-10-17, migrations 0891-0893, tests 891-893, worker job `care.week_sweep`):**
+`app.care_playbooks` / `care_playbook_steps` (a trigger, a window, a cooldown, 1 to 12 steps: days after entering, title, why, kind, channel, a draft with `{{name}}`, `{{me}}`
+and `{{org}}`) edited only by care.manage; a step is a touch to record and **has no ask** (a step cannot carry one; a care moment is never planned; the pledge reminder
+reminds and never asks for more); a removed step is archived, never deleted. `app.care_starters` holds the starter playbooks as data per kind of organization (faith: "Member
+care" wording, civic: "Donor care" wording; ten each: first gift, new household, steady, cooling, at risk, lapsed, volunteer who does not give, giver who does not take part,
+pledge falling due, monthly giver; no starter names a community, a religion or a language), picked from the category's `faith_based` and copied once into the community's own
+playbooks by `app.install_care_starters` (idempotent). `app.care_runs` is a household's time in a playbook, opened by `app._care_runs_sync` (at most once a day per community and
+when a playbook changes; no trigger on payments or households); `app._care_trigger_rows` decides who is in which trigger with the SAME arithmetic as `care_health_facts` and
+`health.ts` (the test pins the same worked cases; nothing before about a year of records), adults only; a sign-based run **stops when the sign stops** (the household gave
+again), so nobody calls to say "we miss you" after a gift. `app.care_week` gives the caller's own list (the households they own or back up): open thank-yous first, then steps overdue
+(a step more than 21 days late is not offered again), then what falls due in 7 days; the top five with the true total; a household that asked for no thanks gets no thank-you task;
+a manager also hears of households with a task and no owner. `app.complete_care_task` is the one tap: it records the step's touch (no ask) through `log_care_touch` and marks the task;
+`skip_care_task` needs a reason (kept). Reads are logged. Portal: **Your week** (`/care/week`, a tab; a task per card with why, the filled draft and a Copy button, "Done · <how>",
+"Add a note or change how", "Set aside"; a thank-you task shows the tracker's own ways to thank), **Playbooks** (`/care/playbooks`, a tab; everyone with a care key reads, care.manage adds the
+starters, edits in a form that checks the database's own rules in its own words, pauses and resumes), a Home task row "Your week: N care tasks" and the same row in the Care group on Giving > Today.
+**The weekly reminder** (migration 0893): care.manage switches it on (off by default) and picks the weekday; the worker job `care.week_sweep` (hourly) calls `app.worker_care_week_sweep`: from that
+weekday at 08:00 local time (and for two days after, in case the service was down) each person with at least one task gets ONE email through `app.enqueue_message` (template `care_week`, purpose
+`notification`): a number and the section's name, never a household, a name or a step. A sandbox that may message only verified recipients is refused WITH the reason in `app.care_week_log`
+(shown, never hidden); a person with no email address is logged as such; nobody is told twice in a week. **The email provider is not configured yet (backlog B116), so nothing can actually be
+sent today**; the path is built and tested to the queue, and it goes out when the provider is connected. Owner decisions to confirm: who may be told (every owner or backup with a task), the
+wording of the starters, the weekday default (Monday), and that the reminder holds a number only.
 
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt

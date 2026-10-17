@@ -108,6 +108,13 @@ describe("the Care group on Today", () => {
     expect(rows[2].lines.at(-1)).toBe("Needs a relationship owner");
     expect(rows.every((r) => r.group === "care")).toBe(true);
   });
+  it("your week comes first, with its two numbers and a button that opens it (slice 5)", () => {
+    const rows = careRows({ ...care, week: { tasks: 4, overdue: 1 } });
+    expect(rows[0]).toMatchObject({ id: "care:week", title: "Your week: 4 care tasks", count: 4, lines: ["1 overdue"] });
+    expect(rows[0].acts).toEqual([{ kind: "link", href: "/care/week", label: "Open your week", primary: true }]);
+    expect(careRows({ ...care, week: { tasks: 0, overdue: 0 } }).some((r) => r.id === "care:week")).toBe(false);
+    expect(careRows({ ...care, week: null }).some((r) => r.id === "care:week")).toBe(false);
+  });
   it("every button opens the Care card or the DonorDelight list; none asks anyone for money", () => {
     const acts = careRows(care).flatMap((r) => r.acts);
     expect(acts.every((a) => a.kind === "link")).toBe(true);
