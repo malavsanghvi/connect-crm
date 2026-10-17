@@ -10,7 +10,7 @@ Status: plan, 2026-10-13. Slices 1 (0750, 0757-0758) and 2 (0760-0763, in review
 onboards (temple, church, mosque, chamber, club, food bank, school; any faith or none; any language): behaviour comes
 from the organization's kind, its own settings and its own records, never from code written for one community.
 
-**Status 2026-10-17:** slices 1 to 5 are built (see section 12); slices 6 to 9 follow, slice 10 (price and billing) stays in the backlog.
+**Status 2026-10-17:** slices 1 to 6 are built (see section 12); slices 7 to 9 follow, slice 10 (price and billing) stays in the backlog.
 
 **Priority (owner, 2026-10-13):** build slices 2 to 4 (care basics, thank-you tracker, engagement signs), the usable core; then Marketplace billing (MARKETPLACE_PLAN phases 2 and 3) before any further paid slice. Slices 5 to 10 wait.
 
@@ -310,6 +310,21 @@ weekday at 08:00 local time (and for two days after, in case the service was dow
 (shown, never hidden); a person with no email address is logged as such; nobody is told twice in a week. **The email provider is not configured yet (backlog B116), so nothing can actually be
 sent today**; the path is built and tested to the queue, and it goes out when the provider is connected. Owner decisions to confirm: who may be told (every owner or backup with a task), the
 wording of the starters, the weekday default (Monday), and that the reminder holds a number only.
+
+**Built (slice 6, the gesture library, 2026-10-17, migration 0894, test 894):** `app.care_gestures` is the community's own library of things to do FOR a supporter, each with a cost
+(free or low), an effort (a few minutes, under an hour, half a day or more), who should do it (a leader, staff, a volunteer, anyone), the care profiles it suits (how they like to be
+thanked, how they like to be recognised; empty = any), what the household's own records must hold (a special day, an anniversary, expertise, interests: read from People, never copied, and
+never anything from outside the organization), whether it is offered on its own (a care moment never is: a person chooses it, and only when the family shared it and agreed), the touch it
+records and a draft. **A gesture is never paired with an ask:** there is no ask field (an unknown field is refused with that sentence), the touch it records is always "no ask", and a
+gesture whose name, description or draft asks for a gift, a donation or a pledge cannot be saved (`app._care_words_ask` in the database and `wordsAsk` in the portal use the same list; a
+plain check on words that cannot catch every phrasing, which is why the touch is always no ask). `app.care_gesture_starters` holds the starter set per kind of organization as data (thirteen
+each, faith and civic wording: a thank-you call with no ask, a handwritten card, a short video from a leader, a photo of what their gift built, ask for their advice, a greeting on their special
+day, an anniversary greeting, a quiet behind-the-scenes visit, a welcome visit, a small token tied to the mission, share something about their interest, recognition only if they chose it, a care
+moment); `install_care_gestures` copies the ones a community lacks (idempotent), `save_care_gesture` and `set_care_gesture_enabled` are care.manage only; everyone with a care key reads the
+library; the audit holds who and when and which columns, never the words. Portal: **Gestures** (`/care/gestures`, a tab; filter by who should do it; a manager adds the starters, edits, pauses),
+and **Ideas for this household** on the Care card: the gestures that suit it, best first (how they like to be thanked, a special day or an expertise on file, recognition only if they chose it; none
+of the thank-you kind for a household that asked for no thanks), each with why, a draft filled with the adult to reach and the organization (Copy), and one tap "I did this" that records the touch
+with no ask. Nothing is sent. Not built: tying a gesture to a playbook step, and gesture ideas in Your week.
 
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt

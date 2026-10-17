@@ -23,6 +23,7 @@ import {
 } from "@/lib/care/model";
 import { classifyHealth, parseCareDashboard, parseHealthFacts, type CareDashboard, type Health } from "@/lib/care/health";
 import { parseSignsWatch, weakSigns, type CareTodayIn } from "@/lib/care/watch";
+import { parseGestures, type GestureList } from "@/lib/care/gestures";
 import { parsePlaybooks, type PlaybookList } from "@/lib/care/playbooks";
 import { parseWeek, parseWeekCounts, parseWeekSettings, type Week, type WeekSettings } from "@/lib/care/week";
 import {
@@ -65,15 +66,19 @@ export type CareCardLoad = {
   thanks?: CareRead<HouseholdThanks> | null;
   /** The household's engagement sign with its reasons (slice 4); null when the card could not be read at all. */
   health?: CareRead<Health | null> | null;
+  /** The community's gesture library (slice 6), for the ideas that suit this household; null when the card could not be read at all. */
+  gestures?: CareRead<GestureList> | null;
+  /** The words a draft is filled with: the organization's short name. */
+  org?: string | null;
 };
 
 /** The Care card of one household: the card, the first page of the touch log, and (for a manager) who can own it. */
 export async function loadCareCard(session: CrmSession, householdId: string): Promise<CareCardLoad> {
   const [card, touches] = await Promise.all([readCard(session, householdId), readTouches(session, householdId, null)]);
   const holders = card.status === "ok" && card.data.access.manage ? await readHolders(session) : null;
-  const [thanks, health] =
-    card.status === "ok" ? await Promise.all([loadHouseholdThanks(session, householdId), loadHouseholdHealth(session, householdId)]) : [null, null];
-  return { card, touches, holders, thanks, health };
+  const [thanks, health, gestures] =
+    card.status === "ok" ? await Promise.all([loadHouseholdThanks(session, householdId), loadHouseholdHealth(session, householdId), loadGestures(session)]) : [null, null, null];
+  return { card, touches, holders, thanks, health, gestures, org: session.center.short_name || session.center.name };
 }
 
 export async function readCard(session: CrmSession, householdId: string): Promise<CareRead<CareCard>> {
@@ -231,4 +236,13 @@ export async function loadWeekSettings(session: CrmSession): Promise<CareRead<We
   const res = await session.db.rpc("care_week_settings_get", { p_center: session.center.id });
   if (res.error) return refusal("could not read the weekly reminder", res.error);
   return { status: "ok", data: parseWeekSettings(res.data) };
+}
+
+// ── The gesture library (slice 6, 0894) ──────────────────────────────────────
+
+/** The community's gestures (anyone with a care key reads; a manager changes them). */
+export async function loadGestures(session: CrmSession): Promise<CareRead<GestureList>> {
+  const res = await session.db.rpc("care_gestures_list", { p_center: session.center.id });
+  if (res.error) return refusal("could not read the gesture library", res.error);
+  return { status: "ok", data: parseGestures(res.data) };
 }

@@ -15,6 +15,7 @@ import {
   type ProfileCall,
   type TouchCall,
 } from "@/app/(app)/households/[id]/care-actions";
+import { GestureIdeas } from "@/components/care/gesture-ideas";
 import { HealthChip } from "@/components/care/health-chip";
 import { ThankActions } from "@/components/care/thank-actions";
 import { buttonClass } from "@/components/ui";
@@ -47,6 +48,7 @@ import {
   type CareTouchPage,
   type CareTouchRow,
 } from "@/lib/care/model";
+import type { GestureList } from "@/lib/care/gestures";
 import type { Health } from "@/lib/care/health";
 import { dueLine, giftLine, personalLine, type HouseholdThanks } from "@/lib/care/thanks";
 import type { CareCardLoad, CareRead } from "@/lib/data/care";
@@ -153,6 +155,8 @@ export function CareCard({ load, householdId, timeZone, retryHref }: { load: Car
       holders={load.holders}
       thanks={load.thanks ?? null}
       health={load.health ?? null}
+      gestures={load.gestures ?? null}
+      org={load.org ?? null}
       householdId={householdId}
       timeZone={timeZone}
     />
@@ -165,6 +169,8 @@ function CareCardBody({
   holders,
   thanks,
   health,
+  gestures,
+  org,
   householdId,
   timeZone,
 }: {
@@ -173,6 +179,8 @@ function CareCardBody({
   holders: CareRead<CareHolder[]> | null;
   thanks: CareRead<HouseholdThanks> | null;
   health: CareRead<Health | null> | null;
+  gestures: CareRead<GestureList> | null;
+  org: string | null;
   householdId: string;
   timeZone: string;
 }) {
@@ -195,6 +203,7 @@ function CareCardBody({
       <HealthBox health={health} />
       <Profile data={data} householdId={householdId} />
       <Thanks thanks={thanks} householdId={householdId} />
+      <GestureIdeas gestures={gestures} card={data} org={org} householdId={householdId} />
       <Touches data={data} first={touches} householdId={householdId} timeZone={timeZone} />
       <Notes notes={data.notes} total={data.notesTotal} canManage={data.access.manage} adults={data.household.adults} householdId={householdId} timeZone={timeZone} />
       <PeopleFields data={data} />
