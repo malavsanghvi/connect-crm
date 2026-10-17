@@ -179,6 +179,19 @@ describe("the claims", () => {
     expect(html).not.toContain("Open it again");
   });
 
+  it("says when a member was asked by message (with a reminder) and when the member reported they asked their employer", async () => {
+    answers.claims = claims("open", [claim("asked", { asked_by_message_at: "2026-10-12T10:00:00Z" }), claim("requested", { id: "c2", requested_by_member_at: "2026-10-14T10:00:00Z" })]);
+    const html = await drawClaims();
+    expect(html).toContain("Asked by message on 12 October 2026");
+    expect(html).toContain("Send a reminder");
+    expect(html).toContain("The member says they asked their employer (14 October 2026)");
+    answers.claims = claims("open", [claim("asked")]);
+    const plain = await drawClaims();
+    expect(plain).toContain("Send to the member");
+    expect(plain).not.toContain("Asked by message");
+    expect(plain).not.toContain("The member says they asked");
+  });
+
   it("offers an ended claim only 'Open it again', and shows the day the match was received", async () => {
     answers.claims = claims("ended", [claim("received")]);
     const html = await drawClaims({ show: "ended" });
