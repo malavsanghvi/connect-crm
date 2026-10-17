@@ -21,6 +21,7 @@ import {
   type CareListFilter,
   type CareTouchPage,
 } from "@/lib/care/model";
+import { classifyHealth, parseCareDashboard, parseHealthFacts, type CareDashboard, type Health } from "@/lib/care/health";
 import {
   parseHouseholdThanks,
   parseThanksQueue,
@@ -58,14 +59,17 @@ export type CareCardLoad = {
   holders: CareRead<CareHolder[]> | null;
   /** The household's open thank-yous (slice 3); null when the card could not be read at all. */
   thanks?: CareRead<HouseholdThanks> | null;
+  /** The household's engagement sign with its reasons (slice 4); null when the card could not be read at all. */
+  health?: CareRead<Health | null> | null;
 };
 
 /** The Care card of one household: the card, the first page of the touch log, and (for a manager) who can own it. */
 export async function loadCareCard(session: CrmSession, householdId: string): Promise<CareCardLoad> {
   const [card, touches] = await Promise.all([readCard(session, householdId), readTouches(session, householdId, null)]);
   const holders = card.status === "ok" && card.data.access.manage ? await readHolders(session) : null;
-  const thanks = card.status === "ok" ? await loadHouseholdThanks(session, householdId) : null;
-  return { card, touches, holders, thanks };
+  const [thanks, health] =
+    card.status === "ok" ? await Promise.all([loadHouseholdThanks(session, householdId), loadHouseholdHealth(session, householdId)]) : [null, null];
+  return { card, touches, holders, thanks, health };
 }
 
 export async function readCard(session: CrmSession, householdId: string): Promise<CareRead<CareCard>> {
@@ -137,6 +141,33 @@ export async function loadHouseholdThanks(session: CrmSession, householdId: stri
   const res = await session.db.rpc("care_household_thanks", { p_household: householdId });
   if (res.error) return refusal("could not read this household's thank-yous", res.error);
   return { status: "ok", data: parseHouseholdThanks(res.data) };
+}
+
+// ── Engagement signs (slice 4, 0884-0885) ────────────────────────────────────
+
+/** The sign of each household asked for (up to 100 at a time), by household id. The database returns counts and dates; the words are health.ts. */
+export async function loadHealth(session: CrmSession, householdIds: string[]): Promise<CareRead<Record<string, Health>>> {
+  if (householdIds.length === 0) return { status: "ok", data: {} };
+  const res = await session.db.rpc("care_health_facts", { p_center: session.center.id, p_households: householdIds.slice(0, 100) });
+  if (res.error) return refusal("could not read the engagement signs", res.error);
+  const answer = parseHealthFacts(res.data);
+  const ctx = { today: answer.today, historyMonths: answer.historyMonths, giving: answer.giving };
+  const out: Record<string, Health> = {};
+  for (const f of answer.rows) out[f.householdId] = classifyHealth(f, ctx);
+  return { status: "ok", data: out };
+}
+
+/** One household's sign, for the Care card. */
+export async function loadHouseholdHealth(session: CrmSession, householdId: string): Promise<CareRead<Health | null>> {
+  const res = await loadHealth(session, [householdId]);
+  return res.status === "ok" ? { status: "ok", data: res.data[householdId] ?? null } : res;
+}
+
+/** The organization's own numbers: counts only, no household, no name and no amount. */
+export async function loadCareDashboard(session: CrmSession): Promise<CareRead<CareDashboard>> {
+  const res = await session.db.rpc("care_dashboard", { p_center: session.center.id });
+  if (res.error) return refusal("could not read the dashboard", res.error);
+  return { status: "ok", data: parseCareDashboard(res.data) };
 }
 
 /** The community's thank-you rules (a manager, or support with the care.settings area, may change them). */

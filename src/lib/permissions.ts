@@ -400,6 +400,8 @@ export const ACCESS = {
    * screens also check the module (careCan / matchingCan above, which do).
    */
   care: ["care.view", "care.own", "care.manage"],
+  /** The organization's own numbers (app.care_dashboard, 0885): every household, so view or manage, not a relationship owner alone. */
+  careView: ["care.view", "care.manage"],
   careManage: ["care.manage"],
   matching: ["matching.view", "matching.manage"],
   matchingManage: ["matching.manage"],
@@ -654,6 +656,7 @@ export const NAV: NavModule[] = [
     tabs: [
       { href: "/care", label: "Households", access: "care" },
       { href: "/care/thanks", label: "Thank-yous", access: "care" },
+      { href: "/care/dashboard", label: "Dashboard", access: "careView" },
       { href: "/care/settings", label: "Thank-you rules", access: "careManage" },
     ],
     paths: ["/care"],
