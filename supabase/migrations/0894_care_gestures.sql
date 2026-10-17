@@ -69,7 +69,7 @@ grant all on app.care_gestures to service_role;
 -- A gesture is never paired with an ask: its name, description and draft may not ask for money. A plain check on words (the organization is told what to
 -- change); it cannot catch every phrasing, which is why a gesture also records a touch that is always "no ask".
 create or replace function app._care_words_ask(p_text text) returns boolean
-language sql immutable as $$
+language sql immutable security definer set search_path = app, public, extensions as $$
   select coalesce(p_text, '') ~* '(please (give|donate|contribute|pledge)|(would|could|can|will) you (please )?(give|donate|contribute|pledge|consider (giving|donating|a (gift|donation)))|make a (gift|donation|pledge|contribution)|donate (now|today|here)|give (now|today|generously)|consider (giving|donating)|support us with a|\$ ?[0-9])'
 $$;
 revoke execute on function app._care_words_ask(text) from public, anon, authenticated;
