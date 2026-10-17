@@ -1,5 +1,5 @@
-// WeCare slice 2 (docs/WECARE.md sections 3 and 5.1-5.3; connect-crm 0760-0763): the words and shapes the Care card and
-// the WeCare area draw from. Pure: no React and no server-only imports, so the card, the list, the actions and the tests
+// DonorDelight slice 2 (docs/DONORDELIGHT.md sections 3 and 5.1-5.3; connect-crm 0760-0763): the words and shapes the Care card and
+// the DonorDelight area draw from. Pure: no React and no server-only imports, so the card, the list, the actions and the tests
 // read the same thing.
 //
 // Nothing here decides who may see what: app.care_household_can and app.care_can in the database do (no platform-admin
@@ -278,7 +278,7 @@ export function parseCard(v: unknown): CareCard {
   const lt = obj(o.last_touch);
   return {
     household: parseHousehold(o.household),
-    label: str(o.label) ?? "WeCare",
+    label: str(o.label) ?? "DonorDelight",
     access: { level, manage: bool(access.manage), amounts: bool(access.amounts), people: bool(access.people) },
     owners: parseOwners(o.owners),
     profile: parseProfile(o.profile),
@@ -383,7 +383,7 @@ export function parseList(v: unknown): CareList {
       };
     }),
     counts: { all: nullableCount(counts.all), mine: num(counts.mine), needsOwner: nullableCount(counts.needs_owner), resting: num(counts.resting) },
-    label: str(o.label) ?? "WeCare",
+    label: str(o.label) ?? "DonorDelight",
     can: { all: bool(can.all), manage: bool(can.manage) },
   };
 }
@@ -406,7 +406,7 @@ export function isNoAccess(error: unknown): boolean {
   return e.code === "42501" || /You don't have access to this area/i.test(e.message ?? "");
 }
 
-/** "WeCare is not on for this community." from the database, when that is why. */
+/** "DonorDelight is not on for this community." from the database, when that is why. */
 export function offSentence(error: unknown): string | null {
   if (!error || typeof error !== "object") return null;
   const m = (error as { message?: string | null }).message ?? "";

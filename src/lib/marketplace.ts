@@ -13,7 +13,7 @@ export type Product = {
   key: string;
   moduleKey: string | null;
   name: string;
-  /** The kind's own name for the module (WeCare is "Member care" for a faith kind). */
+  /** The kind's own name for the module (DonorDelight is "Member care" for a faith kind). */
   moduleLabel: string | null;
   mark: string;
   line: string;

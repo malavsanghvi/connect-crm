@@ -19,7 +19,7 @@ import { UndoProvider } from "./undo";
 
 // The Family page's body in the New look: the household and every person on one page, each value editable where it stands.
 // Left (two thirds): the people (adults as cards, children compact below), then IDs and Notes. Right: Address, Giving at a glance
-// (the panel as it is), Preferences, and the Care card for someone with a WeCare role. On a phone everything is one column in the order: people, children, address, giving,
+// (the panel as it is), Preferences, and the Care card for someone with a DonorDelight role. On a phone everything is one column in the order: people, children, address, giving,
 // preferences, IDs, notes. The server hands in the parts that are read on the server (the glance, the tabs) as `slots`.
 
 export type FamilySlots = {
@@ -29,7 +29,7 @@ export type FamilySlots = {
   tabs: ReactNode;
   /** A notice to choose a new primary member, when one is needed. */
   prompt?: ReactNode;
-  /** The Care card (WeCare, 0763): only for someone with a care role; null otherwise. */
+  /** The Care card (DonorDelight, 0763): only for someone with a care role; null otherwise. */
   care?: ReactNode;
   /** Anything that must be rendered at the end (the classic drawers that "Add person" and "Open details" use until the slide-over). */
   after?: ReactNode;

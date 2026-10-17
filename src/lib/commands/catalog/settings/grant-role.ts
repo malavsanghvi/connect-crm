@@ -103,7 +103,7 @@ export const grantRole = defineCommand<GrantInput, undefined>({
         message: `${plan.role.name} is waiting for a second person: it starts only when a different administrator approves it under "Waiting for approval".`,
       };
     }
-    // WeCare and CatchTheMatch roles (0757): the database emails the organization's owner about each one.
+    // DonorDelight and CatchTheMatch roles (0757): the database emails the organization's owner about each one.
     const ownerTold = rolePrivateProducts(plan.role).length > 0 ? " The organization's owner gets an email about it." : "";
     return { ok: true, data: undefined, message: `Granted ${plan.role.name}${plan.ends_on ? ` until ${plan.ends_on}` : ""}.${ownerTold}` };
   },

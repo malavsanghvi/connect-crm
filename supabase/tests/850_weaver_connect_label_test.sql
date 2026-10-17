@@ -55,13 +55,13 @@ select pg_temp.assert((select label = 'Weaver Connect' and not core and depends_
   'A · the module `channels` is called Weaver Connect, still needs Communications, and no module label carries the old name');
 select pg_temp.assert((select array_agg(key || '=' || label order by sort) from app.modules
                         where key = any (array['ai', 'website', 'channels', 'care', 'matching']))
-                        = array['ai=iWeaver', 'website=WeaverSite', 'channels=Weaver Connect', 'care=WeCare', 'matching=CatchTheMatch'],
+                        = array['ai=iWeaver', 'website=WeaverSite', 'channels=Weaver Connect', 'care=DonorDelight', 'matching=CatchTheMatch'],
   'A · the other four Marketplace modules keep their names');
 select pg_temp.assert((select name = 'Weaver Connect' and mark = 'WCo' and module_key = 'channels' and status = 'available'
                          from app.marketplace_products where key = 'channels')
                       and (select array_agg(key || '=' || name || ':' || mark order by sort) from app.marketplace_products
                             where key = any (array['ai', 'website', 'care', 'matching']))
-                          = array['ai=iWeaver:iW', 'care=WeCare:WC', 'matching=CatchTheMatch:CT', 'website=WeaverSite:WS'],
+                          = array['ai=iWeaver:iW', 'care=DonorDelight:DD', 'matching=CatchTheMatch:CT', 'website=WeaverSite:WS'],
   'A · the Marketplace card is Weaver Connect with the badge WCo (it was CC); the other four cards are unchanged');
 select pg_temp.assert(not exists (select 1 from app.marketplace_products p where to_jsonb(p)::text ~ 'CommunityConnect')
                       and not exists (select 1 from app.category_modules c where to_jsonb(c)::text ~ 'CommunityConnect')
@@ -163,7 +163,7 @@ update app.marketplace_products set name = 'CommunityConnect', mark = 'CC' where
 select pg_temp.assert((select label from app.modules where key = 'channels') = 'Weaver Connect'
                       and (select name || ':' || mark from app.marketplace_products where key = 'channels') = 'Weaver Connect:WCo'
                       and (select label from app.modules where key = 'website') = 'WeaverSite'
-                      and (select name from app.marketplace_products where key = 'care') = 'WeCare'
+                      and (select name from app.marketplace_products where key = 'care') = 'DonorDelight'
                       and (select depends_on from app.modules where key = 'channels') = '{comms}',
   'F · the exact old name is renamed again (label, card name, badge), and nothing else is touched');
 

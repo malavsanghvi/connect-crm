@@ -21,7 +21,7 @@ import type { KindProfile } from "@/lib/kind";
 import { careCan, canOpenTab, visibleNav, type ScopedContext } from "@/lib/permissions";
 import { workspaceCoverageProblems } from "@/lib/workspaces";
 
-// WeCare slice 2 (connect-crm 0760-0763): the words and shapes the Care card and the WeCare area draw from, for four kinds of
+// DonorDelight slice 2 (connect-crm 0760-0763): the words and shapes the Care card and the DonorDelight area draw from, for four kinds of
 // organization (a church, a chamber, a temple and a food bank: nothing here is written for one community), and the navigation
 // rules (convenience only: the database decides, with no platform-admin branch).
 
@@ -189,13 +189,13 @@ describe("the touch log, the list and the picker", () => {
   });
 });
 
-describe("who sees WeCare in the navigation (convenience: the database decides)", () => {
+describe("who sees DonorDelight in the navigation (convenience: the database decides)", () => {
   const lead: ScopedContext = { permissions: ["care.view", "care.manage"], isPlatformAdmin: false, modulesOff: [] };
   const owner: ScopedContext = { permissions: ["care.own"], isPlatformAdmin: false, modulesOff: [] };
   const platform: ScopedContext = { permissions: ["people.view"], isPlatformAdmin: true, modulesOff: [] };
   const careTab = { access: "care", module: "care" } as const;
 
-  it("shows the WeCare area to a care role while the product is on", () => {
+  it("shows the DonorDelight area to a care role while the product is on", () => {
     expect(canOpenTab(lead, careTab)).toBe(true);
     expect(canOpenTab(owner, careTab)).toBe(true);
     expect(careCan(owner, "own")).toBe(true);
@@ -212,7 +212,7 @@ describe("who sees WeCare in the navigation (convenience: the database decides)"
     expect(careCan({ ...lead, modulesOff: ["care"] }, "view")).toBe(false);
   });
 
-  it("puts WeCare in the People workspace", () => {
+  it("puts DonorDelight in the People workspace", () => {
     expect(workspaceCoverageProblems()).toEqual([]);
   });
 });

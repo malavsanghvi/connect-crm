@@ -70,7 +70,7 @@ grant connect_worker to postgres;
 -- ══ A. The catalog ═══════════════════════════════════════════════════════════
 select pg_temp.assert((select array_agg(key || '=' || label || ':' || array_to_string(depends_on, ',') order by sort)
                          from app.modules where key = any (:FIVE))
-                        = array['ai=iWeaver:', 'website=WeaverSite:people', 'channels=Weaver Connect:comms', 'care=WeCare:people',
+                        = array['ai=iWeaver:', 'website=WeaverSite:people', 'channels=Weaver Connect:comms', 'care=DonorDelight:people',
                                 'matching=CatchTheMatch:giving']
                       and not exists (select 1 from app.modules where key = any (:FIVE) and core),
   'A · five products join the catalog with neutral keys and brand labels, none core, each needing what the plan says');

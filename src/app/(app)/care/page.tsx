@@ -10,7 +10,7 @@ import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Care" };
 
-// The WeCare area (slice 2): the households the organization cares for, their relationship owners and their last personal
+// The DonorDelight area (slice 2): the households the organization cares for, their relationship owners and their last personal
 // touch. A care.own holder sees only the households they own or back up; care.view and care.manage see every household.
 // The database decides (app.care_households, 0763: no platform-admin branch) and logs the read. A refusal reads "You don't have
 // access to this area", never an empty table.
@@ -35,7 +35,7 @@ function when(iso: string | null, timeZone: string): string {
 export default async function CarePage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const sp = await searchParams;
-  const label = kindName(session.kind, "care", "WeCare");
+  const label = kindName(session.kind, "care", "DonorDelight");
   const description = "The households you care for, who owns each relationship, and the last personal touch. Only roles your organization chooses see this; Weaver staff cannot.";
 
   if (!seesCare(session)) {

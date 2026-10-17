@@ -64,7 +64,7 @@ product they use today, and a test compares their module states before and after
 | **Digital Store** (B71 grows it into custom and ready-made products) | `store` | available, expanding |
 | **CatchTheMatch** (employer and grant matching, Weaver files, paid only on success; B103, [`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md)) | new module `matching` (needs Giving) | coming soon, subscription |
 | **Gala and Auctions** (B74) | new module (needs Event Weaver and Giving) | coming soon |
-| **WeCare** (Donor care / Member care; absorbs B73 and B98; B102, [`WECARE.md`](WECARE.md)) | new module `care` (needs People; uses Giving when on) | coming soon, subscription |
+| **DonorDelight** (Donor care / Member care; absorbs B73 and B98; B102, [`DONORDELIGHT.md`](DONORDELIGHT.md)) | new module `care` (needs People; uses Giving when on) | coming soon, subscription |
 | **Special Days and Occasions** (B72) | partly `calendar`; new | coming soon |
 | **Newsletters and Messaging** (B60) | `comms` | available, expanding |
 | **WeaverSite** (working name: the organization's own website; B55, B61, B75; [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) | new module `website` (site tables of 0642) | partly built (private draft), subscription |

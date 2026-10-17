@@ -35,7 +35,7 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | Governance | `governance.view`, `governance.manage`, `governance.vote` |
 | Volunteers / safety | `volunteers.view`, `volunteers.manage`, `safety.view`, `safety.manage` |
 | Platform | `settings.manage`, `roles.manage`, `audit.view`, `integrations.view`, `integrations.manage`, `privacy.manage`, `reports.view` |
-| WeCare (`care`, the organization's own data) | `care.view`, `care.own`, `care.manage` |
+| DonorDelight (`care`, the organization's own data) | `care.view`, `care.own`, `care.manage` |
 | CatchTheMatch (`matching`, the organization's own data) | `matching.view`, `matching.manage` |
 
 ## Default roles
@@ -66,17 +66,17 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | Operational | `teacher` | Own classes | Attendance, sign-offs, class announcements |
 | Operational | `zone_lead` | One zone | Zone inbox, zone families |
 | Center | `market_lead` | Center | Community Market (0830): its categories and listings, and starting it. The store lead keeps Food and can also run the market's listings. A demo community needs no demo person for it unless it has the market |
-| Center | `care_lead` | Center | WeCare: every care record, relationship owners, playbooks, care settings (amounts only with a giving role) |
-| Center | `relationship_owner` | Center | WeCare: the care records of the households they own |
+| Center | `care_lead` | Center | DonorDelight: every care record, relationship owners, playbooks, care settings (amounts only with a giving role) |
+| Center | `relationship_owner` | Center | DonorDelight: the care records of the households they own |
 | Center | `matching_lead` | Center | CatchTheMatch: claims, employers on file, match history, settings |
 | Family | `community_member`, `membership_reference`, `primary_adult`, `adult_member`, `child` | Own household | Derived from relationships, not granted |
 
-## The organization's own data: WeCare and CatchTheMatch (0757-0759)
+## The organization's own data: DonorDelight and CatchTheMatch (0757-0759)
 
 - `app.org_private_can(center, key)` decides `care.*` and `matching.*`: the owner, or an active center-wide grant of a role
   that is not a platform-tier role, with the product's module on. **No platform-admin branch** (`has_permission` is true for
   every platform admin, 0400). `has_permission` and the portal's `can` give the same answer for these keys. Every care or
-  matching table and function uses `app.care_can` / `app.matching_can`; amounts in WeCare also need `giving.view`
+  matching table and function uses `app.care_can` / `app.matching_can`; amounts in DonorDelight also need `giving.view`
   (`app.care_amounts_can`).
 - The three roles above are granted by nobody by default. Only the owner or that product's `.manage` holder gives them
   (`roles.manage` alone is not enough), never to oneself, never to a platform-admin account, for the whole community only.
@@ -90,7 +90,7 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
   when a signed-in change sets it off.
 - Sign-in links (`center_users`): through the API nobody changes the person their own sign-in is linked to, and platform
   admins change no link; the linking functions (invitations, join codes, onboarding, promotion) keep their own checks.
-- Weaver's team: a support grant opens WeCare **settings** only when the owner names the area `care.settings`, never care
+- Weaver's team: a support grant opens DonorDelight **settings** only when the owner names the area `care.settings`, never care
   records. CatchTheMatch filing is a separate grant the organization gives a named Weaver team member
   (`app.grant_weaver_filing`, at most 366 days, ended when CatchTheMatch is turned off); every read is logged.
 - Audit entries of these products are read by the owner and the product's manager only, not by `audit.view` alone and not by

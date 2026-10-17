@@ -1,4 +1,4 @@
-// Giving a WeCare or CatchTheMatch role (migration 0757): only the organization's owner or that product's manager may, for the whole
+// Giving a DonorDelight or CatchTheMatch role (migration 0757): only the organization's owner or that product's manager may, for the whole
 // community only; roles.manage alone is not enough. The command says so in the screen's words before the database refuses it too.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -20,7 +20,7 @@ const failed = (r: CommandRunResult): string => {
 function worldWithCareRoles() {
   const world = addSettingsWorld();
   (world.tables!.roles as Record<string, unknown>[]).push(
-    { key: "care_lead", name: "Care lead", tier: "center", description: "WeCare", permissions: ["care.view", "care.manage"] },
+    { key: "care_lead", name: "Care lead", tier: "center", description: "DonorDelight", permissions: ["care.view", "care.manage"] },
     { key: "matching_lead", name: "Matching lead", tier: "center", description: "CatchTheMatch", permissions: ["matching.view", "matching.manage"] },
   );
   return world;
@@ -34,7 +34,7 @@ describe("settings.grant_role for the organization's own data", () => {
   it("refuses an administrator who holds roles.manage but does not manage the product", async () => {
     const { ctx, inserts } = asWriter({ world: worldWithCareRoles() });
     expect(failed(await runCommand(ctx, "settings.grant_role", { user_id: U.priya2, role_key: "care_lead" }))).toBe(
-      "Could not grant Care lead — only the organization's owner or someone who manages WeCare can give it.",
+      "Could not grant Care lead — only the organization's owner or someone who manages DonorDelight can give it.",
     );
     expect(inserts).toEqual([]);
   });

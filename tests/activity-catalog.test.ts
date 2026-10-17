@@ -68,7 +68,7 @@ describe("the keys the portal records", () => {
   });
 });
 
-// The organization's own data (WeCare, docs/WECARE.md section 3, W2) is never recorded in the activity stream: its screens are
+// The organization's own data (DonorDelight, docs/DONORDELIGHT.md section 3, W2) is never recorded in the activity stream: its screens are
 // left out of the catalog on purpose, so the database drops their events and none can reach the share-with-Weaver set.
 const PRIVATE_SCREENS = ["/care"];
 
@@ -79,7 +79,7 @@ describe("the screens of the navigation", () => {
     expect(missing).toEqual([]);
   });
 
-  it.skipIf(!catalogSql)("never lists WeCare's screens or actions, so nothing of them is recorded (W2)", () => {
+  it.skipIf(!catalogSql)("never lists DonorDelight's screens or actions, so nothing of them is recorded (W2)", () => {
     expect(NAV.some((m) => m.tabs.some((t) => t.href === "/care"))).toBe(true);
     expect(catalogSql).not.toMatch(/'screen:\/care/);
     expect([...recordedKeys().keys()].filter((k) => k.startsWith("care."))).toEqual([]);

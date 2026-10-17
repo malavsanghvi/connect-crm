@@ -22,8 +22,8 @@ insert into app.roles (key, tier, name, default_scope, description, permissions)
 ('privacy_officer',       'center',     'Privacy officer',         'center',   'Data export and deletion requests', '["privacy.manage","people.view","audit.view"]'),
 ('volunteer_coordinator', 'center',     'Volunteer coordinator',   'center',   'Volunteer groups, shifts, waivers and background checks', '["volunteers.view","volunteers.manage","safety.view","safety.manage","events.view"]'),
 -- The organization's own data (0757): given only by the owner or the product's manager; never seen by Weaver's team.
-('care_lead',             'center',     'Care lead',               'center',   'WeCare: every care record, relationship owners, playbooks and care settings. Amounts only with a giving role as well.', '["care.view","care.manage"]'),
-('relationship_owner',    'center',     'Relationship owner',      'center',   'WeCare: the care records of the households they own, nothing else. Amounts only with a giving role as well.', '["care.own"]'),
+('care_lead',             'center',     'Care lead',               'center',   'DonorDelight: every care record, relationship owners, playbooks and care settings. Amounts only with a giving role as well.', '["care.view","care.manage"]'),
+('relationship_owner',    'center',     'Relationship owner',      'center',   'DonorDelight: the care records of the households they own, nothing else. Amounts only with a giving role as well.', '["care.own"]'),
 ('matching_lead',         'center',     'Matching lead',           'center',   'CatchTheMatch: claims, employers on file, match history and its settings.', '["matching.view","matching.manage"]'),
 ('event_lead',            'operational','Event lead',              'event',    'Event setup, attendee list, lunch settings, volunteer assignment', '["events.view","reports.view"]'),
 ('checkin_volunteer',     'operational','Check-in volunteer',      'event',    'Scan, walk-ins, stations; no giving data', '[]'),

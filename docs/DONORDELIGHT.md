@@ -1,4 +1,9 @@
-# WeCare: Donor care and Member care (plan)
+# DonorDelight: Donor care and Member care (plan)
+
+**Renamed 2026-10-16 (owner):** this product was called WeCare; its name is **DonorDelight** (Marketplace card, website, docs; migration 0880). The label of the section
+in the portal stays per kind (Donor care for non-profit and civic kinds, Member care for faith and community kinds). The module key `care`, the permission
+keys `care.view`, `care.own` and `care.manage`, the roles, the tables and the `/care` address are unchanged. Earlier migrations and test descriptions
+still say WeCare: applied files are never edited. The prototype folder keeps its date-stamped name.
 
 Status: plan, 2026-10-13. Slices 1 (0750, 0757-0758) and 2 (0760-0763, in review) are built; the rest is plan. It merges B73 (donor playbooks) and B98 (giving insights: who to approach,
 [`GIVING_INSIGHTS.md`](GIVING_INSIGHTS.md)) into one product, backlog **B102**. Built for every organization Weaver
@@ -12,7 +17,7 @@ from the organization's kind, its own settings and its own records, never from c
 - **The problem.** Most organizations reach their donors when they need money: an appeal, a campaign, a gala. The
   relationship lives in one or two people's heads and leaves with them. Touches that a supporter would enjoy (a call
   with no ask, a photo of what their gift built, a greeting on their day) happen by luck, not by plan.
-- **The product.** WeCare turns the organization's mission into a yearly care plan, gives every key household a
+- **The product.** DonorDelight turns the organization's mission into a yearly care plan, gives every key household a
   relationship owner, records every touch, tracks thank-yous, shows plain engagement signs with their reasons, and
   hands each owner a short weekly list with a ready draft. The ask comes last, after the relationship is healthy.
 - **What makes it different.** Donor tools see only money. Weaver also sees event check-ins, volunteering, messages
@@ -20,7 +25,7 @@ from the organization's kind, its own settings and its own records, never from c
   work the organization already does, with no extra typing.
 - **Its biggest risk is that nobody uses it.** Every design choice below makes the weekly work small (3 to 5 touches,
   each with a reason and a draft, done in one tap) and shows the payoff (retention and thank-you speed moving).
-- **Names.** One product, **WeCare**, shown as **Donor care** for non-profit and civic kinds and **Member care** for
+- **Names.** One product, **DonorDelight**, shown as **Donor care** for non-profit and civic kinds and **Member care** for
   faith and community kinds; the label is data per kind (`app.category_modules`, like "Cash counts").
 
 ## 2. Owner decisions (2026-10-13)
@@ -28,29 +33,29 @@ from the organization's kind, its own settings and its own records, never from c
 | # | Decision |
 |---|---|
 | W1 | B73 and B98 merge into this plan; one product, one module. |
-| W2 | **Proprietary data.** Only people in roles the organization gives WeCare access can see care data, and only roles that can also see amounts see amounts. **Nobody else**: not other staff, not members, not Weaver's platform admins. |
-| W3 | WeCare is a **subscription product in the Marketplace** that an organization chooses to take. |
+| W2 | **Proprietary data.** Only people in roles the organization gives DonorDelight access can see care data, and only roles that can also see amounts see amounts. **Nobody else**: not other staff, not members, not Weaver's platform admins. |
+| W3 | DonorDelight is a **subscription product in the Marketplace** that an organization chooses to take. |
 | W4 | Volunteers see what their role allows (W2); there is no separate "volunteers never see amounts" rule. |
-| W5 | `giving_insights` keeps the numbers (B98 slices 1 and 2); people and relationships move to WeCare (section 4). |
+| W5 | `giving_insights` keeps the numbers (B98 slices 1 and 2); people and relationships move to DonorDelight (section 4). |
 | W6 | A narrower `care.own` level (only my own households) alongside `care.view`. |
-| W7 | The thank-you tracker is part of WeCare; organizations without WeCare keep receipts as today. |
-| W8 | Weaver support may open WeCare settings with a support grant, never care records. |
+| W7 | The thank-you tracker is part of DonorDelight; organizations without DonorDelight keep receipts as today. |
+| W8 | Weaver support may open DonorDelight settings with a support grant, never care records. |
 
 ## 3. Who can see (W2, the proprietary rule)
 
 **Today's gap (found 2026-10-13):** `app.has_permission` returns true for every platform admin in every community
 ([0400_owner_every_task.sql](../supabase/migrations/0400_owner_every_task.sql), line 22; also backlog B1). Reusing it
-would let Weaver staff read every organization's care records. WeCare therefore gets its own check.
+would let Weaver staff read every organization's care records. DonorDelight therefore gets its own check.
 
 | Rule | How |
 |---|---|
-| Own access check | `app.care_can(center, level)`: the center owner, or an active role grant in that center whose role holds the WeCare key (or `*`, the organization's own admin roles). **No `is_platform_admin()` branch.** Every WeCare table's RLS and every WeCare function uses it. |
+| Own access check | `app.care_can(center, level)`: the center owner, or an active role grant in that center whose role holds the DonorDelight key (or `*`, the organization's own admin roles). **No `is_platform_admin()` branch.** Every DonorDelight table's RLS and every DonorDelight function uses it. |
 | Permission keys | `care.view` (all care records), `care.own` (only households where I am the relationship owner), `care.manage` (owners, playbooks, gesture library, care plan, settings). Given to roles by the organization, never by default. |
-| Amounts | A gift amount, range or total appears in WeCare only if the person **also** holds `giving.view` (or `giving.manage`). Without it the screen says "thank them warmly", never a number. Enforced in the functions that return the rows, not only in the UI. |
-| Platform admins | No read of care records, even with a support grant (`app.support_grants`). A support grant may open WeCare **settings** (to fix setup), never touches, notes, scores or lists. |
-| Platform screens | `platform_community_summary` and every cross-community count leave WeCare out (at most "WeCare: on"). |
-| Activity stream (0620) | WeCare actions record an action key only, no entity id, and are never in the share-with-Weaver set. |
-| AI | Needs **iWeaver** (module `ai`, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) as well as WeCare, and the organization's own tick; it runs on Weaver's platform AI keys (no community has its own key today); drafts only, a person sends; nothing about anyone under 18; nothing kept by Weaver for training or across organizations (section 8). |
+| Amounts | A gift amount, range or total appears in DonorDelight only if the person **also** holds `giving.view` (or `giving.manage`). Without it the screen says "thank them warmly", never a number. Enforced in the functions that return the rows, not only in the UI. |
+| Platform admins | No read of care records, even with a support grant (`app.support_grants`). A support grant may open DonorDelight **settings** (to fix setup), never touches, notes, scores or lists. |
+| Platform screens | `platform_community_summary` and every cross-community count leave DonorDelight out (at most "DonorDelight: on"). |
+| Activity stream (0620) | DonorDelight actions record an action key only, no entity id, and are never in the share-with-Weaver set. |
+| AI | Needs **iWeaver** (module `ai`, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) as well as DonorDelight, and the organization's own tick; it runs on Weaver's platform AI keys (no community has its own key today); drafts only, a person sends; nothing about anyone under 18; nothing kept by Weaver for training or across organizations (section 8). |
 | Export | Only `care.manage`, step-up 2FA, audited. The organization can export everything it holds at any time, including after it cancels. |
 | Audit | Every list view, export, owner change and settings change writes an audit row (who, when, what, row count; no names). |
 | Members | A member sees only their own care preferences (section 5, slice 9): never notes, signs, owners or lists. |
@@ -78,7 +83,7 @@ record writes its touches, notes and profile (owner decision 2026-10-13). Reads 
 `app.care_households` and `app.care_household_touches`, each logged; the touches Weaver already knows (messages,
 receipts, statements, check-ins, volunteer shifts) are read live, adults only, receipt amounts only with
 `app.care_amounts_can`; People fields are read where they live and only with people.view. Portal: the Care card on the
-Family page and the WeCare area (`/care`), neither recorded in the activity stream. No export, no AI. Care records never
+Family page and the DonorDelight area (`/care`), neither recorded in the activity stream. No export, no AI. Care records never
 disappear with a household or a person: deleting either is refused in plain words (an import undo too), and merging two
 households moves notes and touches to the survivor (its profile and owner win; the merged one fills blanks). The touch
 log counts only community messages (`app.care_message_kinds`: campaign kinds and topics as data, never learning or
@@ -88,20 +93,20 @@ asked to be told.
 
 ## 4. Product and module
 
-- **Module key `care`** (a neutral key; the label is WeCare, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md) P6), depends on **People** only. It reads Giving when Giving is on (amount signs, thank-you
+- **Module key `care`** (a neutral key; the label is DonorDelight, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md) P6), depends on **People** only. It reads Giving when Giving is on (amount signs, thank-you
   tracker, who to approach); without Giving it still runs member care (welcome visits, care moments, involvement).
 - **Off until granted.** `category_modules.availability = default_off` for every kind; a platform admin grants it per
   community through the module grants of 0740 (reason, fresh 2FA, audit); the organization's admin may pause it.
 - **Subscription.** Marketplace phases 2 and 3 (prices, billing) are not built ([`MARKETPLACE_PLAN.md`](MARKETPLACE_PLAN.md)).
-  Until they are, WeCare shows on the Marketplace card as **Request**: the organization asks, the Weaver team grants by
+  Until they are, DonorDelight shows on the Marketplace card as **Request**: the organization asks, the Weaver team grants by
   hand. No price is set in this plan (the owner decides; nothing about pricing is promised).
-- **Lapse.** A lapsed subscription makes WeCare read-only for 30 days, then hidden. Data is never deleted and stays
+- **Lapse.** A lapsed subscription makes DonorDelight read-only for 30 days, then hidden. Data is never deleted and stays
   exportable (Marketplace M9).
 - **Split with `giving_insights`.** That add-on keeps the plain numbers of `GIVING_INSIGHTS.md` slices 1 and 2
   (Giving > Insights by category and year, a household's own giving story; read-only, existing giving permissions).
   Everything about people and relationships moves here: slices 3 to 7 (safety data, who to approach, next best ask,
   ask history, milestones, peer networks). Matching-gift flags move to **CatchTheMatch**
-  ([`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md)); when both products are on, a WeCare playbook step can prompt a
+  ([`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md)); when both products are on, a DonorDelight playbook step can prompt a
   donor whose gift may be matched.
 
 ## 5. Building blocks
@@ -109,8 +114,8 @@ asked to be told.
 1. **Care profile** (per household, adults only): how they like to be thanked (in person, call, card, message,
    none), recognition (public, private only, anonymous: some traditions give in secret), preferred channel and
    language, do-not-ask with a rest-until date, care notes. Reuses People fields rather than copying them (interests,
-   expertise areas, best call time, anniversary, dietary needs, special days, consents). WeCare-only fields live in
-   WeCare tables so W2 applies to them; the People fields keep their own visibility.
+   expertise areas, best call time, anniversary, dietary needs, special days, consents). DonorDelight-only fields live in
+   DonorDelight tables so W2 applies to them; the People fields keep their own visibility.
 2. **Relationship owner**: one person per household (staff or volunteer with `care.own` or more), with a backup.
    When an owner leaves or loses the role, their households show as "needs an owner" and the history hands over
    intact: this is what fixes "the relationship leaves with the person".
@@ -170,13 +175,13 @@ never an ask.
 
 ## 8. Niva and the organization's agent
 
-WeCare is a first job for the per-organization agent (the owner's direction of 2026-10-11, see
+DonorDelight is a first job for the per-organization agent (the owner's direction of 2026-10-11, see
 [`ONBOARDING_INTERVIEW.md`](ONBOARDING_INTERVIEW.md)): it learns
-the mission at onboarding and the people through WeCare. Commands only, with the asking person's own rights (W2
+the mission at onboarding and the people through DonorDelight. Commands only, with the asking person's own rights (W2
 applies to Niva exactly as to a screen): `care.my_week`, `care.household_brief` (what to know before you call),
 `care.draft_note` (a personal note from the mission, the household's history and their preferences),
 `care.log_touch` (a dictated note becomes a touch the person confirms), `care.draft_care_plan`. Needs iWeaver
-(module `ai`) as well as WeCare. Off until the
+(module `ai`) as well as DonorDelight. Off until the
 organization ticks it; at most 10 households per answer; never sends anything; never the reason a household is
 excluded; nothing about anyone under 18 goes to the AI provider.
 
@@ -185,7 +190,7 @@ excluded; nothing about anyone under 18 goes to the AI provider.
 Each slice ships on its own. S is under about 500 lines with tests, M up to about 1,500, L more. Pure logic first
 (`src/lib/care/`, plain functions with fixtures for a church, a chamber, a temple and a food bank), screens after.
 Migration and test numbers are reserved when a slice is approved, not here. Rollout: a sandbox community first, then
-any community that takes WeCare.
+any community that takes DonorDelight.
 
 | Slice | What | Size | Owner OK |
 |---|---|---|---|
@@ -212,12 +217,12 @@ weekly tasks done. These are targets to measure, not promises to make to anyone.
 ## 11. Owner answers (2026-10-13: every recommendation approved, recorded as W5 to W8)
 
 1. **The `giving_insights` split** (section 4): numbers stay in the Giving add-on, people and relationships move to
-   WeCare. **Approved**; it leaves the Insights slice in progress (S10b) unchanged.
+   DonorDelight. **Approved**; it leaves the Insights slice in progress (S10b) unchanged.
 2. **`care.own`**: a narrower level so an organization can give a volunteer only their own households.
    **Approved**, alongside `care.view`.
-3. **Thank-you tracker inside WeCare** (paid), while organizations without WeCare keep receipts as today.
+3. **Thank-you tracker inside DonorDelight** (paid), while organizations without DonorDelight keep receipts as today.
    **Approved.**
-4. **Weaver support** may open WeCare settings with a support grant, never care records. **Approved.**
+4. **Weaver support** may open DonorDelight settings with a support grant, never care records. **Approved.**
 
 ## 12. Slices 3 and 4: plan awaiting the owner (2026-10-13)
 
@@ -232,7 +237,7 @@ reads run (no trigger on payments: the money path is untouched); gifts found wit
 after refunds, no opening balances or history imports); a receipt or any thank-you touch closes an ordinary step, a
 personal step needs a call, visit, card or video; voiding that touch reopens it; reads `care_thanks_queue`,
 `care_thanks_summary` (median hours, share within the window); without amounts the screens say "Thank them warmly".
-Portal: the Care card, /care, a Home task source and a Giving Today group for care holders only, Settings > WeCare
+Portal: the Care card, /care, a Home task source and a Giving Today group for care holders only, Settings > DonorDelight
 (which also opens the W8 support area).
 
 **Slice 4, engagement signs.** `care_health_facts` per household (gifts in the last 12 months and the 12 before, taking

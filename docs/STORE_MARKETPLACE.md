@@ -28,7 +28,7 @@ words are data each community sets.
 - **The words (a warning).** "Marketplace" already means something else in Weaver: the catalog of paid products an organization
   turns on (Settings › Marketplace). This section is a different thing, so its data key is `market` and its proposed label is
   **Community Market** (section 2).
-- **It is a Marketplace product.** Like WeCare and CatchTheMatch it is a product an organization turns on: **off by default for
+- **It is a Marketplace product.** Like DonorDelight and CatchTheMatch it is a product an organization turns on: **off by default for
   every kind of organization**, switched on by Weaver's platform admin with a reason and a fresh 2FA check, paused or resumed by the
   community (rules P1 to P6, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md); section 12).
 - **The smallest useful path.** (1) The community's own non-food products, organized, in the new section: no new money rule.
@@ -317,7 +317,7 @@ Store module gates; if the market module is later paused, those rows would still
 
 The standard rules apply: a platform admin turns the product on or off with a reason and a fresh 2FA check (P1) and can see
 operational data for support under the existing support-grant model. **Message bodies and buyers' details are not read by platform
-admins** (CM16): the market does not need the stricter WeCare rule for everything, but private messages are private.
+admins** (CM16): the market does not need the stricter DonorDelight rule for everything, but private messages are private.
 
 ## 12. How it relates to the rest of Weaver
 
@@ -335,9 +335,9 @@ admins** (CM16): the market does not need the stricter WeCare rule for everythin
 Proposed card: key `market`, label Community Market, depends on Store and People, tables as listed in section 11.2, guards on every
 function that writes them.
 
-### 12.2 WeCare
+### 12.2 DonorDelight
 
-Independent products. The Community Market reads People and nothing of WeCare; WeCare reads nothing of the market. A seller or buyer is
+Independent products. The Community Market reads People and nothing of DonorDelight; DonorDelight reads nothing of the market. A seller or buyer is
 not a "donor". If the owner later wants a seller to give a share of sales to the community, that is a Giving matter (a gift), kept
 apart from the sale.
 
@@ -406,7 +406,7 @@ built on that; every later slice still needs the owner's approval of its money r
 | # | Question | Recommendation |
 |---|---|---|
 | CM1 | **The name.** What does a person read in the store: "Community Market", "Community Marketplace", or another? (The data key `market` is fixed.) | **Community Market.** Same idea as "marketplace", no clash with Settings › Marketplace. |
-| CM2 | **Is it a Marketplace product?** Off by default for every kind, granted by a platform admin (P1 to P6), a card that says Request. | **Yes.** It is a major feature with its own tables, rules and risk, like WeCare. No price is set. |
+| CM2 | **Is it a Marketplace product?** Off by default for every kind, granted by a platform admin (P1 to P6), a card that says Request. | **Yes.** It is a major feature with its own tables, rules and risk, like DonorDelight. No price is set. |
 | CM3 | **Who may sell, in what order?** The community itself, members, approved vendors. | **All three, built in that order:** the community's own products first (slice 1), members next (slice 2), vendors once members work (they need an account). |
 | CM4 | **How is a seller approved?** | A person with `market.manage` reviews an application with the applicant's household card, approves or declines with a reason; sellers are adults; terms accepted. |
 | CM5 | **Is every listing reviewed before it is published?** | **Yes, every new listing and every change to title, category, price mode or photos** in the first slices. A community setting "trusted sellers publish at once" can come later. |

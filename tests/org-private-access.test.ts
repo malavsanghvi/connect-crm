@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-// The organization's own data (migrations 0757-0759): WeCare and CatchTheMatch are seen only by the owner and the roles the
+// The organization's own data (migrations 0757-0759): DonorDelight and CatchTheMatch are seen only by the owner and the roles the
 // organization grants, never by a platform admin as such. The portal's checks mirror the database's so the screens hide what it
 // would refuse; the database decides (test 163).
 vi.mock("server-only", () => ({}));
@@ -45,7 +45,7 @@ const ctx = (permissions: string[], o: { isPlatformAdmin?: boolean; isOwner?: bo
 });
 
 describe("the private keys", () => {
-  it("belong to WeCare and CatchTheMatch, and nothing else does", () => {
+  it("belong to DonorDelight and CatchTheMatch, and nothing else does", () => {
     expect(ORG_PRIVATE_KEYS).toEqual(["care.view", "care.own", "care.manage", "matching.view", "matching.manage"]);
     expect(orgPrivateProduct("care.view")).toBe("care");
     expect(orgPrivateProduct("matching.manage")).toBe("matching");
@@ -123,7 +123,7 @@ describe("canPrivate, careCan and matchingCan", () => {
 });
 
 describe("canGrantRole", () => {
-  it("lets only the owner or the product's manager give a WeCare or CatchTheMatch role", () => {
+  it("lets only the owner or the product's manager give a DonorDelight or CatchTheMatch role", () => {
     const [careLead, relOwner, matchLead, treasurer] = roles;
     expect(canGrantRole(ctx([], { isOwner: true }), careLead)).toBe(true);
     expect(canGrantRole(ctx(["care.manage"]), relOwner)).toBe(true);
@@ -139,20 +139,20 @@ describe("the entitlement catalogue", () => {
     for (const k of ORG_PRIVATE_KEYS) expect(entitlementLabel(k)).not.toBe(k);
     expect(unknownPermissions([...ORG_PRIVATE_KEYS])).toEqual([]);
     const groups = ENTITLEMENT_GROUPS.filter((g) => g.note);
-    expect(groups.map((g) => g.name)).toEqual(["WeCare", "CatchTheMatch"]);
+    expect(groups.map((g) => g.name)).toEqual(["DonorDelight", "CatchTheMatch"]);
     expect(PRIVATE_GROUP_NOTE).toContain("Weaver's team cannot");
-    expect(ENTITLEMENT_GROUPS.find((g) => g.name === "Platform")?.items[0].label).toContain("except each organization's WeCare and CatchTheMatch data");
+    expect(ENTITLEMENT_GROUPS.find((g) => g.name === "Platform")?.items[0].label).toContain("except each organization's DonorDelight and CatchTheMatch data");
   });
 
-  it("names WeCare in the kind's words and hides each product while it is off", () => {
+  it("names DonorDelight in the kind's words and hides each product while it is off", () => {
     const faith: KindProfile = { ...LEGACY_KIND, modules: { care: { availability: "default_off", label: "Member care" } } };
     expect(entitlementGroupsFor(faith).map((g) => g.name)).toContain("Member care");
     const civic: KindProfile = { ...NEUTRAL_KIND, modules: { ...NEUTRAL_KIND.modules, care: { availability: "default_off", label: "Donor care" } } };
     expect(entitlementGroupsFor(civic).map((g) => g.name)).toContain("Donor care");
     const off = entitlementGroupsFor(LEGACY_KIND, ["care", "matching"]).map((g) => g.name);
-    expect(off).not.toContain("WeCare");
+    expect(off).not.toContain("DonorDelight");
     expect(off).not.toContain("CatchTheMatch");
-    expect(entitlementGroupsFor(LEGACY_KIND, ["matching"]).map((g) => g.name)).toContain("WeCare");
+    expect(entitlementGroupsFor(LEGACY_KIND, ["matching"]).map((g) => g.name)).toContain("DonorDelight");
   });
 });
 

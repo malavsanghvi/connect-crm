@@ -71,7 +71,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
   const listed = await loadRoleFilter(db, session.kind.key);
   const allRoles = rolesRes.data ?? [];
   const roleName = new Map(allRoles.map((r) => [r.key, r.name]));
-  // A role of a Marketplace product the community does not have on (WeCare, CatchTheMatch: 0757) is not listed either.
+  // A role of a Marketplace product the community does not have on (DonorDelight, CatchTheMatch: 0757) is not listed either.
   const productOff = (r: { permissions: unknown; tier: string }) => rolePrivateProducts(r).some((p) => session.modulesOff.includes(p));
   const roles = allRoles.filter((r) => listed(r.key) && !productOff(r));
   const now = new Date();
@@ -88,7 +88,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
     ...(events.data ?? []).map((e) => [e.id, `${e.name}${e.starts_at ? ` (${formatDate(e.starts_at, tz)})` : ""}`] as [string, string]),
     ...(classes.data ?? []).map((c) => [c.id, c.name] as [string, string]),
   ]);
-  // The roles of the organization's own data (WeCare, CatchTheMatch) are offered only to the owner and that product's manager.
+  // The roles of the organization's own data (DonorDelight, CatchTheMatch) are offered only to the owner and that product's manager.
   const grantable = roles
     .filter((r) => r.tier !== "family" && (r.tier !== "platform" || session.isPlatformAdmin) && canGrantRole(session, r))
     .map((r) => ({ key: r.key, name: r.name, tier: r.tier, default_scope: r.default_scope }));
