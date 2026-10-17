@@ -3,10 +3,11 @@ import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
 import { MATCHING_DESCRIPTION, MATCHING_TITLE, MatchingNav } from "@/components/matching/matching-nav";
+import { ProcessCard } from "@/components/matching/process-card";
 import { ProgramFacts } from "@/components/matching/program-facts";
 import { ProgramFields } from "@/components/matching/program-fields";
 import { Alert, Card, EmptyState, Field, NoAccess, PageHeader, StatusText } from "@/components/ui";
-import { loadProgram, ownsVerification, programNames } from "@/lib/matching/data";
+import { loadProcess, loadProgram, ownsVerification, programNames } from "@/lib/matching/data";
 import { statusText, verifiedText } from "@/lib/matching/directory";
 import { matchingCan } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
@@ -71,9 +72,10 @@ export default async function GiftMatchingEntryPage({ params }: { params: Promis
   }
   const { program: g, names } = res.data;
   const others = names.filter((n) => !n.is_primary).map((n) => n.name);
-  const [own, merged] = await Promise.all([
+  const [own, merged, process] = await Promise.all([
     g.verified_by_kind === "community" ? ownsVerification(session.db, session.center.id, g.verified_submission_id) : Promise.resolve(false),
     g.merged_into ? programNames(session.db, [g.merged_into]) : Promise.resolve(null),
+    g.status === "merged" ? Promise.resolve(null) : loadProcess(session.db, g.id, session.center.id),
   ]);
   const mergedName = merged && merged.ok && g.merged_into ? merged.data.get(g.merged_into)?.company_name : null;
   const checked = verifiedText({ kind: g.verified_by_kind, on: g.last_verified_on, ownCommunity: own });
@@ -110,6 +112,20 @@ export default async function GiftMatchingEntryPage({ params }: { params: Promis
         </p>
         <ProgramFacts facts={g} names={others} />
       </Card>
+      {process ? (
+        <Card title="How to claim" className="mt-4" description="The steps that got a match paid, written by Weaver's team. Shared by every community that uses gift matching.">
+          {process.ok ? (
+            <ProcessCard answer={process.data} />
+          ) : (
+            <Alert tone="danger" title="The steps could not be loaded">
+              {process.error}{" "}
+              <Link href={`/giving/matching/${id}`} className="crm-link">
+                Try again
+              </Link>
+            </Alert>
+          )}
+        </Card>
+      ) : null}
       {g.status !== "merged" ? (
         <Card title="Something changed?" className="mt-4">
           <details>

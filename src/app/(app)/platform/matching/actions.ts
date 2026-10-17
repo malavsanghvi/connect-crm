@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import type { Json } from "@/lib/database.types";
 import { failure, type ActionResult } from "@/lib/errors";
+import { processFromForm } from "@/lib/matching/catch";
 import { decisionFromForm, decisionMessage } from "@/lib/matching/decision";
 import { programFromForm } from "@/lib/matching/directory";
 import { isUuid } from "@/lib/search-params";
@@ -137,4 +138,44 @@ export async function setPublishingAction(_prev: ActionResult | null, fd: FormDa
   if (error) return failure("Could not change the community's publishing", error);
   revalidatePath("/platform/matching");
   return { ok: true, message: paused === true ? "Paused. Its approvals come to Weaver's team." : paused === false ? "Resumed. Its approvals publish again." : "Saved." };
+}
+
+// ── Phase 1 (0887): the library of how to claim from each employer ───────────
+
+function revalidateLibrary(id: string) {
+  revalidatePath(`/platform/matching/${id}`);
+  revalidatePath(`/giving/matching/${id}`);
+  revalidatePath("/giving/matching/library");
+  revalidatePath("/giving/matching/catch");
+}
+
+/** Writes the steps that got a match paid for one program, with the reason (app.save_match_process). */
+export async function saveProcessAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const id = String(fd.get("program_id") ?? "");
+  if (!isUuid(id)) return { ok: false, error: "Could not save the steps — the entry was not found. Reload the page and try again." };
+  const parsed = processFromForm(fd);
+  if (!parsed.ok) return { ok: false, error: `Could not save the steps — ${parsed.error}` };
+  const reason = String(fd.get("reason") ?? "").trim().slice(0, 500);
+  if (!reason) return { ok: false, error: "Could not save the steps — say what changed and why. It goes in the library's history." };
+  const auth = await weaverSession("save the steps");
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, reason);
+  const { data, error } = await db.rpc("save_match_process", { p_program: id, p_process: parsed.process as unknown as Json, p_reason: reason });
+  if (error) return failure("Could not save the steps", error);
+  revalidateLibrary(id);
+  return { ok: true, message: `Saved (version ${typeof data === "number" ? data : "next"}). Every community that uses gift matching sees the steps now.` };
+}
+
+export async function removeProcessAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const id = String(fd.get("program_id") ?? "");
+  if (!isUuid(id)) return { ok: false, error: "Could not remove the steps — the entry was not found. Reload the page and try again." };
+  const reason = String(fd.get("reason") ?? "").trim().slice(0, 500);
+  if (!reason) return { ok: false, error: "Could not remove the steps — say why. It goes in the library's history." };
+  const auth = await weaverSession("remove the steps");
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, reason);
+  const { error } = await db.rpc("remove_match_process", { p_program: id, p_reason: reason });
+  if (error) return failure("Could not remove the steps", error);
+  revalidateLibrary(id);
+  return { ok: true, message: "Removed from the library." };
 }
