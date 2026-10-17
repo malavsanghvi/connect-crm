@@ -5,6 +5,7 @@ import type { AppSupabase } from "@/lib/supabase/server";
 
 import { parseAskList, type AskList } from "./ask";
 import { parseCatchList, parseClaimsList, parsePersonGifts, parseProcessAnswer, parseProcessList, type CatchList, type ClaimsList, type PersonGifts, type ProcessAnswer, type ProcessListRow } from "./catch";
+import { parseClaimMessagePreview, type ClaimMessagePreview } from "./send";
 import { PROGRAM_COLUMNS, parseSearch, type ProgramRow, type SearchRow } from "./directory";
 
 // Reads for CatchTheMatch's directory screens (migrations 0765-0767). Each runs as the signed-in person: the database decides
@@ -357,4 +358,12 @@ export async function loadAskList(db: AppSupabase, centerId: string, page: numbe
   });
   if (error) return failed("the families to ask", error);
   return { ok: true, data: parseAskList(data) };
+}
+
+// ── Piece 1 (0921): sending the claim message ────────────────────────────────
+
+export async function loadClaimMessage(db: AppSupabase, centerId: string, personId: string, programId: string): Promise<Loaded<ClaimMessagePreview>> {
+  const { data, error } = await db.rpc("match_claim_message_preview", { p_center: centerId, p_person: personId, p_program: programId });
+  if (error) return failed("the message to send", error);
+  return { ok: true, data: parseClaimMessagePreview(data) };
 }

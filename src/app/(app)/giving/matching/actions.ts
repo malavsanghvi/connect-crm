@@ -8,6 +8,7 @@ import { askOutcome, parseAskResult } from "@/lib/matching/ask";
 import { CLAIM_STATE_LABEL, isClaimState } from "@/lib/matching/catch";
 import { decisionFromForm, decisionMessage } from "@/lib/matching/decision";
 import { programFromForm } from "@/lib/matching/directory";
+import { claimSendOutcome, parseClaimSendResult } from "@/lib/matching/send";
 import { emailReadiness } from "@/lib/matching/send-ready";
 import { matchingCan } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
@@ -187,5 +188,30 @@ export async function askEmployersAction(_prev: ActionResult | null, fd: FormDat
   if (error) return failure("Could not ask the families", error);
   revalidatePath("/giving/matching/ask");
   const outcome = askOutcome(parseAskResult(data));
+  return outcome.ok ? { ok: true, message: outcome.message } : { ok: false, error: outcome.error };
+}
+
+// ── Piece 1 (0921): send the claim message ───────────────────────────────────
+
+/**
+ * Sends a member the steps for their employer's program through the messaging queue (app.send_match_claim_message). The text is built in the
+ * database from the library; nothing on the screen can change it. Refused before queueing anything when this server cannot send email;
+ * "queued" is never reported as "sent", and nothing is recorded on the claims unless something was queued.
+ */
+export async function sendClaimMessageAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const personId = String(fd.get("person_id") ?? "");
+  const programId = String(fd.get("program_id") ?? "");
+  const firstName = String(fd.get("first_name") ?? "").trim().slice(0, 80) || "the member";
+  if (!isUuid(personId) || !isUuid(programId)) return { ok: false, error: "Could not send the message — the member or the program was not found. Reload the page and try again." };
+  const auth = await authorizeActionWhere((s) => matchingCan(s, "manage"), "send the message", "matching.manage");
+  if (!auth.ok) return auth;
+  const ready = await emailReadiness({ memberAppLink: false });
+  if (!ready.ok) return { ok: false, error: `Could not send the message — ${ready.error}` };
+  const db = await dbWithReason(auth.session, "Sent the gift matching message to a member");
+  const { data, error } = await db.rpc("send_match_claim_message", { p_center: auth.session.center.id, p_person: personId, p_program: programId });
+  if (error) return failure(`Could not send the message to ${firstName}`, error);
+  revalidateClaims();
+  revalidatePath("/giving/matching/send");
+  const outcome = claimSendOutcome(parseClaimSendResult(data), firstName);
   return outcome.ok ? { ok: true, message: outcome.message } : { ok: false, error: outcome.error };
 }
