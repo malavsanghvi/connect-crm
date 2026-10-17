@@ -88,6 +88,18 @@ export async function approvePlanAction(call: { year: number }): Promise<PlanSav
   return { ok: true, message: "Approved." };
 }
 
+/** Ask members, in the member app, how they would like to be thanked (off until a care manager turns it on; adults only; their own three choices). */
+export async function setMemberAskAction(call: { enabled: boolean }): Promise<PlanSave> {
+  const doing = call?.enabled ? "start asking members how they would like to be thanked" : "stop asking members how they would like to be thanked";
+  if (!call || typeof call.enabled !== "boolean") return notUnderstood(doing);
+  const auth = await authorizeCare(doing, "manage");
+  if (!auth.ok) return auth;
+  const res = await auth.session.db.rpc("save_care_member_settings", { p_center: auth.session.center.id, p_enabled: call.enabled });
+  if (res.error) return careDbFailure(doing, res.error, "care members");
+  revalidatePath("/care/playbooks");
+  return { ok: true, message: call.enabled ? "Members are now asked in the app." : "Members are no longer asked." };
+}
+
 /** The organization's own tick: Niva may help with relationship care (it also needs iWeaver). */
 export async function setNivaAction(call: { enabled: boolean }): Promise<PlanSave> {
   const doing = call?.enabled ? "let Niva help with relationship care" : "stop Niva helping with relationship care";

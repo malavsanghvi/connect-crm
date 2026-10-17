@@ -10,7 +10,7 @@ Status: plan, 2026-10-13. Slices 1 (0750, 0757-0758) and 2 (0760-0763, in review
 onboards (temple, church, mosque, chamber, club, food bank, school; any faith or none; any language): behaviour comes
 from the organization's kind, its own settings and its own records, never from code written for one community.
 
-**Status 2026-10-17:** slices 1 to 8 are built (see section 12); slice 9 follows, slice 10 (price and billing) stays in the backlog.
+**Status 2026-10-17:** slices 1 to 9 are built (see section 12); slice 10 (price and billing) stays in the backlog (owner), slice 10 (price and billing) stays in the backlog.
 
 **Priority (owner, 2026-10-13):** build slices 2 to 4 (care basics, thank-you tracker, engagement signs), the usable core; then Marketplace billing (MARKETPLACE_PLAN phases 2 and 3) before any further paid slice. Slices 5 to 10 wait.
 
@@ -359,6 +359,16 @@ the year made possible), its quiet periods (named, and a moment inside one says 
 thanks before it asks. A care manager saves the draft, edits every moment and approves it; **an edit returns an approved plan to draft; nothing in a plan runs by itself**; no moment asks for money (the same word check as a
 gesture, in the database and the portal). Portal: **Care plan** (`/care/plan`, a tab: year chips, the status, what is coming up in 30 days, the moments by month; managers draft, edit and approve) and the **Niva** card on Playbooks.
 Not built: tasks created from an approved plan's moments (the plan is a calendar for the team to follow today), and the Niva command for saving the plan (a care manager does it on the screen).
+
+**Built (slice 9, "How would you like to be thanked?" in the member app, 2026-10-17, migration 0897, test 897; connect-mobile 1.30.0):**
+an adult of the household sees and sets ONLY three choices, for the household: how they would like to be thanked (in person, a call, a card, a message, or no thanks), how they would like to be recognised (by name,
+personally and never in public, or anonymously) and how to reach them. `app.member_care_preferences(center)` and `app.save_member_care_preferences(center, prefs)` are definers that find the household from the
+signed-in member's own `center_users` row (never `is_member_of`, so a platform admin who is not a member has no household and is told nothing), refuse anyone under 18, refuse any key but those three (a member cannot
+change do-not-ask or a rest-until day), keep every other column of the care profile, and record who changed it (the audit holds the columns, never the words). A member reads **no** care row and can call **no** other
+care function (W2). **The organization decides whether to ask:** `app.care_member_settings` is off until a care manager turns it on (Playbooks page, "Ask members") and DonorDelight must be on; until then the question is
+"not available" and the app shows no link. The member app (connect-mobile) has Family > How would you like to be thanked? (a link that appears only when the database says the question is asked), three sets of cards and
+Save; a refusal is shown in plain words with the choices kept. Rollout order: this migration is deployed first, then the mobile OTA to the preview channel (the app calls the new functions; without them the link just does
+not appear).
 
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt

@@ -1631,6 +1631,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      care_member_settings: {
+        Row: {
+          center_id: string;
+          enabled: boolean;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          enabled?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          enabled?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       care_message_kinds: {
         Row: {
           source: string;
@@ -14660,6 +14681,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      care_member_settings_get: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       care_my_households: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
@@ -16617,6 +16644,12 @@ export type Database = {
           p_center: string;
         };
         Returns: { item_id: string; like_count: number; playlist_count: number }[];
+      };
+      member_care_preferences: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       member_experience: {
         Args: {
@@ -18704,6 +18737,13 @@ export type Database = {
         };
         Returns: string;
       };
+      save_care_member_settings: {
+        Args: {
+          p_center: string;
+          p_enabled: boolean;
+        };
+        Returns: Json;
+      };
       save_care_niva: {
         Args: {
           p_center: string;
@@ -18836,6 +18876,13 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      save_member_care_preferences: {
+        Args: {
+          p_center: string;
+          p_prefs: Json;
+        };
+        Returns: Json;
       };
       save_numbering: {
         Args: {

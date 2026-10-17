@@ -4,10 +4,10 @@ import Link from "next/link";
 import { Alert, Badge, Card, EmptyState, PageHeader, buttonClass } from "@/components/ui";
 import { PlaybookEditor } from "@/components/care/playbook-editor";
 import { InstallStarters, PauseResume, WeekReminderForm } from "@/components/care/playbook-controls";
-import { NivaTick } from "@/components/care/plan-controls";
+import { MemberAskTick, NivaTick } from "@/components/care/plan-controls";
 import { NO_ACCESS } from "@/lib/care/model";
 import { TRIGGER_HELP, TRIGGER_LABEL, afterLine, blankPlaybook, playbookInput, stepWay, type Playbook } from "@/lib/care/playbooks";
-import { loadNivaSetting, loadPlaybooks, loadWeekSettings, seesCare } from "@/lib/data/care";
+import { loadMemberAsk, loadNivaSetting, loadPlaybooks, loadWeekSettings, seesCare } from "@/lib/data/care";
 import { kindName } from "@/lib/kind";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -77,7 +77,7 @@ export default async function PlaybooksPage({ searchParams }: { searchParams: Pr
 
   if (!seesCare(session)) return card(NO_ACCESS, `${label} is open only to the roles your organization gives it. Ask your organization's owner or care lead.`);
 
-  const [read, settings, niva] = await Promise.all([loadPlaybooks(session), loadWeekSettings(session), loadNivaSetting(session)]);
+  const [read, settings, niva, ask] = await Promise.all([loadPlaybooks(session), loadWeekSettings(session), loadNivaSetting(session), loadMemberAsk(session)]);
   if (read.status === "no_access") return card(NO_ACCESS);
   if (read.status === "off") return card(read.message);
   if (read.status === "error") {
@@ -142,6 +142,15 @@ export default async function PlaybooksPage({ searchParams }: { searchParams: Pr
         ) : settings.status === "error" ? (
           <Alert tone="danger" title="Could not load the weekly reminder">
             {settings.error.charAt(0).toUpperCase() + settings.error.slice(1).replace(/\.?$/, ".")}
+          </Alert>
+        ) : null}
+        {ask.status === "ok" ? (
+          <Card title="Ask members" description="Let members tell you how they would like to be thanked, in the member app.">
+            <MemberAskTick enabled={ask.data.enabled} canManage={ask.data.canManage} />
+          </Card>
+        ) : ask.status === "error" ? (
+          <Alert tone="danger" title="Could not load whether members are asked">
+            {ask.error.charAt(0).toUpperCase() + ask.error.slice(1).replace(/\.?$/, ".")}
           </Alert>
         ) : null}
         {niva.status === "ok" ? (

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 
-import { approvePlanAction, draftPlanAction, savePlanAction, setNivaAction } from "@/app/(app)/care/plan/actions";
+import { approvePlanAction, draftPlanAction, savePlanAction, setMemberAskAction, setNivaAction } from "@/app/(app)/care/plan/actions";
 import { buttonClass } from "@/components/ui";
 import { MAX_MOMENTS, PLAN_GROUPS, PLAN_GROUP_LABEL, checkPlan, type PlanInput, type PlanItemInput } from "@/lib/care/plan";
 import { STEP_KINDS, STEP_KIND_LABEL } from "@/lib/care/playbooks";
@@ -206,6 +206,45 @@ export function NivaTick({ enabled, ai, canManage }: { enabled: boolean; ai: boo
         </div>
       ) : (
         <p className="m-0 text-[13px] text-muted">{enabled ? "Niva may help with relationship care." : "Niva is not set up for relationship care."} Someone who manages this area can change that.</p>
+      )}
+    </div>
+  );
+}
+
+export function MemberAskTick({ enabled, canManage }: { enabled: boolean; canManage: boolean }) {
+  const [pending, start] = useTransition();
+  const [say, setSay] = useState<Say>(null);
+  const [on, setOn] = useState(enabled);
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="m-0 text-[13.5px] text-ink-2">
+        With this on, an adult in the member app is asked three things for their household: how they would like to be thanked, how they would like to be recognised, and how to reach them. They see only their own
+        choices, never notes, signs or who looks after them; the answers become part of the household&apos;s care profile, seen by the people you gave care roles. Children are never asked.
+      </p>
+      {canManage ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2.5 text-[14px]">
+            <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} className="h-5 w-5" />
+            <span className="font-semibold">Ask members how they would like to be thanked</span>
+          </label>
+          <button
+            type="button"
+            disabled={pending || on === enabled}
+            className={buttonClass("primary", "sm")}
+            onClick={() => {
+              setSay(null);
+              start(async () => {
+                const r = await setMemberAskAction({ enabled: on });
+                setSay(r.ok ? { ok: true, text: r.message } : { ok: false, text: r.error });
+              });
+            }}
+          >
+            {pending ? "Saving…" : "Save"}
+          </button>
+          <SayLine say={say} />
+        </div>
+      ) : (
+        <p className="m-0 text-[13px] text-muted">{enabled ? "Members are asked in the app." : "Members are not asked yet."} Someone who manages this area can change that.</p>
       )}
     </div>
   );
