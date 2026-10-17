@@ -153,6 +153,11 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Promi
                         <p className="m-0 text-[12px] text-muted">
                           {c.state === "received" && c.receivedOn ? `Received ${formatDay(c.receivedOn)}` : `Since ${formatDay(c.stateAt.slice(0, 10))}`}
                         </p>
+                        {c.requestedByMemberAt ? (
+                          <p className="m-0 text-[12px] font-semibold text-ink" data-testid="reported-by-member">
+                            The member says they asked their employer ({formatDay(c.requestedByMemberAt.slice(0, 10))})
+                          </p>
+                        ) : null}
                         {c.askedByMessageAt ? <p className="m-0 text-[12px] text-muted">Asked by message on {formatDay(c.askedByMessageAt.slice(0, 10))}</p> : null}
                         {c.note ? <p className="m-0 text-[12px] text-ink">{c.note}</p> : null}
                       </td>

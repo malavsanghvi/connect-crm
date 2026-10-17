@@ -6633,6 +6633,7 @@ export type Database = {
           created_by: string | null;
           asked_by_message_at: string | null;
           asked_message_id: string | null;
+          requested_by_member_at: string | null;
         };
         Insert: {
           id?: string;
@@ -6649,6 +6650,7 @@ export type Database = {
           created_by?: string | null;
           asked_by_message_at?: string | null;
           asked_message_id?: string | null;
+          requested_by_member_at?: string | null;
         };
         Update: {
           id?: string;
@@ -6665,6 +6667,7 @@ export type Database = {
           created_by?: string | null;
           asked_by_message_at?: string | null;
           asked_message_id?: string | null;
+          requested_by_member_at?: string | null;
         };
         Relationships: [];
       };
@@ -16872,6 +16875,12 @@ export type Database = {
         };
         Returns: string[];
       };
+      my_match_card: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       my_match_employer: {
         Args: {
           p_center: string;
@@ -18262,6 +18271,12 @@ export type Database = {
           p_items: string[];
         };
         Returns: undefined;
+      };
+      report_my_match_request: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       report_payment: {
         Args: {
@@ -19885,6 +19900,13 @@ export type Database = {
           p_center: string;
         };
         Returns: Json;
+      };
+      undo_my_match_request: {
+        Args: {
+          p_center: string;
+          p_claim: string;
+        };
+        Returns: boolean;
       };
       undo_person_deceased: {
         Args: {

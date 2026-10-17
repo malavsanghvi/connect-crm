@@ -126,6 +126,8 @@ export type ClaimRow = {
   stateAt: string;
   /** When the member was asked by a message sent from Weaver (0921); null when staff asked another way. */
   askedByMessageAt: string | null;
+  /** When the member said, in the app, that they asked their employer (0922); null when staff moved the claim themselves. */
+  requestedByMemberAt: string | null;
   receivedOn: string | null;
   note: string | null;
   person: { id: string; name: string };
@@ -154,6 +156,7 @@ export function parseClaimsList(v: unknown): ClaimsList {
           state,
           stateAt: str(r.state_at) ?? "",
           askedByMessageAt: str(r.asked_by_message_at),
+          requestedByMemberAt: str(r.requested_by_member_at),
           receivedOn: str(r.received_on),
           note: str(r.note),
           person: { id: str(obj(r.person).id) ?? "", name: str(obj(r.person).name) ?? "A member" },
