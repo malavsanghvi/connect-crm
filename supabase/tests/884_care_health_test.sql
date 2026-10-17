@@ -78,7 +78,7 @@ insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) v
 insert into app.households (id, center_id, display_name) values
   (:ha, :c1, 'Alpha884, Ama'), (:hb, :c1, 'Bravo884, Bo'), (:hc, :c1, 'Charlie884, Cy'), (:hd, :c1, 'Delta884, Di'), (:he, :c1, 'Echo884, Ed'), (:hf, :c1, 'Fox884, Fay');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
-  (:pa1, :c1, 'Ama', 'Alpha884', date '1980-01-01'), (:pa2, :c1, 'Abe', 'Alpha884', date '1979-01-01'), (:pak, :c1, 'Ana', 'Alpha884', (current_date - interval '9 years')::date),
+  (:pa1, :c1, 'Ama', 'Alpha884', date '1980-01-01'), (:pa2, :c1, 'Abe', 'Alpha884', date '1979-01-01'), (:pak, :c1, 'Ana', 'Alpha884', ((now() at time zone 'America/Chicago')::date - interval '9 years')::date),
   (:pb, :c1, 'Bo', 'Bravo884', date '1975-02-02'), (:pc, :c1, 'Cy', 'Charlie884', date '1976-03-03'), (:pd, :c1, 'Di', 'Delta884', date '1970-04-04'),
   (:pe, :c1, 'Ed', 'Echo884', date '1971-05-05'), (:pf, :c1, 'Fay', 'Fox884', date '1972-06-06');
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
@@ -89,7 +89,7 @@ insert into app.care_owners (household_id, center_id, owner_user_id, assigned_by
 -- Gifts (each recorded the day it was received; 'check', offline).
 create or replace function pg_temp.gift(p_h uuid, p_person uuid, p_days int, p_n int) returns void language sql as $$
   insert into app.payments (center_id, household_id, payer_person_id, amount_cents, method, status, provider, received_on, created_at, receipt_number)
-  values ('88400000-0000-4000-8000-0000000000c1', p_h, p_person, 10000 + p_n, 'check', 'captured', 'offline', current_date - p_days, now() - make_interval(days => p_days), 'R-884-' || p_n)
+  values ('88400000-0000-4000-8000-0000000000c1', p_h, p_person, 10000 + p_n, 'check', 'captured', 'offline', (now() at time zone 'America/Chicago')::date - p_days, now() - make_interval(days => p_days), 'R-884-' || p_n)
 $$;
 select pg_temp.gift(:ha, :pa1, 20, 1), pg_temp.gift(:ha, :pa1, 120, 2), pg_temp.gift(:ha, :pa1, 250, 3), pg_temp.gift(:ha, :pa1, 400, 4), pg_temp.gift(:ha, :pa1, 500, 5),
        pg_temp.gift(:hb, :pb, 420, 6), pg_temp.gift(:hb, :pb, 600, 7),
@@ -128,21 +128,21 @@ select pg_temp.assert(app.module_enabled(:c1, 'care') and app.module_enabled(:c1
 set role authenticated;
 select pg_temp.claims(:lead);
 select app.care_health_facts(:c1, array[:ha, :hb, :hc, :hd, :he, :hf]::uuid[]) as f \gset
-select pg_temp.assert((:'f'::jsonb ->> 'history_months')::int >= 24 and (:'f'::jsonb ->> 'giving')::boolean and (:'f'::jsonb ->> 'today')::date = current_date,
+select pg_temp.assert((:'f'::jsonb ->> 'history_months')::int >= 24 and (:'f'::jsonb ->> 'giving')::boolean and (:'f'::jsonb ->> 'today')::date = (now() at time zone 'America/Chicago')::date,
   'A · the community''s history is counted from its earliest gift, in months');
 select pg_temp.assert((pg_temp.fact(:'f'::jsonb, :ha) ->> 'gifts_12')::int = 3 and (pg_temp.fact(:'f'::jsonb, :ha) ->> 'gifts_prev_12')::int = 2
-                      and (pg_temp.fact(:'f'::jsonb, :ha) ->> 'last_gift_on')::date = current_date - 20 and (pg_temp.fact(:'f'::jsonb, :ha) ->> 'first_gift_on')::date = current_date - 500,
+                      and (pg_temp.fact(:'f'::jsonb, :ha) ->> 'last_gift_on')::date = (now() at time zone 'America/Chicago')::date - 20 and (pg_temp.fact(:'f'::jsonb, :ha) ->> 'first_gift_on')::date = (now() at time zone 'America/Chicago')::date - 500,
   'A · Alpha: three gifts in the last year, two the year before, with the first and the last day');
 select pg_temp.assert((pg_temp.fact(:'f'::jsonb, :hb) ->> 'gifts_12')::int = 0 and (pg_temp.fact(:'f'::jsonb, :hb) ->> 'gifts_prev_12')::int = 2
                       and (pg_temp.fact(:'f'::jsonb, :hc) ->> 'gifts_12')::int = 1 and (pg_temp.fact(:'f'::jsonb, :hc) ->> 'gifts_prev_12')::int = 3
                       and (pg_temp.fact(:'f'::jsonb, :hd) ->> 'gifts_12')::int = 0 and (pg_temp.fact(:'f'::jsonb, :hd) ->> 'gifts_prev_12')::int = 0
-                      and (pg_temp.fact(:'f'::jsonb, :hd) ->> 'last_gift_on')::date = current_date - 800,
+                      and (pg_temp.fact(:'f'::jsonb, :hd) ->> 'last_gift_on')::date = (now() at time zone 'America/Chicago')::date - 800,
   'A · Bravo gave only the year before, Charlie gave less, Delta gave long ago');
 select pg_temp.assert((pg_temp.fact(:'f'::jsonb, :he) ->> 'gifts_12')::int = 0 and (pg_temp.fact(:'f'::jsonb, :he) -> 'last_gift_on') = 'null'::jsonb
                       and (pg_temp.fact(:'f'::jsonb, :he) ->> 'part_12')::int = 0 and (pg_temp.fact(:'f'::jsonb, :he) -> 'last_part_on') = 'null'::jsonb
                       and (pg_temp.fact(:'f'::jsonb, :he) ->> 'touches_12')::int = 0,
   'A · Echo has nothing on record, and says null, not zero days ago');
-select pg_temp.assert((pg_temp.fact(:'f'::jsonb, :ha) ->> 'part_12')::int = 2 and (pg_temp.fact(:'f'::jsonb, :ha) ->> 'last_part_on')::date = current_date - 10
+select pg_temp.assert((pg_temp.fact(:'f'::jsonb, :ha) ->> 'part_12')::int = 2 and (pg_temp.fact(:'f'::jsonb, :ha) ->> 'last_part_on')::date = (now() at time zone 'America/Chicago')::date - 10
                       and (pg_temp.fact(:'f'::jsonb, :hf) ->> 'part_12')::int = 1 and (pg_temp.fact(:'f'::jsonb, :hf) ->> 'gifts_12')::int = 0,
   'A · taking part counts an adult''s check-in and shift, never a child''s; a household that never gave can still take part');
 select pg_temp.assert((pg_temp.fact(:'f'::jsonb, :ha) ->> 'opened_12')::int = 1, 'A · a newsletter an adult opened counts; a receipt never does');
