@@ -370,6 +370,11 @@ care function (W2). **The organization decides whether to ask:** `app.care_membe
 Save; a refusal is shown in plain words with the choices kept. Rollout order: this migration is deployed first, then the mobile OTA to the preview channel (the app calls the new functions; without them the link just does
 not appear).
 
+**Prepared, not merged (the Marketplace card, 2026-10-17, migration 0898):** the card says "Not built yet" today. `0898_donordelight_card.sql` (PR stacked on slice 9) sets the product to `available` with words written
+against what is built (slices 1 to 9; no price, no date, no claim about slice 10). Flipping the status fires 0753's trigger, which **emails every community that pressed "Tell me when it is ready"**
+("DonorDelight is ready"), so it is merged only on the owner's word, after PRs 332 to 336 are deployed. Test 161 puts the card back to not-built inside its own rolled-back transaction so it still exercises the
+notify path. Until the email provider is configured (B116) those emails queue and are not delivered.
+
 **Recommendations put to the owner (not yet answered):** thank only the first gift of a recurring series; key
 households = a gift in the last 24 months or a care profile (every member household when Giving is off); a receipt
 closes an ordinary step; start from the first save with "include the last 30 days"; relationship owners see gift dates
