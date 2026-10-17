@@ -1469,6 +1469,132 @@ export type Database = {
         };
         Relationships: [];
       };
+      care_gesture_starters: {
+        Row: {
+          key: string;
+          audience: string;
+          name: string;
+          description: string;
+          cost: string;
+          effort: string;
+          who: string;
+          suits_thanks: string[];
+          suits_recognition: string[];
+          needs: string[];
+          suggest: boolean;
+          kind: string;
+          channel: string | null;
+          draft: string | null;
+          sort: number;
+        };
+        Insert: {
+          key: string;
+          audience: string;
+          name: string;
+          description: string;
+          cost: string;
+          effort: string;
+          who: string;
+          suits_thanks?: string[];
+          suits_recognition?: string[];
+          needs?: string[];
+          suggest?: boolean;
+          kind: string;
+          channel?: string | null;
+          draft?: string | null;
+          sort?: number;
+        };
+        Update: {
+          key?: string;
+          audience?: string;
+          name?: string;
+          description?: string;
+          cost?: string;
+          effort?: string;
+          who?: string;
+          suits_thanks?: string[];
+          suits_recognition?: string[];
+          needs?: string[];
+          suggest?: boolean;
+          kind?: string;
+          channel?: string | null;
+          draft?: string | null;
+          sort?: number;
+        };
+        Relationships: [];
+      };
+      care_gestures: {
+        Row: {
+          id: string;
+          center_id: string;
+          key: string;
+          name: string;
+          description: string;
+          cost: string;
+          effort: string;
+          who: string;
+          suits_thanks: string[];
+          suits_recognition: string[];
+          needs: string[];
+          suggest: boolean;
+          kind: string;
+          channel: string | null;
+          draft: string | null;
+          enabled: boolean;
+          starter_key: string | null;
+          sort: number;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          key: string;
+          name: string;
+          description: string;
+          cost: string;
+          effort: string;
+          who: string;
+          suits_thanks?: string[];
+          suits_recognition?: string[];
+          needs?: string[];
+          suggest?: boolean;
+          kind: string;
+          channel?: string | null;
+          draft?: string | null;
+          enabled?: boolean;
+          starter_key?: string | null;
+          sort?: number;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          key?: string;
+          name?: string;
+          description?: string;
+          cost?: string;
+          effort?: string;
+          who?: string;
+          suits_thanks?: string[];
+          suits_recognition?: string[];
+          needs?: string[];
+          suggest?: boolean;
+          kind?: string;
+          channel?: string | null;
+          draft?: string | null;
+          enabled?: boolean;
+          starter_key?: string | null;
+          sort?: number;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       care_message_kinds: {
         Row: {
           source: string;
@@ -14304,6 +14430,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      care_gestures_list: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       care_health_facts: {
         Args: {
           p_center: string;
@@ -15794,6 +15926,12 @@ export type Database = {
           p_event: string;
         };
         Returns: boolean;
+      };
+      install_care_gestures: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
       };
       install_care_starters: {
         Args: {
@@ -18358,6 +18496,13 @@ export type Database = {
         };
         Returns: string;
       };
+      save_care_gesture: {
+        Args: {
+          p_center: string;
+          p_gesture: Json;
+        };
+        Returns: string;
+      };
       save_care_playbook: {
         Args: {
           p_center: string;
@@ -18609,6 +18754,13 @@ export type Database = {
       set_audit_default_reason: {
         Args: {
           p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_care_gesture_enabled: {
+        Args: {
+          p_gesture: string;
+          p_enabled: boolean;
         };
         Returns: undefined;
       };
