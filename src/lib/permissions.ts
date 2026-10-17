@@ -659,6 +659,7 @@ export const NAV: NavModule[] = [
       { href: "/care/thanks", label: "Thank-yous", access: "care" },
       { href: "/care/playbooks", label: "Playbooks", access: "care" },
       { href: "/care/gestures", label: "Gestures", access: "care" },
+      { href: "/care/approach", label: "Who to approach", access: "care" },
       { href: "/care/dashboard", label: "Dashboard", access: "careView" },
       { href: "/care/settings", label: "Thank-you rules", access: "careManage" },
     ],

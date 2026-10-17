@@ -23,6 +23,7 @@ import {
 } from "@/lib/care/model";
 import { classifyHealth, parseCareDashboard, parseHealthFacts, type CareDashboard, type Health } from "@/lib/care/health";
 import { parseSignsWatch, weakSigns, type CareTodayIn } from "@/lib/care/watch";
+import { parseApproach, parseApproachHousehold, parseApproachSettings, type ApproachHousehold, type ApproachList, type ApproachSettings } from "@/lib/care/approach";
 import { parseGestures, type GestureList } from "@/lib/care/gestures";
 import { parsePlaybooks, type PlaybookList } from "@/lib/care/playbooks";
 import { parseWeek, parseWeekCounts, parseWeekSettings, type Week, type WeekSettings } from "@/lib/care/week";
@@ -70,15 +71,19 @@ export type CareCardLoad = {
   gestures?: CareRead<GestureList> | null;
   /** The words a draft is filled with: the organization's short name. */
   org?: string | null;
+  /** Whether this household is ready for an ask, held (with why) or not to be asked (slice 7); null when the card could not be read at all. */
+  approach?: CareRead<ApproachHousehold> | null;
 };
 
 /** The Care card of one household: the card, the first page of the touch log, and (for a manager) who can own it. */
 export async function loadCareCard(session: CrmSession, householdId: string): Promise<CareCardLoad> {
   const [card, touches] = await Promise.all([readCard(session, householdId), readTouches(session, householdId, null)]);
   const holders = card.status === "ok" && card.data.access.manage ? await readHolders(session) : null;
-  const [thanks, health, gestures] =
-    card.status === "ok" ? await Promise.all([loadHouseholdThanks(session, householdId), loadHouseholdHealth(session, householdId), loadGestures(session)]) : [null, null, null];
-  return { card, touches, holders, thanks, health, gestures, org: session.center.short_name || session.center.name };
+  const [thanks, health, gestures, approach] =
+    card.status === "ok"
+      ? await Promise.all([loadHouseholdThanks(session, householdId), loadHouseholdHealth(session, householdId), loadGestures(session), loadHouseholdApproach(session, householdId)])
+      : [null, null, null, null];
+  return { card, touches, holders, thanks, health, gestures, approach, org: session.center.short_name || session.center.name };
 }
 
 export async function readCard(session: CrmSession, householdId: string): Promise<CareRead<CareCard>> {
@@ -245,4 +250,27 @@ export async function loadGestures(session: CrmSession): Promise<CareRead<Gestur
   const res = await session.db.rpc("care_gestures_list", { p_center: session.center.id });
   if (res.error) return refusal("could not read the gesture library", res.error);
   return { status: "ok", data: parseGestures(res.data) };
+}
+
+// ── Who to approach (slice 7, 0895) ──────────────────────────────────────────
+
+/** The ranked list (ready, held, how many are not shown), optionally for one fund. Off until a care manager turns it on; logged. */
+export async function loadApproach(session: CrmSession, fund: string | null): Promise<CareRead<ApproachList>> {
+  const res = await session.db.rpc("care_approach", { p_center: session.center.id, p_fund: fund ?? undefined, p_limit: 50 });
+  if (res.error) return refusal("could not read who to approach", res.error);
+  return { status: "ok", data: parseApproach(res.data) };
+}
+
+/** The touch balance, the rest days, the weights and the quiet periods. */
+export async function loadApproachSettings(session: CrmSession): Promise<CareRead<ApproachSettings>> {
+  const res = await session.db.rpc("care_approach_settings_get", { p_center: session.center.id });
+  if (res.error) return refusal("could not read the settings for who to approach", res.error);
+  return { status: "ok", data: parseApproachSettings(res.data) };
+}
+
+/** One household: ready, held (with why), not to be asked, or no history. For the Care card. */
+export async function loadHouseholdApproach(session: CrmSession, householdId: string): Promise<CareRead<ApproachHousehold>> {
+  const res = await session.db.rpc("care_approach_household", { p_household: householdId });
+  if (res.error) return refusal("could not read whether to ask this household", res.error);
+  return { status: "ok", data: parseApproachHousehold(res.data) };
 }

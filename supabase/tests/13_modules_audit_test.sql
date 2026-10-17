@@ -29,7 +29,7 @@ select pg_temp.assert(not exists (
     select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'app' and c.relkind in ('r','p') and c.relname not in ('audit_log', 'activity_events', 'activity_optouts', 'activity_salts', 'import_staged_records', 'import_record_links', 'import_clusters', 'import_exceptions', 'import_exception_items', 'import_decision_rules', 'people_saved', 'rsvp_contact_handles', 'rsvp_contact_attempts')
        and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'audit_' || c.relname
-                         and t.tgfoid = case when c.relname in ('person_match_employers', 'care_owners', 'care_profiles', 'care_notes', 'care_touches', 'care_settings', 'care_thanks', 'care_playbooks', 'care_playbook_steps', 'care_runs', 'care_task_marks', 'care_sync_state', 'care_week_settings', 'care_week_log', 'care_gestures',
+                         and t.tgfoid = case when c.relname in ('person_match_employers', 'care_owners', 'care_profiles', 'care_notes', 'care_touches', 'care_settings', 'care_thanks', 'care_playbooks', 'care_playbook_steps', 'care_runs', 'care_task_marks', 'care_sync_state', 'care_week_settings', 'care_week_log', 'care_gestures', 'care_approach_settings', 'care_quiet_periods', 'care_niva_settings', 'care_plans',
                                                               'match_program_submissions', 'person_match_programs', 'match_claims')
                                                   then 'app.audit_private_row'::regproc
                                              when c.relname in ('match_programs', 'match_program_names', 'match_program_versions', 'match_processes') then 'app.audit_shared_row'::regproc
